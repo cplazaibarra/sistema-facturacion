@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}{{ supplier.name }} - Facturación Bodega Miel{% endblock %}
+{% block page_title %}{{ supplier.name }}{% endblock %}
+
+{% block content %}
+<div class="header-section">
+    <div style="display: flex; gap: 10px;">
+        <a href="{{ url_for('proveedores') }}" class="btn-secondary">← Volver</a>
+        <a href="{{ url_for('editar_proveedor', supplier_id=supplier.id) }}" class="btn-primary">✏️ Editar Proveedor</a>
+    </div>
+</div>
+
+<!-- Información del proveedor -->
+<div class="settings-section">
+    <div class="settings-card">
+        <div class="card-header">
+            <h3>{{ supplier.name }}</h3>
+        </div>
+        <div style="padding: 20px;">
+            <p><strong>Descripción:</strong> {{ supplier.description or 'No especificada' }}</p>
+            <p><strong>Sitio Web:</strong> 
+                {% if supplier.website %}
+                <a href="{{ supplier.website }}" target="_blank">{{ supplier.website }}</a>
+                {% else %}
+                No especificado
+                {% endif %}
+            </p>
+            <p><strong>Registrado:</strong> {{ supplier.created_at[:10] }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- Botón para agregar contacto -->
+<div class="header-section">
+    <button class="btn-primary" onclick="toggleFormularioContacto()">
+        ➕ Agregar Contacto
+    </button>
+</div>
+
+<!-- Formulario para agregar contacto -->
+<div class="settings-section" id="formulario-contacto" style="display: none;">
+    <div class="settings-card">
+        <div class="card-header">
+            <h3>Agregar Nuevo Contacto</h3>
+            <button class="btn-secondary" onclick="toggleFormularioContacto()">Cerrar</button>
+        </div>
+        <form class="settings-form" method="POST" action="{{ url_for('agregar_contacto', supplier_id=supplier.id) }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Nombre del Contacto *</label>
+                    <input type="text" name="name" class="form-control" placeholder="Nombre completo" required>
+                </div>
+                <div class="form-group">
+                    <label>Cargo/Posición</label>
+                    <input type="text" name="position" class="form-control" placeholder="Ej. Gerente de Ventas">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Teléfono</label>
+                    <input type="tel" name="phone" class="form-control" placeholder="+56 9 1234 5678">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" class="form-control" placeholder="contacto@proveedor.com">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="reset" class="btn-secondary">Limpiar</button>
+                <button type="submit" class="btn-primary">Guardar Contacto</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Lista de contactos -->
+<div class="recent-section">
+    <div class="recent-card">
+        <div class="card-header">
+            <h3>Contactos</h3>
+        </div>
+        {% if contacts %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Cargo</th>
+                    <th>Teléfono</th>
+                    <th>Email</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for contact in contacts %}
+                <tr>
+                    <td>{{ contact.name }}</td>
+                    <td>{{ contact.position or '-' }}</td>
+                    <td>
+                        {% if contact.phone %}
+                        <a href="tel:{{ contact.phone }}">{{ contact.phone }}</a>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if contact.email %}
+                        <a href="mailto:{{ contact.email }}">{{ contact.email }}</a>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn-icon edit-btn" title="Editar" onclick="editarContacto({{ contact.id }})">✏️</button>
+                            <button class="btn-icon delete-btn" title="Eliminar" onclick="eliminarContacto({{ contact.id }})">🗑️</button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="padding: 20px; text-align: center; color: #999;">No hay contactos registrados</p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function toggleFormularioContacto() {
+    const formulario = document.getElementById('formulario-contacto');
+    if (formulario.style.display === 'none') {
+        formulario.style.display = 'block';
+        formulario.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+        formulario.style.display = 'none';
+    }
+}
+
+function editarContacto(contactId) {
+    window.location.href = '/contactos/' + contactId + '/editar';
+}
+
+function eliminarContacto(contactId) {
+    if (confirm('¿Estás seguro de que deseas eliminar este contacto?')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/contactos/' + contactId + '/eliminar';
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

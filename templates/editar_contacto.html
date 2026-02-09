@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Contacto - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Editar Contacto{% endblock %}
+
+{% block content %}
+<div class="settings-section">
+    <div class="settings-card">
+        <div class="card-header">
+            <h3>Editar Contacto</h3>
+        </div>
+        
+        <form class="settings-form" method="POST">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Nombre del Contacto *</label>
+                    <input type="text" name="name" class="form-control" value="{{ contact.name }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Cargo/Posición</label>
+                    <input type="text" name="position" class="form-control" value="{{ contact.position or '' }}">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Teléfono</label>
+                    <input type="tel" name="phone" class="form-control" value="{{ contact.phone or '' }}" placeholder="+56 9 1234 5678">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" class="form-control" value="{{ contact.email or '' }}" placeholder="contacto@proveedor.com">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <a href="{{ url_for('ver_proveedor', supplier_id=contact.supplier_id) }}" class="btn-secondary">Cancelar</a>
+                <button type="submit" class="btn-primary">Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

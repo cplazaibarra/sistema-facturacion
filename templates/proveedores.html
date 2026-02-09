@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Proveedores - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Proveedores{% endblock %}
+
+{% block content %}
+<!-- Botón para agregar proveedor -->
+<div class="header-section">
+    <button class="btn-primary" onclick="toggleFormulario()">
+        ➕ Agregar Proveedor
+    </button>
+</div>
+
+<!-- Formulario oculto -->
+<div class="settings-section" id="formulario-proveedores" style="display: none;">
+    <div class="settings-card">
+        <div class="card-header">
+            <h3>Agregar Nuevo Proveedor</h3>
+            <button class="btn-secondary" onclick="toggleFormulario()">Cerrar</button>
+        </div>
+        <form class="settings-form" method="POST">
+            <div class="form-group">
+                <label>Nombre del Proveedor *</label>
+                <input type="text" name="name" class="form-control" placeholder="Nombre de la empresa" required>
+            </div>
+
+            <div class="form-group">
+                <label>Descripción</label>
+                <textarea name="description" class="form-control" rows="3" placeholder="Descripción del proveedor o servicios"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Sitio Web</label>
+                <input type="url" name="website" class="form-control" placeholder="https://www.proveedor.com">
+            </div>
+
+            <div class="form-actions">
+                <button type="reset" class="btn-secondary">Limpiar</button>
+                <button type="submit" class="btn-primary">Guardar Proveedor</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Lista de proveedores -->
+<div class="recent-section">
+    <div class="recent-card">
+        <div class="card-header">
+            <h3>Proveedores Registrados</h3>
+        </div>
+        {% if suppliers %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Descripción</th>
+                    <th>Sitio Web</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for supplier in suppliers %}
+                <tr>
+                    <td>{{ supplier.name }}</td>
+                    <td>{{ supplier.description or '-' }}</td>
+                    <td>
+                        {% if supplier.website %}
+                        <a href="{{ supplier.website }}" target="_blank">Visitar</a>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn-icon edit-btn" title="Ver" onclick="verProveedor({{ supplier.id }})">👁️</button>
+                            <button class="btn-icon edit-btn" title="Editar" onclick="editarProveedor({{ supplier.id }})">✏️</button>
+                            <button class="btn-icon delete-btn" title="Eliminar" onclick="eliminarProveedor({{ supplier.id }})">🗑️</button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="padding: 20px; text-align: center; color: #999;">No hay proveedores registrados</p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function toggleFormulario() {
+    const formulario = document.getElementById('formulario-proveedores');
+    if (formulario.style.display === 'none') {
+        formulario.style.display = 'block';
+        formulario.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+        formulario.style.display = 'none';
+    }
+}
+
+function verProveedor(supplierId) {
+    window.location.href = '/proveedores/' + supplierId;
+}
+
+function editarProveedor(supplierId) {
+    window.location.href = '/proveedores/' + supplierId + '/editar';
+}
+
+function eliminarProveedor(supplierId) {
+    if (confirm('¿Estás seguro de que deseas eliminar este proveedor? Se eliminarán también todos sus contactos.')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/proveedores/' + supplierId + '/eliminar';
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

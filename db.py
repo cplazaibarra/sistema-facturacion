@@ -102,7 +102,14 @@ DEFAULT_DATA: Dict[str, Any] = {
             "link": "/usuarios",
         },
         {
-            "icon": "🏢",
+            "icon": "�",
+            "title": "Proveedores",
+            "desc": "Gestionar empresas proveedoras y contactos",
+            "action": "Gestionar",
+            "link": "/proveedores",
+        },
+        {
+            "icon": "�🏢",
             "title": "Empresa",
             "desc": "Configuración de datos de la empresa",
             "action": "Configurar",
@@ -545,6 +552,31 @@ def init_db() -> None:
                 delivery_status TEXT,
                 notes TEXT,
                 created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS suppliers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                website TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS supplier_contacts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                supplier_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                phone TEXT,
+                email TEXT,
+                position TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE
             )
             """
         )
@@ -1309,3 +1341,151 @@ def get_top_products(year: int = None, period: str = "year") -> dict:
         
         return {"labels": labels, "data": data}
 
+
+# Funciones para Proveedores
+def list_suppliers() -> list[dict]:
+    """Obtener lista de todos los proveedores"""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, name, description, website, created_at
+            FROM suppliers
+            ORDER BY name
+            """
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_supplier(supplier_id: int) -> dict:
+    """Obtener un proveedor por ID"""
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT id, name, description, website, created_at
+            FROM suppliers
+            WHERE id = ?
+            """,
+            (supplier_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def insert_supplier(supplier: dict) -> None:
+    """Insertar un nuevo proveedor"""
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO suppliers (name, description, website, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                supplier["name"],
+                supplier.get("description"),
+                supplier.get("website"),
+                supplier.get("created_at", datetime.utcnow().isoformat(timespec='seconds')),
+            ),
+        )
+        conn.commit()
+
+
+def update_supplier(supplier_id: int, supplier: dict) -> None:
+    """Actualizar un proveedor"""
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE suppliers
+            SET name = ?, description = ?, website = ?
+            WHERE id = ?
+            """,
+            (
+                supplier.get("name"),
+                supplier.get("description"),
+                supplier.get("website"),
+                supplier_id,
+            ),
+        )
+        conn.commit()
+
+
+def delete_supplier(supplier_id: int) -> None:
+    """Eliminar un proveedor (también elimina sus contactos)"""
+    with get_connection() as conn:
+        conn.execute("DELETE FROM supplier_contacts WHERE supplier_id = ?", (supplier_id,))
+        conn.execute("DELETE FROM suppliers WHERE id = ?", (supplier_id,))
+        conn.commit()
+
+
+def list_supplier_contacts(supplier_id: int) -> list[dict]:
+    """Obtener contactos de un proveedor"""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, supplier_id, name, phone, email, position, created_at
+            FROM supplier_contacts
+            WHERE supplier_id = ?
+            ORDER BY name
+            """,
+            (supplier_id,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_supplier_contact(contact_id: int) -> dict:
+    """Obtener un contacto específico"""
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT id, supplier_id, name, phone, email, position, created_at
+            FROM supplier_contacts
+            WHERE id = ?
+            """,
+            (contact_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def insert_supplier_contact(contact: dict) -> None:
+    """Insertar un nuevo contacto de proveedor"""
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO supplier_contacts (supplier_id, name, phone, email, position, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                contact["supplier_id"],
+                contact["name"],
+                contact.get("phone"),
+                contact.get("email"),
+                contact.get("position"),
+                contact.get("created_at", datetime.utcnow().isoformat(timespec='seconds')),
+            ),
+        )
+        conn.commit()
+
+
+def update_supplier_contact(contact_id: int, contact: dict) -> None:
+    """Actualizar un contacto de proveedor"""
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE supplier_contacts
+            SET name = ?, phone = ?, email = ?, position = ?
+            WHERE id = ?
+            """,
+            (
+                contact.get("name"),
+                contact.get("phone"),
+                contact.get("email"),
+                contact.get("position"),
+                contact_id,
+            ),
+        )
+        conn.commit()
+
+
+def delete_supplier_contact(contact_id: int) -> None:
+    """Eliminar un contacto de proveedor"""
+    with get_connection() as conn:
+        conn.execute("DELETE FROM supplier_contacts WHERE id = ?", (contact_id,))
+        conn.commit()

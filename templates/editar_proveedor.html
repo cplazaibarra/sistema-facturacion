@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Proveedor - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Editar Proveedor{% endblock %}
+
+{% block content %}
+<div class="settings-section">
+    <div class="settings-card">
+        <div class="card-header">
+            <h3>Editar Proveedor</h3>
+        </div>
+        
+        <form class="settings-form" method="POST">
+            <div class="form-group">
+                <label>Nombre del Proveedor *</label>
+                <input type="text" name="name" class="form-control" value="{{ supplier.name }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Descripción</label>
+                <textarea name="description" class="form-control" rows="3">{{ supplier.description or '' }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Sitio Web</label>
+                <input type="url" name="website" class="form-control" value="{{ supplier.website or '' }}" placeholder="https://www.proveedor.com">
+            </div>
+
+            <div class="form-actions">
+                <a href="{{ url_for('ver_proveedor', supplier_id=supplier.id) }}" class="btn-secondary">Cancelar</a>
+                <button type="submit" class="btn-primary">Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
