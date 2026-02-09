@@ -35,11 +35,7 @@
                     <span class="icon">🧺</span>
                     <span>Productos</span>
                 </a>
-                <a href="{{ url_for('proveedores') }}" class="nav-item {% if request.endpoint in ['proveedores', 'ver_proveedor', 'editar_proveedor', 'agregar_contacto', 'editar_contacto', 'eliminar_contacto'] %}active{% endif %}">
-                    <span class="icon">🏪</span>
-                    <span>Proveedores</span>
-                </a>
-                <a href="{{ url_for('administracion') }}" class="nav-item {% if request.endpoint in ['administracion', 'usuarios', 'roles'] %}active{% endif %}">
+                <a href="{{ url_for('administracion') }}" class="nav-item {% if request.endpoint in ['administracion', 'usuarios', 'roles', 'proveedores', 'ver_proveedor', 'editar_proveedor', 'agregar_contacto', 'editar_contacto', 'eliminar_contacto'] %}active{% endif %}">
                     <span class="icon">⚙️</span>
                     <span>Administración</span>
                 </a>
