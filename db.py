@@ -102,14 +102,14 @@ DEFAULT_DATA: Dict[str, Any] = {
             "link": "/usuarios",
         },
         {
-            "icon": "�",
+            "icon": "🏪",
             "title": "Proveedores",
             "desc": "Gestionar empresas proveedoras y contactos",
             "action": "Gestionar",
             "link": "/proveedores",
         },
         {
-            "icon": "�🏢",
+            "icon": "🏢",
             "title": "Empresa",
             "desc": "Configuración de datos de la empresa",
             "action": "Configurar",
