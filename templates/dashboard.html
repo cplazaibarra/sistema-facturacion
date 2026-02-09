@@ -48,9 +48,11 @@
     <div class="chart-card">
         <div class="card-header">
             <h3>Ventas Mensuales</h3>
-            <select class="period-selector">
-                <option>Últimos 6 meses</option>
-                <option>Último año</option>
+            <select class="period-selector" id="sales-period-selector">
+                <option value="6months">Últimos 6 meses</option>
+                <option value="12months">Último año</option>
+                <option value="2026">Año 2026</option>
+                <option value="2025">Año 2025</option>
             </select>
         </div>
         <canvas id="ventasChart"></canvas>
@@ -59,9 +61,11 @@
     <div class="chart-card">
         <div class="card-header">
             <h3>Productos Más Vendidos</h3>
-            <select class="period-selector">
-                <option>Este mes</option>
-                <option>Este año</option>
+            <select class="period-selector" id="products-period-selector">
+                <option value="month">Este mes</option>
+                <option value="year">Este año</option>
+                <option value="2026">Año 2026</option>
+                <option value="2025">Año 2025</option>
             </select>
         </div>
         <canvas id="productosChart"></canvas>
@@ -113,83 +117,153 @@
 
 {% block scripts %}
 <script>
-    // Cargar datos del dashboard
-    fetch('/api/dashboard-data')
-        .then(response => response.json())
-        .then(data => {
-            // Actualizar estadísticas
-            document.getElementById('ventas-hoy').textContent = '$' + data.estadisticas.ventas_hoy.toLocaleString();
-            document.getElementById('productos-stock').textContent = data.estadisticas.productos_stock.toLocaleString();
-            document.getElementById('ordenes-pendientes').textContent = data.estadisticas.ordenes_pendientes;
-            document.getElementById('clientes-activos').textContent = data.estadisticas.clientes_activos;
-            
-            // Gráfico de ventas mensuales
-            const ventasCtx = document.getElementById('ventasChart').getContext('2d');
-            new Chart(ventasCtx, {
-                type: 'bar',
-                data: {
-                    labels: data.ventas_mensuales.labels,
-                    datasets: [{
-                        label: 'Ventas ($)',
-                        data: data.ventas_mensuales.data,
-                        backgroundColor: 'rgba(0, 174, 239, 0.8)',
-                        borderColor: 'rgba(0, 174, 239, 1)',
-                        borderWidth: 1,
-                        borderRadius: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
+    let ventasChart = null;
+    let productosChart = null;
+
+    // Función para cargar SOLO el gráfico de Ventas Mensuales
+    function loadSalesChart() {
+        const salesPeriod = document.getElementById('sales-period-selector').value;
+        
+        // Construir URL con parámetros
+        let params = new URLSearchParams();
+        
+        // Determinar parámetros para ventas
+        if (salesPeriod === '6months' || salesPeriod === '12months') {
+            params.append('sales_period', salesPeriod);
+        } else {
+            params.append('sales_year', salesPeriod);
+            params.append('sales_period', '12months');
+        }
+        
+        fetch(`/api/dashboard-data?${params.toString()}`)
+            .then(response => response.json())
+            .then(data => {
+                // Actualizar o crear gráfico de ventas mensuales
+                const ventasCtx = document.getElementById('ventasChart').getContext('2d');
+                
+                // Destruir gráfico anterior si existe
+                if (ventasChart) {
+                    ventasChart.destroy();
+                }
+                
+                // Crear nuevo gráfico
+                ventasChart = new Chart(ventasCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.ventas_mensuales.labels,
+                        datasets: [{
+                            label: 'Ventas ($)',
+                            data: data.ventas_mensuales.data,
+                            backgroundColor: 'rgba(0, 174, 239, 0.8)',
+                            borderColor: 'rgba(0, 174, 239, 1)',
+                            borderWidth: 1,
+                            borderRadius: 8
+                        }]
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            }
-                        },
-                        x: {
-                            grid: {
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
                                 display: false
                             }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            }
                         }
                     }
-                }
+                });
             });
-            
-            // Gráfico de productos más vendidos
-            const productosCtx = document.getElementById('productosChart').getContext('2d');
-            new Chart(productosCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: data.productos_top.labels,
-                    datasets: [{
-                        data: data.productos_top.data,
-                        backgroundColor: [
-                            'rgba(0, 174, 239, 0.8)',
-                            'rgba(0, 209, 178, 0.8)',
-                            'rgba(107, 91, 149, 0.8)',
-                            'rgba(255, 159, 64, 0.8)',
-                            'rgba(255, 99, 132, 0.8)'
-                        ],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'right'
+    }
+
+    // Función para cargar SOLO el gráfico de Productos Más Vendidos
+    function loadProductsChart() {
+        const productsPeriod = document.getElementById('products-period-selector').value;
+        
+        // Construir URL con parámetros
+        let params = new URLSearchParams();
+        
+        // Determinar parámetros para productos
+        if (productsPeriod === 'month' || productsPeriod === 'year') {
+            params.append('products_period', productsPeriod);
+        } else {
+            params.append('products_year', productsPeriod);
+            params.append('products_period', 'year');
+        }
+        
+        fetch(`/api/dashboard-data?${params.toString()}`)
+            .then(response => response.json())
+            .then(data => {
+                // Actualizar o crear gráfico de productos más vendidos
+                const productosCtx = document.getElementById('productosChart').getContext('2d');
+                
+                // Destruir gráfico anterior si existe
+                if (productosChart) {
+                    productosChart.destroy();
+                }
+                
+                // Crear nuevo gráfico
+                productosChart = new Chart(productosCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.productos_top.labels,
+                        datasets: [{
+                            data: data.productos_top.data,
+                            backgroundColor: [
+                                'rgba(0, 174, 239, 0.8)',
+                                'rgba(0, 209, 178, 0.8)',
+                                'rgba(107, 91, 149, 0.8)',
+                                'rgba(255, 159, 64, 0.8)',
+                                'rgba(255, 99, 132, 0.8)'
+                            ],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right'
+                            }
                         }
                     }
-                }
+                });
             });
-        });
+    }
+
+    // Función para cargar ambos gráficos con datos iniciales
+    function loadInitialData() {
+        // Cargar estadísticas
+        fetch('/api/dashboard-data')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('ventas-hoy').textContent = '$' + data.estadisticas.ventas_hoy.toLocaleString();
+                document.getElementById('productos-stock').textContent = data.estadisticas.productos_stock.toLocaleString();
+                document.getElementById('ordenes-pendientes').textContent = data.estadisticas.ordenes_pendientes;
+                document.getElementById('clientes-activos').textContent = data.estadisticas.clientes_activos;
+            });
+        
+        // Cargar gráficos
+        loadSalesChart();
+        loadProductsChart();
+    }
+
+    // Cargar datos iniciales cuando carga la página
+    loadInitialData();
+
+    // Event listeners INDEPENDIENTES para cada selector
+    document.getElementById('sales-period-selector').addEventListener('change', loadSalesChart);
+    document.getElementById('products-period-selector').addEventListener('change', loadProductsChart);
 </script>
 {% endblock %}

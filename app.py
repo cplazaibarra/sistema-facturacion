@@ -18,6 +18,14 @@ from db import (
     insert_user,
     update_user,
     delete_user,
+    list_sales,
+    get_sale,
+    insert_sale,
+    update_sale,
+    delete_sale,
+    get_sales_metrics,
+    get_sales_chart_data,
+    get_top_products,
 )
 
 app = Flask(__name__)
@@ -38,7 +46,18 @@ init_db()
 @app.route('/dashboard')
 def dashboard():
     """Página principal - Dashboard con gráficos y estadísticas"""
-    recent_sales = get_page_data("dashboard_recent_sales")
+    # Get recent sales from database (last 3)
+    sales_list = list_sales()
+    recent_sales = []
+    for sale in sales_list[:3]:
+        recent_sales.append({
+            "id": sale["sale_number"],
+            "cliente": sale["customer_name"],
+            "producto": ", ".join(sale["products"][:2]),
+            "cantidad": len(sale["products"]),
+            "total": sale["total_amount"],
+            "estado": sale["status"],
+        })
     return render_template('dashboard.html', recent_sales=recent_sales)
 
 @app.route('/administracion')
@@ -98,8 +117,77 @@ def proyeccion_ventas():
 @app.route('/ventas')
 def ventas():
     """Módulo de Ventas"""
-    ventas_metrics = get_page_data("ventas_metrics")
-    ventas_records = get_page_data("ventas_records")
+    # Get filter parameters
+    filters = {}
+    if request.args.get('status'):
+        filters['status'] = request.args.get('status')
+    if request.args.get('customer_name'):
+        filters['customer_name'] = request.args.get('customer_name')
+    if request.args.get('date_from'):
+        filters['date_from'] = request.args.get('date_from')
+    if request.args.get('date_to'):
+        filters['date_to'] = request.args.get('date_to')
+    
+    # Get sales from database
+    sales_list = list_sales(filters if filters else None)
+    
+    # Format sales for template
+    ventas_records = []
+    for sale in sales_list:
+        ventas_records.append({
+            "sale_number": sale["sale_number"],
+            "customer": {
+                "name": sale["customer_name"],
+                "email": sale.get("customer_email", ""),
+                "initials": sale.get("customer_initials", ""),
+            },
+            "date": sale["sale_date"],
+            "time": sale["sale_time"],
+            "products": sale["products"],
+            "total": f"${sale['total_amount']:.2f}",
+            "status": {
+                "label": sale["status"],
+                "level": "success" if sale["status"] == "Completada" else "warning" if sale["status"] == "Pendiente" else "danger"
+            },
+            "seller": {
+                "name": sale["seller_name"],
+                "initials": sale.get("seller_initials", "")
+            },
+        })
+    
+    # Get metrics from database
+    metrics = get_sales_metrics()
+    ventas_metrics = [
+        {
+            "icon": "💰",
+            "value": f"${metrics['ventas_hoy']:.0f}",
+            "label": "Ventas Hoy",
+            "secondary": f"{metrics['ventas_completadas']} ventas totales",
+            "color": "blue",
+        },
+        {
+            "icon": "📦",
+            "value": str(metrics['ventas_completadas']),
+            "label": "Ventas Completadas",
+            "secondary": f"{metrics['ventas_pendientes']} pendientes",
+            "color": "purple",
+        },
+        {
+            "icon": "⏳",
+            "value": str(metrics['ventas_pendientes']),
+            "label": "Ventas Pendientes",
+            "secondary": "por procesar",
+            "color": "orange",
+        },
+        {
+            "icon": "👥",
+            "value": str(metrics['clientes_activos']),
+            "label": "Clientes Activos",
+            "secondary": "clientes únicos",
+            "color": "green",
+        },
+    ]
+    
     return render_template(
         'ventas.html',
         ventas_metrics=ventas_metrics,
@@ -179,9 +267,27 @@ def productos():
 @app.route('/api/dashboard-data')
 def dashboard_data():
     """Datos para el dashboard"""
-    ventas_mensuales = get_page_data("dashboard_sales_chart")
-    productos_top = get_page_data("dashboard_products_top")
-    estadisticas = get_page_data("dashboard_stats")
+    # Get query parameters
+    sales_year = request.args.get('sales_year', type=int)
+    products_year = request.args.get('products_year', type=int)
+    sales_period = request.args.get('sales_period', '6months')
+    products_period = request.args.get('products_period', 'year')
+    
+    # Get sales data
+    ventas_mensuales = get_sales_chart_data(year=sales_year, period=sales_period)
+    
+    # Get products data
+    productos_top = get_top_products(year=products_year, period=products_period)
+    
+    # Get stats from database
+    metrics = get_sales_metrics()
+    estadisticas = {
+        "ventas_hoy": metrics['ventas_hoy'],
+        "productos_stock": 1250,  # This should come from inventory
+        "ordenes_pendientes": metrics['ventas_pendientes'],
+        "clientes_activos": metrics['clientes_activos'],
+    }
+    
     return jsonify(
         {
             "ventas_mensuales": ventas_mensuales,
