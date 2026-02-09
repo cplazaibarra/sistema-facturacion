@@ -812,7 +812,7 @@ def list_products() -> list[dict]:
     with get_connection() as conn:
         rows = conn.execute(
             """
-            SELECT id, sku, name, description, photo_url,
+            SELECT id, sku, name, description, photo_url, barcode, internal_code,
                    width_cm, height_cm, depth_cm, weight_kg
             FROM products
             ORDER BY id DESC
@@ -826,15 +826,17 @@ def insert_product(product: dict) -> None:
         conn.execute(
             """
             INSERT INTO products (
-                sku, name, description, photo_url,
+                sku, name, description, photo_url, barcode, internal_code,
                 width_cm, height_cm, depth_cm, weight_kg, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 product["sku"],
                 product["name"],
                 product.get("description"),
                 product.get("photo_url"),
+                product.get("barcode"),
+                product.get("internal_code"),
                 product.get("width_cm"),
                 product.get("height_cm"),
                 product.get("depth_cm"),
@@ -850,7 +852,7 @@ def get_product(product_id: int) -> dict:
     with get_connection() as conn:
         row = conn.execute(
             """
-            SELECT id, sku, name, description, photo_url,
+            SELECT id, sku, name, description, photo_url, barcode, internal_code,
                    width_cm, height_cm, depth_cm, weight_kg
             FROM products
             WHERE id = ?
@@ -867,6 +869,7 @@ def update_product(product_id: int, product: dict) -> None:
             """
             UPDATE products SET
                 sku = ?, name = ?, description = ?, photo_url = ?,
+                barcode = ?, internal_code = ?,
                 width_cm = ?, height_cm = ?, depth_cm = ?, weight_kg = ?
             WHERE id = ?
             """,
@@ -875,6 +878,8 @@ def update_product(product_id: int, product: dict) -> None:
                 product.get("name"),
                 product.get("description"),
                 product.get("photo_url"),
+                product.get("barcode"),
+                product.get("internal_code"),
                 product.get("width_cm"),
                 product.get("height_cm"),
                 product.get("depth_cm"),

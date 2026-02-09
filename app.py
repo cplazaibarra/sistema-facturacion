@@ -1,6 +1,8 @@
 from flask import Flask, render_template, jsonify, request, redirect, url_for
 from datetime import datetime
 import json
+import os
+from werkzeug.utils import secure_filename
 from db import (
     init_db,
     get_page_data,
@@ -35,6 +37,11 @@ app = Flask(__name__)
 
 # Configuración
 app.config['SECRET_KEY'] = 'tu-clave-secreta-aqui'
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# Crear carpeta de uploads si no existe
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Agregar filtro custom para convertir JSON
 @app.template_filter('from_json')
@@ -44,6 +51,20 @@ def from_json_filter(value):
     return value
 
 init_db()
+
+
+def handle_photo_upload(product_id):
+    """Maneja la subida de foto de producto. Retorna la ruta de la foto o None"""
+    if 'photo_file' in request.files:
+        file = request.files['photo_file']
+        if file and file.filename:
+            # Generar nombre seguro del archivo
+            filename = secure_filename(f"product_{product_id}_{int(datetime.utcnow().timestamp())}.jpg")
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            return f"/uploads/{filename}"
+    return None
+
 
 @app.route('/')
 @app.route('/dashboard')
@@ -250,6 +271,8 @@ def productos():
             "sku": request.form.get('sku', '').strip(),
             "name": request.form.get('name', '').strip(),
             "description": request.form.get('description', '').strip(),
+            "barcode": request.form.get('barcode', '').strip(),
+            "internal_code": request.form.get('internal_code', '').strip(),
             "photo_url": request.form.get('photo_url', '').strip(),
             "width_cm": request.form.get('width_cm') or None,
             "height_cm": request.form.get('height_cm') or None,
@@ -260,6 +283,7 @@ def productos():
 
         if product["sku"] and product["name"]:
             insert_product(product)
+            # TODO: Manejar upload de foto después de insertar
 
         return redirect(url_for('productos'))
 
@@ -275,12 +299,20 @@ def editar_producto(product_id):
             "sku": request.form.get('sku', '').strip(),
             "name": request.form.get('name', '').strip(),
             "description": request.form.get('description', '').strip(),
+            "barcode": request.form.get('barcode', '').strip(),
+            "internal_code": request.form.get('internal_code', '').strip(),
             "photo_url": request.form.get('photo_url', '').strip(),
             "width_cm": request.form.get('width_cm') or None,
             "height_cm": request.form.get('height_cm') or None,
             "depth_cm": request.form.get('depth_cm') or None,
             "weight_kg": request.form.get('weight_kg') or None,
         }
+        
+        # Manejar subida de foto
+        if 'photo_file' in request.files and request.files['photo_file'].filename:
+            photo_url = handle_photo_upload(product_id)
+            if photo_url:
+                product['photo_url'] = photo_url
         
         if product["sku"] and product["name"]:
             update_product(product_id, product)

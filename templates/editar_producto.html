@@ -10,15 +10,26 @@
             <h3>Editar Producto</h3>
         </div>
         
-        <form class="settings-form" method="POST">
+        <form class="settings-form" method="POST" enctype="multipart/form-data">
             <div class="form-row">
                 <div class="form-group">
                     <label>SKU *</label>
                     <input type="text" name="sku" class="form-control" value="{{ product.sku }}" required>
                 </div>
                 <div class="form-group">
+                    <label>Código de Barra</label>
+                    <input type="text" name="barcode" class="form-control" value="{{ product.barcode or '' }}">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
                     <label>Nombre *</label>
                     <input type="text" name="name" class="form-control" value="{{ product.name }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Código Interno</label>
+                    <input type="text" name="internal_code" class="form-control" value="{{ product.internal_code or '' }}">
                 </div>
             </div>
 
@@ -28,8 +39,27 @@
             </div>
 
             <div class="form-group">
-                <label>Foto (URL)</label>
-                <input type="url" name="photo_url" class="form-control" value="{{ product.photo_url or '' }}">
+                <label>Foto</label>
+                {% if product.photo_url and product.photo_url.startswith('/uploads/') %}
+                    <div class="current-photo">
+                        <img src="{{ product.photo_url }}" alt="Foto actual" style="max-width: 150px; margin-bottom: 10px;">
+                        <p><small>Foto actual</small></p>
+                    </div>
+                {% elif product.photo_url %}
+                    <div class="current-photo">
+                        <p><small>URL: {{ product.photo_url }}</small></p>
+                    </div>
+                {% endif %}
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Subir archivo</label>
+                        <input type="file" name="photo_file" class="form-control" accept="image/*">
+                    </div>
+                    <div class="form-group">
+                        <label>O URL de imagen</label>
+                        <input type="url" name="photo_url" class="form-control" value="{{ product.photo_url or '' }}" placeholder="https://ejemplo.com/imagen.jpg">
+                    </div>
+                </div>
             </div>
 
             <div class="form-row">
