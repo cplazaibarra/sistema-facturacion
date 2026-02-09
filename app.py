@@ -8,6 +8,9 @@ from db import (
     insert_sales_entry,
     list_products,
     insert_product,
+    get_product,
+    update_product,
+    delete_product,
     list_roles,
     get_role,
     insert_role,
@@ -262,6 +265,37 @@ def productos():
 
     products = list_products()
     return render_template('productos.html', products=products)
+
+
+@app.route('/productos/<int:product_id>/editar', methods=['GET', 'POST'])
+def editar_producto(product_id):
+    """Editar producto"""
+    if request.method == 'POST':
+        product = {
+            "sku": request.form.get('sku', '').strip(),
+            "name": request.form.get('name', '').strip(),
+            "description": request.form.get('description', '').strip(),
+            "photo_url": request.form.get('photo_url', '').strip(),
+            "width_cm": request.form.get('width_cm') or None,
+            "height_cm": request.form.get('height_cm') or None,
+            "depth_cm": request.form.get('depth_cm') or None,
+            "weight_kg": request.form.get('weight_kg') or None,
+        }
+        
+        if product["sku"] and product["name"]:
+            update_product(product_id, product)
+        
+        return redirect(url_for('productos'))
+    
+    product = get_product(product_id)
+    return render_template('editar_producto.html', product=product)
+
+
+@app.route('/productos/<int:product_id>/eliminar', methods=['POST'])
+def eliminar_producto(product_id):
+    """Eliminar producto"""
+    delete_product(product_id)
+    return redirect(url_for('productos'))
 
 # API endpoints para datos de gráficos
 @app.route('/api/dashboard-data')

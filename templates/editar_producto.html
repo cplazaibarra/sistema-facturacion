@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Producto - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Editar Producto{% endblock %}
+
+{% block content %}
+<div class="settings-section">
+    <div class="settings-card">
+        <div class="card-header">
+            <h3>Editar Producto</h3>
+        </div>
+        
+        <form class="settings-form" method="POST">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>SKU *</label>
+                    <input type="text" name="sku" class="form-control" value="{{ product.sku }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Nombre *</label>
+                    <input type="text" name="name" class="form-control" value="{{ product.name }}" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Descripción</label>
+                <textarea name="description" class="form-control" rows="3">{{ product.description or '' }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Foto (URL)</label>
+                <input type="url" name="photo_url" class="form-control" value="{{ product.photo_url or '' }}">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Ancho (cm)</label>
+                    <input type="number" name="width_cm" class="form-control" step="0.01" min="0" value="{{ product.width_cm or '' }}">
+                </div>
+                <div class="form-group">
+                    <label>Alto (cm)</label>
+                    <input type="number" name="height_cm" class="form-control" step="0.01" min="0" value="{{ product.height_cm or '' }}">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Profundidad (cm)</label>
+                    <input type="number" name="depth_cm" class="form-control" step="0.01" min="0" value="{{ product.depth_cm or '' }}">
+                </div>
+                <div class="form-group">
+                    <label>Peso (kg)</label>
+                    <input type="number" name="weight_kg" class="form-control" step="0.01" min="0" value="{{ product.weight_kg or '' }}">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <a href="{{ url_for('productos') }}" class="btn-secondary">Cancelar</a>
+                <button type="submit" class="btn-primary">Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

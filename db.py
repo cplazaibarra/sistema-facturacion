@@ -525,6 +525,29 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sales (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sale_number TEXT NOT NULL UNIQUE,
+                customer_name TEXT NOT NULL,
+                customer_email TEXT,
+                customer_initials TEXT,
+                sale_date TEXT NOT NULL,
+                sale_time TEXT NOT NULL,
+                products_json TEXT NOT NULL,
+                total_amount REAL NOT NULL,
+                status TEXT NOT NULL,
+                seller_name TEXT NOT NULL,
+                seller_initials TEXT,
+                payment_method TEXT,
+                payment_status TEXT,
+                delivery_status TEXT,
+                notes TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
         conn.commit()
 
     seed_data_if_empty()
@@ -595,6 +618,127 @@ def seed_data_if_empty() -> None:
                         user["role_id"],
                         1,
                         datetime.utcnow().isoformat(timespec='seconds'),
+                    ),
+                )
+        
+        # Seed default sales (only if no sales exist)
+        sales_count = conn.execute("SELECT COUNT(*) FROM sales").fetchone()[0]
+        if sales_count == 0:
+            default_sales = [
+                {
+                    "sale_number": "VTA-00156",
+                    "customer_name": "María González",
+                    "customer_email": "maria@email.com",
+                    "customer_initials": "MG",
+                    "sale_date": "2026-02-04",
+                    "sale_time": "14:30",
+                    "products": ["Miel 1kg (3)", "Polen 250g (1)"],
+                    "total_amount": 59.00,
+                    "status": "Completada",
+                    "seller_name": "Juan Ramírez",
+                    "seller_initials": "JR",
+                    "payment_method": "Transferencia",
+                    "payment_status": "Pagado",
+                    "delivery_status": "Entregado",
+                    "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+                },
+                {
+                    "sale_number": "VTA-00155",
+                    "customer_name": "Carlos Ruiz",
+                    "customer_email": "carlos@email.com",
+                    "customer_initials": "CR",
+                    "sale_date": "2026-02-04",
+                    "sale_time": "11:15",
+                    "products": ["Miel 500g (5)"],
+                    "total_amount": 42.50,
+                    "status": "Pendiente",
+                    "seller_name": "Juan Ramírez",
+                    "seller_initials": "JR",
+                    "payment_method": "Efectivo",
+                    "payment_status": "Pendiente",
+                    "delivery_status": "Pendiente",
+                    "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+                },
+                {
+                    "sale_number": "VTA-00154",
+                    "customer_name": "Ana Torres",
+                    "customer_email": "ana@email.com",
+                    "customer_initials": "AT",
+                    "sale_date": "2026-02-03",
+                    "sale_time": "16:45",
+                    "products": ["Propóleo 30ml (2)", "Miel 1kg (1)"],
+                    "total_amount": 51.00,
+                    "status": "Completada",
+                    "seller_name": "Laura Sánchez",
+                    "seller_initials": "LS",
+                    "payment_method": "Tarjeta",
+                    "payment_status": "Pagado",
+                    "delivery_status": "Entregado",
+                    "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+                },
+                {
+                    "sale_number": "VTA-00153",
+                    "customer_name": "Pedro Martínez",
+                    "customer_email": "pedro@email.com",
+                    "customer_initials": "PM",
+                    "sale_date": "2026-02-03",
+                    "sale_time": "10:20",
+                    "products": ["Miel 500g (10)", "Polen 250g (3)", "Propóleo 30ml (2)"],
+                    "total_amount": 125.00,
+                    "status": "Completada",
+                    "seller_name": "Juan Ramírez",
+                    "seller_initials": "JR",
+                    "payment_method": "Transferencia",
+                    "payment_status": "Pagado",
+                    "delivery_status": "Entregado",
+                    "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+                },
+                {
+                    "sale_number": "VTA-00152",
+                    "customer_name": "Lucía Fernández",
+                    "customer_email": "lucia@email.com",
+                    "customer_initials": "LF",
+                    "sale_date": "2026-02-02",
+                    "sale_time": "15:30",
+                    "products": ["Polen 250g (4)"],
+                    "total_amount": 48.00,
+                    "status": "Cancelada",
+                    "seller_name": "Laura Sánchez",
+                    "seller_initials": "LS",
+                    "payment_method": "Efectivo",
+                    "payment_status": "Cancelado",
+                    "delivery_status": "Cancelado",
+                    "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+                },
+            ]
+            
+            for sale in default_sales:
+                conn.execute(
+                    """
+                    INSERT INTO sales (
+                        sale_number, customer_name, customer_email, customer_initials,
+                        sale_date, sale_time, products_json, total_amount, status,
+                        seller_name, seller_initials, payment_method, payment_status,
+                        delivery_status, notes, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        sale["sale_number"],
+                        sale["customer_name"],
+                        sale["customer_email"],
+                        sale["customer_initials"],
+                        sale["sale_date"],
+                        sale["sale_time"],
+                        json.dumps(sale["products"], ensure_ascii=False),
+                        sale["total_amount"],
+                        sale["status"],
+                        sale["seller_name"],
+                        sale["seller_initials"],
+                        sale.get("payment_method", ""),
+                        sale.get("payment_status", ""),
+                        sale.get("delivery_status", ""),
+                        sale.get("notes", ""),
+                        sale["created_at"],
                     ),
                 )
         
@@ -698,6 +842,53 @@ def insert_product(product: dict) -> None:
                 product["created_at"],
             ),
         )
+        conn.commit()
+
+
+def get_product(product_id: int) -> dict:
+    """Get a single product by ID"""
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT id, sku, name, description, photo_url,
+                   width_cm, height_cm, depth_cm, weight_kg
+            FROM products
+            WHERE id = ?
+            """,
+            (product_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def update_product(product_id: int, product: dict) -> None:
+    """Update an existing product"""
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE products SET
+                sku = ?, name = ?, description = ?, photo_url = ?,
+                width_cm = ?, height_cm = ?, depth_cm = ?, weight_kg = ?
+            WHERE id = ?
+            """,
+            (
+                product.get("sku"),
+                product.get("name"),
+                product.get("description"),
+                product.get("photo_url"),
+                product.get("width_cm"),
+                product.get("height_cm"),
+                product.get("depth_cm"),
+                product.get("weight_kg"),
+                product_id,
+            ),
+        )
+        conn.commit()
+
+
+def delete_product(product_id: int) -> None:
+    """Delete a product"""
+    with get_connection() as conn:
+        conn.execute("DELETE FROM products WHERE id = ?", (product_id,))
         conn.commit()
 
 # Funciones para Roles
@@ -827,3 +1018,289 @@ def delete_user(user_id: int) -> None:
     with get_connection() as conn:
         conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
         conn.commit()
+
+
+# === Sales Functions ===
+
+def list_sales(filters: dict = None) -> list[dict]:
+    """List all sales with optional filters"""
+    with get_connection() as conn:
+        query = """
+            SELECT id, sale_number, customer_name, customer_email, customer_initials,
+                   sale_date, sale_time, products_json, total_amount, status,
+                   seller_name, seller_initials, payment_method, payment_status,
+                   delivery_status, notes, created_at
+            FROM sales
+            WHERE 1=1
+        """
+        params = []
+        
+        if filters:
+            if filters.get('status'):
+                query += " AND status = ?"
+                params.append(filters['status'])
+            if filters.get('customer_name'):
+                query += " AND customer_name LIKE ?"
+                params.append(f"%{filters['customer_name']}%")
+            if filters.get('date_from'):
+                query += " AND sale_date >= ?"
+                params.append(filters['date_from'])
+            if filters.get('date_to'):
+                query += " AND sale_date <= ?"
+                params.append(filters['date_to'])
+        
+        query += " ORDER BY datetime(sale_date || ' ' || sale_time) DESC, id DESC"
+        
+        rows = conn.execute(query, params).fetchall()
+        sales = []
+        for row in rows:
+            sale = dict(row)
+            sale['products'] = json.loads(sale['products_json'])
+            del sale['products_json']
+            sales.append(sale)
+        return sales
+
+
+def get_sale(sale_id: int) -> dict | None:
+    """Get a single sale by ID"""
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT id, sale_number, customer_name, customer_email, customer_initials,
+                   sale_date, sale_time, products_json, total_amount, status,
+                   seller_name, seller_initials, payment_method, payment_status,
+                   delivery_status, notes, created_at
+            FROM sales
+            WHERE id = ?
+            """,
+            (sale_id,),
+        ).fetchone()
+        if row:
+            sale = dict(row)
+            sale['products'] = json.loads(sale['products_json'])
+            del sale['products_json']
+            return sale
+        return None
+
+
+def insert_sale(sale: dict) -> int:
+    """Insert a new sale"""
+    with get_connection() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO sales (
+                sale_number, customer_name, customer_email, customer_initials,
+                sale_date, sale_time, products_json, total_amount, status,
+                seller_name, seller_initials, payment_method, payment_status,
+                delivery_status, notes, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                sale["sale_number"],
+                sale["customer_name"],
+                sale.get("customer_email", ""),
+                sale.get("customer_initials", ""),
+                sale["sale_date"],
+                sale["sale_time"],
+                json.dumps(sale["products"], ensure_ascii=False),
+                sale["total_amount"],
+                sale["status"],
+                sale["seller_name"],
+                sale.get("seller_initials", ""),
+                sale.get("payment_method", ""),
+                sale.get("payment_status", "Pendiente"),
+                sale.get("delivery_status", "Pendiente"),
+                sale.get("notes", ""),
+                sale["created_at"],
+            ),
+        )
+        conn.commit()
+        return cursor.lastrowid
+
+
+def update_sale(sale_id: int, sale: dict) -> None:
+    """Update an existing sale"""
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE sales SET
+                customer_name = ?, customer_email = ?, customer_initials = ?,
+                sale_date = ?, sale_time = ?, products_json = ?, total_amount = ?,
+                status = ?, seller_name = ?, seller_initials = ?,
+                payment_method = ?, payment_status = ?, delivery_status = ?, notes = ?
+            WHERE id = ?
+            """,
+            (
+                sale.get("customer_name"),
+                sale.get("customer_email", ""),
+                sale.get("customer_initials", ""),
+                sale.get("sale_date"),
+                sale.get("sale_time"),
+                json.dumps(sale.get("products", []), ensure_ascii=False),
+                sale.get("total_amount"),
+                sale.get("status"),
+                sale.get("seller_name"),
+                sale.get("seller_initials", ""),
+                sale.get("payment_method", ""),
+                sale.get("payment_status", ""),
+                sale.get("delivery_status", ""),
+                sale.get("notes", ""),
+                sale_id,
+            ),
+        )
+        conn.commit()
+
+
+def delete_sale(sale_id: int) -> None:
+    """Delete a sale"""
+    with get_connection() as conn:
+        conn.execute("DELETE FROM sales WHERE id = ?", (sale_id,))
+        conn.commit()
+
+
+def get_sales_metrics() -> dict:
+    """Get sales metrics for dashboard and sales page"""
+    with get_connection() as conn:
+        # Total de ventas hoy
+        today = datetime.now().strftime('%Y-%m-%d')
+        total_today = conn.execute(
+            "SELECT COALESCE(SUM(total_amount), 0) FROM sales WHERE sale_date = ?",
+            (today,)
+        ).fetchone()[0]
+        
+        # Total de ventas completadas
+        total_completed = conn.execute(
+            "SELECT COUNT(*) FROM sales WHERE status = 'Completada'"
+        ).fetchone()[0]
+        
+        # Total de ventas pendientes
+        total_pending = conn.execute(
+            "SELECT COUNT(*) FROM sales WHERE status = 'Pendiente'"
+        ).fetchone()[0]
+        
+        # Clientes únicos
+        total_customers = conn.execute(
+            "SELECT COUNT(DISTINCT customer_name) FROM sales"
+        ).fetchone()[0]
+        
+        return {
+            "ventas_hoy": round(total_today, 2),
+            "ventas_completadas": total_completed,
+            "ventas_pendientes": total_pending,
+            "clientes_activos": total_customers,
+        }
+
+
+def get_sales_chart_data(year: int = None, period: str = "6months") -> dict:
+    """Get monthly sales data for charts
+    
+    Args:
+        year: Optional year to filter (e.g., 2026)
+        period: '6months' or '12months'
+    """
+    with get_connection() as conn:
+        if year:
+            # Get all months for the specified year
+            rows = conn.execute(
+                """
+                SELECT strftime('%Y-%m', sale_date) as month,
+                       SUM(total_amount) as total
+                FROM sales
+                WHERE strftime('%Y', sale_date) = ?
+                GROUP BY month
+                ORDER BY month ASC
+                """,
+                (str(year),)
+            ).fetchall()
+        else:
+            # Get last 6 or 12 months
+            limit = 12 if period == "12months" else 6
+            rows = conn.execute(
+                """
+                SELECT strftime('%Y-%m', sale_date) as month,
+                       SUM(total_amount) as total
+                FROM sales
+                GROUP BY month
+                ORDER BY month DESC
+                LIMIT ?
+                """,
+                (limit,)
+            ).fetchall()
+            rows = list(reversed(rows))
+        
+        months = []
+        amounts = []
+        month_names = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+        
+        for row in rows:
+            if row['total']:  # Only include months with sales
+                # Convert YYYY-MM to month name
+                month_num = int(row['month'].split('-')[1])
+                months.append(month_names[month_num - 1])
+                amounts.append(round(row['total'], 2))
+        
+        return {"labels": months, "data": amounts}
+
+
+def get_top_products(year: int = None, period: str = "year") -> dict:
+    """Get top selling products
+    
+    Args:
+        year: Optional year to filter
+        period: 'month' or 'year'
+    """
+    with get_connection() as conn:
+        if year:
+            # Get products for specific year
+            rows = conn.execute(
+                """
+                SELECT products_json
+                FROM sales
+                WHERE strftime('%Y', sale_date) = ? AND status = 'Completada'
+                """,
+                (str(year),)
+            ).fetchall()
+        elif period == "month":
+            # Get current month
+            current_month = datetime.now().strftime('%Y-%m')
+            rows = conn.execute(
+                """
+                SELECT products_json
+                FROM sales
+                WHERE strftime('%Y-%m', sale_date) = ? AND status = 'Completada'
+                """,
+                (current_month,)
+            ).fetchall()
+        else:
+            # Get all time
+            rows = conn.execute(
+                """
+                SELECT products_json
+                FROM sales
+                WHERE status = 'Completada'
+                """
+            ).fetchall()
+        
+        # Count products
+        product_counts = {}
+        for row in rows:
+            products = json.loads(row['products_json'])
+            for product_str in products:
+                # Extract product name (before the quantity in parentheses)
+                product_name = product_str.split('(')[0].strip()
+                # Extract quantity
+                try:
+                    quantity = int(product_str.split('(')[1].split(')')[0])
+                except:
+                    quantity = 1
+                
+                product_counts[product_name] = product_counts.get(product_name, 0) + quantity
+        
+        # Get top 5 products
+        sorted_products = sorted(product_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+        
+        labels = [p[0] for p in sorted_products]
+        data = [p[1] for p in sorted_products]
+        
+        return {"labels": labels, "data": data}
+

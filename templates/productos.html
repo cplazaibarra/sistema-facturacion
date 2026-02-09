@@ -85,6 +85,7 @@
                     <th>Foto</th>
                     <th>Dimensiones (cm)</th>
                     <th>Peso (kg)</th>
+                    <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -104,6 +105,12 @@
                         {{ product.width_cm or '-' }} x {{ product.height_cm or '-' }} x {{ product.depth_cm or '-' }}
                     </td>
                     <td>{{ product.weight_kg or '-' }}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn-icon edit-btn" title="Editar" onclick="editarProducto({{ product.id }})">✏️</button>
+                            <button class="btn-icon delete-btn" title="Eliminar" onclick="eliminarProducto({{ product.id }})">🗑️</button>
+                        </div>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -119,6 +126,21 @@ function toggleFormulario() {
         formulario.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
         formulario.style.display = 'none';
+    }
+}
+
+function editarProducto(productId) {
+    window.location.href = '/productos/' + productId + '/editar';
+}
+
+function eliminarProducto(productId) {
+    if (confirm('¿Estás seguro de que deseas eliminar este producto?')) {
+        // Crear un formulario temporal para enviar la solicitud POST
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/productos/' + productId + '/eliminar';
+        document.body.appendChild(form);
+        form.submit();
     }
 }
 </script>
