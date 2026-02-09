@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}Proyección de Ventas - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Proyección de Ventas{% endblock %}
+
+{% block content %}
+<div class="proyeccion-header">
+    <div class="period-selector-group">
+        <button class="period-btn active">Mensual</button>
+        <button class="period-btn">Trimestral</button>
+        <button class="period-btn">Anual</button>
+    </div>
+    <button class="btn-primary">Generar Reporte</button>
+</div>
+
+<div class="proyeccion-stats">
+    {% for stat in proyeccion_stats %}
+    <div class="proyeccion-card {{ stat.color }}">
+        <div class="proyeccion-icon">{{ stat.icon }}</div>
+        <div class="proyeccion-content">
+            <div class="proyeccion-label">{{ stat.label }}</div>
+            <div class="proyeccion-value">{{ stat.value }}</div>
+            <div class="proyeccion-change {% if 'vs' in stat.change or 'crecimiento' in stat.change %}positive{% endif %}">
+                {{ stat.change }}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="charts-proyeccion">
+    <div class="chart-card-large">
+        <div class="card-header">
+            <h3>Proyección de Ventas vs Real</h3>
+            <div class="chart-legend">
+                <span class="legend-item"><span class="legend-dot blue"></span>Proyectado</span>
+                <span class="legend-item"><span class="legend-dot cyan"></span>Real</span>
+            </div>
+        </div>
+        <canvas id="proyeccionChart"></canvas>
+    </div>
+</div>
+
+<div class="proyeccion-tables">
+    <div class="proyeccion-table-card">
+        <h3>Proyección por Producto</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Ventas Actuales</th>
+                    <th>Proyección</th>
+                    <th>Variación</th>
+                    <th>Confianza</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in proyeccion_table %}
+                <tr>
+                    <td>{{ row.product }}</td>
+                    <td>{{ row.current }}</td>
+                    <td>{{ row.projection }}</td>
+                    <td class="positive">{{ row.variation }}</td>
+                    <td><span class="confidence {{ row.level }}">{{ row.confidence }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="proyeccion-insights">
+        <h3>Insights y Recomendaciones</h3>
+        <div class="insight-list">
+            {% for insight in proyeccion_insights %}
+            <div class="insight-item">
+                <span class="insight-icon">{{ insight.icon }}</span>
+                <div class="insight-content">
+                    <strong>{{ insight.title }}</strong>
+                    <p>{{ insight.desc }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Gráfico de proyección
+    const chartData = {{ proyeccion_chart | tojson }};
+    const ctx = document.getElementById('proyeccionChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.labels,
+            datasets: [
+                {
+                    label: 'Proyectado',
+                    data: chartData.projected,
+                    borderColor: 'rgba(0, 174, 239, 1)',
+                    backgroundColor: 'rgba(0, 174, 239, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                },
+                {
+                    label: 'Real',
+                    data: chartData.real,
+                    borderColor: 'rgba(0, 209, 178, 1)',
+                    backgroundColor: 'rgba(0, 209, 178, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toLocaleString();
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

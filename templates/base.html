@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Facturación Bodega Miel{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">🐝</div>
+                <h1>Bodega Miel</h1>
+            </div>
+            
+            <nav class="nav-menu">
+                <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                    <span class="icon">📊</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('ventas') }}" class="nav-item {% if request.endpoint == 'ventas' %}active{% endif %}">
+                    <span class="icon">💰</span>
+                    <span>Ventas</span>
+                </a>
+                <a href="{{ url_for('ingreso_ventas') }}" class="nav-item {% if request.endpoint == 'ingreso_ventas' %}active{% endif %}">
+                    <span class="icon">🧾</span>
+                    <span>Ingreso Ventas</span>
+                </a>
+                <a href="{{ url_for('productos') }}" class="nav-item {% if request.endpoint == 'productos' %}active{% endif %}">
+                    <span class="icon">🧺</span>
+                    <span>Productos</span>
+                </a>
+                <a href="{{ url_for('administracion') }}" class="nav-item {% if request.endpoint in ['administracion', 'usuarios', 'roles'] %}active{% endif %}">
+                    <span class="icon">⚙️</span>
+                    <span>Administración</span>
+                </a>
+                <a href="{{ url_for('inventario') }}" class="nav-item {% if request.endpoint == 'inventario' %}active{% endif %}">
+                    <span class="icon">📦</span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{{ url_for('ingreso_mercaderia') }}" class="nav-item {% if request.endpoint == 'ingreso_mercaderia' %}active{% endif %}">
+                    <span class="icon">📥</span>
+                    <span>Ingreso Mercadería</span>
+                </a>
+                <a href="{{ url_for('proyeccion_ventas') }}" class="nav-item {% if request.endpoint == 'proyeccion_ventas' %}active{% endif %}">
+                    <span class="icon">📈</span>
+                    <span>Proyección Ventas</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">👤</div>
+                    <div class="user-details">
+                        <div class="user-name">Usuario</div>
+                        <div class="user-role">Administrador</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <h2>{% block page_title %}Dashboard{% endblock %}</h2>
+                </div>
+                <div class="header-right">
+                    <div class="search-box">
+                        <input type="text" placeholder="Buscar...">
+                        <span class="search-icon">🔍</span>
+                    </div>
+                    <button class="notification-btn">
+                        <span>🔔</span>
+                        <span class="notification-badge">3</span>
+                    </button>
+                </div>
+            </header>
+
+            <div class="content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Usuario - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Editar Usuario{% endblock %}
+
+{% block content %}
+<div class="settings-section">
+    <div class="settings-card">
+        <div class="card-header">
+            <h3>Editar Usuario: {{ user.username }}</h3>
+        </div>
+        <form class="settings-form" method="POST">
+            <div class="form-group">
+                <label>Usuario</label>
+                <input type="text" value="{{ user.username }}" class="form-control" disabled>
+                <small>El nombre de usuario no puede cambiar</small>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" name="email" class="form-control" value="{{ user.email }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Nombre Completo *</label>
+                    <input type="text" name="full_name" class="form-control" value="{{ user.full_name }}" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Rol *</label>
+                <select name="role_id" class="form-control" required>
+                    {% for role in roles %}
+                    <option value="{{ role.id }}" {% if role.id == user.role_id %}selected{% endif %}>
+                        {{ role.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_active" value="1" {% if user.is_active %}checked{% endif %}>
+                    Activo
+                </label>
+            </div>
+
+            <div class="form-actions">
+                <a href="{{ url_for('usuarios') }}" class="btn-secondary">Volver</a>
+                <button type="submit" class="btn-primary">Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.form-group label {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #E5E7EB;
+    border-radius: 4px;
+    font-size: 0.95rem;
+}
+
+.form-control:disabled {
+    background-color: #F3F4F6;
+    color: #999;
+}
+
+.btn-secondary {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #6B7280;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.btn-secondary:hover {
+    background-color: #4B5563;
+}
+
+.btn-primary {
+    padding: 10px 20px;
+    background-color: #0070D2;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-primary:hover {
+    background-color: #0056B3;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+</style>
+
+{% endblock %}

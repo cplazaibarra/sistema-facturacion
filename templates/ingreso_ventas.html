@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Ingreso Ventas - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Ingreso de Ventas{% endblock %}
+
+{% block content %}
+<div class="settings-section">
+    <div class="settings-card">
+        <h3>Registro Manual de Venta</h3>
+        <form class="settings-form" method="POST">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>SKU *</label>
+                    <input type="text" name="sku" class="form-control" placeholder="SKU-001" required>
+                </div>
+                <div class="form-group">
+                    <label>Producto *</label>
+                    <input type="text" name="product_name" class="form-control" placeholder="Miel 1kg" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Cantidad *</label>
+                    <input type="number" name="quantity" class="form-control" placeholder="0" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label>Precio Unitario *</label>
+                    <input type="number" name="unit_price" class="form-control" placeholder="$0.00" step="0.01" min="0" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Fecha de Venta *</label>
+                    <input type="date" name="sale_date" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Fecha de Entrega</label>
+                    <input type="date" name="delivery_date" class="form-control">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Estado de Pago *</label>
+                    <select name="payment_status" class="form-control" required>
+                        {% for status in payment_status_options %}
+                        <option>{{ status }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Estado de Entrega *</label>
+                    <select name="delivery_status" class="form-control" required>
+                        {% for status in delivery_status_options %}
+                        <option>{{ status }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Método de Pago *</label>
+                    <select name="payment_method" class="form-control" required>
+                        {% for method in payment_method_options %}
+                        <option>{{ method }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Cliente *</label>
+                    <input type="text" name="customer_name" class="form-control" placeholder="Cliente" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Vendedor *</label>
+                    <input type="text" name="seller_name" class="form-control" placeholder="Vendedor" required>
+                </div>
+                <div class="form-group">
+                    <label>Notas</label>
+                    <input type="text" name="notes" class="form-control" placeholder="Observaciones">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="reset" class="btn-secondary">Limpiar</button>
+                <button type="submit" class="btn-primary">Guardar Venta</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="recent-section">
+    <div class="recent-card">
+        <div class="card-header">
+            <h3>Ventas Ingresadas</h3>
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>SKU</th>
+                    <th>Producto</th>
+                    <th>Cantidad</th>
+                    <th>Precio Unit.</th>
+                    <th>Total</th>
+                    <th>Fecha Venta</th>
+                    <th>Entrega</th>
+                    <th>Pago</th>
+                    <th>Entrega</th>
+                    <th>Cliente</th>
+                    <th>Vendedor</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in entries %}
+                <tr>
+                    <td>{{ entry.sku }}</td>
+                    <td>{{ entry.product_name }}</td>
+                    <td>{{ entry.quantity }}</td>
+                    <td>${{ "%.2f"|format(entry.unit_price) }}</td>
+                    <td>${{ "%.2f"|format(entry.total_price) }}</td>
+                    <td>{{ entry.sale_date }}</td>
+                    <td>{{ entry.delivery_date or '-' }}</td>
+                    <td>{{ entry.payment_status }}</td>
+                    <td>{{ entry.delivery_status }}</td>
+                    <td>{{ entry.customer_name }}</td>
+                    <td>{{ entry.seller_name }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

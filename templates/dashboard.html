@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Tarjetas de estadísticas -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon blue">💰</div>
+        <div class="stat-info">
+            <div class="stat-value" id="ventas-hoy">$0</div>
+            <div class="stat-label">Ventas Hoy</div>
+        </div>
+        <div class="stat-trend positive">+12.5%</div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon cyan">📦</div>
+        <div class="stat-info">
+            <div class="stat-value" id="productos-stock">0</div>
+            <div class="stat-label">Productos en Stock</div>
+        </div>
+        <div class="stat-trend positive">+5.2%</div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon purple">📋</div>
+        <div class="stat-info">
+            <div class="stat-value" id="ordenes-pendientes">0</div>
+            <div class="stat-label">Órdenes Pendientes</div>
+        </div>
+        <div class="stat-trend negative">-2.4%</div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon green">👥</div>
+        <div class="stat-info">
+            <div class="stat-value" id="clientes-activos">0</div>
+            <div class="stat-label">Clientes Activos</div>
+        </div>
+        <div class="stat-trend positive">+8.1%</div>
+    </div>
+</div>
+
+<!-- Gráficos -->
+<div class="charts-grid">
+    <div class="chart-card">
+        <div class="card-header">
+            <h3>Ventas Mensuales</h3>
+            <select class="period-selector">
+                <option>Últimos 6 meses</option>
+                <option>Último año</option>
+            </select>
+        </div>
+        <canvas id="ventasChart"></canvas>
+    </div>
+    
+    <div class="chart-card">
+        <div class="card-header">
+            <h3>Productos Más Vendidos</h3>
+            <select class="period-selector">
+                <option>Este mes</option>
+                <option>Este año</option>
+            </select>
+        </div>
+        <canvas id="productosChart"></canvas>
+    </div>
+</div>
+
+<!-- Tablas de datos recientes -->
+<div class="recent-section">
+    <div class="recent-card">
+        <div class="card-header">
+            <h3>Últimas Ventas</h3>
+            <a href="#" class="view-all">Ver todas →</a>
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Cliente</th>
+                    <th>Producto</th>
+                    <th>Cantidad</th>
+                    <th>Total</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sale in recent_sales %}
+                <tr>
+                    <td>{{ sale.id }}</td>
+                    <td>{{ sale.cliente }}</td>
+                    <td>{{ sale.producto }}</td>
+                    <td>{{ sale.cantidad }}</td>
+                    <td>${{ "%.2f"|format(sale.total) }}</td>
+                    <td>
+                        {% if sale.estado == 'Completado' %}
+                        <span class="badge success">{{ sale.estado }}</span>
+                        {% elif sale.estado == 'Pendiente' %}
+                        <span class="badge warning">{{ sale.estado }}</span>
+                        {% else %}
+                        <span class="badge danger">{{ sale.estado }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Cargar datos del dashboard
+    fetch('/api/dashboard-data')
+        .then(response => response.json())
+        .then(data => {
+            // Actualizar estadísticas
+            document.getElementById('ventas-hoy').textContent = '$' + data.estadisticas.ventas_hoy.toLocaleString();
+            document.getElementById('productos-stock').textContent = data.estadisticas.productos_stock.toLocaleString();
+            document.getElementById('ordenes-pendientes').textContent = data.estadisticas.ordenes_pendientes;
+            document.getElementById('clientes-activos').textContent = data.estadisticas.clientes_activos;
+            
+            // Gráfico de ventas mensuales
+            const ventasCtx = document.getElementById('ventasChart').getContext('2d');
+            new Chart(ventasCtx, {
+                type: 'bar',
+                data: {
+                    labels: data.ventas_mensuales.labels,
+                    datasets: [{
+                        label: 'Ventas ($)',
+                        data: data.ventas_mensuales.data,
+                        backgroundColor: 'rgba(0, 174, 239, 0.8)',
+                        borderColor: 'rgba(0, 174, 239, 1)',
+                        borderWidth: 1,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Gráfico de productos más vendidos
+            const productosCtx = document.getElementById('productosChart').getContext('2d');
+            new Chart(productosCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.productos_top.labels,
+                    datasets: [{
+                        data: data.productos_top.data,
+                        backgroundColor: [
+                            'rgba(0, 174, 239, 0.8)',
+                            'rgba(0, 209, 178, 0.8)',
+                            'rgba(107, 91, 149, 0.8)',
+                            'rgba(255, 159, 64, 0.8)',
+                            'rgba(255, 99, 132, 0.8)'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        }
+                    }
+                }
+            });
+        });
+</script>
+{% endblock %}

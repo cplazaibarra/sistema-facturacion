@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Inventario - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Inventario{% endblock %}
+
+{% block content %}
+<div class="inventory-header">
+    <div class="header-actions">
+        <button class="btn-primary">+ Nuevo Producto</button>
+        <button class="btn-secondary">Exportar</button>
+    </div>
+    <div class="filter-group">
+        <select class="form-control">
+            <option>Todas las categorías</option>
+            {% for category in inventory_categories %}
+            <option>{{ category }}</option>
+            {% endfor %}
+        </select>
+        <select class="form-control">
+            {% for option in inventory_stock_filters %}
+            <option>{{ option }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<div class="inventory-stats">
+    <div class="inventory-stat-card">
+        <div class="stat-label">Total Productos</div>
+        <div class="stat-value">{{ inventory_stats.total }}</div>
+    </div>
+    <div class="inventory-stat-card">
+        <div class="stat-label">Stock Bajo</div>
+        <div class="stat-value warning">{{ inventory_stats.low_stock }}</div>
+    </div>
+    <div class="inventory-stat-card">
+        <div class="stat-label">Valor Total</div>
+        <div class="stat-value">${{ "{:,.0f}".format(inventory_stats.total_value) }}</div>
+    </div>
+</div>
+
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Producto</th>
+                <th>Categoría</th>
+                <th>Stock Actual</th>
+                <th>Stock Mínimo</th>
+                <th>Precio</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in inventory_items %}
+            <tr>
+                <td>{{ item.code }}</td>
+                <td>
+                    <div class="product-info">
+                        <div class="product-name">{{ item.name }}</div>
+                        <div class="product-desc">{{ item.desc }}</div>
+                    </div>
+                </td>
+                <td>{{ item.category }}</td>
+                <td>
+                    <div class="stock-info">
+                        <div class="stock-bar {% if item.status == 'Stock Bajo' %}warning{% endif %}">
+                            <div class="stock-fill" style="width: {{ item.stock_percent }}%"></div>
+                        </div>
+                        <span>{{ item.stock }} unidades</span>
+                    </div>
+                </td>
+                <td>{{ item.min_stock }}</td>
+                <td>${{ "%.2f"|format(item.price) }}</td>
+                <td>
+                    {% if item.status == 'Normal' %}
+                    <span class="badge success">{{ item.status }}</span>
+                    {% elif item.status == 'Stock Bajo' %}
+                    <span class="badge warning">{{ item.status }}</span>
+                    {% else %}
+                    <span class="badge danger">{{ item.status }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <button class="btn-icon" title="Editar">✏️</button>
+                    <button class="btn-icon" title="Eliminar">🗑️</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

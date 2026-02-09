@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block title %}Ventas - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Ventas{% endblock %}
+
+{% block content %}
+<!-- Barra de acciones superior estilo Salesforce -->
+<div class="sf-action-bar">
+    <div class="sf-action-left">
+        <div class="sf-view-selector">
+            <select class="sf-select">
+                <option>Todas las Ventas</option>
+                <option>Ventas Recientes</option>
+                <option>Ventas Pendientes</option>
+                <option>Ventas Completadas</option>
+                <option>Ventas del Mes</option>
+            </select>
+        </div>
+        <button class="sf-btn-icon" title="Actualizar">🔄</button>
+    </div>
+    <div class="sf-action-right">
+        <button class="sf-btn-secondary">
+            <span>📊</span>
+            <span>Reportes</span>
+        </button>
+        <button class="sf-btn-primary" onclick="openNewSaleModal()">
+            <span>➕</span>
+            <span>Nueva Venta</span>
+        </button>
+    </div>
+</div>
+
+<!-- Tarjetas de métricas estilo Salesforce -->
+<div class="sf-metrics-grid">
+    {% for metric in ventas_metrics %}
+    <div class="sf-metric-card">
+        <div class="sf-metric-header">
+            <span class="sf-metric-icon {{ metric.color }}">{{ metric.icon }}</span>
+            <span class="sf-metric-trend {% if metric.trend != '...' %}positive{% endif %}">
+                {{ metric.trend }}
+            </span>
+        </div>
+        <div class="sf-metric-value">{{ metric.value }}</div>
+        <div class="sf-metric-label">{{ metric.label }}</div>
+        <div class="sf-metric-footer">
+            <span class="sf-metric-secondary">{{ metric.secondary }}</span>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pestañas estilo Salesforce -->
+<div class="sf-tabs">
+    <button class="sf-tab active" onclick="switchTab('lista')">
+        <span>📋 Lista de Ventas</span>
+    </button>
+    <button class="sf-tab" onclick="switchTab('kanban')">
+        <span>📊 Kanban</span>
+    </button>
+    <button class="sf-tab" onclick="switchTab('calendario')">
+        <span>📅 Calendario</span>
+    </button>
+</div>
+
+<!-- Barra de herramientas de la tabla -->
+<div class="sf-table-toolbar">
+    <div class="sf-toolbar-left">
+        <div class="sf-search-box">
+            <span class="sf-search-icon">🔍</span>
+            <input type="text" placeholder="Buscar ventas..." class="sf-search-input">
+        </div>
+        <button class="sf-filter-btn">
+            <span>🔽</span>
+            <span>Filtros</span>
+        </button>
+    </div>
+    <div class="sf-toolbar-right">
+        <span class="sf-record-count">{{ ventas_records|length }} registros</span>
+        <button class="sf-btn-icon" title="Vista de lista">☰</button>
+        <button class="sf-btn-icon" title="Vista de tarjetas">◫</button>
+        <button class="sf-btn-icon" title="Configuración">⚙️</button>
+    </div>
+</div>
+
+<!-- Tabla estilo Salesforce -->
+<div class="sf-table-container">
+    <table class="sf-table">
+        <thead>
+            <tr>
+                <th class="sf-th-checkbox">
+                    <input type="checkbox" class="sf-checkbox">
+                </th>
+                <th class="sf-th-sortable">
+                    <div class="sf-th-content">
+                        <span>N° Venta</span>
+                        <span class="sf-sort-icon">⇅</span>
+                    </div>
+                </th>
+                <th class="sf-th-sortable">
+                    <div class="sf-th-content">
+                        <span>Cliente</span>
+                        <span class="sf-sort-icon">⇅</span>
+                    </div>
+                </th>
+                <th class="sf-th-sortable">
+                    <div class="sf-th-content">
+                        <span>Fecha</span>
+                        <span class="sf-sort-icon">⇅</span>
+                    </div>
+                </th>
+                <th class="sf-th-sortable">
+                    <div class="sf-th-content">
+                        <span>Productos</span>
+                        <span class="sf-sort-icon">⇅</span>
+                    </div>
+                </th>
+                <th class="sf-th-sortable">
+                    <div class="sf-th-content">
+                        <span>Total</span>
+                        <span class="sf-sort-icon">⇅</span>
+                    </div>
+                </th>
+                <th class="sf-th-sortable">
+                    <div class="sf-th-content">
+                        <span>Estado</span>
+                        <span class="sf-sort-icon">⇅</span>
+                    </div>
+                </th>
+                <th class="sf-th-sortable">
+                    <div class="sf-th-content">
+                        <span>Vendedor</span>
+                        <span class="sf-sort-icon">⇅</span>
+                    </div>
+                </th>
+                <th class="sf-th-actions">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sale in ventas_records %}
+            <tr class="sf-table-row">
+                <td>
+                    <input type="checkbox" class="sf-checkbox">
+                </td>
+                <td>
+                    <a href="#" class="sf-link">{{ sale.sale_number }}</a>
+                </td>
+                <td>
+                    <div class="sf-cell-user">
+                        <div class="sf-avatar">{{ sale.customer.initials }}</div>
+                        <div class="sf-user-info">
+                            <div class="sf-user-name">{{ sale.customer.name }}</div>
+                            <div class="sf-user-detail">{{ sale.customer.email }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div class="sf-cell-date">
+                        <div>{{ sale.date }}</div>
+                        <div class="sf-cell-time">{{ sale.time }}</div>
+                    </div>
+                </td>
+                <td>
+                    <div class="sf-product-pills">
+                        {% for product in sale.products %}
+                        <span class="sf-pill">{{ product }}</span>
+                        {% endfor %}
+                    </div>
+                </td>
+                <td>
+                    <div class="sf-amount">{{ sale.total }}</div>
+                </td>
+                <td>
+                    <span class="sf-badge sf-badge-{{ sale.status.level }}">
+                        <span class="sf-badge-dot"></span>
+                        {{ sale.status.label }}
+                    </span>
+                </td>
+                <td>
+                    <div class="sf-cell-user-simple">
+                        <div class="sf-avatar-sm">{{ sale.seller.initials }}</div>
+                        <span>{{ sale.seller.name }}</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="sf-actions">
+                        <button class="sf-action-btn" title="Ver detalles">👁️</button>
+                        <button class="sf-action-btn" title="Editar">✏️</button>
+                        <button class="sf-action-btn" title="Más opciones">⋮</button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Paginación estilo Salesforce -->
+<div class="sf-pagination">
+    <div class="sf-pagination-info">
+        Mostrando 1-{{ ventas_records|length }} de {{ ventas_records|length }} registros
+    </div>
+    <div class="sf-pagination-controls">
+        <button class="sf-page-btn" disabled>◀ Anterior</button>
+        <button class="sf-page-btn active">1</button>
+        <button class="sf-page-btn">2</button>
+        <button class="sf-page-btn">3</button>
+        <button class="sf-page-btn">4</button>
+        <button class="sf-page-btn">5</button>
+        <span class="sf-page-dots">...</span>
+        <button class="sf-page-btn">16</button>
+        <button class="sf-page-btn">Siguiente ▶</button>
+    </div>
+</div>
+
+<!-- Modal para nueva venta (oculto por defecto) -->
+<div id="newSaleModal" class="sf-modal" style="display: none;">
+    <div class="sf-modal-backdrop" onclick="closeNewSaleModal()"></div>
+    <div class="sf-modal-content">
+        <div class="sf-modal-header">
+            <h3>Nueva Venta</h3>
+            <button class="sf-modal-close" onclick="closeNewSaleModal()">✕</button>
+        </div>
+        <div class="sf-modal-body">
+            <form class="sf-form">
+                <div class="sf-form-section">
+                    <h4>Información del Cliente</h4>
+                    <div class="sf-form-row">
+                        <div class="sf-form-group">
+                            <label class="sf-label">Cliente *</label>
+                            <select class="sf-input">
+                                <option value="">Seleccionar cliente</option>
+                                <option>María González</option>
+                                <option>Carlos Ruiz</option>
+                                <option>Ana Torres</option>
+                            </select>
+                        </div>
+                        <div class="sf-form-group">
+                            <label class="sf-label">Fecha *</label>
+                            <input type="date" class="sf-input" value="2026-02-04">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="sf-form-section">
+                    <h4>Productos</h4>
+                    <div class="sf-product-selector">
+                        <div class="sf-form-row">
+                            <div class="sf-form-group flex-2">
+                                <label class="sf-label">Producto</label>
+                                <select class="sf-input">
+                                    <option value="">Seleccionar producto</option>
+                                    <option>Miel Pura 1kg - $15.00</option>
+                                    <option>Miel Pura 500g - $8.50</option>
+                                    <option>Polen de Abeja 250g - $12.00</option>
+                                    <option>Propóleo 30ml - $18.00</option>
+                                </select>
+                            </div>
+                            <div class="sf-form-group">
+                                <label class="sf-label">Cantidad</label>
+                                <input type="number" class="sf-input" placeholder="0" min="1">
+                            </div>
+                            <div class="sf-form-group">
+                                <label class="sf-label">Precio Unit.</label>
+                                <input type="number" class="sf-input" placeholder="$0.00" step="0.01">
+                            </div>
+                            <div class="sf-form-group">
+                                <label class="sf-label">Total</label>
+                                <input type="text" class="sf-input" readonly value="$0.00">
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="sf-btn-add">+ Agregar Producto</button>
+                </div>
+                
+                <div class="sf-form-section">
+                    <div class="sf-summary-box">
+                        <div class="sf-summary-row">
+                            <span>Subtotal:</span>
+                            <span class="sf-summary-value">$0.00</span>
+                        </div>
+                        <div class="sf-summary-row">
+                            <span>IVA (19%):</span>
+                            <span class="sf-summary-value">$0.00</span>
+                        </div>
+                        <div class="sf-summary-row total">
+                            <span>Total:</span>
+                            <span class="sf-summary-value">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="sf-form-section">
+                    <div class="sf-form-group">
+                        <label class="sf-label">Notas</label>
+                        <textarea class="sf-textarea" rows="3" placeholder="Observaciones o notas adicionales..."></textarea>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="sf-modal-footer">
+            <button class="sf-btn-secondary" onclick="closeNewSaleModal()">Cancelar</button>
+            <button class="sf-btn-primary">Guardar Venta</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function switchTab(tabName) {
+        console.log('Switching to tab:', tabName);
+        // Aquí se implementaría el cambio de vista
+    }
+    
+    function openNewSaleModal() {
+        document.getElementById('newSaleModal').style.display = 'flex';
+    }
+    
+    function closeNewSaleModal() {
+        document.getElementById('newSaleModal').style.display = 'none';
+    }
+</script>
+{% endblock %}

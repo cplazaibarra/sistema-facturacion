@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Productos - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Productos{% endblock %}
+
+{% block content %}
+<!-- Botón para agregar producto -->
+<div class="header-section">
+    <button class="btn-primary" onclick="toggleFormulario()">
+        ➕ Agregar Producto
+    </button>
+</div>
+
+<!-- Formulario oculto -->
+<div class="settings-section" id="formulario-productos" style="display: none;">
+    <div class="settings-card">
+        <div class="card-header">
+            <h3>Agregar Nuevo Producto</h3>
+            <button class="btn-secondary" onclick="toggleFormulario()">Cerrar</button>
+        </div>
+        <form class="settings-form" method="POST">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>SKU *</label>
+                    <input type="text" name="sku" class="form-control" placeholder="SKU-001" required>
+                </div>
+                <div class="form-group">
+                    <label>Nombre *</label>
+                    <input type="text" name="name" class="form-control" placeholder="Miel 1kg" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Descripción</label>
+                <textarea name="description" class="form-control" rows="3" placeholder="Descripción del producto"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Foto (URL)</label>
+                <input type="url" name="photo_url" class="form-control" placeholder="https://...">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Ancho (cm)</label>
+                    <input type="number" name="width_cm" class="form-control" step="0.01" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Alto (cm)</label>
+                    <input type="number" name="height_cm" class="form-control" step="0.01" min="0">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Profundidad (cm)</label>
+                    <input type="number" name="depth_cm" class="form-control" step="0.01" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Peso (kg)</label>
+                    <input type="number" name="weight_kg" class="form-control" step="0.01" min="0">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="reset" class="btn-secondary">Limpiar</button>
+                <button type="submit" class="btn-primary">Guardar Producto</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Lista de productos -->
+<div class="recent-section">
+    <div class="recent-card">
+        <div class="card-header">
+            <h3>Productos Registrados</h3>
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>SKU</th>
+                    <th>Nombre</th>
+                    <th>Descripción</th>
+                    <th>Foto</th>
+                    <th>Dimensiones (cm)</th>
+                    <th>Peso (kg)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                <tr>
+                    <td>{{ product.sku }}</td>
+                    <td>{{ product.name }}</td>
+                    <td>{{ product.description or '-' }}</td>
+                    <td>
+                        {% if product.photo_url %}
+                        <a href="{{ product.photo_url }}" target="_blank">Ver</a>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ product.width_cm or '-' }} x {{ product.height_cm or '-' }} x {{ product.depth_cm or '-' }}
+                    </td>
+                    <td>{{ product.weight_kg or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function toggleFormulario() {
+    const formulario = document.getElementById('formulario-productos');
+    if (formulario.style.display === 'none') {
+        formulario.style.display = 'block';
+        formulario.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+        formulario.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}

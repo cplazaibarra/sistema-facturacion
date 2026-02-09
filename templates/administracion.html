@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Administración - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Administración{% endblock %}
+
+{% block content %}
+<div class="admin-grid">
+    {% for module in modules %}
+    <div class="admin-card">
+        <div class="admin-icon">{{ module.icon }}</div>
+        <h3>{{ module.title }}</h3>
+        <p>{{ module.desc }}</p>
+        <a href="{{ module.link }}" class="btn-primary">{{ module.action }}</a>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="settings-section">
+    <div class="settings-card">
+        <h3>Configuración General</h3>
+        <form class="settings-form">
+            <div class="form-group">
+                <label>Nombre de la Empresa</label>
+                <input type="text" class="form-control" value="{{ settings.company_name }}" placeholder="Nombre de la empresa">
+            </div>
+            
+            <div class="form-group">
+                <label>RUT/NIT</label>
+                <input type="text" class="form-control" value="{{ settings.rut }}" placeholder="RUT/NIT">
+            </div>
+            
+            <div class="form-group">
+                <label>Dirección</label>
+                <input type="text" class="form-control" value="{{ settings.address }}" placeholder="Dirección de la empresa">
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Teléfono</label>
+                    <input type="tel" class="form-control" value="{{ settings.phone }}" placeholder="+56 9 1234 5678">
+                </div>
+                
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" class="form-control" value="{{ settings.email }}" placeholder="contacto@bodegamiel.com">
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="btn-secondary">Cancelar</button>
+                <button type="submit" class="btn-primary">Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

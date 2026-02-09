@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Ingreso Mercadería - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Ingreso de Mercadería{% endblock %}
+
+{% block content %}
+<div class="ingreso-container">
+    <div class="ingreso-form-card">
+        <h3>Registrar Ingreso de Mercadería</h3>
+        <form class="ingreso-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Fecha de Ingreso</label>
+                    <input type="date" class="form-control" value="{{ default_date }}">
+                </div>
+                
+                <div class="form-group">
+                    <label>Número de Orden</label>
+                    <input type="text" class="form-control" placeholder="OC-2026-001">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Proveedor</label>
+                    <select class="form-control">
+                        <option value="">Seleccionar proveedor</option>
+                        {% for supplier in suppliers %}
+                        <option>{{ supplier }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Almacén</label>
+                    <select class="form-control">
+                        {% for warehouse in warehouses %}
+                        <option>{{ warehouse }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-divider"></div>
+            
+            <h4>Productos a Ingresar</h4>
+            
+            <div class="productos-ingreso">
+                <div class="producto-row">
+                    <div class="form-group flex-2">
+                        <label>Producto</label>
+                        <select class="form-control">
+                            <option value="">Seleccionar producto</option>
+                            {% for product in products %}
+                            <option>{{ product.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Cantidad</label>
+                        <input type="number" class="form-control" placeholder="0">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Precio Unitario</label>
+                        <input type="number" class="form-control" placeholder="$0.00" step="0.01">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Total</label>
+                        <input type="text" class="form-control" readonly value="$0.00">
+                    </div>
+                    
+                    <div class="form-group-actions">
+                        <label>&nbsp;</label>
+                        <button type="button" class="btn-icon-danger" title="Eliminar">🗑️</button>
+                    </div>
+                </div>
+            </div>
+            
+            <button type="button" class="btn-add-product">+ Agregar Producto</button>
+            
+            <div class="form-divider"></div>
+            
+            <div class="form-summary">
+                <div class="summary-row">
+                    <span>Subtotal:</span>
+                    <span class="summary-value">$0.00</span>
+                </div>
+                <div class="summary-row">
+                    <span>IVA (19%):</span>
+                    <span class="summary-value">$0.00</span>
+                </div>
+                <div class="summary-row total">
+                    <span>Total:</span>
+                    <span class="summary-value">$0.00</span>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Observaciones</label>
+                <textarea class="form-control" rows="3" placeholder="Observaciones adicionales..."></textarea>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="btn-secondary">Cancelar</button>
+                <button type="submit" class="btn-primary">Registrar Ingreso</button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="recent-ingresos">
+        <h3>Últimos Ingresos</h3>
+        <div class="ingreso-list">
+            {% for ingreso in recent_ingresos %}
+            <div class="ingreso-item">
+                <div class="ingreso-date">{{ ingreso.date }}</div>
+                <div class="ingreso-info">
+                    <div class="ingreso-title">{{ ingreso.order }}</div>
+                    <div class="ingreso-desc">{{ ingreso.supplier }}</div>
+                </div>
+                <div class="ingreso-amount">${{ "{:,.2f}".format(ingreso.total) }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
