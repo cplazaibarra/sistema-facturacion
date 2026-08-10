@@ -59,8 +59,8 @@
                         <p>{{ role.description or 'Sin descripción' }}</p>
                     </div>
                     <div class="role-actions">
-                        <a href="{{ url_for('editar_rol', role_id=role.id) }}" class="btn-small">Editar</a>
-                        <form method="POST" action="{{ url_for('eliminar_rol', role_id=role.id) }}" style="display: inline;" onsubmit="return confirm('¿Estás seguro? Esto eliminará el rol pero no los usuarios asociados.');">
+                        <a href="{{ url_for('usuarios.editar_rol', role_id=role.id) }}" class="btn-small">Editar</a>
+                        <form method="POST" action="{{ url_for('usuarios.eliminar_rol', role_id=role.id) }}" style="display: inline;" onsubmit="return confirm('¿Estás seguro? Esto eliminará el rol pero no los usuarios asociados.');">
                             <button type="submit" class="btn-small" style="background-color: #D91C1C;">Eliminar</button>
                         </form>
                     </div>

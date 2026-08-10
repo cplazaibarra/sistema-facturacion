@@ -20,39 +20,39 @@
             </div>
             
             <nav class="nav-menu">
-                <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                <a href="{{ url_for('dashboard.dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}">
                     <span class="icon">📊</span>
                     <span>Dashboard</span>
                 </a>
-                <a href="{{ url_for('ventas') }}" class="nav-item {% if request.endpoint == 'ventas' %}active{% endif %}">
+                <a href="{{ url_for('ventas.ventas') }}" class="nav-item {% if request.endpoint == 'ventas.ventas' %}active{% endif %}">
                     <span class="icon">💰</span>
                     <span>Ventas</span>
                 </a>
-                <a href="{{ url_for('pagos') }}" class="nav-item {% if request.endpoint == 'pagos' %}active{% endif %}">
+                <a href="{{ url_for('pagos.pagos') }}" class="nav-item {% if request.endpoint == 'pagos.pagos' %}active{% endif %}">
                     <span class="icon">💳</span>
                     <span>Pagos</span>
                 </a>
-                <a href="{{ url_for('ingreso_ventas') }}" class="nav-item {% if request.endpoint == 'ingreso_ventas' %}active{% endif %}">
+                <a href="{{ url_for('ventas.ingreso_ventas') }}" class="nav-item {% if request.endpoint == 'ventas.ingreso_ventas' %}active{% endif %}">
                     <span class="icon">🧾</span>
                     <span>Ingreso Ventas</span>
                 </a>
-                <a href="{{ url_for('productos') }}" class="nav-item {% if request.endpoint == 'productos' %}active{% endif %}">
+                <a href="{{ url_for('inventario.productos') }}" class="nav-item {% if request.endpoint == 'inventario.productos' %}active{% endif %}">
                     <span class="icon">🧺</span>
                     <span>Productos</span>
                 </a>
-                <a href="{{ url_for('administracion') }}" class="nav-item {% if request.endpoint in ['administracion', 'usuarios', 'roles', 'proveedores', 'ver_proveedor', 'editar_proveedor', 'agregar_contacto', 'editar_contacto', 'eliminar_contacto'] %}active{% endif %}">
+                <a href="{{ url_for('usuarios.administracion') }}" class="nav-item {% if request.endpoint in ['usuarios.administracion', 'usuarios.usuarios', 'usuarios.roles', 'proveedores.proveedores', 'proveedores.ver_proveedor', 'proveedores.editar_proveedor', 'proveedores.agregar_contacto', 'proveedores.editar_contacto', 'proveedores.eliminar_contacto'] %}active{% endif %}">
                     <span class="icon">⚙️</span>
                     <span>Administración</span>
                 </a>
-                <a href="{{ url_for('inventario') }}" class="nav-item {% if request.endpoint == 'inventario' %}active{% endif %}">
+                <a href="{{ url_for('inventario.inventario') }}" class="nav-item {% if request.endpoint == 'inventario.inventario' %}active{% endif %}">
                     <span class="icon">📦</span>
                     <span>Inventario</span>
                 </a>
-                <a href="{{ url_for('ingreso_mercaderia') }}" class="nav-item {% if request.endpoint == 'ingreso_mercaderia' %}active{% endif %}">
+                <a href="{{ url_for('inventario.ingreso_mercaderia') }}" class="nav-item {% if request.endpoint == 'inventario.ingreso_mercaderia' %}active{% endif %}">
                     <span class="icon">📥</span>
                     <span>Ingreso Mercadería</span>
                 </a>
-                <a href="{{ url_for('proyeccion_ventas') }}" class="nav-item {% if request.endpoint == 'proyeccion_ventas' %}active{% endif %}">
+                <a href="{{ url_for('ventas.proyeccion_ventas') }}" class="nav-item {% if request.endpoint == 'ventas.proyeccion_ventas' %}active{% endif %}">
                     <span class="icon">📈</span>
                     <span>Proyección Ventas</span>
                 </a>

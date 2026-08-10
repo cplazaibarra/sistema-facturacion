@@ -102,7 +102,7 @@
             </div>
 
             <div class="form-actions">
-                <a href="{{ url_for('productos') }}" class="btn-secondary">Cancelar</a>
+                <a href="{{ url_for('inventario.productos') }}" class="btn-secondary">Cancelar</a>
                 <button type="submit" class="btn-primary">Guardar Cambios</button>
             </div>
         </form>
@@ -138,7 +138,7 @@
         </div>
         
         <!-- Formulario para agregar proveedor -->
-        <form method="POST" action="{{ url_for('agregar_proveedor_producto', product_id=product.id) }}" style="padding: 20px; border-bottom: 1px solid #e0e0e0;">
+        <form method="POST" action="{{ url_for('inventario.agregar_proveedor_producto', product_id=product.id) }}" style="padding: 20px; border-bottom: 1px solid #e0e0e0;">
             <div class="form-row">
                 <div class="form-group" style="flex: 1;">
                     <label>Agregar Proveedor</label>
@@ -178,7 +178,7 @@
                 {% for ps in product_suppliers %}
                 <tr>
                     <td>
-                        <a href="{{ url_for('ver_proveedor', supplier_id=ps.supplier_id) }}" style="color: #1976d2; text-decoration: none;">
+                        <a href="{{ url_for('proveedores.ver_proveedor', supplier_id=ps.supplier_id) }}" style="color: #1976d2; text-decoration: none;">
                             {{ ps.supplier_name }}
                         </a>
                     </td>
@@ -223,6 +223,8 @@ function eliminarProveedor(productId, supplierId) {
     if (confirm('¿Estás seguro de que deseas eliminar este proveedor del producto?')) {
         const form = document.createElement('form');
         form.method = 'POST';
+        form.action = '/productos/' + productId + '/proveedores/' + supplierId + '/eliminar'; // Esto se mapea en inventario_bp
+        // Aunque al usar el blueprint su ruta de prefix no cambia si está en raíz (/) pero conviene asegurar.
         form.action = '/productos/' + productId + '/proveedores/' + supplierId + '/eliminar';
         document.body.appendChild(form);
         form.submit();

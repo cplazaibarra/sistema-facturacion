@@ -108,8 +108,8 @@
                     </td>
                     <td>{{ user.created_at[:10] }}</td>
                     <td>
-                        <a href="{{ url_for('editar_usuario', user_id=user.id) }}" class="btn-small">Editar</a>
-                        <form method="POST" action="{{ url_for('eliminar_usuario', user_id=user.id) }}" style="display: inline;" onsubmit="return confirm('¿Estás seguro?');">
+                        <a href="{{ url_for('usuarios.editar_usuario', user_id=user.id) }}" class="btn-small">Editar</a>
+                        <form method="POST" action="{{ url_for('usuarios.eliminar_usuario', user_id=user.id) }}" style="display: inline;" onsubmit="return confirm('¿Estás seguro?');">
                             <button type="submit" class="btn-small" style="background-color: #D91C1C;">Eliminar</button>
                         </form>
                     </td>
@@ -125,7 +125,7 @@
     <div class="recent-card">
         <div class="card-header">
             <h3>Roles Definidos</h3>
-            <a href="{{ url_for('roles') }}" class="btn-small">Gestionar Roles</a>
+            <a href="{{ url_for('usuarios.roles') }}" class="btn-small">Gestionar Roles</a>
         </div>
         <div class="roles-grid">
             {% for role in roles %}

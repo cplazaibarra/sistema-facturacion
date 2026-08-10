@@ -28,7 +28,7 @@
             </div>
 
             <div class="form-actions">
-                <a href="{{ url_for('ver_proveedor', supplier_id=supplier.id) }}" class="btn-secondary">Cancelar</a>
+                <a href="{{ url_for('proveedores.ver_proveedor', supplier_id=supplier.id) }}" class="btn-secondary">Cancelar</a>
                 <button type="submit" class="btn-primary">Guardar Cambios</button>
             </div>
         </form>
@@ -49,7 +49,7 @@
             <h3>Agregar Nuevo Contacto</h3>
             <button type="button" class="btn-secondary" onclick="toggleFormularioContacto()">Cerrar</button>
         </div>
-        <form class="settings-form" method="POST" action="{{ url_for('agregar_contacto', supplier_id=supplier.id) }}">
+        <form class="settings-form" method="POST" action="{{ url_for('proveedores.agregar_contacto', supplier_id=supplier.id) }}">
             <input type="hidden" name="return_to" value="editar">
             <div class="form-row">
                 <div class="form-group">

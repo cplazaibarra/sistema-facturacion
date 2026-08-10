@@ -37,7 +37,7 @@
                         <option value="Pago validado" {% if payment_filter == 'Pago validado' %}selected{% endif %}>Pago validado</option>
                     </select>
                 </form>
-                <a class="sf-btn-secondary" href="{{ url_for('pagos', role=current_role) }}">Ver todas</a>
+                <a class="sf-btn-secondary" href="{{ url_for('pagos.pagos', role=current_role) }}">Ver todas</a>
             </div>
         </div>
         <div class="payments-table">
@@ -53,7 +53,7 @@
                 <div>% Pago</div>
             </div>
             {% for sale in sales_records %}
-            <a class="payments-table-row {% if selected_sale_id == sale.id %}active{% endif %}" href="{{ url_for('pagos', sale_id=sale.id, role=current_role) }}#payment-detail" data-sale-id="{{ sale.id }}">
+            <a class="payments-table-row {% if selected_sale_id == sale.id %}active{% endif %}" href="{{ url_for('pagos.pagos', sale_id=sale.id, role=current_role) }}#payment-detail" data-sale-id="{{ sale.id }}">
                 <div>{{ sale.sale_number }}</div>
                 <div>{{ sale.customer_name }}</div>
                 <div>{{ sale.sale_date }}</div>
@@ -88,7 +88,7 @@
     <div class="payments-list">
         <div class="payments-list-header">
             <h4>Venta seleccionada</h4>
-            <a class="sf-btn-secondary" href="{{ url_for('pagos', role=current_role) }}">Volver al listado</a>
+            <a class="sf-btn-secondary" href="{{ url_for('pagos.pagos', role=current_role) }}">Volver al listado</a>
         </div>
     </div>
     {% endif %}
@@ -131,7 +131,7 @@
                 </div>
             </div>
 
-            <form method="POST" enctype="multipart/form-data" class="payment-form" action="{{ url_for('pagos', role=current_role, sale_id=sale.id) }}">
+            <form method="POST" enctype="multipart/form-data" class="payment-form" action="{{ url_for('pagos.pagos', role=current_role, sale_id=sale.id) }}">
                 <input type="hidden" name="sale_id" value="{{ sale.id }}">
                 <input type="hidden" name="actor_role" class="actor-role-input" value="{{ current_role }}">
                 <input type="hidden" name="delete_payment_item_id" id="delete_payment_item_id_{{ sale.id }}" value="">
