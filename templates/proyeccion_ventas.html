@@ -16,7 +16,13 @@
 <div class="proyeccion-stats">
     {% for stat in proyeccion_stats %}
     <div class="proyeccion-card {{ stat.color }}">
-        <div class="proyeccion-icon">{{ stat.icon }}</div>
+        <div class="proyeccion-icon">
+            {% if 'fa-' in stat.icon %}
+                <i class="{{ stat.icon }}"></i>
+            {% else %}
+                {{ stat.icon }}
+            {% endif %}
+        </div>
         <div class="proyeccion-content">
             <div class="proyeccion-label">{{ stat.label }}</div>
             <div class="proyeccion-value">{{ stat.value }}</div>
@@ -73,7 +79,13 @@
         <div class="insight-list">
             {% for insight in proyeccion_insights %}
             <div class="insight-item">
-                <span class="insight-icon">{{ insight.icon }}</span>
+                <span class="insight-icon">
+                    {% if 'fa-' in insight.icon %}
+                        <i class="{{ insight.icon }}"></i>
+                    {% else %}
+                        {{ insight.icon }}
+                    {% endif %}
+                </span>
                 <div class="insight-content">
                     <strong>{{ insight.title }}</strong>
                     <p>{{ insight.desc }}</p>
