@@ -56,6 +56,9 @@ def ventas():
             "time": sale["sale_time"],
             "products": sale["products"],
             "total": f"${sale['total_amount']:.2f}",
+            "payment_status": sale.get("payment_status") or "Pendiente",
+            "invoice_due_date": sale.get("invoice_due_date") or "-",
+            "payment_date": sale.get("payment_date") or "-",
             "status": {
                 "label": sale["status"],
                 "level": "success" if sale["status"] == "Completada" else "warning" if sale["status"] == "Pendiente" else "danger"

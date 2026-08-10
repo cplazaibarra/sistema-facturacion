@@ -1288,30 +1288,32 @@ def list_sales(filters: dict = None) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor() as cur:
             query = """
-                SELECT id, sale_number, customer_name, customer_email, customer_initials,
-                       sale_date, sale_time, products_json, total_amount, status,
-                       seller_name, seller_initials, payment_method, payment_status,
-                       delivery_status, notes, created_at
-                FROM sales
+                SELECT s.id, s.sale_number, s.customer_name, s.customer_email, s.customer_initials,
+                       s.sale_date, s.sale_time, s.products_json, s.total_amount, s.status,
+                       s.seller_name, s.seller_initials, s.payment_method, s.payment_status,
+                       s.delivery_status, s.notes, s.created_at,
+                       sp.invoice_due_date, sp.payment_date
+                FROM sales s
+                LEFT JOIN sale_payments sp ON sp.sale_id = s.id
                 WHERE 1=1
             """
             params = []
             
             if filters:
                 if filters.get('status'):
-                    query += " AND status = %s"
+                    query += " AND s.status = %s"
                     params.append(filters['status'])
                 if filters.get('customer_name'):
-                    query += " AND customer_name ILIKE %s"
+                    query += " AND s.customer_name ILIKE %s"
                     params.append(f"%{filters['customer_name']}%")
                 if filters.get('date_from'):
-                    query += " AND sale_date >= %s"
+                    query += " AND s.sale_date >= %s"
                     params.append(filters['date_from'])
                 if filters.get('date_to'):
-                    query += " AND sale_date <= %s"
+                    query += " AND s.sale_date <= %s"
                     params.append(filters['date_to'])
             
-            query += " ORDER BY (sale_date || ' ' || sale_time)::timestamp DESC, id DESC"
+            query += " ORDER BY (s.sale_date || ' ' || s.sale_time)::timestamp DESC, s.id DESC"
             
             cur.execute(query, tuple(params))
             rows = cur.fetchall()

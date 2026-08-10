@@ -114,27 +114,39 @@
                         <span class="sf-sort-icon">⇅</span>
                     </div>
                 </th>
-                <th class="sf-th-sortable">
-                    <div class="sf-th-content">
-                        <span>Total</span>
-                        <span class="sf-sort-icon">⇅</span>
-                    </div>
-                </th>
-                <th class="sf-th-sortable">
-                    <div class="sf-th-content">
-                        <span>Estado</span>
-                        <span class="sf-sort-icon">⇅</span>
-                    </div>
-                </th>
-                <th class="sf-th-sortable">
-                    <div class="sf-th-content">
-                        <span>Vendedor</span>
-                        <span class="sf-sort-icon">⇅</span>
-                    </div>
-                </th>
-                <th class="sf-th-actions">Acciones</th>
-            </tr>
-        </thead>
+                 <th class="sf-th-sortable">
+                     <div class="sf-th-content">
+                         <span>Total</span>
+                         <span class="sf-sort-icon">⇅</span>
+                     </div>
+                 </th>
+                 <th class="sf-th-sortable">
+                     <div class="sf-th-content">
+                         <span>Estado Venta</span>
+                         <span class="sf-sort-icon">⇅</span>
+                     </div>
+                 </th>
+                 <th class="sf-th-sortable">
+                     <div class="sf-th-content">
+                         <span>Estado Pago</span>
+                         <span class="sf-sort-icon">⇅</span>
+                     </div>
+                 </th>
+                 <th class="sf-th-sortable">
+                     <div class="sf-th-content">
+                         <span>Fecha Pago / Cobro</span>
+                         <span class="sf-sort-icon">⇅</span>
+                     </div>
+                 </th>
+                 <th class="sf-th-sortable">
+                     <div class="sf-th-content">
+                         <span>Vendedor</span>
+                         <span class="sf-sort-icon">⇅</span>
+                     </div>
+                 </th>
+                 <th class="sf-th-actions">Acciones</th>
+             </tr>
+         </thead>
         <tbody>
             {% for sale in ventas_records %}
             <tr class="sf-table-row">
@@ -169,18 +181,42 @@
                 <td>
                     <div class="sf-amount">{{ sale.total }}</div>
                 </td>
-                <td>
-                    <span class="sf-badge sf-badge-{{ sale.status.level }}">
-                        <span class="sf-badge-dot"></span>
-                        {{ sale.status.label }}
-                    </span>
-                </td>
-                <td>
-                    <div class="sf-cell-user-simple">
-                        <div class="sf-avatar-sm">{{ sale.seller.initials }}</div>
-                        <span>{{ sale.seller.name }}</span>
-                    </div>
-                </td>
+                 <td>
+                     <span class="sf-badge sf-badge-{{ sale.status.level }}">
+                         <span class="sf-badge-dot"></span>
+                         {{ sale.status.label }}
+                     </span>
+                 </td>
+                 <td>
+                     {% if sale.payment_status == 'Pagado' %}
+                     <span class="sf-badge sf-badge-success" style="background-color: rgba(72, 187, 120, 0.1); color: #48BB78; border: 1px solid rgba(72, 187, 120, 0.2);">
+                         <span class="sf-badge-dot" style="background-color: #48BB78;"></span>
+                         Pagado
+                     </span>
+                     {% else %}
+                     <span class="sf-badge sf-badge-warning" style="background-color: rgba(237, 137, 54, 0.1); color: #ED8936; border: 1px solid rgba(237, 137, 54, 0.2);">
+                         <span class="sf-badge-dot" style="background-color: #ED8936;"></span>
+                         Pendiente
+                     </span>
+                     {% endif %}
+                 </td>
+                 <td>
+                     <div style="font-size: 13px;">
+                         {% if sale.payment_status == 'Pagado' %}
+                             <span style="color: #48BB78; font-weight: 500;">Pagado el:</span>
+                             <div style="color: #718096;">{{ sale.payment_date }}</div>
+                         {% else %}
+                             <span style="color: #ED8936; font-weight: 500;">Vence (Cobrar):</span>
+                             <div style="color: #718096; font-weight: 600;">{{ sale.invoice_due_date }}</div>
+                         {% endif %}
+                     </div>
+                 </td>
+                 <td>
+                     <div class="sf-cell-user-simple">
+                         <div class="sf-avatar-sm">{{ sale.seller.initials }}</div>
+                         <span>{{ sale.seller.name }}</span>
+                     </div>
+                 </td>
                 <td>
                     <div class="sf-actions">
                         <button class="sf-action-btn" title="Ver detalles">👁️</button>
