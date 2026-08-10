@@ -57,6 +57,27 @@
                     <span class="icon"><i class="fa-solid fa-chart-line"></i></span>
                     <span>Proyección Ventas</span>
                 </a>
+                
+                <div class="nav-section">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                        <span style="display: flex; align-items: center; gap: 12px;">
+                            <span class="icon"><i class="fa-solid fa-file-chart-column"></i></span>
+                            <span>Reportería</span>
+                        </span>
+                        <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
+                    </button>
+                    <div class="nav-submenu {% if request.endpoint in ['reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos'] %}open{% endif %}">
+                        <a href="{{ url_for('reportes.reportes_ventas') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_ventas' %}active{% endif %}">
+                            <span>Ventas</span>
+                        </a>
+                        <a href="{{ url_for('reportes.reportes_compras') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_compras' %}active{% endif %}">
+                            <span>Compras</span>
+                        </a>
+                        <a href="{{ url_for('reportes.reportes_gastos') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_gastos' %}active{% endif %}">
+                            <span>Gastos</span>
+                        </a>
+                    </div>
+                </div>
             </nav>
             
             <div class="sidebar-footer">
@@ -103,6 +124,15 @@
         </main>
     </div>
 
+    <script>
+        function toggleSubmenu(button) {
+            button.classList.toggle('expanded');
+            const submenu = button.nextElementSibling;
+            if (submenu) {
+                submenu.classList.toggle('open');
+            }
+        }
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

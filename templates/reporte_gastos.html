@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Reporte de Gastos - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Reportes > Gastos{% endblock %}
+
+{% block content %}
+<!-- Barra de acciones superior -->
+<div class="sf-action-bar" style="margin-bottom: 24px;">
+    <div class="sf-action-left">
+        <h3>Reporte General de Gastos Operacionales</h3>
+    </div>
+    <div class="sf-action-right">
+        <button class="sf-btn-primary">
+            <span>📥</span>
+            <span>Exportar PDF</span>
+        </button>
+    </div>
+</div>
+
+<!-- Grid de métricas de gastos -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon red"><i class="fa-solid fa-receipt"></i></div>
+        <div class="stat-info">
+            <div class="stat-value">$150,000</div>
+            <div class="stat-label">Gastos del Mes</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon purple"><i class="fa-solid fa-bolt"></i></div>
+        <div class="stat-info">
+            <div class="stat-value">$45,000</div>
+            <div class="stat-label">Servicios Básicos</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green"><i class="fa-solid fa-scale-balanced"></i></div>
+        <div class="stat-info">
+            <div class="stat-value">30%</div>
+            <div class="stat-label">Margen de Gastos / Ingresos</div>
+        </div>
+    </div>
+</div>
+
+<!-- Panel de reporte -->
+<div class="settings-section" style="margin-top: 24px;">
+    <div class="settings-card">
+        <div class="card-header">
+            <h3>Desglose de Gastos del Periodo</h3>
+        </div>
+        <table class="data-table" style="margin-top: 16px;">
+            <thead>
+                <tr>
+                    <th>Categoría de Gasto</th>
+                    <th>Monto</th>
+                    <th>Porcentaje</th>
+                    <th>Frecuencia</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Logística y Distribución</td>
+                    <td>$65,000</td>
+                    <td>43.3%</td>
+                    <td>Mensual</td>
+                </tr>
+                <tr>
+                    <td>Servicios Eléctricos e Internet</td>
+                    <td>$45,000</td>
+                    <td>30.0%</td>
+                    <td>Mensual</td>
+                </tr>
+                <tr>
+                    <td>Mantenimiento de Maquinaria</td>
+                    <td>$40,000</td>
+                    <td>26.7%</td>
+                    <td>Anual / Ocasional</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

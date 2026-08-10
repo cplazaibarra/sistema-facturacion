@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Reporte de Compras - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Reportes > Compras{% endblock %}
+
+{% block content %}
+<!-- Barra de acciones superior -->
+<div class="sf-action-bar" style="margin-bottom: 24px;">
+    <div class="sf-action-left">
+        <h3>Reporte General de Compras a Proveedores</h3>
+    </div>
+    <div class="sf-action-right">
+        <button class="sf-btn-primary">
+            <span>📥</span>
+            <span>Exportar PDF</span>
+        </button>
+    </div>
+</div>
+
+<!-- Grid de métricas de compras -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon purple"><i class="fa-solid fa-truck-ramp-box"></i></div>
+        <div class="stat-info">
+            <div class="stat-value">$450,000</div>
+            <div class="stat-label">Total Comprado (Año)</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon blue"><i class="fa-solid fa-store"></i></div>
+        <div class="stat-info">
+            <div class="stat-value">12</div>
+            <div class="stat-label">Proveedores Activos</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon cyan"><i class="fa-solid fa-boxes-packing"></i></div>
+        <div class="stat-info">
+            <div class="stat-value">48</div>
+            <div class="stat-label">Órdenes de Compra</div>
+        </div>
+    </div>
+</div>
+
+<!-- Panel de reporte -->
+<div class="settings-section" style="margin-top: 24px;">
+    <div class="settings-card">
+        <div class="card-header">
+            <h3>Compras Recientes por Proveedor</h3>
+        </div>
+        <table class="data-table" style="margin-top: 16px;">
+            <thead>
+                <tr>
+                    <th>Proveedor</th>
+                    <th>Última Compra</th>
+                    <th>Total Acumulado</th>
+                    <th>Estado de Pago</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Colmenares del Sur</td>
+                    <td>10 Ago 2026</td>
+                    <td>$280,000</td>
+                    <td><span class="badge success">Pagado</span></td>
+                </tr>
+                <tr>
+                    <td>Envases Plásticos Santiago</td>
+                    <td>08 Ago 2026</td>
+                    <td>$120,000</td>
+                    <td><span class="badge success">Pagado</span></td>
+                </tr>
+                <tr>
+                    <td>Etiquetas & Diseños SpA</td>
+                    <td>05 Ago 2026</td>
+                    <td>$50,000</td>
+                    <td><span class="badge warning">Pendiente</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

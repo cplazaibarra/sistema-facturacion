@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Reporte de Ventas - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Reportes > Ventas{% endblock %}
+
+{% block content %}
+<!-- Barra de acciones superior -->
+<div class="sf-action-bar" style="margin-bottom: 24px;">
+    <div class="sf-action-left">
+        <h3>Reporte General de Ventas</h3>
+    </div>
+    <div class="sf-action-right">
+        <button class="sf-btn-primary">
+            <span>📥</span>
+            <span>Exportar PDF</span>
+        </button>
+    </div>
+</div>
+
+<!-- Grid de métricas de ventas -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon blue"><i class="fa-solid fa-money-bill-wave"></i></div>
+        <div class="stat-info">
+            <div class="stat-value">$1,245,000</div>
+            <div class="stat-label">Ingresos Totales (Año)</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green"><i class="fa-solid fa-basket-shopping"></i></div>
+        <div class="stat-info">
+            <div class="stat-value">1,540</div>
+            <div class="stat-label">Ventas Registradas</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon cyan"><i class="fa-solid fa-chart-line"></i></div>
+        <div class="stat-info">
+            <div class="stat-value">$808.44</div>
+            <div class="stat-label">Ticket Promedio</div>
+        </div>
+    </div>
+</div>
+
+<!-- Panel de reporte -->
+<div class="settings-section" style="margin-top: 24px;">
+    <div class="settings-card">
+        <div class="card-header">
+            <h3>Distribución de Ventas por Producto</h3>
+        </div>
+        <table class="data-table" style="margin-top: 16px;">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Unidades Vendidas</th>
+                    <th>Ingresos</th>
+                    <th>% del Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Miel de Abeja 1kg</td>
+                    <td>850</td>
+                    <td>$425,000</td>
+                    <td>34.1%</td>
+                </tr>
+                <tr>
+                    <td>Miel de Abeja 500g</td>
+                    <td>420</td>
+                    <td>$168,000</td>
+                    <td>13.5%</td>
+                </tr>
+                <tr>
+                    <td>Polen Selección 250g</td>
+                    <td>270</td>
+                    <td>$108,000</td>
+                    <td>8.7%</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

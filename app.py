@@ -40,6 +40,7 @@ from routes.ventas import ventas_bp
 from routes.pagos import pagos_bp
 from routes.usuarios import usuarios_bp
 from routes.proveedores import proveedores_bp
+from routes.reportes import reportes_bp
 
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(inventario_bp)
@@ -47,6 +48,7 @@ app.register_blueprint(ventas_bp)
 app.register_blueprint(pagos_bp)
 app.register_blueprint(usuarios_bp)
 app.register_blueprint(proveedores_bp)
+app.register_blueprint(reportes_bp)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
