@@ -4,10 +4,16 @@
 {% block page_title %}Administración{% endblock %}
 
 {% block content %}
-<div class="admin-grid">
+    <div class="admin-grid">
     {% for module in modules %}
     <div class="admin-card">
-        <div class="admin-icon">{{ module.icon }}</div>
+        <div class="admin-icon">
+            {% if 'fa-' in module.icon %}
+                <i class="{{ module.icon }}"></i>
+            {% else %}
+                {{ module.icon }}
+            {% endif %}
+        </div>
         <h3>{{ module.title }}</h3>
         <p>{{ module.desc }}</p>
         <a href="{{ module.link }}" class="btn-primary">{{ module.action }}</a>

@@ -6,6 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>{% block title %}Facturación Bodega Miel{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=8">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     {% block extra_css %}{% endblock %}
@@ -15,45 +16,45 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo">
-                <div class="logo-icon">🐝</div>
+                <div class="logo-icon"><i class="fa-solid fa-honey-pot" style="color: #FFC107;">🐝</i></div>
                 <h1>Bodega Miel</h1>
             </div>
             
             <nav class="nav-menu">
                 <a href="{{ url_for('dashboard.dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}">
-                    <span class="icon">📊</span>
+                    <span class="icon"><i class="fa-solid fa-chart-pie"></i></span>
                     <span>Dashboard</span>
                 </a>
                 <a href="{{ url_for('ventas.ventas') }}" class="nav-item {% if request.endpoint == 'ventas.ventas' %}active{% endif %}">
-                    <span class="icon">💰</span>
+                    <span class="icon"><i class="fa-solid fa-hand-holding-dollar"></i></span>
                     <span>Ventas</span>
                 </a>
                 <a href="{{ url_for('pagos.pagos') }}" class="nav-item {% if request.endpoint == 'pagos.pagos' %}active{% endif %}">
-                    <span class="icon">💳</span>
+                    <span class="icon"><i class="fa-solid fa-credit-card"></i></span>
                     <span>Pagos</span>
                 </a>
                 <a href="{{ url_for('ventas.ingreso_ventas') }}" class="nav-item {% if request.endpoint == 'ventas.ingreso_ventas' %}active{% endif %}">
-                    <span class="icon">🧾</span>
+                    <span class="icon"><i class="fa-solid fa-file-invoice-dollar"></i></span>
                     <span>Ingreso Ventas</span>
                 </a>
                 <a href="{{ url_for('inventario.productos') }}" class="nav-item {% if request.endpoint == 'inventario.productos' %}active{% endif %}">
-                    <span class="icon">🧺</span>
+                    <span class="icon"><i class="fa-solid fa-jar"></i></span>
                     <span>Productos</span>
                 </a>
                 <a href="{{ url_for('usuarios.administracion') }}" class="nav-item {% if request.endpoint in ['usuarios.administracion', 'usuarios.usuarios', 'usuarios.roles', 'proveedores.proveedores', 'proveedores.ver_proveedor', 'proveedores.editar_proveedor', 'proveedores.agregar_contacto', 'proveedores.editar_contacto', 'proveedores.eliminar_contacto'] %}active{% endif %}">
-                    <span class="icon">⚙️</span>
+                    <span class="icon"><i class="fa-solid fa-sliders"></i></span>
                     <span>Administración</span>
                 </a>
                 <a href="{{ url_for('inventario.inventario') }}" class="nav-item {% if request.endpoint == 'inventario.inventario' %}active{% endif %}">
-                    <span class="icon">📦</span>
+                    <span class="icon"><i class="fa-solid fa-boxes-stacked"></i></span>
                     <span>Inventario</span>
                 </a>
                 <a href="{{ url_for('inventario.ingreso_mercaderia') }}" class="nav-item {% if request.endpoint == 'inventario.ingreso_mercaderia' %}active{% endif %}">
-                    <span class="icon">📥</span>
+                    <span class="icon"><i class="fa-solid fa-dolly"></i></span>
                     <span>Ingreso Mercadería</span>
                 </a>
                 <a href="{{ url_for('ventas.proyeccion_ventas') }}" class="nav-item {% if request.endpoint == 'ventas.proyeccion_ventas' %}active{% endif %}">
-                    <span class="icon">📈</span>
+                    <span class="icon"><i class="fa-solid fa-chart-line"></i></span>
                     <span>Proyección Ventas</span>
                 </a>
             </nav>
