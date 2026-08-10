@@ -4,6 +4,8 @@
 {% block page_title %}Editar Producto{% endblock %}
 
 {% block content %}
+<!-- Formulario de edición del producto -->
+<div id="formulario-producto">
 <div class="settings-section">
     <div class="settings-card">
         <div class="card-header">
@@ -33,6 +35,21 @@
                 </div>
             </div>
 
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Categoría</label>
+                    <select name="category" class="form-control" id="editar-producto-categoria-select">
+                        <option value="">Seleccionar categoría</option>
+                        {% for category in categories %}
+                        <option value="{{ category }}" {% if product.category == category %}selected{% endif %}>{{ category }}</option>
+                        {% endfor %}
+                        {% if product.category and product.category not in categories %}
+                        <option value="{{ product.category }}" selected>{{ product.category }}</option>
+                        {% endif %}
+                    </select>
+                </div>
+            </div>
+
             <div class="form-group">
                 <label>Descripción</label>
                 <textarea name="description" class="form-control" rows="3">{{ product.description or '' }}</textarea>
@@ -57,7 +74,7 @@
                     </div>
                     <div class="form-group">
                         <label>O URL de imagen</label>
-                        <input type="url" name="photo_url" class="form-control" value="{{ product.photo_url or '' }}" placeholder="https://ejemplo.com/imagen.jpg">
+                        <input type="text" name="photo_url" class="form-control" value="{{ product.photo_url or '' }}" placeholder="https://ejemplo.com/imagen.jpg">
                     </div>
                 </div>
             </div>
@@ -91,4 +108,125 @@
         </form>
     </div>
 </div>
+
+<!-- Botón para gestionar proveedores -->
+<div class="header-section">
+    <button class="btn-primary" onclick="toggleProveedores()" style="display: flex; align-items: center; gap: 8px;">
+        <span>🏪</span>
+        <span>Gestionar Proveedores</span>
+        <span id="proveedor-count" style="background: rgba(255,255,255,0.3); padding: 2px 8px; border-radius: 10px; font-size: 0.9em;">
+            {{ product_suppliers|length }}
+        </span>
+    </button>
+</div>
+</div>
+
+<!-- Sección de Proveedores (oculta por defecto) -->
+<div id="seccion-proveedores" style="display: none;">
+<!-- Botón para volver -->
+<div class="header-section">
+    <button class="btn-secondary" onclick="volverProducto()" style="display: flex; align-items: center; gap: 8px;">
+        <span>←</span>
+        <span>Volver a Editar Producto</span>
+    </button>
+</div>
+
+<div class="settings-section">
+    <div class="settings-card">
+        <div class="card-header">
+            <h3>Proveedores del Producto: <span style="color: #1976d2; font-weight: 600;">{{ product.name }}</span></h3>
+        </div>
+        
+        <!-- Formulario para agregar proveedor -->
+        <form method="POST" action="{{ url_for('agregar_proveedor_producto', product_id=product.id) }}" style="padding: 20px; border-bottom: 1px solid #e0e0e0;">
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                    <label>Agregar Proveedor</label>
+                    <select name="supplier_id" class="form-control" required>
+                        <option value="">Seleccionar proveedor...</option>
+                        {% for supplier in all_suppliers %}
+                        {% set is_assigned = namespace(value=false) %}
+                        {% for ps in product_suppliers %}
+                            {% if ps.supplier_id == supplier.id %}
+                                {% set is_assigned.value = true %}
+                            {% endif %}
+                        {% endfor %}
+                        {% if not is_assigned.value %}
+                        <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="display: flex; align-items: flex-end;">
+                    <button type="submit" class="btn-primary">➕ Agregar</button>
+                </div>
+            </div>
+        </form>
+        
+        <!-- Lista de proveedores asignados -->
+        {% if product_suppliers %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Proveedor</th>
+                    <th>Sitio Web</th>
+                    <th>Fecha Asignación</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ps in product_suppliers %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('ver_proveedor', supplier_id=ps.supplier_id) }}" style="color: #1976d2; text-decoration: none;">
+                            {{ ps.supplier_name }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if ps.website %}
+                        <a href="{{ ps.website }}" target="_blank" style="color: #666; font-size: 0.9em;">{{ ps.website[:40] }}...</a>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>{{ ps.created_at[:10] }}</td>
+                    <td>
+                        <button class="btn-icon delete-btn" title="Eliminar" onclick="eliminarProveedor({{ product.id }}, {{ ps.supplier_id }})">🗑️</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="padding: 20px; text-align: center; color: #999;">No hay proveedores asignados a este producto</p>
+        {% endif %}
+    </div>
+</div>
+</div>
+
+<script>
+function toggleProveedores() {
+    document.getElementById('formulario-producto').style.display = 'none';
+    document.getElementById('seccion-proveedores').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function volverProducto() {
+    document.getElementById('seccion-proveedores').style.display = 'none';
+    document.getElementById('formulario-producto').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.addEventListener('DOMContentLoaded', () => {});
+
+function eliminarProveedor(productId, supplierId) {
+    if (confirm('¿Estás seguro de que deseas eliminar este proveedor del producto?')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/productos/' + productId + '/proveedores/' + supplierId + '/eliminar';
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
 {% endblock %}

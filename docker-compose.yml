@@ -1,0 +1,41 @@
+version: '3.8'
+
+networks:
+  apps-net:
+    external: true
+
+services:
+  facturacion-db:
+    image: postgres:16-alpine
+    container_name: facturacion-db
+    restart: always
+    environment:
+      POSTGRES_USER: facturador
+      POSTGRES_PASSWORD: facturador_secure_pass_94
+      POSTGRES_DB: facturacion
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - apps-net
+
+  facturacion-app:
+    build: .
+    container_name: facturacion-app
+    restart: always
+    ports:
+      - "5001:5000"
+    environment:
+      - DB_HOST=facturacion-db
+      - DB_PORT=5432
+      - DB_NAME=facturacion
+      - DB_USER=facturador
+      - DB_PASSWORD=facturador_secure_pass_94
+    volumes:
+      - ./static/uploads:/app/static/uploads
+    depends_on:
+      - facturacion-db
+    networks:
+      - apps-net
+
+volumes:
+  pgdata:

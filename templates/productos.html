@@ -19,6 +19,19 @@
             <button class="btn-secondary" onclick="toggleFormulario()">Cerrar</button>
         </div>
         <form class="settings-form" method="POST" enctype="multipart/form-data">
+            {% if return_to %}
+            <input type="hidden" name="return_to" value="{{ return_to }}">
+            {% endif %}
+            {% if supplier_id %}
+            <input type="hidden" name="supplier_id" value="{{ supplier_id }}">
+            {% endif %}
+            {% if supplier %}
+            <div class="form-group" style="margin-bottom: 10px;">
+                <div style="font-size: 0.9em; color: #6b7280;">
+                    Se asociara al proveedor: <strong>{{ supplier.name }}</strong>
+                </div>
+            </div>
+            {% endif %}
             <div class="form-row">
                 <div class="form-group">
                     <label>SKU *</label>
@@ -96,40 +109,24 @@
         <div class="card-header">
             <h3>Productos Registrados</h3>
         </div>
-        <table class="data-table">
+        <table class="data-table" id="tabla-productos">
             <thead>
                 <tr>
                     <th>SKU</th>
-                    <th>Código de Barra</th>
                     <th>Código Interno</th>
                     <th>Nombre</th>
                     <th>Descripción</th>
-                    <th>Foto</th>
-                    <th>Dimensiones (cm)</th>
-                    <th>Peso (kg)</th>
-                    <th>Acciones</th>
+                    <th style="text-align: center;">Acciones</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="productos-tbody">
                 {% for product in products %}
-                <tr>
-                    <td>{{ product.sku }}</td>
-                    <td>{{ product.barcode or '-' }}</td>
-                    <td>{{ product.internal_code or '-' }}</td>
-                    <td>{{ product.name }}</td>
-                    <td>{{ product.description or '-' }}</td>
-                    <td>
-                        {% if product.photo_url %}
-                        <a href="{{ product.photo_url }}" target="_blank">Ver</a>
-                        {% else %}
-                        -
-                        {% endif %}
-                    </td>
-                    <td>
-                        {{ product.width_cm or '-' }} x {{ product.height_cm or '-' }} x {{ product.depth_cm or '-' }}
-                    </td>
-                    <td>{{ product.weight_kg or '-' }}</td>
-                    <td>
+                <tr class="producto-row">
+                    <td class="product-sku">{{ product.sku }}</td>
+                    <td class="product-internal-code">{{ product.internal_code or '-' }}</td>
+                    <td class="product-name">{{ product.name }}</td>
+                    <td class="product-description">{{ product.description or '-' }}</td>
+                    <td style="text-align: center;">
                         <div class="action-buttons">
                             <button class="btn-icon edit-btn" title="Editar" onclick="editarProducto({{ product.id }})">✏️</button>
                             <button class="btn-icon delete-btn" title="Eliminar" onclick="eliminarProducto({{ product.id }})">🗑️</button>
@@ -167,5 +164,47 @@ function eliminarProducto(productId) {
         form.submit();
     }
 }
+
+function filtrarProductos() {
+    const input = document.querySelector('.search-box input');
+    const filter = input ? input.value.toLowerCase() : '';
+    const tbody = document.getElementById('productos-tbody');
+    const rows = tbody.getElementsByClassName('producto-row');
+    
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const sku = row.querySelector('.product-sku').textContent.toLowerCase();
+        const internalCode = row.querySelector('.product-internal-code').textContent.toLowerCase();
+        const name = row.querySelector('.product-name').textContent.toLowerCase();
+        const description = row.querySelector('.product-description').textContent.toLowerCase();
+        
+        const searchText = sku + ' ' + internalCode + ' ' + name + ' ' + description;
+        
+        if (searchText.indexOf(filter) > -1) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    }
+}
+
+// Conectar el campo de búsqueda del header
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.querySelector('.search-box input');
+    if (searchInput) {
+        searchInput.placeholder = 'Buscar productos...';
+        searchInput.addEventListener('keyup', filtrarProductos);
+    }
+});
+
+{% if return_to %}
+document.addEventListener('DOMContentLoaded', () => {
+    const formulario = document.getElementById('formulario-productos');
+    if (formulario.style.display === 'none') {
+        formulario.style.display = 'block';
+        formulario.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+});
+{% endif %}
 </script>
 {% endblock %}

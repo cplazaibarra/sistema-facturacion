@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>{% block title %}Facturación Bodega Miel{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=8">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     {% block extra_css %}{% endblock %}
@@ -26,6 +27,10 @@
                 <a href="{{ url_for('ventas') }}" class="nav-item {% if request.endpoint == 'ventas' %}active{% endif %}">
                     <span class="icon">💰</span>
                     <span>Ventas</span>
+                </a>
+                <a href="{{ url_for('pagos') }}" class="nav-item {% if request.endpoint == 'pagos' %}active{% endif %}">
+                    <span class="icon">💳</span>
+                    <span>Pagos</span>
                 </a>
                 <a href="{{ url_for('ingreso_ventas') }}" class="nav-item {% if request.endpoint == 'ingreso_ventas' %}active{% endif %}">
                     <span class="icon">🧾</span>
@@ -83,6 +88,15 @@
             </header>
 
             <div class="content">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
                 {% block content %}{% endblock %}
             </div>
         </main>

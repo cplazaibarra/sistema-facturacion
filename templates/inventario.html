@@ -10,15 +10,16 @@
         <button class="btn-secondary">Exportar</button>
     </div>
     <div class="filter-group">
-        <select class="form-control">
-            <option>Todas las categorías</option>
+        <select id="inventory-category-filter" class="form-control">
+            <option value="">Todas las categorías</option>
             {% for category in inventory_categories %}
-            <option>{{ category }}</option>
+            <option value="{{ category }}">{{ category }}</option>
             {% endfor %}
         </select>
-        <select class="form-control">
+        <select id="inventory-stock-filter" class="form-control">
+            <option value="">Todos los estados</option>
             {% for option in inventory_stock_filters %}
-            <option>{{ option }}</option>
+            <option value="{{ option }}">{{ option }}</option>
             {% endfor %}
         </select>
     </div>
@@ -55,7 +56,7 @@
         </thead>
         <tbody>
             {% for item in inventory_items %}
-            <tr>
+            <tr data-code="{{ item.code }}" data-name="{{ item.name }}" data-desc="{{ item.desc }}" data-category="{{ item.category }}" data-status="{{ item.status }}">
                 <td>{{ item.code }}</td>
                 <td>
                     <div class="product-info">
@@ -92,4 +93,40 @@
         </tbody>
     </table>
 </div>
+<script>
+    (function () {
+        const categoryFilter = document.getElementById('inventory-category-filter');
+        const stockFilter = document.getElementById('inventory-stock-filter');
+        const searchInput = document.querySelector('.header .search-box input');
+        const rows = Array.from(document.querySelectorAll('.data-table tbody tr'));
+
+        function normalize(value) {
+            return (value || '').trim().toLowerCase();
+        }
+
+        function applyFilters() {
+            const selectedCategory = normalize(categoryFilter.value);
+            const selectedStatus = normalize(stockFilter.value);
+            const searchTerm = normalize(searchInput ? searchInput.value : '');
+
+            rows.forEach((row) => {
+                const rowCategory = normalize(row.getAttribute('data-category'));
+                const rowStatus = normalize(row.getAttribute('data-status'));
+                const rowCode = normalize(row.getAttribute('data-code'));
+                const rowName = normalize(row.getAttribute('data-name'));
+                const rowDesc = normalize(row.getAttribute('data-desc'));
+                const matchesCategory = !selectedCategory || rowCategory === selectedCategory;
+                const matchesStatus = !selectedStatus || rowStatus === selectedStatus;
+                const matchesSearch = !searchTerm || rowCode.includes(searchTerm) || rowName.includes(searchTerm) || rowDesc.includes(searchTerm) || rowCategory.includes(searchTerm);
+                row.style.display = matchesCategory && matchesStatus && matchesSearch ? '' : 'none';
+            });
+        }
+
+        categoryFilter.addEventListener('change', applyFilters);
+        stockFilter.addEventListener('change', applyFilters);
+        if (searchInput) {
+            searchInput.addEventListener('input', applyFilters);
+        }
+    })();
+</script>
 {% endblock %}

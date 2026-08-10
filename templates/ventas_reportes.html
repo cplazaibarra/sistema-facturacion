@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block title %}Reportes de Ventas - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Reportes de Ventas{% endblock %}
+
+{% block content %}
+<!-- Barra de acciones superior estilo Salesforce -->
+<div class="sf-action-bar">
+    <div class="sf-action-left">
+        <button class="sf-btn-secondary" onclick="window.location.href='{{ url_for('ventas') }}'">
+            <span>←</span>
+            <span>Volver a Ventas</span>
+        </button>
+    </div>
+    <div class="sf-action-right">
+        <button class="sf-btn-primary" onclick="window.location.href='{{ url_for('ventas') }}'">
+            <span>📊</span>
+            <span>Ir a Ventas</span>
+        </button>
+    </div>
+</div>
+
+<!-- Panel de reportes estilo Salesforce -->
+<div class="sf-report-panel">
+    <div class="sf-report-header">
+        <div>
+            <h3>Panel de Reportes de Ventas</h3>
+            <div class="sf-report-subtitle">Vista rápida (últimos 90 días, datos de ejemplo)</div>
+        </div>
+    </div>
+    <div class="sf-report-grid">
+        <div class="sf-report-card">
+            <div class="sf-report-card-title">Top 10 productos más vendidos</div>
+            <ul class="sf-report-list">
+                <li><span>Miel 1kg</span><span>1.240 u.</span></li>
+                <li><span>Miel 500g</span><span>980 u.</span></li>
+                <li><span>Polen 250g</span><span>760 u.</span></li>
+                <li><span>Propóleo 30ml</span><span>640 u.</span></li>
+                <li><span>Miel 250g</span><span>610 u.</span></li>
+                <li><span>Jalea Real 20g</span><span>520 u.</span></li>
+                <li><span>Miel Orgánica 1kg</span><span>480 u.</span></li>
+                <li><span>Miel con Nueces 500g</span><span>430 u.</span></li>
+                <li><span>Polen 100g</span><span>390 u.</span></li>
+                <li><span>Propóleo spray</span><span>340 u.</span></li>
+            </ul>
+        </div>
+        <div class="sf-report-card">
+            <div class="sf-report-card-title">Top 10 productos más rentables</div>
+            <ul class="sf-report-list">
+                <li><span>Propóleo 30ml</span><span>38% margen</span></li>
+                <li><span>Jalea Real 20g</span><span>35% margen</span></li>
+                <li><span>Miel Orgánica 1kg</span><span>32% margen</span></li>
+                <li><span>Propóleo spray</span><span>30% margen</span></li>
+                <li><span>Miel con Nueces 500g</span><span>29% margen</span></li>
+                <li><span>Polen 250g</span><span>28% margen</span></li>
+                <li><span>Miel 1kg</span><span>26% margen</span></li>
+                <li><span>Miel 500g</span><span>25% margen</span></li>
+                <li><span>Polen 100g</span><span>24% margen</span></li>
+                <li><span>Miel 250g</span><span>22% margen</span></li>
+            </ul>
+        </div>
+        <div class="sf-report-card">
+            <div class="sf-report-card-title">Top 10 próximos a vencimiento</div>
+            <ul class="sf-report-list">
+                <li><span>Polen 250g</span><span>18 días</span></li>
+                <li><span>Miel 500g</span><span>22 días</span></li>
+                <li><span>Propóleo 30ml</span><span>25 días</span></li>
+                <li><span>Miel 1kg</span><span>28 días</span></li>
+                <li><span>Jalea Real 20g</span><span>30 días</span></li>
+                <li><span>Polen 100g</span><span>33 días</span></li>
+                <li><span>Miel Orgánica 1kg</span><span>36 días</span></li>
+                <li><span>Miel con Nueces 500g</span><span>40 días</span></li>
+                <li><span>Propóleo spray</span><span>44 días</span></li>
+                <li><span>Miel 250g</span><span>48 días</span></li>
+            </ul>
+        </div>
+        <div class="sf-report-card">
+            <div class="sf-report-card-title">Top 10 clientes por nivel de compras</div>
+            <ul class="sf-report-list">
+                <li><span>María González</span><span>Platinum</span></li>
+                <li><span>Carlos Ruiz</span><span>Gold</span></li>
+                <li><span>Ana Torres</span><span>Gold</span></li>
+                <li><span>Jorge López</span><span>Silver</span></li>
+                <li><span>Lucía Fernández</span><span>Silver</span></li>
+                <li><span>Francisco Castro</span><span>Silver</span></li>
+                <li><span>Laura Sánchez</span><span>Bronze</span></li>
+                <li><span>Pedro Martínez</span><span>Bronze</span></li>
+                <li><span>María Cecilia</span><span>Bronze</span></li>
+                <li><span>Sofía Mendoza</span><span>Bronze</span></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos de ventas por SKU -->
+<div class="sf-report-panel">
+    <div class="sf-report-header">
+        <div>
+            <h3>Gráficos de Ventas por SKU</h3>
+            <div class="sf-report-subtitle">Selecciona uno o más SKU para graficar</div>
+        </div>
+    </div>
+    <div class="sf-report-filters">
+        <div class="sf-form-group">
+            <label class="sf-label">SKU a graficar</label>
+            <input id="skuSearchInput" class="sf-input" type="text" placeholder="Buscar por SKU o nombre...">
+            <div id="skuCheckboxList" class="sf-checkbox-list"></div>
+        </div>
+        <div class="sf-form-group">
+            <label class="sf-label">Rango de fechas</label>
+            <input id="skuStartDate" class="sf-input" type="date">
+            <input id="skuEndDate" class="sf-input" type="date">
+        </div>
+    </div>
+    <div class="sf-report-chart sf-chart-grid">
+        <canvas id="skuSalesChart"></canvas>
+        <div class="sf-chart-legend" id="skuChartLegend"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const skuSeriesData = {
+        "MEL-1000": [120, 140, 160, 180, 210, 230, 240, 260, 250, 270, 290, 310],
+        "MEL-500": [90, 110, 130, 150, 170, 190, 200, 210, 220, 230, 240, 260],
+        "MEL-250": [60, 70, 80, 90, 100, 110, 120, 130, 135, 140, 150, 160],
+        "POL-250": [40, 55, 65, 75, 85, 95, 105, 110, 115, 120, 130, 140],
+        "PROP-030": [30, 35, 45, 50, 55, 60, 65, 70, 74, 78, 82, 90],
+        "JAR-020": [20, 25, 30, 32, 35, 38, 40, 42, 45, 48, 50, 55],
+        "MEL-ORG-1K": [50, 60, 70, 80, 90, 95, 100, 110, 120, 130, 140, 150],
+        "MEL-NUE-500": [25, 30, 35, 40, 45, 50, 60, 70, 75, 80, 85, 90],
+    };
+
+    const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    const colorPalette = ["#1b96ff", "#2e844a", "#ff8f00", "#8e5ee1", "#d4504c", "#23a7a7", "#6a5cff", "#f48fb1"];
+
+    const skuChartCtx = document.getElementById('skuSalesChart');
+    const skuCheckboxList = document.getElementById('skuCheckboxList');
+    const skuStartDate = document.getElementById('skuStartDate');
+    const skuEndDate = document.getElementById('skuEndDate');
+    const skuSearchInput = document.getElementById('skuSearchInput');
+    const skuChartLegend = document.getElementById('skuChartLegend');
+
+    const allSkuOptions = [
+        { value: "MEL-1000", label: "MEL-1000 - Miel 1kg" },
+        { value: "MEL-500", label: "MEL-500 - Miel 500g" },
+        { value: "MEL-250", label: "MEL-250 - Miel 250g" },
+        { value: "POL-250", label: "POL-250 - Polen 250g" },
+        { value: "PROP-030", label: "PROP-030 - Propóleo 30ml" },
+        { value: "JAR-020", label: "JAR-020 - Jalea Real 20g" },
+        { value: "MEL-ORG-1K", label: "MEL-ORG-1K - Miel Orgánica 1kg" },
+        { value: "MEL-NUE-500", label: "MEL-NUE-500 - Miel con Nueces 500g" },
+    ];
+
+    function buildMonthMeta(count) {
+        const now = new Date();
+        const meta = [];
+        for (let i = count - 1; i >= 0; i -= 1) {
+            const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const label = `${monthNames[monthDate.getMonth()]} ${monthDate.getFullYear()}`;
+            meta.push({ label, date: monthDate });
+        }
+        return meta;
+    }
+
+    const monthMeta = buildMonthMeta(12);
+
+    function getRangeIndices(start, end) {
+        if (!start || !end || start > end) {
+            return monthMeta.map((_, index) => index);
+        }
+        return monthMeta
+            .map((item, index) => ({ item, index }))
+            .filter(({ item }) => item.date >= start && item.date <= end)
+            .map(({ index }) => index);
+    }
+
+    function toMonthStart(dateValue) {
+        if (!dateValue) return null;
+        const parsed = new Date(dateValue);
+        if (Number.isNaN(parsed.getTime())) return null;
+        return new Date(parsed.getFullYear(), parsed.getMonth(), 1);
+    }
+
+    const skuChart = new Chart(skuChartCtx, {
+        type: 'line',
+        data: {
+            labels: monthMeta.slice(0, 6).map((item) => item.label),
+            datasets: [],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false,
+                },
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                },
+            },
+        },
+    });
+
+    function buildDatasets(selectedSkus, rangeIndices) {
+        return selectedSkus.map((sku, index) => {
+            const data = skuSeriesData[sku] || [];
+            const rangedData = rangeIndices.map((i) => data[i]).filter((value) => value !== undefined);
+            return {
+                label: sku,
+                data: rangedData,
+                borderColor: colorPalette[index % colorPalette.length],
+                backgroundColor: 'transparent',
+                tension: 0.3,
+            };
+        });
+    }
+
+    const selectedSkuSet = new Set();
+
+    function formatCurrency(value) {
+        return value.toLocaleString('es-CL', { style: 'currency', currency: 'CLP' });
+    }
+
+    function renderChartLegend(datasets) {
+        skuChartLegend.innerHTML = '';
+        if (!datasets.length) {
+            skuChartLegend.innerHTML = '<div class="sf-legend-empty">Selecciona SKU para ver montos</div>';
+            return;
+        }
+        datasets.forEach((dataset) => {
+            const total = dataset.data.reduce((sum, value) => sum + (value || 0), 0);
+            const row = document.createElement('div');
+            row.className = 'sf-legend-item';
+            row.innerHTML = `
+                <span class="sf-legend-color" style="background:${dataset.borderColor}"></span>
+                <div class="sf-legend-text">
+                    <div class="sf-legend-title">${dataset.label}</div>
+                    <div class="sf-legend-value">${formatCurrency(total)}</div>
+                </div>
+            `;
+            skuChartLegend.appendChild(row);
+        });
+    }
+
+    function updateSkuChart() {
+        const selectedSkus = Array.from(selectedSkuSet);
+        const startDate = toMonthStart(skuStartDate.value);
+        const endDate = toMonthStart(skuEndDate.value);
+        const rangeIndices = getRangeIndices(startDate, endDate);
+        skuChart.data.labels = rangeIndices.map((i) => monthMeta[i].label);
+        skuChart.data.datasets = buildDatasets(selectedSkus, rangeIndices);
+        skuChart.update();
+        renderChartLegend(skuChart.data.datasets);
+    }
+
+    function renderSkuCheckboxes(options) {
+        skuCheckboxList.innerHTML = '';
+        options.forEach((option, index) => {
+            const wrapper = document.createElement('label');
+            wrapper.className = 'sf-checkbox-item';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = option.value;
+            checkbox.checked = selectedSkuSet.has(option.value);
+            checkbox.addEventListener('change', () => {
+                if (checkbox.checked) {
+                    selectedSkuSet.add(option.value);
+                } else {
+                    selectedSkuSet.delete(option.value);
+                }
+                updateSkuChart();
+            });
+            const text = document.createElement('span');
+            text.textContent = option.label;
+            wrapper.appendChild(checkbox);
+            wrapper.appendChild(text);
+            skuCheckboxList.appendChild(wrapper);
+        });
+    }
+
+    function filterSkuOptions(query) {
+        const filter = query.trim().toLowerCase();
+        const filtered = allSkuOptions.filter(
+            (option) => option.label.toLowerCase().includes(filter) || option.value.toLowerCase().includes(filter)
+        );
+        renderSkuCheckboxes(filtered);
+    }
+
+    skuSearchInput.addEventListener('input', () => {
+        filterSkuOptions(skuSearchInput.value);
+    });
+
+    skuStartDate.addEventListener('change', updateSkuChart);
+    skuEndDate.addEventListener('change', updateSkuChart);
+
+    // Estado inicial
+    const today = new Date();
+    const endDefault = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startDefault = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+    skuEndDate.value = endDefault.toISOString().slice(0, 10);
+    skuStartDate.value = startDefault.toISOString().slice(0, 10);
+    selectedSkuSet.add(allSkuOptions[0].value);
+    renderSkuCheckboxes(allSkuOptions);
+    updateSkuChart();
+</script>
+{% endblock %}
