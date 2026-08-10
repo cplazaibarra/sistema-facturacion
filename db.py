@@ -715,6 +715,67 @@ def init_db() -> None:
                 )
                 """
             )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS purchase_orders (
+                    id SERIAL PRIMARY KEY,
+                    oc_number TEXT NOT NULL UNIQUE,
+                    supplier_id INTEGER NOT NULL,
+                    order_date TEXT NOT NULL,
+                    status TEXT NOT NULL, -- 'Borrador', 'Emitida', 'Parcialmente Recibida', 'Recibida', 'Facturada'
+                    total_amount DOUBLE PRECISION NOT NULL,
+                    notes TEXT,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE RESTRICT
+                )
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS purchase_order_items (
+                    id SERIAL PRIMARY KEY,
+                    purchase_order_id INTEGER NOT NULL,
+                    product_id INTEGER NOT NULL,
+                    quantity_ordered INTEGER NOT NULL,
+                    quantity_received INTEGER DEFAULT 0,
+                    unit_price DOUBLE PRECISION NOT NULL,
+                    total_price DOUBLE PRECISION NOT NULL,
+                    FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE CASCADE,
+                    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
+                )
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS inventory_entries (
+                    id SERIAL PRIMARY KEY,
+                    entry_date TEXT NOT NULL,
+                    order_number TEXT NOT NULL,
+                    purchase_order_id INTEGER,
+                    supplier_id INTEGER NOT NULL,
+                    warehouse TEXT NOT NULL,
+                    notes TEXT,
+                    total_amount DOUBLE PRECISION NOT NULL,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON DELETE SET NULL,
+                    FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE RESTRICT
+                )
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS inventory_entry_items (
+                    id SERIAL PRIMARY KEY,
+                    inventory_entry_id INTEGER NOT NULL,
+                    product_id INTEGER NOT NULL,
+                    quantity INTEGER NOT NULL,
+                    unit_price DOUBLE PRECISION NOT NULL,
+                    total DOUBLE PRECISION NOT NULL,
+                    FOREIGN KEY (inventory_entry_id) REFERENCES inventory_entries(id) ON DELETE CASCADE,
+                    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
+                )
+                """
+            )
         conn.commit()
 
     seed_data_if_empty()
@@ -2131,5 +2192,228 @@ def delete_category(category: str) -> None:
                 WHERE lower(category) = %s OR lower(category) = %s
                 """,
                 (normalized, prefixed),
-            )
+                )
         conn.commit()
+
+
+# ==========================================
+# GESTIÓN DE ÓRDENES DE COMPRA (OC) Y RECEPCIÓN
+# ==========================================
+
+def get_next_oc_number() -> str:
+    """Genera el siguiente número correlativo único para una OC"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM purchase_orders ORDER BY id DESC LIMIT 1")
+            row = cur.fetchone()
+            next_id = (row["id"] + 1) if row else 1
+            return f"OC-{next_id:05d}"
+
+def create_purchase_order(supplier_id: int, order_date: str, notes: str, items: list[dict]) -> str:
+    """Crea una Orden de Compra completa en la base de datos"""
+    oc_num = get_next_oc_number()
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Calcular total
+            total_amount = sum(item["quantity"] * item["unit_price"] for item in items)
+            
+            # Insertar cabecera de la OC
+            cur.execute(
+                """
+                INSERT INTO purchase_orders (oc_number, supplier_id, order_date, status, total_amount, notes, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
+                """,
+                (oc_num, supplier_id, order_date, "Emitida", total_amount, notes, datetime.utcnow().isoformat(timespec='seconds'))
+            )
+            po_id = cur.fetchone()["id"]
+            
+            # Insertar ítems
+            for item in items:
+                line_total = item["quantity"] * item["unit_price"]
+                cur.execute(
+                    """
+                    INSERT INTO purchase_order_items (purchase_order_id, product_id, quantity_ordered, quantity_received, unit_price, total_price)
+                    VALUES (%s, %s, %s, 0, %s, %s)
+                    """,
+                    (po_id, item["product_id"], item["quantity"], item["unit_price"], line_total)
+                )
+        conn.commit()
+    return oc_num
+
+def list_purchase_orders() -> list[dict]:
+    """Lista todas las Órdenes de Compra"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT po.id, po.oc_number, po.order_date, po.status, po.total_amount, po.notes,
+                       s.name as supplier_name
+                FROM purchase_orders po
+                JOIN suppliers s ON po.supplier_id = s.id
+                ORDER BY po.id DESC
+                """
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+def get_purchase_order(po_id: int) -> dict | None:
+    """Obtiene la cabecera e información de una OC"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT po.id, po.oc_number, po.order_date, po.status, po.total_amount, po.notes, po.supplier_id,
+                       s.name as supplier_name, s.description as supplier_description, s.website as supplier_website
+                FROM purchase_orders po
+                JOIN suppliers s ON po.supplier_id = s.id
+                WHERE po.id = %s
+                """,
+                (po_id,)
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+
+def get_purchase_order_items(po_id: int) -> list[dict]:
+    """Obtiene los productos asociados a una OC"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT poi.id, poi.product_id, poi.quantity_ordered, poi.quantity_received, poi.unit_price, poi.total_price,
+                       p.name as product_name, p.sku as product_sku
+                FROM purchase_order_items poi
+                JOIN products p ON poi.product_id = p.id
+                WHERE poi.purchase_order_id = %s
+                ORDER BY p.name
+                """,
+                (po_id,)
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+def list_active_purchase_orders_by_supplier(supplier_id: int) -> list[dict]:
+    """Lista las OC pendientes de recibir de un proveedor"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, oc_number, order_date, total_amount, status
+                FROM purchase_orders
+                WHERE supplier_id = %s AND status IN ('Emitida', 'Parcialmente Recibida')
+                ORDER BY oc_number
+                """,
+                (supplier_id,)
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+def register_inventory_entry(po_id: int, order_number: str, entry_date: str, warehouse: str, notes: str, items: list[dict]) -> None:
+    """Registra el ingreso de mercadería cruzando cantidades contra la OC y actualizando stock"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Obtener datos de la OC
+            cur.execute("SELECT id, supplier_id FROM purchase_orders WHERE id = %s", (po_id,))
+            po = cur.fetchone()
+            if not po:
+                raise ValueError("Orden de Compra no encontrada.")
+                
+            supplier_id = po["supplier_id"]
+            total_amount = sum(item["quantity"] * item["unit_price"] for item in items)
+            
+            # 1. Registrar cabecera del ingreso
+            cur.execute(
+                """
+                INSERT INTO inventory_entries (entry_date, order_number, purchase_order_id, supplier_id, warehouse, notes, total_amount, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                """,
+                (entry_date, order_number, po_id, supplier_id, warehouse, notes, total_amount, datetime.utcnow().isoformat(timespec='seconds'))
+            )
+            entry_id = cur.fetchone()["id"]
+            
+            # 2. Guardar items del ingreso, validar límites y actualizar OC
+            for item in items:
+                prod_id = item["product_id"]
+                qty = item["quantity"]
+                price = item["unit_price"]
+                line_total = qty * price
+                
+                # Validar contra la OC lo pendiente por recibir
+                cur.execute(
+                    """
+                    SELECT id, quantity_ordered, quantity_received 
+                    FROM purchase_order_items 
+                    WHERE purchase_order_id = %s AND product_id = %s
+                    """,
+                    (po_id, prod_id)
+                )
+                po_item = cur.fetchone()
+                if not po_item:
+                    raise ValueError(f"El producto con ID {prod_id} no está en la Orden de Compra.")
+                    
+                pending = po_item["quantity_ordered"] - po_item["quantity_received"]
+                if qty > pending:
+                    raise ValueError(f"No puedes ingresar {qty} unidades. El máximo pendiente en la OC es {pending}.")
+                
+                # Registrar item del ingreso
+                cur.execute(
+                    """
+                    INSERT INTO inventory_entry_items (inventory_entry_id, product_id, quantity, unit_price, total)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (entry_id, prod_id, qty, price, line_total)
+                )
+                
+                # Actualizar cantidad recibida en la OC
+                new_received = po_item["quantity_received"] + qty
+                cur.execute(
+                    """
+                    UPDATE purchase_order_items 
+                    SET quantity_received = %s 
+                    WHERE id = %s
+                    """,
+                    (new_received, po_item["id"])
+                )
+            
+            # 3. Validar el nuevo estado de la OC
+            cur.execute(
+                """
+                SELECT SUM(quantity_ordered) as total_ord, SUM(quantity_received) as total_rec
+                FROM purchase_order_items
+                WHERE purchase_order_id = %s
+                """,
+                (po_id,)
+            )
+            summary = cur.fetchone()
+            total_ordered = summary["total_ord"] or 0
+            total_received = summary["total_rec"] or 0
+            
+            if total_received >= total_ordered:
+                new_status = "Recibida"
+            elif total_received > 0:
+                new_status = "Parcialmente Recibida"
+            else:
+                new_status = "Emitida"
+                
+            cur.execute("UPDATE purchase_orders SET status = %s WHERE id = %s", (new_status, po_id))
+        conn.commit()
+
+def list_inventory_entries() -> list[dict]:
+    """Obtiene los ingresos de mercadería recientes"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT ie.id, ie.entry_date as date, ie.order_number, ie.warehouse, ie.notes, ie.total_amount,
+                       s.name as supplier, po.oc_number,
+                       (SELECT COUNT(*) FROM inventory_entry_items WHERE inventory_entry_id = ie.id) as items_count
+                FROM inventory_entries ie
+                JOIN suppliers s ON ie.supplier_id = s.id
+                LEFT JOIN purchase_orders po ON ie.purchase_order_id = po.id
+                ORDER BY ie.id DESC
+                """
+            )
+            records = []
+            for row in cur.fetchall():
+                r = dict(row)
+                r["total"] = f"${r['total_amount']:,.2f}"
+                r["status"] = "Completado"
+                records.append(r)
+            return records
+

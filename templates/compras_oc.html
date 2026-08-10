@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Órdenes de Compra - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Órdenes de Compra{% endblock %}
+
+{% block content %}
+<div class="sf-action-bar" style="margin-bottom: 24px;">
+    <div class="sf-action-left">
+        <h3>Listado de Órdenes de Compra (OC)</h3>
+    </div>
+    <div class="sf-action-right">
+        <a href="{{ url_for('compras.nueva_oc') }}" class="sf-btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+            <span>➕</span>
+            <span>Nueva OC</span>
+        </a>
+    </div>
+</div>
+
+<div class="recent-section">
+    <div class="recent-card">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Número OC</th>
+                    <th>Proveedor</th>
+                    <th>Fecha Emisión</th>
+                    <th>Total</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td><strong>{{ order.oc_number }}</strong></td>
+                    <td>{{ order.supplier_name }}</td>
+                    <td>{{ order.order_date }}</td>
+                    <td>${{ "{:,.2f}".format(order.total_amount) }}</td>
+                    <td>
+                        {% if order.status == 'Emitida' %}
+                        <span class="badge" style="background-color: #00AEEF; color: white;">{{ order.status }}</span>
+                        {% elif order.status == 'Parcialmente Recibida' %}
+                        <span class="badge" style="background-color: #6B5B95; color: white;">{{ order.status }}</span>
+                        {% elif order.status == 'Recibida' %}
+                        <span class="badge" style="background-color: #00D1B2; color: white;">{{ order.status }}</span>
+                        {% else %}
+                        <span class="badge" style="background-color: #718096; color: white;">{{ order.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('compras.descargar_oc_pdf', po_id=order.id) }}" class="btn-small" style="background-color: #6B5B95; text-decoration: none; color: white; display: inline-flex; align-items: center; gap: 4px;">
+                            <span>📄</span> PDF
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: #718096; padding: 24px;">No hay órdenes de compra registradas.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

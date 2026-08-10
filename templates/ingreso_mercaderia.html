@@ -5,463 +5,228 @@
 
 {% block content %}
 <div class="ingreso-container">
-    <div class="ingreso-form-card">
+    <div class="ingreso-form-card" style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
         <h3>Registrar Ingreso de Mercadería</h3>
-        <form class="ingreso-form" method="post">
-            {% if error_message %}
-            <div class="alert-error" style="margin-bottom: 16px; color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; padding: 10px 12px; border-radius: 8px;">
-                {{ error_message }}
-            </div>
-            {% endif %}
-            <div id="client-error" style="margin-bottom: 16px; color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; padding: 10px 12px; border-radius: 8px; display: none;"></div>
-            <div class="form-row">
+        <form class="ingreso-form" method="post" id="ingreso-form" style="margin-top: 20px;">
+            <div id="client-error" class="alert-error" style="margin-bottom: 16px; color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; padding: 10px 12px; border-radius: 8px; display: none;"></div>
+            
+            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                 <div class="form-group">
-                    <label>Fecha de Ingreso</label>
-                    <input type="date" class="form-control" id="ingreso-date" name="ingreso_date" value="{{ ingreso_date or default_date }}" required>
+                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Fecha de Ingreso</label>
+                    <input type="date" class="form-control" name="ingreso_date" value="{{ default_date }}" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
                 </div>
-                
                 <div class="form-group">
-                    <label>Número de Orden</label>
-                    <input type="text" class="form-control" id="ingreso-order-number" name="order_number" placeholder="" value="{{ order_number }}" required>
+                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Número de Guía / Recepción</label>
+                    <input type="text" class="form-control" name="order_number" placeholder="Ej. GD-10254" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
                 </div>
             </div>
             
-            <div class="form-row">
+            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                 <div class="form-group">
-                    <label>Proveedor</label>
-                    <select class="form-control" id="ingreso-supplier" name="supplier_id" required>
+                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Proveedor</label>
+                    <select class="form-control" id="ingreso-supplier" name="supplier_id" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
                         <option value="">Seleccionar proveedor</option>
                         {% for supplier in suppliers %}
-                        <option value="{{ supplier.id }}" {% if selected_supplier_id == supplier.id %}selected{% endif %}>{{ supplier.name }}</option>
+                        <option value="{{ supplier.id }}">{{ supplier.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                
                 <div class="form-group">
-                    <label>Almacén</label>
-                    <select class="form-control" id="ingreso-warehouse" name="warehouse" required>
-                        {% for warehouse_name in warehouses %}
-                        <option {% if warehouse_name == warehouse %}selected{% endif %}>{{ warehouse_name }}</option>
+                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Orden de Compra Asociada *</label>
+                    <select class="form-control" id="ingreso-oc" name="purchase_order_id" required disabled style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                        <option value="">Selecciona un proveedor primero</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Almacén</label>
+                    <select class="form-control" name="warehouse" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                        {% for w in warehouses %}
+                        <option>{{ w }}</option>
                         {% endfor %}
                     </select>
                 </div>
             </div>
             
-            <div class="form-divider"></div>
+            <div class="form-divider" style="height: 1px; background: #E2E8F0; margin: 24px 0;"></div>
             
-            <h4>Productos a Ingresar</h4>
+            <h4 style="margin-bottom: 12px;">Detalle de Recepción</h4>
+            <p style="color: #718096; font-size: 13px; margin-bottom: 16px;" id="oc-hint">Las cantidades a ingresar se validan estrictamente contra las cantidades pendientes de la OC seleccionada.</p>
             
-            <div class="productos-ingreso">
-                <div class="producto-row">
-                    <div class="form-group flex-2">
-                        <label>Producto</label>
-                        <select class="form-control ingreso-product" name="product_id[]">
-                            <option value="">Seleccionar producto</option>
-                            {% for product in products %}
-                            <option value="{{ product.id }}">{{ product.name }}</option>
-                            {% endfor %}
-                        </select>
-                        <div class="no-products-hint" style="margin-top: 6px; font-size: 0.9em; color: #6b7280;"></div>
-                        <div class="create-product-link" style="margin-top: 6px; font-size: 0.9em; display: none;">
-                            <a href="#" onclick="goToCreateProduct(event)" style="color: #1976d2; text-decoration: none;">
-                                ➕ Crear nuevo producto y asociar al proveedor
-                            </a>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Cantidad</label>
-                        <input type="number" class="form-control ingreso-qty" name="quantity[]" placeholder="0" min="0" step="1">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Precio Unitario</label>
-                        <input type="number" class="form-control ingreso-price" name="unit_price[]" placeholder="$0.00" step="0.01" min="0">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Total</label>
-                        <input type="text" class="form-control ingreso-total" readonly value="$0.00">
-                    </div>
-                    
-                    <div class="form-group-actions">
-                        <label>&nbsp;</label>
-                        <button type="button" class="btn-icon-danger" title="Eliminar">🗑️</button>
-                    </div>
-                </div>
+            <table class="data-table" id="recepcion-table" style="width: 100%; display: none;">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Solicitado</th>
+                        <th>Recibido Prev.</th>
+                        <th>Pendiente</th>
+                        <th style="width: 150px;">Recibido Ahora</th>
+                    </tr>
+                </thead>
+                <tbody id="recepcion-tbody">
+                    <!-- Filas cargadas por JS -->
+                </tbody>
+            </table>
+
+            <div class="form-group" style="margin-top: 24px;">
+                <label style="font-weight: 500; display: block; margin-bottom: 6px;">Observaciones</label>
+                <textarea class="form-control" rows="3" name="notes" placeholder="Detalles de la entrega o discrepancias..." style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;"></textarea>
             </div>
             
-            <button type="button" class="btn-add-product">+ Agregar Producto</button>
-            
-            <div class="form-divider"></div>
-            
-            <div class="form-summary">
-                <div class="summary-row">
-                    <span>Subtotal:</span>
-                    <span class="summary-value summary-subtotal">$0.00</span>
-                </div>
-                <div class="summary-row">
-                    <span>IVA (19%):</span>
-                    <span class="summary-value summary-iva">$0.00</span>
-                </div>
-                <div class="summary-row total">
-                    <span>Total:</span>
-                    <span class="summary-value summary-total">$0.00</span>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label>Observaciones</label>
-                <textarea class="form-control" rows="3" id="ingreso-notes" name="notes" placeholder="Observaciones adicionales...">{{ notes }}</textarea>
-            </div>
-            
-            <div class="form-actions">
-                <button type="button" class="btn-secondary">Cancelar</button>
-                <button type="submit" class="btn-primary">Registrar Ingreso</button>
+            <div class="form-actions" style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+                <button type="button" class="btn-secondary" style="padding: 10px 16px;">Cancelar</button>
+                <button type="submit" class="sf-btn-primary" style="padding: 10px 20px;">Registrar Ingreso</button>
             </div>
         </form>
     </div>
     
-    <div class="recent-ingresos">
-        <h3>Últimos Ingresos</h3>
-        <div class="ingreso-list">
-            {% for ingreso in recent_ingresos %}
-            <div class="ingreso-item">
-                <div class="ingreso-date">{{ ingreso.date }}</div>
-                <div class="ingreso-info">
-                    <div class="ingreso-title">{{ ingreso.order }}</div>
-                    <div class="ingreso-desc">{{ ingreso.supplier }}</div>
-                </div>
-                <div class="ingreso-amount">${{ "{:,.2f}".format(ingreso.total) }}</div>
-            </div>
-            {% endfor %}
-        </div>
+    <div class="recent-ingresos" style="margin-top: 32px; background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <h3>Últimos Ingresos Registrados</h3>
+        <table class="data-table" style="width: 100%; margin-top: 16px;">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Guía / Recepción</th>
+                    <th>OC Relacionada</th>
+                    <th>Proveedor</th>
+                    <th>Productos</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ingreso in recent_ingresos %}
+                <tr>
+                    <td>{{ ingreso.date }}</td>
+                    <td><strong>{{ ingreso.order_number }}</strong></td>
+                    <td>{{ ingreso.oc_number or 'Sin OC' }}</td>
+                    <td>{{ ingreso.supplier }}</td>
+                    <td>{{ ingreso.items_count }} items</td>
+                    <td>{{ ingreso.total }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: #718096; padding: 16px;">No hay ingresos de mercadería registrados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 
 <script>
-const supplierSelect = document.getElementById('ingreso-supplier');
-const productosContainer = document.querySelector('.productos-ingreso');
-const addProductButton = document.querySelector('.btn-add-product');
-const initialProductSelect = document.querySelector('.ingreso-product');
-const originalProductOptions = initialProductSelect.innerHTML;
-let cachedProducts = null;
-const draftStorageKey = 'ingreso-mercaderia-draft';
-let pendingRestoreRows = null;
-const subtotalValue = document.querySelector('.summary-subtotal');
-const ivaValue = document.querySelector('.summary-iva');
-const totalValue = document.querySelector('.summary-total');
-const ingresoForm = document.querySelector('.ingreso-form');
-const ingresoDateInput = document.getElementById('ingreso-date');
-const orderNumberInput = document.getElementById('ingreso-order-number');
-const warehouseSelect = document.getElementById('ingreso-warehouse');
-const notesInput = document.getElementById('ingreso-notes');
-const clientErrorBox = document.getElementById('client-error');
-const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.get('submitted') === '1') {
-    sessionStorage.removeItem(draftStorageKey);
-}
-{% if selected_product_id %}
-const selectedProductId = {{ selected_product_id }};
-{% else %}
-const selectedProductId = null;
-{% endif %}
+document.addEventListener('DOMContentLoaded', () => {
+    const supplierSelect = document.getElementById('ingreso-supplier');
+    const ocSelect = document.getElementById('ingreso-oc');
+    const table = document.getElementById('recepcion-table');
+    const tbody = document.getElementById('recepcion-tbody');
+    const errorBox = document.getElementById('client-error');
+    const form = document.getElementById('ingreso-form');
 
-function goToCreateProduct(event) {
-    event.preventDefault();
-    const supplierId = supplierSelect.value;
-    if (!supplierId) {
-        alert('Por favor selecciona un proveedor primero');
-        return;
-    }
-    saveDraft();
-    const link = buildCreateProductLink(supplierId);
-    window.location.href = link;
-}
-
-function updateCreateProductLinkVisibility() {
-    const supplierId = supplierSelect.value;
-    const links = document.querySelectorAll('.create-product-link');
-    links.forEach((link) => {
-        link.style.display = supplierId ? 'block' : 'none';
-    });
-}
-
-function buildCreateProductLink(supplierId) {
-    const returnTo = `${window.location.pathname}?supplier_id=${supplierId}`;
-    const encodedReturn = encodeURIComponent(returnTo);
-    return `/productos?return_to=${encodedReturn}&supplier_id=${supplierId}`;
-}
-
-function setProductOptions(productSelect, products, allowSelected) {
-    const row = productSelect.closest('.producto-row');
-    const noProductsHint = row.querySelector('.no-products-hint');
-    const createProductLink = row.querySelector('.create-product-link');
-    productSelect.innerHTML = '<option value="">Seleccionar producto</option>';
-    if (!products || products.length === 0) {
-        productSelect.innerHTML += '<option value="" disabled>No hay productos asociados</option>';
+    supplierSelect.addEventListener('change', async () => {
         const supplierId = supplierSelect.value;
-        if (supplierId) {
-            const link = buildCreateProductLink(supplierId);
-            noProductsHint.innerHTML = `No hay productos asociados. <a href="${link}" style="color: #1976d2; text-decoration: none;">Crear producto y asociar</a>`;
-            createProductLink.style.display = 'block';
-        } else {
-            noProductsHint.textContent = '';
-            createProductLink.style.display = 'none';
-        }
-        return;
-    }
-    noProductsHint.textContent = '';
-    products.forEach((product) => {
-        const option = document.createElement('option');
-        option.value = product.id;
-        option.textContent = product.name;
-        productSelect.appendChild(option);
-    });
-    if (allowSelected && selectedProductId) {
-        const option = productSelect.querySelector(`option[value="${selectedProductId}"]`);
-        if (option) {
-            productSelect.value = String(selectedProductId);
-        }
-    }
-}
-
-function updateRowTotals(row) {
-    const qtyInput = row.querySelector('.ingreso-qty');
-    const priceInput = row.querySelector('.ingreso-price');
-    const totalInput = row.querySelector('.ingreso-total');
-    const qty = parseFloat(qtyInput.value || '0');
-    const price = parseFloat(priceInput.value || '0');
-    const total = qty * price;
-    totalInput.value = `$${total.toFixed(2)}`;
-    updateSummary();
-}
-
-function updateSummary() {
-    const rowTotals = Array.from(document.querySelectorAll('.ingreso-total'))
-        .map((input) => parseFloat((input.value || '').replace('$', '')) || 0);
-    const subtotal = rowTotals.reduce((acc, value) => acc + value, 0);
-    const iva = subtotal * 0.19;
-    const total = subtotal + iva;
-    subtotalValue.textContent = `$${subtotal.toFixed(2)}`;
-    ivaValue.textContent = `$${iva.toFixed(2)}`;
-    totalValue.textContent = `$${total.toFixed(2)}`;
-}
-
-function bindRowEvents(row) {
-    const qtyInput = row.querySelector('.ingreso-qty');
-    const priceInput = row.querySelector('.ingreso-price');
-    const productSelect = row.querySelector('.ingreso-product');
-    const removeButton = row.querySelector('.btn-icon-danger');
-    qtyInput.addEventListener('input', () => updateRowTotals(row));
-    priceInput.addEventListener('input', () => updateRowTotals(row));
-    qtyInput.addEventListener('input', saveDraft);
-    priceInput.addEventListener('input', saveDraft);
-    qtyInput.addEventListener('change', saveDraft);
-    priceInput.addEventListener('change', saveDraft);
-    productSelect.addEventListener('change', saveDraft);
-    removeButton.addEventListener('click', () => {
-        const rows = document.querySelectorAll('.producto-row');
-        if (rows.length > 1) {
-            row.remove();
-        } else {
-            row.querySelector('.ingreso-product').value = '';
-            row.querySelector('.ingreso-qty').value = '';
-            row.querySelector('.ingreso-price').value = '';
-            row.querySelector('.ingreso-total').value = '$0.00';
-        }
-        updateSummary();
-        saveDraft();
-    });
-}
-
-function createNewRow() {
-    const templateRow = document.querySelector('.producto-row');
-    const clone = templateRow.cloneNode(true);
-    clone.querySelector('.ingreso-product').value = '';
-    clone.querySelector('.ingreso-qty').value = '';
-    clone.querySelector('.ingreso-price').value = '';
-    clone.querySelector('.ingreso-total').value = '$0.00';
-    const noProductsHint = clone.querySelector('.no-products-hint');
-    const createProductLink = clone.querySelector('.create-product-link');
-    noProductsHint.textContent = '';
-    createProductLink.style.display = supplierSelect.value ? 'block' : 'none';
-    productosContainer.appendChild(clone);
-    bindRowEvents(clone);
-    if (supplierSelect.value && cachedProducts) {
-        setProductOptions(clone.querySelector('.ingreso-product'), cachedProducts, false);
-    } else {
-        clone.querySelector('.ingreso-product').innerHTML = originalProductOptions;
-    }
-    updateSummary();
-    saveDraft();
-}
-
-function getRowData(row) {
-    const productSelect = row.querySelector('.ingreso-product');
-    const qtyInput = row.querySelector('.ingreso-qty');
-    const priceInput = row.querySelector('.ingreso-price');
-    return {
-        productId: productSelect.value || '',
-        qty: qtyInput.value || '',
-        price: priceInput.value || '',
-    };
-}
-
-function saveDraft() {
-    const rows = Array.from(document.querySelectorAll('.producto-row')).map(getRowData);
-    const payload = {
-        supplierId: supplierSelect.value || '',
-        ingresoDate: ingresoDateInput.value || '',
-        orderNumber: orderNumberInput.value || '',
-        warehouse: warehouseSelect.value || '',
-        notes: notesInput.value || '',
-        rows,
-    };
-    sessionStorage.setItem(draftStorageKey, JSON.stringify(payload));
-}
-
-function restoreDraftIfAny() {
-    const raw = sessionStorage.getItem(draftStorageKey);
-    if (!raw) {
-        return;
-    }
-    let draft = null;
-    try {
-        draft = JSON.parse(raw);
-    } catch (error) {
-        sessionStorage.removeItem(draftStorageKey);
-        return;
-    }
-    if (!draft) {
-        return;
-    }
-    if (draft.ingresoDate) {
-        ingresoDateInput.value = draft.ingresoDate;
-    }
-    if (draft.orderNumber) {
-        orderNumberInput.value = draft.orderNumber;
-    }
-    if (draft.warehouse) {
-        warehouseSelect.value = draft.warehouse;
-    }
-    if (typeof draft.notes === 'string') {
-        notesInput.value = draft.notes;
-    }
-    if (!Array.isArray(draft.rows) || draft.rows.length === 0) {
-        return;
-    }
-    if (draft.supplierId && supplierSelect.value !== String(draft.supplierId)) {
-        supplierSelect.value = String(draft.supplierId);
-    }
-    pendingRestoreRows = draft.rows;
-    supplierSelect.dispatchEvent(new Event('change'));
-}
-
-function applyPendingRestoreRows() {
-    if (!pendingRestoreRows) {
-        return;
-    }
-    const rowsData = pendingRestoreRows;
-    pendingRestoreRows = null;
-    while (document.querySelectorAll('.producto-row').length < rowsData.length) {
-        createNewRow();
-    }
-    const rows = Array.from(document.querySelectorAll('.producto-row'));
-    rowsData.forEach((rowData, index) => {
-        const row = rows[index];
-        const productSelect = row.querySelector('.ingreso-product');
-        const qtyInput = row.querySelector('.ingreso-qty');
-        const priceInput = row.querySelector('.ingreso-price');
-        productSelect.value = rowData.productId || '';
-        qtyInput.value = rowData.qty || '';
-        priceInput.value = rowData.price || '';
-        updateRowTotals(row);
-    });
-    saveDraft();
-}
-
-supplierSelect.addEventListener('change', async () => {
-    const supplierId = supplierSelect.value;
-    updateCreateProductLinkVisibility();
-    if (!supplierId) {
-        cachedProducts = null;
-        document.querySelectorAll('.ingreso-product').forEach((select) => {
-            select.innerHTML = originalProductOptions;
-            const row = select.closest('.producto-row');
-            row.querySelector('.no-products-hint').textContent = '';
-        });
-        return;
-    }
-    try {
-        const response = await fetch(`/api/proveedores/${supplierId}/productos`);
-        if (!response.ok) {
-            cachedProducts = null;
-            document.querySelectorAll('.ingreso-product').forEach((select) => {
-                select.innerHTML = originalProductOptions;
-                const row = select.closest('.producto-row');
-                row.querySelector('.no-products-hint').textContent = '';
-            });
+        ocSelect.innerHTML = '<option value="">Cargando órdenes...</option>';
+        ocSelect.disabled = true;
+        table.style.display = 'none';
+        
+        if (!supplierId) {
+            ocSelect.innerHTML = '<option value="">Selecciona un proveedor primero</option>';
             return;
         }
-        const products = await response.json();
-        cachedProducts = products;
-        const selects = document.querySelectorAll('.ingreso-product');
-        selects.forEach((select, index) => setProductOptions(select, products, index === 0));
-        applyPendingRestoreRows();
-    } catch (error) {
-        cachedProducts = null;
-        document.querySelectorAll('.ingreso-product').forEach((select) => {
-            select.innerHTML = originalProductOptions;
-            const row = select.closest('.producto-row');
-            row.querySelector('.no-products-hint').textContent = '';
-        });
-    }
-});
 
-addProductButton.addEventListener('click', () => {
-    createNewRow();
-});
-
-bindRowEvents(document.querySelector('.producto-row'));
-updateSummary();
-ingresoDateInput.addEventListener('change', saveDraft);
-orderNumberInput.addEventListener('input', saveDraft);
-orderNumberInput.addEventListener('change', saveDraft);
-warehouseSelect.addEventListener('change', saveDraft);
-notesInput.addEventListener('input', saveDraft);
-notesInput.addEventListener('change', saveDraft);
-ingresoForm.addEventListener('submit', () => {
-    saveDraft();
-});
-
-ingresoForm.addEventListener('submit', (event) => {
-    if (clientErrorBox) {
-        clientErrorBox.style.display = 'none';
-        clientErrorBox.textContent = '';
-    }
-    const hasProduct = Array.from(document.querySelectorAll('.producto-row')).some((row) => {
-        const productSelect = row.querySelector('.ingreso-product');
-        const qtyInput = row.querySelector('.ingreso-qty');
-        const productId = productSelect ? productSelect.value : '';
-        const qty = parseFloat(qtyInput ? qtyInput.value : '0');
-        return productId && qty > 0;
-    });
-    if (!hasProduct) {
-        event.preventDefault();
-        if (clientErrorBox) {
-            clientErrorBox.textContent = 'Agrega al menos un producto con cantidad válida.';
-            clientErrorBox.style.display = 'block';
+        try {
+            const response = await fetch(`/api/compras/proveedores/${supplierId}/oc-activas`);
+            if (response.ok) {
+                const orders = await response.json();
+                if (orders.length > 0) {
+                    let options = '<option value="">Seleccionar Orden de Compra</option>';
+                    orders.forEach(o => {
+                        options += `<option value="${o.id}">${o.oc_number} (${o.order_date})</option>`;
+                    });
+                    ocSelect.innerHTML = options;
+                    ocSelect.disabled = false;
+                } else {
+                    ocSelect.innerHTML = '<option value="">No hay OCs activas para este proveedor</option>';
+                }
+            }
+        } catch(e) {
+            ocSelect.innerHTML = '<option value="">Error al cargar OCs</option>';
         }
-    }
+    });
+
+    ocSelect.addEventListener('change', async () => {
+        const poId = ocSelect.value;
+        tbody.innerHTML = '';
+        if (!poId) {
+            table.style.display = 'none';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/compras/oc/${poId}/items`);
+            if (response.ok) {
+                const items = await response.json();
+                if (items.length > 0) {
+                    items.forEach(item => {
+                        const pending = item.quantity_ordered - item.quantity_received;
+                        if (pending <= 0) return; // Ya se recibió todo
+                        
+                        const row = document.createElement('tr');
+                        row.className = 'recepcion-row';
+                        row.innerHTML = `
+                            <td>
+                                <strong>${item.product_name}</strong>
+                                <input type="hidden" name="product_id[]" value="${item.product_id}">
+                                <input type="hidden" name="unit_price[]" value="${item.unit_price}">
+                            </td>
+                            <td>${item.quantity_ordered}</td>
+                            <td>${item.quantity_received}</td>
+                            <td class="pending-qty">${pending}</td>
+                            <td>
+                                <input type="number" name="quantity[]" class="form-control input-qty" value="${pending}" min="0" max="${pending}" required style="width: 100px; padding: 6px; border: 1px solid #E2E8F0; border-radius: 4px;">
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                    table.style.display = 'table';
+                }
+            }
+        } catch(e) {
+            console.error(e);
+        }
+    });
+
+    form.addEventListener('submit', (e) => {
+        errorBox.style.display = 'none';
+        let hasError = false;
+        let activeItems = 0;
+
+        document.querySelectorAll('.recepcion-row').forEach(row => {
+            const pending = parseInt(row.querySelector('.pending-qty').textContent);
+            const input = row.querySelector('.input-qty');
+            const val = parseInt(input.value) || 0;
+            
+            if (val > 0) {
+                activeItems++;
+            }
+            if (val > pending) {
+                hasError = true;
+                input.style.borderColor = '#F56565';
+            } else {
+                input.style.borderColor = '#E2E8F0';
+            }
+        });
+
+        if (hasError) {
+            e.preventDefault();
+            errorBox.textContent = "No puedes ingresar una cantidad mayor a la pendiente en la Orden de Compra.";
+            errorBox.style.display = 'block';
+            errorBox.scrollIntoView({ behavior: 'smooth' });
+        } else if (activeItems === 0) {
+            e.preventDefault();
+            errorBox.textContent = "Debe ingresar al menos un producto con una cantidad mayor a 0.";
+            errorBox.style.display = 'block';
+            errorBox.scrollIntoView({ behavior: 'smooth' });
+        }
+    });
 });
-
-if (supplierSelect.value) {
-    supplierSelect.dispatchEvent(new Event('change'));
-} else {
-    updateCreateProductLinkVisibility();
-}
-
-restoreDraftIfAny();
 </script>
 {% endblock %}

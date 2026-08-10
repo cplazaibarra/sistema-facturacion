@@ -56,114 +56,58 @@ def inventario():
 
 @inventario_bp.route('/ingreso-mercaderia', methods=['GET', 'POST'])
 def ingreso_mercaderia():
-    """Módulo de Ingreso de Mercadería"""
+    """Módulo de Ingreso de Mercadería con validación de OC"""
     default_date = datetime.now().strftime('%Y-%m-%d')
+    from db import (
+        list_suppliers,
+        get_page_data,
+        register_inventory_entry,
+        list_inventory_entries
+    )
+
     if request.method == 'POST':
         ingreso_date = (request.form.get('ingreso_date') or default_date).strip()
         order_number = (request.form.get('order_number') or '').strip()
-        supplier_id = request.form.get('supplier_id', type=int)
+        po_id = request.form.get('purchase_order_id', type=int)
         warehouse = (request.form.get('warehouse') or '').strip()
         notes = (request.form.get('notes') or '').strip()
+        
         product_ids = request.form.getlist('product_id[]')
         quantities = request.form.getlist('quantity[]')
         unit_prices = request.form.getlist('unit_price[]')
 
-        total_amount = 0.0
         items = []
-        for product_id, qty_raw, price_raw in zip(product_ids, quantities, unit_prices):
-            if not product_id:
+        for pid, qty_raw, price_raw in zip(product_ids, quantities, unit_prices):
+            if not pid:
                 continue
             try:
-                qty = int(float(qty_raw)) if qty_raw else 0
-            except ValueError:
-                qty = 0
-            try:
+                qty = int(qty_raw) if qty_raw else 0
                 price = float(price_raw) if price_raw else 0.0
             except ValueError:
-                price = 0.0
-            if qty <= 0:
                 continue
-            line_total = qty * price
-            total_amount += line_total
-            items.append({
-                "product_id": int(product_id),
-                "quantity": qty,
-                "unit_price": price,
-                "total": line_total,
-            })
+            if qty > 0:
+                items.append({
+                    "product_id": int(pid),
+                    "quantity": qty,
+                    "unit_price": price,
+                })
 
-        if not order_number or not supplier_id or not warehouse:
-            error_message = "Completa número de orden, proveedor y almacén."
-            suppliers = list_suppliers()
-            warehouses = get_page_data("ingreso_warehouses")
-            products = list_products()
-            recent_ingresos = get_page_data("ingreso_recent")
-            return render_template(
-                'ingreso_mercaderia.html',
-                default_date=default_date,
-                ingreso_date=ingreso_date,
-                order_number=order_number,
-                warehouse=warehouse,
-                notes=notes,
-                suppliers=suppliers,
-                warehouses=warehouses,
-                products=products,
-                recent_ingresos=recent_ingresos,
-                selected_supplier_id=supplier_id,
-                selected_product_id=None,
-                error_message=error_message,
-            )
-
-        if not items:
-            error_message = "Agrega al menos un producto con cantidad válida."
-            suppliers = list_suppliers()
-            warehouses = get_page_data("ingreso_warehouses")
-            products = list_products()
-            recent_ingresos = get_page_data("ingreso_recent")
-            return render_template(
-                'ingreso_mercaderia.html',
-                default_date=default_date,
-                ingreso_date=ingreso_date,
-                order_number=order_number,
-                warehouse=warehouse,
-                notes=notes,
-                suppliers=suppliers,
-                warehouses=warehouses,
-                products=products,
-                recent_ingresos=recent_ingresos,
-                selected_supplier_id=supplier_id,
-                selected_product_id=None,
-                error_message=error_message,
-            )
-
-        if items:
-            supplier = get_supplier(supplier_id) if supplier_id else None
-            recent = get_page_data("ingreso_recent") or []
-            try:
-                date_display = datetime.strptime(ingreso_date, '%Y-%m-%d').strftime('%d/%m/%Y')
-            except ValueError:
-                date_display = ingreso_date
-
-            new_ingreso = {
-                "id": len(recent) + 1,
-                "order_number": order_number,
-                "date": date_display,
-                "supplier": supplier["name"] if supplier else "Proveedor",
-                "items_count": len(items),
-                "total": f"${total_amount:,.2f}",
-                "warehouse": warehouse,
-                "notes": notes,
-                "status": "Completado"
-            }
-            recent.insert(0, new_ingreso)
-            set_page_data("ingreso_recent", recent)
-            flash(f"Ingreso de mercadería #{order_number} registrado con éxito.", "success")
+        if not order_number or not po_id or not warehouse or not items:
+            flash("Complete todos los campos obligatorios y agregue productos válidos.", "danger")
             return redirect(url_for('inventario.ingreso_mercaderia'))
+
+        try:
+            register_inventory_entry(po_id, order_number, ingreso_date, warehouse, notes, items)
+            flash(f"Ingreso de mercadería #{order_number} registrado con éxito y stock actualizado.", "success")
+        except ValueError as e:
+            flash(f"Error al registrar ingreso: {str(e)}", "danger")
+            
+        return redirect(url_for('inventario.ingreso_mercaderia'))
 
     suppliers = list_suppliers()
     warehouses = get_page_data("ingreso_warehouses")
-    products = list_products()
-    recent_ingresos = get_page_data("ingreso_recent")
+    recent_ingresos = list_inventory_entries()
+    
     return render_template(
         'ingreso_mercaderia.html',
         default_date=default_date,
@@ -173,7 +117,6 @@ def ingreso_mercaderia():
         notes='',
         suppliers=suppliers,
         warehouses=warehouses,
-        products=products,
         recent_ingresos=recent_ingresos,
         selected_supplier_id=None,
         selected_product_id=None,
