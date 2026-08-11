@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, jsonify, session
 from datetime import datetime
 from db import (
     get_page_data,
@@ -66,6 +66,13 @@ def ventas():
                 )
                 history = [dict(row) for row in cur.fetchall()]
 
+                # Obtener historial de cobros/pagos
+                cur.execute(
+                    "SELECT action, user_name, changed_at, details FROM sales_payment_history WHERE sale_id = %s ORDER BY id DESC",
+                    (sale["id"],)
+                )
+                payment_history = [dict(row) for row in cur.fetchall()]
+
                 ventas_records.append({
                     "id": sale["id"],
                     "sale_number": sale["sale_number"],
@@ -90,7 +97,8 @@ def ventas():
                         "name": sale["seller_name"],
                         "initials": sale.get("seller_initials", "")
                     },
-                    "history": history
+                    "history": history,
+                    "payment_history": payment_history
                 })
 
     # Get metrics from database
@@ -151,9 +159,12 @@ def registrar_pago_venta():
         flash('No se especificó un ID de venta válido.', 'danger')
         return redirect(url_for('ventas.ventas'))
 
+    user_responsible = session.get('full_name', 'Administrador')
+
     # Subir comprobante si existe y el estado es Pagado
     payment_proof_file = None
     file = request.files.get('payment_file')
+    file_uploaded = False
     if payment_status == 'Pagado' and file and file.filename:
         safe_name = secure_filename(file.filename)
         ext = os.path.splitext(safe_name)[1]
@@ -161,11 +172,12 @@ def registrar_pago_venta():
         filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
         payment_proof_file = f"/uploads/{filename}"
+        file_uploaded = True
 
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # 1. Obtener la venta y su estado anterior
-            cur.execute("SELECT total_amount, sale_date, status FROM sales WHERE id = %s", (sale_id,))
+            # 1. Obtener la venta, su estado anterior y el pago anterior para auditar diferencias
+            cur.execute("SELECT total_amount, sale_date, status, payment_status FROM sales WHERE id = %s", (sale_id,))
             sale_row = cur.fetchone()
             if not sale_row:
                 flash('Venta no encontrada.', 'danger')
@@ -174,6 +186,79 @@ def registrar_pago_venta():
             total_amount = sale_row["total_amount"]
             sale_date = sale_row["sale_date"]
             old_sale_status = sale_row["status"]
+            old_payment_status = sale_row["payment_status"]
+
+            # Obtener datos de pago anteriores
+            cur.execute("SELECT invoice_due_date, payment_date, payment_proof_file FROM sale_payments WHERE sale_id = %s", (sale_id,))
+            old_payment_row = cur.fetchone()
+            old_due_date = old_payment_row["invoice_due_date"] if old_payment_row else None
+            old_payment_date = old_payment_row["payment_date"] if old_payment_row else None
+            old_proof_file = old_payment_row["payment_proof_file"] if old_payment_row else None
+
+            # Si el estado de pago cambia a Pendiente (borrando o revirtiendo pago)
+            if payment_status == 'Pendiente' and old_payment_status == 'Pagado':
+                # Registrar historial de borrado de comprobante
+                cur.execute(
+                    """
+                    INSERT INTO sales_payment_history (sale_id, action, user_name, changed_at, details)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (
+                        sale_id,
+                        'Pago Revertido / Comprobante Eliminado',
+                        user_responsible,
+                        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'Se cambió el estado a Pendiente y se eliminó la vinculación del comprobante.'
+                    )
+                )
+            elif payment_status == 'Pagado':
+                if old_payment_status != 'Pagado' or file_uploaded:
+                    # Registrar historial de subida o actualización del comprobante de pago
+                    action_lbl = 'Comprobante Subido' if old_payment_status != 'Pagado' else 'Comprobante Actualizado'
+                    cur.execute(
+                        """
+                        INSERT INTO sales_payment_history (sale_id, action, user_name, changed_at, details)
+                        VALUES (%s, %s, %s, %s, %s)
+                        """,
+                        (
+                            sale_id,
+                            action_lbl,
+                            user_responsible,
+                            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            f'Se subió un nuevo comprobante de pago. Fecha real de pago: {payment_date}'
+                        )
+                    )
+                elif old_payment_date != payment_date:
+                    # Registrar historial de modificación de fecha de pago
+                    cur.execute(
+                        """
+                        INSERT INTO sales_payment_history (sale_id, action, user_name, changed_at, details)
+                        VALUES (%s, %s, %s, %s, %s)
+                        """,
+                        (
+                            sale_id,
+                            'Fecha Pago Modificada',
+                            user_responsible,
+                            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            f'Se modificó la fecha de pago de {old_payment_date} a {payment_date}.'
+                        )
+                    )
+
+            # Auditar si cambió la fecha de vencimiento
+            if old_due_date != invoice_due_date:
+                cur.execute(
+                    """
+                    INSERT INTO sales_payment_history (sale_id, action, user_name, changed_at, details)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (
+                        sale_id,
+                        'Fecha Vencimiento Modificada',
+                        user_responsible,
+                        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        f'Se modificó la fecha de vencimiento (cobro) de {old_due_date} a {invoice_due_date}.'
+                    )
+                )
 
             # 2. Actualizar el estado de pago principal en la tabla sales
             cur.execute(
@@ -199,11 +284,15 @@ def registrar_pago_venta():
                     (
                         sale_id,
                         'Completada',
-                        'Sistema (Auto por Pago)',
+                        f'Sistema (Auto por {user_responsible})',
                         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'Estado cambiado automáticamente a Completada tras subida de comprobante'
                     )
                 )
+
+            # Si es reversión a Pendiente, mantener el archivo anterior a menos que explícitamente se borre. 
+            # Si se sube uno nuevo, usar el nuevo.
+            final_proof_file = payment_proof_file if payment_proof_file else (old_proof_file if payment_status == 'Pagado' else None)
 
             # 3. Guardar en la tabla sale_payments (upsert)
             payment_data = {
@@ -211,13 +300,13 @@ def registrar_pago_venta():
                 "invoice_amount": total_amount,
                 "invoice_due_date": invoice_due_date or sale_date,
                 "invoice_file": None,
-                "payment_proof_file": payment_proof_file,
+                "payment_proof_file": final_proof_file,
                 "payment_amount": total_amount if payment_status == 'Pagado' else 0.0,
                 "payment_date": payment_date,
                 "seller_uploaded_at": datetime.utcnow().isoformat(),
                 "payment_uploaded_at": datetime.utcnow().isoformat() if payment_status == 'Pagado' else None,
                 "accounting_approved": 1 if payment_status == 'Pagado' else 0,
-                "accounting_approved_by": "Sistema",
+                "accounting_approved_by": user_responsible,
                 "accounting_approved_at": datetime.utcnow().isoformat() if payment_status == 'Pagado' else None,
                 "accounting_comment": "Pago registrado desde panel rápido de Ventas",
                 "status": payment_status,
@@ -251,6 +340,9 @@ def actualizar_estado_venta():
     with get_connection() as conn:
         with conn.cursor() as cur:
             # Registrar el historial de cambio de estado
+            from flask import session
+            user_responsible = session.get('full_name', 'Administrador')
+            
             cur.execute(
                 """
                 INSERT INTO sales_status_history (sale_id, status, user_name, changed_at, comment)
@@ -259,7 +351,7 @@ def actualizar_estado_venta():
                 (
                     sale_id,
                     new_status,
-                    'Administrador',  # En un sistema con login completo esto vendría de flask_login.current_user.name
+                    user_responsible,
                     datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                     f'Estado cambiado manualmente a {new_status}'
                 )
