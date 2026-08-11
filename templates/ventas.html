@@ -221,22 +221,58 @@
                       {% endif %}
                   </td>
                  <td>
-                     {% if sale.payment_status == 'Pagado' %}
-                     <span class="sf-badge sf-badge-success" style="background-color: rgba(72, 187, 120, 0.1); color: #48BB78; border: 1px solid rgba(72, 187, 120, 0.2);">
-                         <span class="sf-badge-dot" style="background-color: #48BB78;"></span>
-                         Pagado
-                     </span>
-                     {% elif sale.payment_status == 'Retrasada' %}
-                     <span class="sf-badge sf-badge-danger" style="background-color: rgba(229, 62, 62, 0.1); color: #E53E3E; border: 1px solid rgba(229, 62, 62, 0.2);">
-                         <span class="sf-badge-dot" style="background-color: #E53E3E;"></span>
-                         Retrasada
-                     </span>
-                     {% else %}
-                     <span class="sf-badge sf-badge-warning" style="background-color: rgba(237, 137, 54, 0.1); color: #ED8936; border: 1px solid rgba(237, 137, 54, 0.2);">
-                         <span class="sf-badge-dot" style="background-color: #ED8936;"></span>
-                         Pendiente
-                     </span>
-                     {% endif %}
+                      <div class="status-badge-container" style="position: relative; display: inline-block;">
+                          {% if sale.payment_status == 'Pagado' %}
+                          <span class="sf-badge sf-badge-success" style="cursor: help; background-color: rgba(72, 187, 120, 0.1); color: #48BB78; border: 1px solid rgba(72, 187, 120, 0.2);" onmouseover="this.nextElementSibling.style.display='block'" onmouseout="this.nextElementSibling.style.display='none'">
+                              <span class="sf-badge-dot" style="background-color: #48BB78;"></span>
+                              Pagado
+                          </span>
+                          {% elif sale.payment_status == 'Retrasada' %}
+                          <span class="sf-badge sf-badge-danger" style="cursor: help; background-color: rgba(229, 62, 62, 0.1); color: #E53E3E; border: 1px solid rgba(229, 62, 62, 0.2);" onmouseover="this.nextElementSibling.style.display='block'" onmouseout="this.nextElementSibling.style.display='none'">
+                              <span class="sf-badge-dot" style="background-color: #E53E3E;"></span>
+                              Retrasada
+                          </span>
+                          {% else %}
+                          <span class="sf-badge sf-badge-warning" style="cursor: help; background-color: rgba(237, 137, 54, 0.1); color: #ED8936; border: 1px solid rgba(237, 137, 54, 0.2);" onmouseover="this.nextElementSibling.style.display='block'" onmouseout="this.nextElementSibling.style.display='none'">
+                              <span class="sf-badge-dot" style="background-color: #ED8936;"></span>
+                              Pendiente
+                          </span>
+                          {% endif %}
+
+                          <!-- Popover flotante para mostrar historial de cobros y pagos -->
+                          <div class="payment-history-popover" style="display: none; position: absolute; top: 100%; left: 0; background: #2d3748; color: #fff; padding: 12px; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.25); z-index: 999; width: 280px; font-size: 11px; margin-top: 5px;">
+                              <strong style="display: block; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px; margin-bottom: 6px;">Historial de Pagos y Fechas:</strong>
+                              {% if sale.payment_history %}
+                                  <div style="max-height: 150px; overflow-y: auto;">
+                                      {% for p_hist in sale.payment_history %}
+                                          <div style="margin-bottom: 8px; border-left: 2px solid #4299e1; padding-left: 6px;">
+                                              <span style="font-weight: 600; color: #f7fafc;">{{ p_hist.action }}</span> 
+                                              <span style="color: #cbd5e0;">por {{ p_hist.user_name }}</span>
+                                              <div style="color: #a0aec0;">{{ p_hist.changed_at }}</div>
+                                              {% if p_hist.details %}
+                                                  <div style="color: #e2e8f0; font-size: 10px;">{{ p_hist.details }}</div>
+                                              {% endif %}
+                                          </div>
+                                      {% endfor %}
+                                  </div>
+                              {% else %}
+                                  <span style="color: #cbd5e0;">Sin modificaciones de pagos registradas.</span>
+                              {% endif %}
+                          </div>
+                      </div>
+
+                      <!-- Quién subió el comprobante actual -->
+                      {% if sale.payment_status == 'Pagado' and sale.payment_history %}
+                          {% set last_upload = (sale.payment_history | selectattr('action', 'equalto', 'Comprobante Subido') | list | first) %}
+                          {% if not last_upload %}
+                              {% set last_upload = (sale.payment_history | selectattr('action', 'equalto', 'Comprobante Actualizado') | list | first) %}
+                          {% endif %}
+                          {% if last_upload %}
+                          <div style="font-size: 11px; color: #718096; margin-top: 3px;">
+                              Subido por: <strong>{{ last_upload.user_name }}</strong>
+                          </div>
+                          {% endif %}
+                      {% endif %}
                  </td>
                  <td>
                       <div style="font-size: 13px; display: flex; align-items: center; gap: 10px;">
