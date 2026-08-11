@@ -1247,6 +1247,11 @@ canvas {
     color: white;
 }
 
+.sf-metric-icon.orange {
+    background: linear-gradient(135deg, #F59E0B, #D97706);
+    color: white;
+}
+
 .sf-metric-trend {
     font-size: 13px;
     font-weight: 600;
