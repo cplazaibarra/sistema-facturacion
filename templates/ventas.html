@@ -181,12 +181,45 @@
                 <td>
                     <div class="sf-amount">{{ sale.total }}</div>
                 </td>
-                 <td>
-                     <span class="sf-badge sf-badge-{{ sale.status.level }}">
-                         <span class="sf-badge-dot"></span>
-                         {{ sale.status.label }}
-                     </span>
-                 </td>
+                  <td>
+                      <div class="status-badge-container" style="position: relative; display: inline-block;">
+                          <span class="sf-badge sf-badge-{{ sale.status.level }}" style="cursor: help;" onmouseover="this.nextElementSibling.style.display='block'" onmouseout="this.nextElementSibling.style.display='none'">
+                              <span class="sf-badge-dot"></span>
+                              {{ sale.status.label }}
+                          </span>
+                          
+                          <!-- Popover flotante para mostrar historial de estados -->
+                          <div class="status-history-popover" style="display: none; position: absolute; top: 100%; left: 0; background: #2d3748; color: #fff; padding: 12px; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.25); z-index: 999; width: 280px; font-size: 11px; margin-top: 5px;">
+                              <strong style="display: block; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px; margin-bottom: 6px;">Historial de Cambios:</strong>
+                              {% if sale.history %}
+                                  <div style="max-height: 150px; overflow-y: auto;">
+                                      {% for hist in sale.history %}
+                                          <div style="margin-bottom: 8px; border-left: 2px solid {% if hist.status == 'Completada' %}#48BB78{% elif hist.status == 'Cancelada' %}#E53E3E{% else %}#ED8936{% endif %}; padding-left: 6px;">
+                                              <span style="font-weight: 600; color: #f7fafc;">{{ hist.status }}</span> 
+                                              <span style="color: #cbd5e0;">por {{ hist.user_name }}</span>
+                                              <div style="color: #a0aec0;">{{ hist.changed_at }}</div>
+                                              {% if hist.comment %}
+                                                  <div style="color: #e2e8f0; font-style: italic;">"{{ hist.comment }}"</div>
+                                              {% endif %}
+                                          </div>
+                                      {% endfor %}
+                                  </div>
+                              {% else %}
+                                  <span style="color: #cbd5e0;">Sin cambios registrados. Nacido como Pendiente.</span>
+                              {% endif %}
+                          </div>
+                      </div>
+                      
+                      <!-- Quién lo pasó a Completada -->
+                      {% if sale.status.label == 'Completada' and sale.history %}
+                          {% set last_comp = (sale.history | selectattr('status', 'equalto', 'Completada') | list | first) %}
+                          {% if last_comp %}
+                          <div style="font-size: 11px; color: #718096; margin-top: 3px;">
+                              Completado por: <strong>{{ last_comp.user_name }}</strong>
+                          </div>
+                          {% endif %}
+                      {% endif %}
+                  </td>
                  <td>
                      {% if sale.payment_status == 'Pagado' %}
                      <span class="sf-badge sf-badge-success" style="background-color: rgba(72, 187, 120, 0.1); color: #48BB78; border: 1px solid rgba(72, 187, 120, 0.2);">

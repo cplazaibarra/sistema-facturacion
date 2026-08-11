@@ -46,41 +46,52 @@ def ventas():
     today_str = datetime.today().strftime('%Y-%m-%d')
     # Format sales for template
     ventas_records = []
-    for sale in sales_list:
-        raw_p_status = sale.get("payment_status") or "Pendiente"
-        due_date = sale.get("invoice_due_date") or ""
-        
-        # Calcular si está retrasada
-        calculated_payment_status = raw_p_status
-        if raw_p_status != "Pagado" and due_date and due_date != "-":
-            if due_date < today_str:
-                calculated_payment_status = "Retrasada"
+    from db import get_connection
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            for sale in sales_list:
+                raw_p_status = sale.get("payment_status") or "Pendiente"
+                due_date = sale.get("invoice_due_date") or ""
+                
+                # Calcular si está retrasada
+                calculated_payment_status = raw_p_status
+                if raw_p_status != "Pagado" and due_date and due_date != "-":
+                    if due_date < today_str:
+                        calculated_payment_status = "Retrasada"
 
-        ventas_records.append({
-            "id": sale["id"],
-            "sale_number": sale["sale_number"],
-            "customer": {
-                "name": sale["customer_name"],
-                "email": sale.get("customer_email", ""),
-                "initials": sale.get("customer_initials", ""),
-            },
-            "date": sale["sale_date"],
-            "time": sale["sale_time"],
-            "products": sale["products"],
-            "total": f"${sale['total_amount']:.2f}",
-            "payment_status": calculated_payment_status,
-            "invoice_due_date": sale.get("invoice_due_date") or "-",
-            "payment_date": sale.get("payment_date") or "-",
-            "payment_proof_file": sale.get("payment_proof_file") or "",
-            "status": {
-                "label": sale["status"],
-                "level": "success" if sale["status"] == "Completada" else "warning" if sale["status"] == "Pendiente" else "danger"
-            },
-            "seller": {
-                "name": sale["seller_name"],
-                "initials": sale.get("seller_initials", "")
-            },
-        })
+                # Obtener historial de estado
+                cur.execute(
+                    "SELECT status, user_name, changed_at, comment FROM sales_status_history WHERE sale_id = %s ORDER BY id DESC",
+                    (sale["id"],)
+                )
+                history = [dict(row) for row in cur.fetchall()]
+
+                ventas_records.append({
+                    "id": sale["id"],
+                    "sale_number": sale["sale_number"],
+                    "customer": {
+                        "name": sale["customer_name"],
+                        "email": sale.get("customer_email", ""),
+                        "initials": sale.get("customer_initials", ""),
+                    },
+                    "date": sale["sale_date"],
+                    "time": sale["sale_time"],
+                    "products": sale["products"],
+                    "total": f"${sale['total_amount']:.2f}",
+                    "payment_status": calculated_payment_status,
+                    "invoice_due_date": sale.get("invoice_due_date") or "-",
+                    "payment_date": sale.get("payment_date") or "-",
+                    "payment_proof_file": sale.get("payment_proof_file") or "",
+                    "status": {
+                        "label": sale["status"],
+                        "level": "success" if sale["status"] == "Completada" else "warning" if sale["status"] == "Pendiente" else "danger"
+                    },
+                    "seller": {
+                        "name": sale["seller_name"],
+                        "initials": sale.get("seller_initials", "")
+                    },
+                    "history": history
+                })
 
     # Get metrics from database
     metrics = get_sales_metrics()
@@ -153,8 +164,8 @@ def registrar_pago_venta():
 
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # 1. Obtener la venta
-            cur.execute("SELECT total_amount, sale_date FROM sales WHERE id = %s", (sale_id,))
+            # 1. Obtener la venta y su estado anterior
+            cur.execute("SELECT total_amount, sale_date, status FROM sales WHERE id = %s", (sale_id,))
             sale_row = cur.fetchone()
             if not sale_row:
                 flash('Venta no encontrada.', 'danger')
@@ -162,12 +173,37 @@ def registrar_pago_venta():
             
             total_amount = sale_row["total_amount"]
             sale_date = sale_row["sale_date"]
+            old_sale_status = sale_row["status"]
 
             # 2. Actualizar el estado de pago principal en la tabla sales
             cur.execute(
                 "UPDATE sales SET payment_status = %s WHERE id = %s",
                 (payment_status, sale_id)
             )
+
+            # Automatización: Si el pago se registró como "Pagado" y la venta no estaba Completada
+            auto_completed = False
+            if payment_status == 'Pagado' and old_sale_status != 'Completada':
+                cur.execute(
+                    "UPDATE sales SET status = 'Completada' WHERE id = %s",
+                    (sale_id,)
+                )
+                auto_completed = True
+                
+                # Registrar historial de estado por cambio automático del sistema
+                cur.execute(
+                    """
+                    INSERT INTO sales_status_history (sale_id, status, user_name, changed_at, comment)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (
+                        sale_id,
+                        'Completada',
+                        'Sistema (Auto por Pago)',
+                        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'Estado cambiado automáticamente a Completada tras subida de comprobante'
+                    )
+                )
 
             # 3. Guardar en la tabla sale_payments (upsert)
             payment_data = {
@@ -193,7 +229,10 @@ def registrar_pago_venta():
 
         conn.commit()
 
-    flash(f'Estado de pago actualizado correctamente para la venta.', 'success')
+    if auto_completed:
+        flash('El pago fue registrado y la venta se marcó automáticamente como Completada.', 'success')
+    else:
+        flash('Estado de pago actualizado correctamente para la venta.', 'success')
     return redirect(url_for('ventas.ventas'))
 
 @ventas_bp.route('/ventas/actualizar-estado', methods=['POST'])
@@ -211,6 +250,22 @@ def actualizar_estado_venta():
 
     with get_connection() as conn:
         with conn.cursor() as cur:
+            # Registrar el historial de cambio de estado
+            cur.execute(
+                """
+                INSERT INTO sales_status_history (sale_id, status, user_name, changed_at, comment)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    sale_id,
+                    new_status,
+                    'Administrador',  # En un sistema con login completo esto vendría de flask_login.current_user.name
+                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    f'Estado cambiado manualmente a {new_status}'
+                )
+            )
+
+            # Actualizar el estado en la tabla de ventas
             cur.execute(
                 "UPDATE sales SET status = %s WHERE id = %s",
                 (new_status, sale_id)
