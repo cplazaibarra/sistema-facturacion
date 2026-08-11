@@ -220,7 +220,7 @@
                               {% endif %}
                           </div>
                           {% if sale.payment_proof_file %}
-                          <div class="payment-proof-thumbnail" style="cursor: pointer; border: 1px solid #cbd5e0; border-radius: 4px; padding: 2px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fff;" ondblclick="zoomPaymentImage('{{ sale.payment_proof_file }}')">
+                          <div class="payment-proof-thumbnail" style="cursor: pointer; border: 1px solid #cbd5e0; border-radius: 4px; padding: 2px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fff;" onclick="zoomPaymentImage('{{ sale.payment_proof_file }}')">
                               {% if sale.payment_proof_file.lower().endswith('.pdf') %}
                                   <span style="font-size: 18px;">📄</span>
                               {% else %}
@@ -403,7 +403,15 @@
 
                     <div class="sf-form-group" style="margin-bottom: 15px;">
                         <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Comprobante de Pago (Foto / PDF)</label>
-                        <input type="file" class="sf-input" id="edit_payment_file" name="payment_file" accept="image/*,application/pdf" style="width: 100%; padding: 6px; font-size: 13px;">
+                        <input type="file" class="sf-input" id="edit_payment_file" name="payment_file" accept="image/*,application/pdf" style="width: 100%; padding: 6px; font-size: 13px; margin-bottom: 8px;">
+                        
+                        <!-- Miniatura previa dentro del modal -->
+                        <div id="modal_payment_proof_preview_container" style="display: none; align-items: center; gap: 10px; background: #f7fafc; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0;">
+                            <span style="font-size: 12px; color: #718096;">Comprobante actual (Clic para ver):</span>
+                            <div id="modal_payment_proof_preview" style="cursor: pointer; width: 44px; height: 44px; border-radius: 4px; border: 1px solid #cbd5e0; background: #fff; overflow: hidden; display: flex; align-items: center; justify-content: center;" onclick="zoomPaymentImage(this.getAttribute('data-src'))">
+                                <!-- Se rellena con JS -->
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -456,6 +464,23 @@
         
         // Limpiar input file
         document.getElementById('edit_payment_file').value = '';
+
+        // Vista previa del comprobante existente
+        const container = document.getElementById('modal_payment_proof_preview_container');
+        const preview = document.getElementById('modal_payment_proof_preview');
+        if (proofFile && proofFile !== '' && proofFile !== 'None') {
+            container.style.display = 'flex';
+            preview.setAttribute('data-src', proofFile);
+            if (proofFile.toLowerCase().endsWith('.pdf')) {
+                preview.innerHTML = '<span style="font-size: 20px;">📄</span>';
+            } else {
+                preview.innerHTML = '<img src="' + proofFile + '" style="max-width:100%; max-height:100%; object-fit:cover;">';
+            }
+        } else {
+            container.style.display = 'none';
+            preview.setAttribute('data-src', '');
+            preview.innerHTML = '';
+        }
         
         document.getElementById('editPaymentModal').style.display = 'flex';
     }
