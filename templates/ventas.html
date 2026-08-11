@@ -153,9 +153,9 @@
                 <td>
                     <input type="checkbox" class="sf-checkbox">
                 </td>
-                <td>
-                    <a href="#" class="sf-link" onclick="openEditSaleStatusModal('{{ sale.id }}', '{{ sale.sale_number }}', '{{ sale.status.label }}')">{{ sale.sale_number }}</a>
-                </td>
+                 <td>
+                     <a href="#" class="sf-link" data-id="{{ sale.id }}" data-number="{{ sale.sale_number }}" data-status="{{ sale.status.label }}" data-history='{{ sale.history | tojson | safe }}' onclick="openEditSaleStatusModal(this)">{{ sale.sale_number }}</a>
+                 </td>
                 <td>
                     <div class="sf-cell-user">
                         <div class="sf-avatar">{{ sale.customer.initials }}</div>
@@ -526,6 +526,14 @@
                     </select>
                 </div>
 
+                <!-- Historial de Auditoría de la venta dentro del modal -->
+                <div class="sf-form-group" style="margin-top: 20px;">
+                    <label class="sf-label" style="display: block; font-weight: 600; font-size: 13px; color: #2d3748; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Historial de Cambios de Estado</label>
+                    <div id="modal_status_history_list" style="max-height: 180px; overflow-y: auto; background: #f7fafc; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e0;">
+                        <!-- Se rellena dinámicamente con JS -->
+                    </div>
+                </div>
+
                 <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px;">
                     <button type="button" class="sf-btn-secondary" onclick="closeEditSaleStatusModal()" style="padding: 8px 16px; border: 1px solid #cbd5e0; background: #fff; color: #4a5568; border-radius: 4px; cursor: pointer;">Cancelar</button>
                     <button type="submit" class="sf-btn-primary" style="padding: 8px 16px; border: none; background: #0070d2; color: #fff; border-radius: 4px; cursor: pointer; font-weight: 500;">Guardar Cambios</button>
@@ -620,10 +628,49 @@
     }
 
     // Funciones para actualizar el estado general de la venta
-    function openEditSaleStatusModal(saleId, saleNumber, currentStatus) {
+    function openEditSaleStatusModal(element) {
+        const saleId = element.getAttribute('data-id');
+        const saleNumber = element.getAttribute('data-number');
+        const currentStatus = element.getAttribute('data-status');
+        const rawHistory = element.getAttribute('data-history') || '[]';
+        
         document.getElementById('status_sale_id').value = saleId;
         document.getElementById('label_status_sale_number').innerText = saleNumber;
         document.getElementById('edit_sale_status_val').value = currentStatus;
+
+        // Renderizar el historial de cambios de estado dentro del modal
+        const historyContainer = document.getElementById('modal_status_history_list');
+        historyContainer.innerHTML = '';
+        
+        try {
+            const history = JSON.parse(rawHistory);
+            if (history && history.length > 0) {
+                history.forEach(item => {
+                    const color = item.status === 'Completada' ? '#48BB78' : (item.status === 'Cancelada' ? '#E53E3E' : '#ED8936');
+                    const entry = document.createElement('div');
+                    entry.style.marginBottom = '10px';
+                    entry.style.borderLeft = `3px solid ${color}`;
+                    entry.style.paddingLeft = '8px';
+                    entry.style.fontSize = '12px';
+                    
+                    entry.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; font-weight: 600;">
+                            <span style="color: ${color};">${item.status}</span>
+                            <span style="color: #4a5568; font-weight: normal; font-size: 11px;">por ${item.user_name}</span>
+                        </div>
+                        <div style="color: #718096; font-size: 11px; margin-top: 2px;">${item.changed_at}</div>
+                        ${item.comment ? `<div style="color: #4a5568; font-style: italic; margin-top: 3px; font-size: 11px;">"${item.comment}"</div>` : ''}
+                    `;
+                    historyContainer.appendChild(entry);
+                });
+            } else {
+                historyContainer.innerHTML = '<span style="color: #718096; font-size: 12px; display: block; text-align: center; padding: 10px 0;">Sin cambios de estado previos. (Nació como Pendiente)</span>';
+            }
+        } catch(e) {
+            console.error("Error parsing history:", e);
+            historyContainer.innerHTML = '<span style="color: #e53e3e; font-size: 12px;">Error al cargar el historial.</span>';
+        }
+        
         document.getElementById('editSaleStatusModal').style.display = 'flex';
     }
 
