@@ -99,7 +99,7 @@ def ventas():
             "color": "purple",
         },
         {
-            "icon": "<i class=\"fa-solid fa-hourglass-half\"></i>",
+            "icon": "<i class=\"fa-solid fa-clock\"></i>",
             "value": str(metrics['ventas_pendientes']),
             "label": "Ventas Pendientes",
             "secondary": "por procesar",
