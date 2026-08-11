@@ -34,6 +34,7 @@ def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 # Registrar Blueprints
+from routes.auth import auth_bp
 from routes.dashboard import dashboard_bp
 from routes.inventario import inventario_bp
 from routes.ventas import ventas_bp
@@ -41,7 +42,9 @@ from routes.pagos import pagos_bp
 from routes.usuarios import usuarios_bp
 from routes.proveedores import proveedores_bp
 from routes.reportes import reportes_bp
+from routes.compras import compras_bp
 
+app.register_blueprint(auth_bp)
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(inventario_bp)
 app.register_blueprint(ventas_bp)
@@ -49,6 +52,20 @@ app.register_blueprint(pagos_bp)
 app.register_blueprint(usuarios_bp)
 app.register_blueprint(proveedores_bp)
 app.register_blueprint(reportes_bp)
+app.register_blueprint(compras_bp)
+
+from flask import request, redirect, url_for, session
+
+@app.before_request
+def check_login():
+    # Permitir la ruta de login y los archivos estáticos (CSS, JS, imágenes, etc.)
+    if request.path.startswith('/static') or request.path.startswith('/uploads'):
+        return
+    if request.endpoint in ('auth.login', 'uploaded_file'):
+        return
+    # Si no hay usuario en sesión, redirigir a login
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)

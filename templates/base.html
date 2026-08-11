@@ -79,11 +79,13 @@
             </nav>
             
             <div class="sidebar-footer">
-                <div class="user-info">
-                    <div class="user-avatar"><i class="fa-solid fa-user-tie" style="color: white; font-size: 18px;"></i></div>
-                    <div class="user-details">
-                        <div class="user-name">Usuario</div>
-                        <div class="user-role">Administrador</div>
+                <div class="user-info" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="user-avatar"><i class="fa-solid fa-user-tie" style="color: white; font-size: 18px;"></i></div>
+                        <div class="user-details">
+                            <div class="user-name">{{ session.get('full_name', 'Usuario') }}</div>
+                            <div class="user-role">{{ session.get('role_name', 'Rol') }}</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -95,7 +97,7 @@
                 <div class="header-left">
                     <h2>{% block page_title %}Dashboard{% endblock %}</h2>
                 </div>
-                <div class="header-right">
+                <div class="header-right" style="display: flex; align-items: center; gap: 15px;">
                     <div class="search-box">
                         <input type="text" placeholder="Buscar...">
                         <span class="search-icon">🔍</span>
@@ -104,6 +106,10 @@
                         <span>🔔</span>
                         <span class="notification-badge">3</span>
                     </button>
+                    <!-- Enlace Cerrar Sesión -->
+                    <a href="{{ url_for('auth.logout') }}" class="sf-btn-secondary" style="padding: 6px 12px; font-size: 13px; text-decoration: none; border-radius: 4px; display: flex; align-items: center; gap: 6px; background: rgba(229, 62, 62, 0.1); color: #E53E3E; border: 1px solid rgba(229, 62, 62, 0.2);">
+                        <i class="fa-solid fa-right-from-bracket"></i> Salir
+                    </a>
                 </div>
             </header>
 
