@@ -196,6 +196,30 @@ def registrar_pago_venta():
     flash(f'Estado de pago actualizado correctamente para la venta.', 'success')
     return redirect(url_for('ventas.ventas'))
 
+@ventas_bp.route('/ventas/actualizar-estado', methods=['POST'])
+def actualizar_estado_venta():
+    """Actualizar el estado general de la venta (Completada, Pendiente, Cancelada)"""
+    from db import get_connection
+    from flask import flash
+
+    sale_id = request.form.get('sale_id', type=int)
+    new_status = request.form.get('status')
+
+    if not sale_id or not new_status:
+        flash('Datos inválidos para actualizar el estado.', 'danger')
+        return redirect(url_for('ventas.ventas'))
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE sales SET status = %s WHERE id = %s",
+                (new_status, sale_id)
+            )
+        conn.commit()
+
+    flash(f'El estado de la venta se actualizó a "{new_status}" con éxito.', 'success')
+    return redirect(url_for('ventas.ventas'))
+
 @ventas_bp.route('/ventas/reportes')
 def ventas_reportes():
     """Reportes de ventas"""
