@@ -35,7 +35,7 @@
     {% for metric in ventas_metrics %}
     <div class="sf-metric-card">
         <div class="sf-metric-header">
-            <span class="sf-metric-icon {{ metric.color }}">{{ metric.icon }}</span>
+            <span class="sf-metric-icon {{ metric.color }}">{{ metric.icon | safe }}</span>
             <span class="sf-metric-trend {% if metric.trend != '...' %}positive{% endif %}">
                 {{ metric.trend }}
             </span>

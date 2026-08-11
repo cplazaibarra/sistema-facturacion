@@ -73,28 +73,28 @@ def ventas():
     metrics = get_sales_metrics()
     ventas_metrics = [
         {
-            "icon": "💰",
+            "icon": "<i class=\"fa-solid fa-money-bill-trend-up\"></i>",
             "value": f"${metrics['ventas_hoy']:.0f}",
             "label": "Ventas Hoy",
             "secondary": f"{metrics['ventas_completadas']} ventas totales",
             "color": "blue",
         },
         {
-            "icon": "📦",
+            "icon": "<i class=\"fa-solid fa-circle-check\"></i>",
             "value": str(metrics['ventas_completadas']),
             "label": "Ventas Completadas",
             "secondary": f"{metrics['ventas_pendientes']} pendientes",
             "color": "purple",
         },
         {
-            "icon": "⏳",
+            "icon": "<i class=\"fa-solid fa-hourglass-half\"></i>",
             "value": str(metrics['ventas_pendientes']),
             "label": "Ventas Pendientes",
             "secondary": "por procesar",
             "color": "orange",
         },
         {
-            "icon": "👥",
+            "icon": "<i class=\"fa-solid fa-users\"></i>",
             "value": str(metrics['clientes_activos']),
             "label": "Clientes Activos",
             "secondary": "clientes únicos",
