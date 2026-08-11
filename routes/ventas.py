@@ -42,6 +42,7 @@ def ventas():
         filters['date_to'] = request.args.get('date_to')
 
     # Get sales from database
+    sales_list = list_sales(filters if filters else None)
     today_str = datetime.today().strftime('%Y-%m-%d')
     # Format sales for template
     ventas_records = []
