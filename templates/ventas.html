@@ -193,6 +193,11 @@
                          <span class="sf-badge-dot" style="background-color: #48BB78;"></span>
                          Pagado
                      </span>
+                     {% elif sale.payment_status == 'Retrasada' %}
+                     <span class="sf-badge sf-badge-danger" style="background-color: rgba(229, 62, 62, 0.1); color: #E53E3E; border: 1px solid rgba(229, 62, 62, 0.2);">
+                         <span class="sf-badge-dot" style="background-color: #E53E3E;"></span>
+                         Retrasada
+                     </span>
                      {% else %}
                      <span class="sf-badge sf-badge-warning" style="background-color: rgba(237, 137, 54, 0.1); color: #ED8936; border: 1px solid rgba(237, 137, 54, 0.2);">
                          <span class="sf-badge-dot" style="background-color: #ED8936;"></span>
@@ -205,6 +210,9 @@
                          {% if sale.payment_status == 'Pagado' %}
                              <span style="color: #48BB78; font-weight: 500;">Pagado el:</span>
                              <div style="color: #718096;">{{ sale.payment_date }}</div>
+                         {% elif sale.payment_status == 'Retrasada' %}
+                             <span style="color: #E53E3E; font-weight: 600;">Retrasada (Cobrar):</span>
+                             <div style="color: #E53E3E; font-weight: 700;">{{ sale.invoice_due_date }}</div>
                          {% else %}
                              <span style="color: #ED8936; font-weight: 500;">Vence (Cobrar):</span>
                              <div style="color: #718096; font-weight: 600;">{{ sale.invoice_due_date }}</div>
@@ -220,7 +228,7 @@
                 <td>
                     <div class="sf-actions">
                         <button class="sf-action-btn" title="Ver detalles">👁️</button>
-                        <button class="sf-action-btn" title="Editar">✏️</button>
+                        <button class="sf-action-btn" title="Editar Pago" onclick="openEditPaymentModal('{{ sale.id }}', '{{ sale.sale_number }}', '{{ sale.total }}', '{{ sale.payment_status }}', '{{ sale.invoice_due_date }}', '{{ sale.payment_date }}')">✏️</button>
                         <button class="sf-action-btn" title="Más opciones">⋮</button>
                     </div>
                 </td>
@@ -341,11 +349,68 @@
 </div>
 {% endblock %}
 
+<!-- Modal para editar pago de venta (oculto por defecto) -->
+<div id="editPaymentModal" class="sf-modal" style="display: none; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000;">
+    <div class="sf-modal-backdrop" onclick="closeEditPaymentModal()" style="position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.5);"></div>
+    <div class="sf-modal-content" style="position: relative; background: #fff; padding: 25px; border-radius: 8px; width: 450px; max-width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+        <div class="sf-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; font-size: 18px; font-weight: 600; color: #2d3748;">Actualizar Pago de Factura</h3>
+            <button class="sf-modal-close" onclick="closeEditPaymentModal()" style="border: none; background: none; font-size: 20px; cursor: pointer; color: #a0aec0;">✕</button>
+        </div>
+        <div class="sf-modal-body">
+            <form id="editPaymentForm" method="POST" action="{{ url_for('ventas.registrar_pago_venta') }}" enctype="multipart/form-data">
+                <input type="hidden" id="edit_sale_id" name="sale_id">
+                
+                <div style="margin-bottom: 15px; background: #f7fafc; padding: 12px; border-radius: 6px; border: 1px dashed #e2e8f0;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span style="color: #718096; font-size: 13px;">Venta N°:</span>
+                        <strong id="label_sale_number" style="color: #2d3748;">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: #718096; font-size: 13px;">Monto total:</span>
+                        <strong id="label_sale_total" style="color: #2d3748;">-</strong>
+                    </div>
+                </div>
+
+                <div class="sf-form-group" style="margin-bottom: 15px;">
+                    <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Estado de Pago</label>
+                    <select class="sf-select" id="edit_payment_status" name="payment_status" onchange="togglePaymentFields(this.value)" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="Pagado">Pagado</option>
+                    </select>
+                </div>
+
+                <div class="sf-form-group" style="margin-bottom: 15px;">
+                    <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Fecha de Vencimiento (Cobro)</label>
+                    <input type="date" class="sf-input" id="edit_due_date" name="invoice_due_date" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                </div>
+
+                <div id="paid_fields" style="display: none;">
+                    <div class="sf-form-group" style="margin-bottom: 15px;">
+                        <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Fecha Real de Pago</label>
+                        <input type="date" class="sf-input" id="edit_payment_date" name="payment_date" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                    </div>
+
+                    <div class="sf-form-group" style="margin-bottom: 15px;">
+                        <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Comprobante de Pago (Foto / PDF)</label>
+                        <input type="file" class="sf-input" id="edit_payment_file" name="payment_file" accept="image/*,application/pdf" style="width: 100%; padding: 6px; font-size: 13px;">
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px;">
+                    <button type="button" class="sf-btn-secondary" onclick="closeEditPaymentModal()" style="padding: 8px 16px; border: 1px solid #cbd5e0; background: #fff; color: #4a5568; border-radius: 4px; cursor: pointer;">Cancelar</button>
+                    <button type="submit" class="sf-btn-primary" style="padding: 8px 16px; border: none; background: #0070d2; color: #fff; border-radius: 4px; cursor: pointer; font-weight: 500;">Actualizar Pago</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
 {% block scripts %}
 <script>
     function switchTab(tabName) {
         console.log('Switching to tab:', tabName);
-        // Aquí se implementaría el cambio de vista
     }
     
     function openNewSaleModal() {
@@ -354,6 +419,38 @@
     
     function closeNewSaleModal() {
         document.getElementById('newSaleModal').style.display = 'none';
+    }
+
+    function openEditPaymentModal(saleId, saleNumber, total, paymentStatus, dueDate, paymentDate) {
+        document.getElementById('edit_sale_id').value = saleId;
+        document.getElementById('label_sale_number').innerText = saleNumber;
+        document.getElementById('label_sale_total').innerText = total;
+        
+        // El estado en BD puede ser 'Retrasada' pero mapea a 'Pendiente' en el select
+        const cleanStatus = (paymentStatus === 'Retrasada') ? 'Pendiente' : paymentStatus;
+        document.getElementById('edit_payment_status').value = cleanStatus;
+        
+        // Fechas por defecto
+        document.getElementById('edit_due_date').value = (dueDate && dueDate !== '-') ? dueDate : '';
+        document.getElementById('edit_payment_date').value = (paymentDate && paymentDate !== '-') ? paymentDate : new Date().toISOString().substring(0, 10);
+        
+        togglePaymentFields(cleanStatus);
+        document.getElementById('editPaymentModal').style.display = 'flex';
+    }
+
+    function closeEditPaymentModal() {
+        document.getElementById('editPaymentModal').style.display = 'none';
+    }
+
+    function togglePaymentFields(status) {
+        const fields = document.getElementById('paid_fields');
+        if (status === 'Pagado') {
+            fields.style.display = 'block';
+            document.getElementById('edit_payment_date').required = true;
+        } else {
+            fields.style.display = 'none';
+            document.getElementById('edit_payment_date').required = false;
+        }
     }
 </script>
 {% endblock %}

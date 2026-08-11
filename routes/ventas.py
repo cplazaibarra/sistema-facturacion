@@ -5,7 +5,9 @@ from db import (
     list_sales,
     get_sales_metrics,
     insert_sales_entry,
-    list_sales_entries
+    list_sales_entries,
+    list_roles,
+    upsert_sale_payment
 )
 
 ventas_bp = Blueprint('ventas', __name__)
@@ -40,12 +42,21 @@ def ventas():
         filters['date_to'] = request.args.get('date_to')
 
     # Get sales from database
-    sales_list = list_sales(filters if filters else None)
-
+    today_str = datetime.today().strftime('%Y-%m-%d')
     # Format sales for template
     ventas_records = []
     for sale in sales_list:
+        raw_p_status = sale.get("payment_status") or "Pendiente"
+        due_date = sale.get("invoice_due_date") or ""
+        
+        # Calcular si está retrasada
+        calculated_payment_status = raw_p_status
+        if raw_p_status != "Pagado" and due_date and due_date != "-":
+            if due_date < today_str:
+                calculated_payment_status = "Retrasada"
+
         ventas_records.append({
+            "id": sale["id"],
             "sale_number": sale["sale_number"],
             "customer": {
                 "name": sale["customer_name"],
@@ -56,7 +67,7 @@ def ventas():
             "time": sale["sale_time"],
             "products": sale["products"],
             "total": f"${sale['total_amount']:.2f}",
-            "payment_status": sale.get("payment_status") or "Pendiente",
+            "payment_status": calculated_payment_status,
             "invoice_due_date": sale.get("invoice_due_date") or "-",
             "payment_date": sale.get("payment_date") or "-",
             "status": {
@@ -102,11 +113,86 @@ def ventas():
         },
     ]
 
+    roles = list_roles()
     return render_template(
         'ventas.html',
         ventas_metrics=ventas_metrics,
         ventas_records=ventas_records,
+        roles=roles,
     )
+
+@ventas_bp.route('/ventas/registrar-pago', methods=['POST'])
+def registrar_pago_venta():
+    """Registrar o actualizar el pago de una factura de venta"""
+    import os
+    from werkzeug.utils import secure_filename
+    from flask import current_app, flash
+    from db import get_connection
+
+    sale_id = request.form.get('sale_id', type=int)
+    payment_status = request.form.get('payment_status')  # 'Pendiente' o 'Pagado'
+    invoice_due_date = request.form.get('invoice_due_date')
+    payment_date = request.form.get('payment_date') if payment_status == 'Pagado' else None
+
+    if not sale_id:
+        flash('No se especificó un ID de venta válido.', 'danger')
+        return redirect(url_for('ventas.ventas'))
+
+    # Subir comprobante si existe y el estado es Pagado
+    payment_proof_file = None
+    file = request.files.get('payment_file')
+    if payment_status == 'Pagado' and file and file.filename:
+        safe_name = secure_filename(file.filename)
+        ext = os.path.splitext(safe_name)[1]
+        filename = f"comprobante_venta_{sale_id}_{int(datetime.utcnow().timestamp())}{ext}"
+        filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        payment_proof_file = f"/uploads/{filename}"
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # 1. Obtener la venta
+            cur.execute("SELECT total_amount, sale_date FROM sales WHERE id = %s", (sale_id,))
+            sale_row = cur.fetchone()
+            if not sale_row:
+                flash('Venta no encontrada.', 'danger')
+                return redirect(url_for('ventas.ventas'))
+            
+            total_amount = sale_row["total_amount"]
+            sale_date = sale_row["sale_date"]
+
+            # 2. Actualizar el estado de pago principal en la tabla sales
+            cur.execute(
+                "UPDATE sales SET payment_status = %s WHERE id = %s",
+                (payment_status, sale_id)
+            )
+
+            # 3. Guardar en la tabla sale_payments (upsert)
+            payment_data = {
+                "invoice_number": f"FACT-{sale_id:05d}",
+                "invoice_amount": total_amount,
+                "invoice_due_date": invoice_due_date or sale_date,
+                "invoice_file": None,
+                "payment_proof_file": payment_proof_file,
+                "payment_amount": total_amount if payment_status == 'Pagado' else 0.0,
+                "payment_date": payment_date,
+                "seller_uploaded_at": datetime.utcnow().isoformat(),
+                "payment_uploaded_at": datetime.utcnow().isoformat() if payment_status == 'Pagado' else None,
+                "accounting_approved": 1 if payment_status == 'Pagado' else 0,
+                "accounting_approved_by": "Sistema",
+                "accounting_approved_at": datetime.utcnow().isoformat() if payment_status == 'Pagado' else None,
+                "accounting_comment": "Pago registrado desde panel rápido de Ventas",
+                "status": payment_status,
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            
+            # Utilizar upsert_sale_payment para guardar los datos de pago
+            upsert_sale_payment(sale_id, payment_data)
+
+        conn.commit()
+
+    flash(f'Estado de pago actualizado correctamente para la venta.', 'success')
+    return redirect(url_for('ventas.ventas'))
 
 @ventas_bp.route('/ventas/reportes')
 def ventas_reportes():
