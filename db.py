@@ -1292,7 +1292,7 @@ def list_sales(filters: dict = None) -> list[dict]:
                        s.sale_date, s.sale_time, s.products_json, s.total_amount, s.status,
                        s.seller_name, s.seller_initials, s.payment_method, s.payment_status,
                        s.delivery_status, s.notes, s.created_at,
-                       sp.invoice_due_date, sp.payment_date
+                       sp.invoice_due_date, sp.payment_date, sp.payment_proof_file
                 FROM sales s
                 LEFT JOIN sale_payments sp ON sp.sale_id = s.id
                 WHERE 1=1

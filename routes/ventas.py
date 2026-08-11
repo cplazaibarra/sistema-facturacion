@@ -71,6 +71,7 @@ def ventas():
             "payment_status": calculated_payment_status,
             "invoice_due_date": sale.get("invoice_due_date") or "-",
             "payment_date": sale.get("payment_date") or "-",
+            "payment_proof_file": sale.get("payment_proof_file") or "",
             "status": {
                 "label": sale["status"],
                 "level": "success" if sale["status"] == "Completada" else "warning" if sale["status"] == "Pendiente" else "danger"

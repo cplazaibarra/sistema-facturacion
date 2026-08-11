@@ -206,32 +206,43 @@
                      {% endif %}
                  </td>
                  <td>
-                     <div style="font-size: 13px;">
-                         {% if sale.payment_status == 'Pagado' %}
-                             <span style="color: #48BB78; font-weight: 500;">Pagado el:</span>
-                             <div style="color: #718096;">{{ sale.payment_date }}</div>
-                         {% elif sale.payment_status == 'Retrasada' %}
-                             <span style="color: #E53E3E; font-weight: 600;">Retrasada (Cobrar):</span>
-                             <div style="color: #E53E3E; font-weight: 700;">{{ sale.invoice_due_date }}</div>
-                         {% else %}
-                             <span style="color: #ED8936; font-weight: 500;">Vence (Cobrar):</span>
-                             <div style="color: #718096; font-weight: 600;">{{ sale.invoice_due_date }}</div>
-                         {% endif %}
-                     </div>
-                 </td>
+                      <div style="font-size: 13px; display: flex; align-items: center; gap: 10px;">
+                          <div>
+                              {% if sale.payment_status == 'Pagado' %}
+                                  <span style="color: #48BB78; font-weight: 500;">Pagado el:</span>
+                                  <div style="color: #718096;">{{ sale.payment_date }}</div>
+                              {% elif sale.payment_status == 'Retrasada' %}
+                                  <span style="color: #E53E3E; font-weight: 600;">Retrasada (Cobrar):</span>
+                                  <div style="color: #E53E3E; font-weight: 700;">{{ sale.invoice_due_date }}</div>
+                              {% else %}
+                                  <span style="color: #ED8936; font-weight: 500;">Vence (Cobrar):</span>
+                                  <div style="color: #718096; font-weight: 600;">{{ sale.invoice_due_date }}</div>
+                              {% endif %}
+                          </div>
+                          {% if sale.payment_proof_file %}
+                          <div class="payment-proof-thumbnail" style="cursor: pointer; border: 1px solid #cbd5e0; border-radius: 4px; padding: 2px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fff;" ondblclick="zoomPaymentImage('{{ sale.payment_proof_file }}')">
+                              {% if sale.payment_proof_file.lower().endswith('.pdf') %}
+                                  <span style="font-size: 18px;">📄</span>
+                              {% else %}
+                                  <img src="{{ sale.payment_proof_file }}" alt="Comprobante" style="max-width: 100%; max-height: 100%; object-fit: cover;">
+                              {% endif %}
+                          </div>
+                          {% endif %}
+                      </div>
+                  </td>
+                  <td>
+                      <div class="sf-cell-user-simple">
+                          <div class="sf-avatar-sm">{{ sale.seller.initials }}</div>
+                          <span>{{ sale.seller.name }}</span>
+                      </div>
+                  </td>
                  <td>
-                     <div class="sf-cell-user-simple">
-                         <div class="sf-avatar-sm">{{ sale.seller.initials }}</div>
-                         <span>{{ sale.seller.name }}</span>
+                     <div class="sf-actions">
+                         <button class="sf-action-btn" title="Ver detalles">👁️</button>
+                         <button class="sf-action-btn" title="Editar Pago" onclick="openEditPaymentModal('{{ sale.id }}', '{{ sale.sale_number }}', '{{ sale.total }}', '{{ sale.payment_status }}', '{{ sale.invoice_due_date }}', '{{ sale.payment_date }}', '{{ sale.payment_proof_file }}')">✏️</button>
+                         <button class="sf-action-btn" title="Más opciones">⋮</button>
                      </div>
                  </td>
-                <td>
-                    <div class="sf-actions">
-                        <button class="sf-action-btn" title="Ver detalles">👁️</button>
-                        <button class="sf-action-btn" title="Editar Pago" onclick="openEditPaymentModal('{{ sale.id }}', '{{ sale.sale_number }}', '{{ sale.total }}', '{{ sale.payment_status }}', '{{ sale.invoice_due_date }}', '{{ sale.payment_date }}')">✏️</button>
-                        <button class="sf-action-btn" title="Más opciones">⋮</button>
-                    </div>
-                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -404,6 +415,14 @@
         </div>
     </div>
 </div>
+<!-- Lightbox para visualizar comprobante de pago en pantalla completa (oculto por defecto) -->
+<div id="imageLightboxModal" class="sf-modal" style="display: none; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;">
+    <div class="sf-modal-backdrop" onclick="closeImageLightbox()" style="position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.8); cursor: zoom-out;"></div>
+    <div style="position: relative; max-width: 85%; max-height: 85%; z-index: 2001; display: flex; align-items: center; justify-content: center;">
+        <button onclick="closeImageLightbox()" style="position: absolute; top: -40px; right: 0; border: none; background: none; color: #fff; font-size: 30px; cursor: pointer;">✕</button>
+        <img id="lightbox_img" src="" alt="Comprobante ampliado" style="max-width: 100%; max-height: 80vh; border-radius: 6px; box-shadow: 0 5px 25px rgba(0,0,0,0.5); object-fit: contain; background: #fff; padding: 10px;">
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -420,7 +439,7 @@
         document.getElementById('newSaleModal').style.display = 'none';
     }
 
-    function openEditPaymentModal(saleId, saleNumber, total, paymentStatus, dueDate, paymentDate) {
+    function openEditPaymentModal(saleId, saleNumber, total, paymentStatus, dueDate, paymentDate, proofFile) {
         document.getElementById('edit_sale_id').value = saleId;
         document.getElementById('label_sale_number').innerText = saleNumber;
         document.getElementById('label_sale_total').innerText = total;
@@ -434,6 +453,10 @@
         document.getElementById('edit_payment_date').value = (paymentDate && paymentDate !== '-') ? paymentDate : new Date().toISOString().substring(0, 10);
         
         togglePaymentFields(cleanStatus);
+        
+        // Limpiar input file
+        document.getElementById('edit_payment_file').value = '';
+        
         document.getElementById('editPaymentModal').style.display = 'flex';
     }
 
@@ -450,6 +473,22 @@
             fields.style.display = 'none';
             document.getElementById('edit_payment_date').required = false;
         }
+    }
+
+    // Funciones para Lightbox de Imagen
+    function zoomPaymentImage(imgSrc) {
+        if (!imgSrc || imgSrc.toLowerCase().endsWith('.pdf')) {
+            // Si es PDF y el usuario hace doble clic, abrimos en pestaña nueva para su visor nativo
+            window.open(imgSrc, '_blank');
+            return;
+        }
+        document.getElementById('lightbox_img').src = imgSrc;
+        document.getElementById('imageLightboxModal').style.display = 'flex';
+    }
+
+    function closeImageLightbox() {
+        document.getElementById('imageLightboxModal').style.display = 'none';
+        document.getElementById('lightbox_img').src = '';
     }
 </script>
 {% endblock %}
