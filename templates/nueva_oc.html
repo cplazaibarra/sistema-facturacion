@@ -118,10 +118,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
  
         row.innerHTML = `
-            <div class="form-group" style="margin: 0;">
-                <select name="product_id[]" class="product-select" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
-                    ${options}
-                </select>
+            <div class="form-group" style="margin: 0; display: flex; gap: 6px; align-items: center; position: relative;">
+                <div style="position: relative; flex: 1;">
+                    <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #a0aec0; font-size: 13px;">🔍</span>
+                    <input type="text" class="product-search-input" placeholder="Buscar..." style="width: 100%; padding: 8px 8px 8px 26px; border: 1px solid #E2E8F0; border-radius: 6px; font-size: 13px; margin-bottom: 4px;">
+                    <select name="product_id[]" class="product-select" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                        ${options}
+                    </select>
+                </div>
             </div>
             <div class="form-group" style="margin: 0;">
                 <input type="number" name="quantity[]" min="1" required placeholder="0" style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
@@ -135,7 +139,38 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         container.appendChild(row);
 
+        const searchInput = row.querySelector('.product-search-input');
         const selectElement = row.querySelector('.product-select');
+
+        // Lógica de búsqueda/filtrado interactiva en tiempo real sobre el select
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const options = selectElement.querySelectorAll('option');
+            
+            let matchedCount = 0;
+            let firstMatchedVal = '';
+
+            options.forEach(opt => {
+                if (!opt.value) return; // Omitir el placeholder
+                
+                const text = opt.textContent.toLowerCase();
+                if (text.includes(query)) {
+                    opt.style.display = 'block';
+                    matchedCount++;
+                    if (!firstMatchedVal) firstMatchedVal = opt.value;
+                } else {
+                    opt.style.display = 'none';
+                }
+            });
+
+            // Si hay exactamente una coincidencia, auto-seleccionarla para agilizar
+            if (matchedCount === 1 && firstMatchedVal) {
+                selectElement.value = firstMatchedVal;
+                // Disparar evento change de forma manual para gatillar deshabilitación
+                selectElement.dispatchEvent(new Event('change'));
+            }
+        });
+
         selectElement.addEventListener('change', (e) => {
             const currentVal = e.target.value;
             if (!currentVal) return;
