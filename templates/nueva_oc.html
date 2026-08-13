@@ -34,9 +34,18 @@
 
             <h4 style="margin-bottom: 12px;">Productos a Solicitar</h4>
             <p style="color: #718096; font-size: 13px; margin-bottom: 16px;" id="supplier-hint">Seleccione un proveedor para listar sus productos.</p>
-
-            <div id="productos-oc-container">
-                <!-- Filas de productos dinámicas -->
+            <div id="productos-oc-section" style="display: none; margin-top: 15px;">
+                <!-- Cabecera de columnas única -->
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 12px; margin-bottom: 8px; font-weight: 600; font-size: 13px; color: #4a5568; border-bottom: 2px solid #E2E8F0; padding-bottom: 6px;">
+                    <div>Producto</div>
+                    <div>Cantidad</div>
+                    <div>Precio Unitario ($)</div>
+                    <div style="width: 40px; text-align: center;"></div>
+                </div>
+                
+                <div id="productos-oc-container">
+                    <!-- Filas de productos dinámicas sin repetir etiquetas -->
+                </div>
             </div>
 
             <button type="button" class="btn-secondary" id="add-product-btn" style="margin-top: 12px; display: none; padding: 6px 12px; background-color: #ED8936; border: none; color: white; border-radius: 4px; cursor: pointer; font-weight: 600;">
@@ -55,16 +64,18 @@
 document.addEventListener('DOMContentLoaded', () => {
     const supplierSelect = document.getElementById('oc-supplier');
     const container = document.getElementById('productos-oc-container');
+    const section = document.getElementById('productos-oc-section');
     const addBtn = document.getElementById('add-product-btn');
     const hint = document.getElementById('supplier-hint');
     
     let supplierProducts = [];
-
+ 
     supplierSelect.addEventListener('change', async () => {
         const supplierId = supplierSelect.value;
         container.innerHTML = '';
         if (!supplierId) {
             addBtn.style.display = 'none';
+            section.style.display = 'none';
             hint.style.display = 'block';
             return;
         }
@@ -75,10 +86,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 supplierProducts = await response.json();
                 if (supplierProducts.length > 0) {
                     addBtn.style.display = 'inline-block';
+                    section.style.display = 'block';
                     hint.style.display = 'none';
                     createProductRow();
                 } else {
                     addBtn.style.display = 'none';
+                    section.style.display = 'none';
                     hint.style.display = 'block';
                     hint.textContent = 'Este proveedor no tiene productos vinculados en el sistema.';
                 }
@@ -87,39 +100,36 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Error al obtener productos:", e);
         }
     });
-
+ 
     addBtn.addEventListener('click', createProductRow);
-
+ 
     function createProductRow() {
         const row = document.createElement('div');
         row.style.display = 'grid';
         row.style.gridTemplateColumns = '2fr 1fr 1fr auto';
         row.style.gap = '12px';
-        row.style.marginBottom = '12px';
-        row.style.alignItems = 'end';
+        row.style.marginBottom = '8px';
+        row.style.alignItems = 'center';
         row.className = 'product-row';
-
+ 
         let options = '<option value="">Seleccionar producto</option>';
         supplierProducts.forEach(p => {
             options += `<option value="${p.id}">${p.name} (SKU: ${p.sku})</option>`;
         });
-
+ 
         row.innerHTML = `
-            <div class="form-group">
-                <label style="font-size: 13px; display:block; margin-bottom:4px;">Producto</label>
+            <div class="form-group" style="margin: 0;">
                 <select name="product_id[]" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
                     ${options}
                 </select>
             </div>
-            <div class="form-group">
-                <label style="font-size: 13px; display:block; margin-bottom:4px;">Cantidad</label>
+            <div class="form-group" style="margin: 0;">
                 <input type="number" name="quantity[]" min="1" required placeholder="0" style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
             </div>
-            <div class="form-group">
-                <label style="font-size: 13px; display:block; margin-bottom:4px;">Precio Unitario ($)</label>
+            <div class="form-group" style="margin: 0;">
                 <input type="number" name="unit_price[]" min="0.01" step="0.01" required placeholder="0.00" style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
             </div>
-            <button type="button" class="btn-icon delete-btn" style="background:none; border:none; font-size:18px; cursor:pointer; color:#F56565; padding: 8px 12px;" onclick="this.closest('.product-row').remove()">
+            <button type="button" class="btn-icon delete-btn" style="background:none; border:none; font-size:18px; cursor:pointer; color:#F56565; padding: 4px 8px; display: flex; align-items: center; justify-content: center;" onclick="this.closest('.product-row').remove()">
                 🗑️
             </button>
         `;
