@@ -65,8 +65,9 @@ def nueva_oc():
 
 @compras_bp.route('/api/compras/proveedores/<int:supplier_id>/productos')
 def api_supplier_products(supplier_id):
-    """API para obtener productos vinculados a un proveedor"""
-    products = list_products_by_supplier(supplier_id)
+    """API para obtener todos los productos del sistema (permitiendo elegir cualquiera ya definido)"""
+    from db import list_products
+    products = list_products()
     return jsonify(products)
 
 @compras_bp.route('/api/compras/proveedores/<int:supplier_id>/oc-activas')
