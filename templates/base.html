@@ -29,10 +29,6 @@
                     <span class="icon"><i class="fa-solid fa-hand-holding-dollar"></i></span>
                     <span>Ventas</span>
                 </a>
-                <a href="{{ url_for('pagos.pagos') }}" class="nav-item {% if request.endpoint == 'pagos.pagos' %}active{% endif %}">
-                    <span class="icon"><i class="fa-solid fa-credit-card"></i></span>
-                    <span>Pagos</span>
-                </a>
                 <a href="{{ url_for('inventario.productos') }}" class="nav-item {% if request.endpoint == 'inventario.productos' %}active{% endif %}">
                     <span class="icon"><i class="fa-solid fa-jar"></i></span>
                     <span>Productos</span>

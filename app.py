@@ -38,7 +38,6 @@ from routes.auth import auth_bp
 from routes.dashboard import dashboard_bp
 from routes.inventario import inventario_bp
 from routes.ventas import ventas_bp
-from routes.pagos import pagos_bp
 from routes.usuarios import usuarios_bp
 from routes.proveedores import proveedores_bp
 from routes.reportes import reportes_bp
@@ -48,7 +47,6 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(inventario_bp)
 app.register_blueprint(ventas_bp)
-app.register_blueprint(pagos_bp)
 app.register_blueprint(usuarios_bp)
 app.register_blueprint(proveedores_bp)
 app.register_blueprint(reportes_bp)
