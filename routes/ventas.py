@@ -89,6 +89,8 @@ def ventas():
                     "invoice_due_date": sale.get("invoice_due_date") or "-",
                     "payment_date": sale.get("payment_date") or "-",
                     "payment_proof_file": sale.get("payment_proof_file") or "",
+                    "invoice_number": sale.get("invoice_number") or "",
+                    "invoice_file": sale.get("invoice_file") or "",
                     "status": {
                         "label": sale["status"],
                         "level": "success" if sale["status"] == "Completada" else "warning" if sale["status"] == "Pendiente" else "danger"
@@ -327,22 +329,35 @@ def registrar_pago_venta():
 @ventas_bp.route('/ventas/actualizar-estado', methods=['POST'])
 def actualizar_estado_venta():
     """Actualizar el estado general de la venta (Completada, Pendiente, Cancelada)"""
+    import os
+    from werkzeug.utils import secure_filename
+    from flask import current_app, flash, session
     from db import get_connection
-    from flask import flash
 
     sale_id = request.form.get('sale_id', type=int)
     new_status = request.form.get('status')
+    invoice_number = request.form.get('invoice_number')
 
     if not sale_id or not new_status:
         flash('Datos inválidos para actualizar el estado.', 'danger')
         return redirect(url_for('ventas.ventas'))
 
+    user_responsible = session.get('full_name', 'Administrador')
+
+    # Subir factura física si existe
+    invoice_file_path = None
+    file = request.files.get('invoice_file')
+    if file and file.filename:
+        safe_name = secure_filename(file.filename)
+        ext = os.path.splitext(safe_name)[1]
+        filename = f"factura_venta_{sale_id}_{int(datetime.utcnow().timestamp())}{ext}"
+        filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        invoice_file_path = f"/uploads/{filename}"
+
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # Registrar el historial de cambio de estado
-            from flask import session
-            user_responsible = session.get('full_name', 'Administrador')
-            
+            # 1. Registrar el historial de cambio de estado
             cur.execute(
                 """
                 INSERT INTO sales_status_history (sale_id, status, user_name, changed_at, comment)
@@ -353,15 +368,70 @@ def actualizar_estado_venta():
                     new_status,
                     user_responsible,
                     datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    f'Estado cambiado manualmente a {new_status}'
+                    f'Estado cambiado manualmente a {new_status}' + (f' (Nº Factura: {invoice_number})' if invoice_number else '')
                 )
             )
 
-            # Actualizar el estado en la tabla de ventas
+            # 2. Actualizar el estado en la tabla de ventas
             cur.execute(
                 "UPDATE sales SET status = %s WHERE id = %s",
                 (new_status, sale_id)
             )
+
+            # 3. Guardar el número de factura y el archivo adjunto de la factura en sale_payments
+            # Primero verificar si existe un registro de pago para esa venta
+            cur.execute("SELECT id FROM sale_payments WHERE sale_id = %s", (sale_id,))
+            payment_row = cur.fetchone()
+
+            if payment_row:
+                # Si existe, actualizamos
+                update_fields = []
+                params = []
+                if invoice_number is not None:
+                    update_fields.append("invoice_number = %s")
+                    params.append(invoice_number)
+                if invoice_file_path:
+                    update_fields.append("invoice_file = %s")
+                    params.append(invoice_file_path)
+
+                if update_fields:
+                    params.append(sale_id)
+                    cur.execute(
+                        f"UPDATE sale_payments SET {', '.join(update_fields)} WHERE sale_id = %s",
+                        tuple(params)
+                    )
+            else:
+                # Si no existe, creamos un registro inicial de pagos
+                cur.execute(
+                    """
+                    INSERT INTO sale_payments (sale_id, invoice_number, invoice_file, status)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (sale_id, invoice_number, invoice_file_path, 'Factura pendiente')
+                )
+
+            # 4. Registrar en el historial de cobros y facturas si se agrega número de factura o archivo
+            if invoice_number or invoice_file_path:
+                details_list = []
+                if invoice_number:
+                    details_list.append(f"Número de Factura: {invoice_number}")
+                if invoice_file_path:
+                    details_list.append("Archivo de Factura física adjuntado")
+                
+                cur.execute(
+                    """
+                    INSERT INTO sales_payment_history (sale_id, action, user_name, changed_at, details)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (
+                        sale_id,
+                        'Factura Modificada',
+                        user_responsible,
+                        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        ', '.join(details_list)
+                    )
+                )
+
         conn.commit()
 
     flash(f'El estado de la venta se actualizó a "{new_status}" con éxito.', 'success')

@@ -153,9 +153,9 @@
                 <td>
                     <input type="checkbox" class="sf-checkbox">
                 </td>
-                 <td>
-                     <a href="#" class="sf-link" data-id="{{ sale.id }}" data-number="{{ sale.sale_number }}" data-status="{{ sale.status.label }}" data-history='{{ sale.history | tojson | safe }}' onclick="openEditSaleStatusModal(this)">{{ sale.sale_number }}</a>
-                 </td>
+                  <td>
+                      <a href="#" class="sf-link" data-id="{{ sale.id }}" data-number="{{ sale.sale_number }}" data-status="{{ sale.status.label }}" data-invoice-number="{{ sale.invoice_number }}" data-invoice-file="{{ sale.invoice_file }}" data-history='{{ sale.history | tojson | safe }}' onclick="openEditSaleStatusModal(this)">{{ sale.sale_number }}</a>
+                  </td>
                 <td>
                     <div class="sf-cell-user">
                         <div class="sf-avatar">{{ sale.customer.initials }}</div>
@@ -285,7 +285,7 @@
                  <td>
                      <div class="sf-actions">
                          <button class="sf-action-btn" title="Ver detalles">👁️</button>
-                         <button class="sf-action-btn" title="Editar Pago" onclick="openEditPaymentModal('{{ sale.id }}', '{{ sale.sale_number }}', '{{ sale.total }}', '{{ sale.payment_status }}', '{{ sale.invoice_due_date }}', '{{ sale.payment_date }}', '{{ sale.payment_proof_file }}')">✏️</button>
+                         <button class="sf-action-btn" title="Editar Pago" data-id="{{ sale.id }}" data-number="{{ sale.sale_number }}" data-total="{{ sale.total }}" data-status="{{ sale.payment_status }}" data-due="{{ sale.invoice_due_date }}" data-payment-date="{{ sale.payment_date }}" data-proof="{{ sale.payment_proof_file }}" data-payment-history='{{ sale.payment_history | tojson | safe }}' onclick="openEditPaymentModal(this)">✏️</button>
                          <button class="sf-action-btn" title="Más opciones">⋮</button>
                      </div>
                  </td>
@@ -460,7 +460,13 @@
                         </div>
                     </div>
                 </div>
-
+                <!-- Historial de cobros y comprobantes dentro del modal de pagos -->
+                <div class="sf-form-group" style="margin-top: 20px;">
+                    <label class="sf-label" style="display: block; font-weight: 600; font-size: 13px; color: #2d3748; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Historial de Cobros y Comprobantes</label>
+                    <div id="modal_payment_history_list" style="max-height: 185px; overflow-y: auto; background: #f7fafc; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e0;">
+                        <!-- Rellenado dinámicamente con JS -->
+                    </div>
+                </div>
                 <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px;">
                     <button type="button" class="sf-btn-secondary" onclick="closeEditPaymentModal()" style="padding: 8px 16px; border: 1px solid #cbd5e0; background: #fff; color: #4a5568; border-radius: 4px; cursor: pointer;">Cancelar</button>
                     <button type="submit" class="sf-btn-primary" style="padding: 8px 16px; border: none; background: #0070d2; color: #fff; border-radius: 4px; cursor: pointer; font-weight: 500;">Actualizar Pago</button>
@@ -486,7 +492,7 @@
             <button class="sf-modal-close" onclick="closeEditSaleStatusModal()" style="border: none; background: none; font-size: 20px; cursor: pointer; color: #a0aec0;">✕</button>
         </div>
         <div class="sf-modal-body">
-            <form id="editSaleStatusForm" method="POST" action="{{ url_for('ventas.actualizar_estado_venta') }}">
+            <form id="editSaleStatusForm" method="POST" action="{{ url_for('ventas.actualizar_estado_venta') }}" enctype="multipart/form-data">
                 <input type="hidden" id="status_sale_id" name="sale_id">
                 
                 <div style="margin-bottom: 15px; background: #f7fafc; padding: 12px; border-radius: 6px; border: 1px dashed #e2e8f0; display: flex; justify-content: space-between;">
@@ -501,6 +507,26 @@
                         <option value="Completada">Completada</option>
                         <option value="Cancelada">Cancelada</option>
                     </select>
+                </div>
+
+                <!-- Campo para el Número de Factura -->
+                <div class="sf-form-group" style="margin-bottom: 15px;">
+                    <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Número de Factura</label>
+                    <input type="text" class="sf-input" id="edit_sale_invoice_number" name="invoice_number" placeholder="Ej: FACT-00123" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                </div>
+
+                <!-- Campo para subir la factura física de la venta -->
+                <div class="sf-form-group" style="margin-bottom: 15px;">
+                    <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Factura Adjunta (Foto / PDF)</label>
+                    <input type="file" class="sf-input" id="edit_sale_invoice_file" name="invoice_file" accept="image/*,application/pdf" style="width: 100%; padding: 6px; font-size: 13px; margin-bottom: 8px;">
+                    
+                    <!-- Previsualización de factura si ya está cargada -->
+                    <div id="modal_invoice_preview_container" style="display: none; align-items: center; gap: 10px; background: #f7fafc; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0;">
+                        <span style="font-size: 12px; color: #718096;">Factura actual (Clic para ver):</span>
+                        <div id="modal_invoice_preview" style="cursor: pointer; width: 44px; height: 44px; border-radius: 4px; border: 1px solid #cbd5e0; background: #fff; overflow: hidden; display: flex; align-items: center; justify-content: center;" onclick="zoomPaymentImage(this.getAttribute('data-src'))">
+                            <!-- Rellenado con JS -->
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Historial de Auditoría de la venta dentro del modal -->
@@ -535,7 +561,16 @@
         document.getElementById('newSaleModal').style.display = 'none';
     }
 
-    function openEditPaymentModal(saleId, saleNumber, total, paymentStatus, dueDate, paymentDate, proofFile) {
+    function openEditPaymentModal(element) {
+        const saleId = element.getAttribute('data-id');
+        const saleNumber = element.getAttribute('data-number');
+        const total = element.getAttribute('data-total');
+        const paymentStatus = element.getAttribute('data-status');
+        const dueDate = element.getAttribute('data-due');
+        const paymentDate = element.getAttribute('data-payment-date');
+        const proofFile = element.getAttribute('data-proof');
+        const rawHistory = element.getAttribute('data-payment-history') || '[]';
+
         document.getElementById('edit_sale_id').value = saleId;
         document.getElementById('label_sale_number').innerText = saleNumber;
         document.getElementById('label_sale_total').innerText = total;
@@ -568,6 +603,38 @@
             container.style.display = 'none';
             preview.setAttribute('data-src', '');
             preview.innerHTML = '';
+        }
+
+        // Renderizar historial de cobros/comprobantes dentro del modal
+        const historyList = document.getElementById('modal_payment_history_list');
+        historyList.innerHTML = '';
+        
+        try {
+            const history = JSON.parse(rawHistory);
+            if (history && history.length > 0) {
+                history.forEach(item => {
+                    const entry = document.createElement('div');
+                    entry.style.marginBottom = '10px';
+                    entry.style.borderLeft = '3px solid #4299e1';
+                    entry.style.paddingLeft = '8px';
+                    entry.style.fontSize = '12px';
+                    
+                    entry.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; font-weight: 600;">
+                            <span style="color: #2b6cb0;">${item.action}</span>
+                            <span style="color: #4a5568; font-weight: normal; font-size: 11px;">por ${item.user_name}</span>
+                        </div>
+                        <div style="color: #718096; font-size: 11px; margin-top: 2px;">${item.changed_at}</div>
+                        ${item.details ? `<div style="color: #4a5568; margin-top: 3px; font-size: 11px; font-style: italic;">${item.details}</div>` : ''}
+                    `;
+                    historyList.appendChild(entry);
+                });
+            } else {
+                historyList.innerHTML = '<span style="color: #718096; font-size: 12px; display: block; text-align: center; padding: 10px 0;">Sin modificaciones de pagos previas.</span>';
+            }
+        } catch(e) {
+            console.error("Error parsing payment history:", e);
+            historyList.innerHTML = '<span style="color: #e53e3e; font-size: 12px;">Error al cargar el historial.</span>';
         }
         
         document.getElementById('editPaymentModal').style.display = 'flex';
@@ -609,11 +676,34 @@
         const saleId = element.getAttribute('data-id');
         const saleNumber = element.getAttribute('data-number');
         const currentStatus = element.getAttribute('data-status');
+        const invoiceNumber = element.getAttribute('data-invoice-number') || '';
+        const invoiceFile = element.getAttribute('data-invoice-file') || '';
         const rawHistory = element.getAttribute('data-history') || '[]';
         
         document.getElementById('status_sale_id').value = saleId;
         document.getElementById('label_status_sale_number').innerText = saleNumber;
         document.getElementById('edit_sale_status_val').value = currentStatus;
+        document.getElementById('edit_sale_invoice_number').value = invoiceNumber;
+
+        // Limpiar input file
+        document.getElementById('edit_sale_invoice_file').value = '';
+
+        // Previsualización de factura física
+        const container = document.getElementById('modal_invoice_preview_container');
+        const preview = document.getElementById('modal_invoice_preview');
+        if (invoiceFile && invoiceFile !== '' && invoiceFile !== 'None') {
+            container.style.display = 'flex';
+            preview.setAttribute('data-src', invoiceFile);
+            if (invoiceFile.toLowerCase().endsWith('.pdf')) {
+                preview.innerHTML = '<span style="font-size: 20px;">📄</span>';
+            } else {
+                preview.innerHTML = '<img src="' + invoiceFile + '" style="max-width:100%; max-height:100%; object-fit:cover;">';
+            }
+        } else {
+            container.style.display = 'none';
+            preview.setAttribute('data-src', '');
+            preview.innerHTML = '';
+        }
 
         // Renderizar el historial de cambios de estado dentro del modal
         const historyContainer = document.getElementById('modal_status_history_list');

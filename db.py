@@ -679,6 +679,32 @@ def init_db() -> None:
                     cur.execute(f"ALTER TABLE sale_payment_items ADD COLUMN {col_name} {col_type}")
             cur.execute(
                 """
+                CREATE TABLE IF NOT EXISTS sales_status_history (
+                    id SERIAL PRIMARY KEY,
+                    sale_id INTEGER NOT NULL,
+                    status TEXT NOT NULL,
+                    user_name TEXT NOT NULL,
+                    changed_at TEXT NOT NULL,
+                    comment TEXT,
+                    FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE
+                )
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS sales_payment_history (
+                    id SERIAL PRIMARY KEY,
+                    sale_id INTEGER NOT NULL,
+                    action TEXT NOT NULL,
+                    user_name TEXT NOT NULL,
+                    changed_at TEXT NOT NULL,
+                    details TEXT,
+                    FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE
+                )
+                """
+            )
+            cur.execute(
+                """
                 CREATE TABLE IF NOT EXISTS suppliers (
                     id SERIAL PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -968,6 +994,32 @@ def seed_data_if_empty() -> None:
                             sale.get("notes", ""),
                             sale["created_at"],
                         ),
+                    )
+
+            # Sembrar productos si la tabla de productos está vacía
+            cur.execute("SELECT COUNT(*) as count FROM products")
+            if cur.fetchone()["count"] == 0:
+                default_products = DEFAULT_DATA.get("inventory_items", [])
+                for p in default_products:
+                    cur.execute(
+                        """
+                        INSERT INTO products (
+                            sku, name, description, photo_url, barcode, internal_code,
+                            category, width_cm, height_cm, depth_cm, weight_kg, created_at
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (sku) DO NOTHING
+                        """,
+                        (
+                            p["code"], # sku
+                            p["name"],
+                            p["desc"], # description
+                            "", # photo_url
+                            "", # barcode
+                            p["code"], # internal_code
+                            p["category"],
+                            None, None, None, None, # dimensiones y peso
+                            datetime.utcnow().isoformat(timespec='seconds')
+                        )
                     )
         conn.commit()
 
@@ -1292,7 +1344,7 @@ def list_sales(filters: dict = None) -> list[dict]:
                        s.sale_date, s.sale_time, s.products_json, s.total_amount, s.status,
                        s.seller_name, s.seller_initials, s.payment_method, s.payment_status,
                        s.delivery_status, s.notes, s.created_at,
-                       sp.invoice_due_date, sp.payment_date, sp.payment_proof_file
+                       sp.invoice_due_date, sp.payment_date, sp.payment_proof_file, sp.invoice_file, sp.invoice_number
                 FROM sales s
                 LEFT JOIN sale_payments sp ON sp.sale_id = s.id
                 WHERE 1=1
