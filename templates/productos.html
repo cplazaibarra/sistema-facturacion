@@ -116,6 +116,8 @@
                     <th>Código Interno</th>
                     <th>Nombre</th>
                     <th>Descripción</th>
+                    <th>Dimensiones (An x Al x Pr)</th>
+                    <th>Peso (kg)</th>
                     <th style="text-align: center;">Acciones</th>
                 </tr>
             </thead>
@@ -126,6 +128,14 @@
                     <td class="product-internal-code">{{ product.internal_code or '-' }}</td>
                     <td class="product-name">{{ product.name }}</td>
                     <td class="product-description">{{ product.description or '-' }}</td>
+                    <td class="product-dimensions">
+                        {% if product.width_cm or product.height_cm or product.depth_cm %}
+                            {{ product.width_cm or '-' }} x {{ product.height_cm or '-' }} x {{ product.depth_cm or '-' }} cm
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="product-weight">{{ product.weight_kg or '-' }}</td>
                     <td style="text-align: center;">
                         <div class="action-buttons">
                             <button class="btn-icon edit-btn" title="Editar" onclick="editarProducto({{ product.id }})">✏️</button>
