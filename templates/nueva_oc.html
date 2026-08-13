@@ -117,14 +117,28 @@ document.addEventListener('DOMContentLoaded', () => {
             options += `<option value="${p.id}">${p.name} (SKU: ${p.sku})</option>`;
         });
  
+        // Encontrar precios base para autocompletar si existen
         row.innerHTML = `
-            <div class="form-group" style="margin: 0; display: flex; gap: 6px; align-items: center; position: relative;">
-                <div style="position: relative; flex: 1;">
-                    <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #a0aec0; font-size: 13px;">🔍</span>
-                    <input type="text" class="product-search-input" placeholder="Buscar..." style="width: 100%; padding: 8px 8px 8px 26px; border: 1px solid #E2E8F0; border-radius: 6px; font-size: 13px; margin-bottom: 4px;">
-                    <select name="product_id[]" class="product-select" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
-                        ${options}
-                    </select>
+            <div class="form-group" style="margin: 0; position: relative;">
+                <!-- Caja visual que simula el selector de producto -->
+                <div class="product-custom-select" style="cursor: pointer; padding: 8px 12px; border: 1px solid #E2E8F0; border-radius: 6px; background: #fff; font-size: 13px; min-height: 36px; display: flex; justify-content: space-between; align-items: center; user-select: none;">
+                    <span class="selected-text" style="color: #4a5568;">Seleccionar producto</span>
+                    <span style="font-size: 10px; color: #a0aec0;">▼</span>
+                </div>
+                
+                <!-- Input oculto para enviar en el POST -->
+                <input type="hidden" name="product_id[]" class="product-select" required value="">
+
+                <!-- Dropdown simulado que contiene el buscador con lupa y la lista de opciones -->
+                <div class="product-dropdown-menu" style="display: none; position: absolute; top: 105%; left: 0; right: 0; background: #fff; border: 1px solid #cbd5e0; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; padding: 8px;">
+                    <div style="position: relative; margin-bottom: 8px;">
+                        <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #a0aec0; font-size: 13px;">🔍</span>
+                        <input type="text" class="product-search-input" placeholder="Buscar producto..." style="width: 100%; padding: 6px 6px 6px 26px; border: 1px solid #E2E8F0; border-radius: 4px; font-size: 12px;">
+                    </div>
+                    <div class="options-list" style="max-height: 160px; overflow-y: auto;">
+                        <div class="dropdown-opt" data-value="" style="padding: 6px 8px; font-size: 13px; color: #718096; cursor: pointer; border-radius: 4px;">Seleccionar producto</div>
+                        <!-- Las opciones se inyectan dinámicamente -->
+                    </div>
                 </div>
             </div>
             <div class="form-group" style="margin: 0;">
@@ -139,55 +153,114 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         container.appendChild(row);
 
+        const customSelect = row.querySelector('.product-custom-select');
+        const hiddenInput = row.querySelector('.product-select');
+        const dropdownMenu = row.querySelector('.product-dropdown-menu');
         const searchInput = row.querySelector('.product-search-input');
-        const selectElement = row.querySelector('.product-select');
+        const optionsList = row.querySelector('.options-list');
 
-        // Lógica de búsqueda/filtrado interactiva en tiempo real sobre el select
-        searchInput.addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase();
-            const options = selectElement.querySelectorAll('option');
-            
-            let matchedCount = 0;
-            let firstMatchedVal = '';
-
-            options.forEach(opt => {
-                if (!opt.value) return; // Omitir el placeholder
+        // Renderizar opciones en el listado simulado
+        function buildOptions() {
+            optionsList.innerHTML = '<div class="dropdown-opt" data-value="" style="padding: 6px 8px; font-size: 13px; color: #718096; cursor: pointer; border-radius: 4px;">Seleccionar producto</div>';
+            supplierProducts.forEach(p => {
+                const opt = document.createElement('div');
+                opt.className = 'dropdown-opt';
+                opt.setAttribute('data-value', p.id);
+                opt.setAttribute('data-sku', p.sku);
+                opt.setAttribute('data-price', p.price || 0.00);
+                opt.style.padding = '8px';
+                opt.style.fontSize = '12.5px';
+                opt.style.cursor = 'pointer';
+                opt.style.borderRadius = '4px';
+                opt.style.transition = 'background 0.2s';
+                opt.innerHTML = `<span style="font-weight: 500;">${p.name}</span> <span style="color: #a0aec0; font-size: 11px;">(SKU: ${p.sku})</span>`;
                 
-                const text = opt.textContent.toLowerCase();
-                if (text.includes(query)) {
-                    opt.style.display = 'block';
-                    matchedCount++;
-                    if (!firstMatchedVal) firstMatchedVal = opt.value;
-                } else {
-                    opt.style.display = 'none';
-                }
-            });
+                // Efecto hover
+                opt.addEventListener('mouseenter', () => opt.style.backgroundColor = '#f7fafc');
+                opt.addEventListener('mouseleave', () => opt.style.backgroundColor = 'transparent');
+                
+                // Selección
+                opt.addEventListener('click', () => {
+                    selectValue(p.id, `${p.name} (SKU: ${p.sku})`, p.price);
+                });
 
-            // Si hay exactamente una coincidencia, auto-seleccionarla para agilizar
-            if (matchedCount === 1 && firstMatchedVal) {
-                selectElement.value = firstMatchedVal;
-                // Disparar evento change de forma manual para gatillar deshabilitación
-                selectElement.dispatchEvent(new Event('change'));
+                optionsList.appendChild(opt);
+            });
+        }
+        buildOptions();
+
+        // Control de despliegue del menú
+        customSelect.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Cerrar otros dropdowns primero
+            document.querySelectorAll('.product-dropdown-menu').forEach(menu => {
+                if (menu !== dropdownMenu) menu.style.display = 'none';
+            });
+            const isOpen = dropdownMenu.style.display === 'block';
+            dropdownMenu.style.display = isOpen ? 'none' : 'block';
+            if (!isOpen) {
+                searchInput.value = '';
+                filterOptions('');
+                searchInput.focus();
             }
         });
 
-        selectElement.addEventListener('change', (e) => {
-            const currentVal = e.target.value;
-            if (!currentVal) return;
+        // Ocultar dropdown al hacer clic fuera
+        document.addEventListener('click', () => {
+            dropdownMenu.style.display = 'none';
+        });
+        dropdownMenu.addEventListener('click', (e) => e.stopPropagation());
 
-            // Verificar si este producto ya fue seleccionado en otra fila
+        // Filtrar productos al escribir en el input buscador (lupa)
+        searchInput.addEventListener('input', (e) => {
+            filterOptions(e.target.value);
+        });
+
+        function filterOptions(query) {
+            const cleanQuery = query.toLowerCase();
+            const opts = optionsList.querySelectorAll('.dropdown-opt');
+            opts.forEach(opt => {
+                const val = opt.getAttribute('data-value');
+                if (!val) return; // Omitir placeholder
+                const text = opt.textContent.toLowerCase();
+                opt.style.display = text.includes(cleanQuery) ? 'block' : 'none';
+            });
+        }
+
+        // Ejecutar selección
+        function selectValue(id, label, defaultPrice) {
+            // Verificar si este producto ya fue seleccionado en otra fila para evitar duplicados
             const allSelects = container.querySelectorAll('.product-select');
             let isDuplicate = false;
             allSelects.forEach(select => {
-                if (select !== e.target && select.value === currentVal) {
+                if (select !== hiddenInput && select.value === String(id)) {
                     isDuplicate = true;
                 }
             });
 
             if (isDuplicate) {
                 alert('Este producto ya ha sido seleccionado en otra línea de esta orden.');
-                e.target.value = ''; // Revertir selección
+                dropdownMenu.style.display = 'none';
+                return;
             }
+
+            hiddenInput.value = id;
+            customSelect.querySelector('.selected-text').textContent = label;
+            customSelect.querySelector('.selected-text').style.color = '#2d3748';
+            dropdownMenu.style.display = 'none';
+
+            // Auto-rellenar precio unitario por defecto
+            if (defaultPrice) {
+                const priceInput = row.querySelectorAll('input')[2]; // el input de precio unitario
+                if (priceInput) priceInput.value = defaultPrice;
+            }
+
+            // Disparar evento para actualizar deshabilitados globales
+            hiddenInput.dispatchEvent(new Event('change'));
+            updateProductDropdowns();
+        }
+
+        hiddenInput.addEventListener('change', () => {
             updateProductDropdowns();
         });
 
@@ -195,22 +268,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Deshabilitar productos ya seleccionados en los otros selectores
+    // Deshabilitar productos ya seleccionados en los otros selectores
     function updateProductDropdowns() {
         const allSelects = container.querySelectorAll('.product-select');
         const selectedValues = Array.from(allSelects).map(s => s.value).filter(val => val !== '');
 
-        allSelects.forEach(select => {
-            const currentValue = select.value;
-            const options = select.querySelectorAll('option');
+        const allRows = container.querySelectorAll('.product-row');
+        allRows.forEach(row => {
+            const hiddenInput = row.querySelector('.product-select');
+            const currentValue = hiddenInput.value;
+            const options = row.querySelectorAll('.options-list .dropdown-opt');
+            
             options.forEach(opt => {
-                if (opt.value && opt.value !== currentValue) {
-                    if (selectedValues.includes(opt.value)) {
-                        opt.disabled = true;
+                const optVal = opt.getAttribute('data-value');
+                if (optVal && optVal !== currentValue) {
+                    if (selectedValues.includes(optVal)) {
+                        opt.style.opacity = '0.5';
+                        opt.style.pointerEvents = 'none';
+                        opt.style.textDecoration = 'line-through';
                     } else {
-                        opt.disabled = false;
+                        opt.style.opacity = '1';
+                        opt.style.pointerEvents = 'auto';
+                        opt.style.textDecoration = 'none';
                     }
                 } else {
-                    opt.disabled = false;
+                    opt.style.opacity = '1';
+                    opt.style.pointerEvents = 'auto';
+                    opt.style.textDecoration = 'none';
                 }
             });
         });
