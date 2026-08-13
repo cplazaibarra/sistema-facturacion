@@ -2294,6 +2294,38 @@ def create_purchase_order(supplier_id: int, order_date: str, notes: str, items: 
         conn.commit()
     return oc_num
 
+def update_purchase_order(po_id: int, supplier_id: int, order_date: str, notes: str, items: list[dict], status: str = "Borrador") -> None:
+    """Actualiza una Orden de Compra (borrador) y sus ítems en la base de datos"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Calcular total
+            total_amount = sum(item["quantity"] * item["unit_price"] for item in items)
+            
+            # Actualizar cabecera
+            cur.execute(
+                """
+                UPDATE purchase_orders
+                SET supplier_id = %s, order_date = %s, status = %s, total_amount = %s, notes = %s
+                WHERE id = %s
+                """,
+                (supplier_id, order_date, status, total_amount, notes, po_id)
+            )
+            
+            # Eliminar ítems anteriores para reinsertar los actualizados
+            cur.execute("DELETE FROM purchase_order_items WHERE purchase_order_id = %s", (po_id,))
+            
+            # Insertar ítems actualizados
+            for item in items:
+                line_total = item["quantity"] * item["unit_price"]
+                cur.execute(
+                    """
+                    INSERT INTO purchase_order_items (purchase_order_id, product_id, quantity_ordered, quantity_received, unit_price, total_price)
+                    VALUES (%s, %s, %s, 0, %s, %s)
+                    """,
+                    (po_id, item["product_id"], item["quantity"], item["unit_price"], line_total)
+                )
+        conn.commit()
+
 def list_purchase_orders() -> list[dict]:
     """Lista todas las Órdenes de Compra"""
     with get_connection() as conn:

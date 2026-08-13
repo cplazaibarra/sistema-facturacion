@@ -5,6 +5,7 @@ from db import (
     list_suppliers,
     list_products_by_supplier,
     create_purchase_order,
+    update_purchase_order,
     list_purchase_orders,
     get_purchase_order,
     get_purchase_order_items,
@@ -66,6 +67,58 @@ def nueva_oc():
 
     suppliers = list_suppliers()
     return render_template('nueva_oc.html', suppliers=suppliers, default_date=datetime.now().strftime('%Y-%m-%d'))
+
+@compras_bp.route('/compras/oc/<int:po_id>/editar', methods=['GET', 'POST'])
+def editar_oc(po_id):
+    """Editar una orden de compra en estado Borrador"""
+    po = get_purchase_order(po_id)
+    if not po:
+        flash("Orden de Compra no encontrada.", "danger")
+        return redirect(url_for('compras.list_oc'))
+        
+    if po['status'] != 'Borrador':
+        flash("Solo se pueden editar órdenes de compra en estado Borrador.", "warning")
+        return redirect(url_for('compras.list_oc'))
+
+    if request.method == 'POST':
+        supplier_id = request.form.get('supplier_id', type=int)
+        order_date = request.form.get('order_date')
+        notes = request.form.get('notes')
+        status = request.form.get('status', 'Borrador').strip()
+        
+        product_ids = request.form.getlist('product_id[]')
+        quantities = request.form.getlist('quantity[]')
+        unit_prices = request.form.getlist('unit_price[]')
+        
+        items = []
+        for pid, qty_raw, price_raw in zip(product_ids, quantities, unit_prices):
+            if not pid:
+                continue
+            try:
+                qty = int(qty_raw) if qty_raw else 0
+                price = float(price_raw) if price_raw else 0.0
+            except ValueError:
+                continue
+            if qty > 0:
+                items.append({
+                    "product_id": int(pid),
+                    "quantity": qty,
+                    "unit_price": price
+                })
+                
+        if not supplier_id or not items:
+            flash("Debe seleccionar un proveedor y agregar al menos un producto.", "danger")
+            suppliers = list_suppliers()
+            items_current = get_purchase_order_items(po_id)
+            return render_template('editar_oc.html', po=po, items=items_current, suppliers=suppliers)
+            
+        update_purchase_order(po_id, supplier_id, order_date, notes, items, status=status)
+        flash(f"Orden de Compra {po['oc_number']} actualizada como {status} con éxito.", "success")
+        return redirect(url_for('compras.list_oc'))
+
+    suppliers = list_suppliers()
+    items = get_purchase_order_items(po_id)
+    return render_template('editar_oc.html', po=po, items=items, suppliers=suppliers)
 
 @compras_bp.route('/api/compras/proveedores/<int:supplier_id>/productos')
 def api_supplier_products(supplier_id):

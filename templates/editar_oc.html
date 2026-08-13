@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Borrador OC - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Editar Borrador Orden de Compra{% endblock %}
+
+{% block content %}
+<div class="ingreso-container">
+    <div class="ingreso-form-card" style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <h3>Editar Borrador de Orden de Compra ({{ po.oc_number }})</h3>
+        <form class="ingreso-form" method="post" id="oc-form" style="margin-top: 20px;">
+            
+            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                <div class="form-group">
+                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Fecha de Orden</label>
+                    <input type="date" class="form-control" name="order_date" value="{{ po.order_date }}" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Proveedor</label>
+                    <!-- Al ser borrador, permitimos ver el proveedor actual pero bloqueado/fijo para mantener consistencia, o reelegir -->
+                    <select class="form-control" name="supplier_id" id="oc-supplier" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px; background-color: #f7fafc;">
+                        {% for supplier in suppliers %}
+                        <option value="{{ supplier.id }}" {% if po.supplier_id == supplier.id %}selected{% endif %}>{{ supplier.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label style="font-weight: 500; display: block; margin-bottom: 6px;">Notas / Términos de Compra</label>
+                <textarea class="form-control" name="notes" placeholder="Términos de pago, plazos de entrega, etc..." style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px; height: 60px; resize: vertical;">{{ po.notes or '' }}</textarea>
+            </div>
+
+            <div class="form-divider" style="height: 1px; background: #E2E8F0; margin: 24px 0;"></div>
+
+            <h4 style="margin-bottom: 12px;">Productos a Solicitar</h4>
+            
+            <div id="productos-oc-section" style="margin-top: 15px;">
+                <!-- Cabecera de columnas única -->
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 12px; margin-bottom: 8px; font-weight: 600; font-size: 13px; color: #4a5568; border-bottom: 2px solid #E2E8F0; padding-bottom: 6px;">
+                    <div>Producto</div>
+                    <div>Cantidad</div>
+                    <div>Precio Unitario ($)</div>
+                    <div style="width: 40px; text-align: center;"></div>
+                </div>
+                
+                <div id="productos-oc-container">
+                    <!-- Las filas del borrador se cargarán acá -->
+                </div>
+            </div>
+
+            <button type="button" class="btn-secondary" id="add-product-btn" style="margin-top: 12px; padding: 6px 12px; background-color: #ED8936; border: none; color: white; border-radius: 4px; cursor: pointer; font-weight: 600;">
+                ➕ Agregar línea
+            </button>
+
+            <!-- Input oculto para definir el estado (Borrador vs Emitida) -->
+            <input type="hidden" name="status" id="oc-status-input" value="Borrador">
+
+            <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px; align-items: center;">
+                <a href="{{ url_for('compras.list_oc') }}" class="btn-secondary" style="text-decoration: none; padding: 10px 16px;">Cancelar</a>
+                
+                <button type="submit" onclick="document.getElementById('oc-status-input').value = 'Borrador';" class="btn-secondary" style="padding: 10px 20px; background-color: #A0AEC0; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                    📂 Guardar Cambios Borrador
+                </button>
+                
+                <button type="submit" onclick="document.getElementById('oc-status-input').value = 'Emitida';" class="sf-btn-primary" style="padding: 10px 20px;">
+                    ✉️ Emitir Orden de Compra (Finalizar)
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const supplierSelect = document.getElementById('oc-supplier');
+    const container = document.getElementById('productos-oc-container');
+    const addBtn = document.getElementById('add-product-btn');
+    
+    let supplierProducts = [];
+
+    // Cargar productos del proveedor del borrador al iniciar
+    async function loadSupplierProducts() {
+        const supplierId = supplierSelect.value;
+        if (!supplierId) return;
+        try {
+            const response = await fetch(`/api/compras/proveedores/${supplierId}/productos`);
+            if (response.ok) {
+                supplierProducts = await response.json();
+                
+                // Si la lista de productos está cargada, renderizamos los ítems del borrador existentes
+                {% for item in items %}
+                createProductRow({{ item.product_id }}, {{ item.quantity_ordered }}, {{ item.unit_price }}, "{{ item.product_name }} (SKU: {{ item.product_sku }})");
+                {% endfor %}
+            }
+        } catch (e) {
+            console.error("Error al obtener productos:", e);
+        }
+    }
+    
+    loadSupplierProducts();
+
+    // Permitir cambiar proveedor (limpia los productos cargados)
+    supplierSelect.addEventListener('change', async () => {
+        const supplierId = supplierSelect.value;
+        container.innerHTML = '';
+        if (!supplierId) {
+            supplierProducts = [];
+            return;
+        }
+        try {
+            const response = await fetch(`/api/compras/proveedores/${supplierId}/productos`);
+            if (response.ok) {
+                supplierProducts = await response.json();
+                createProductRow();
+            }
+        } catch (e) {
+            console.error("Error al cambiar proveedor:", e);
+        }
+    });
+
+    addBtn.addEventListener('click', () => createProductRow());
+
+    function createProductRow(selectedId = null, selectedQty = '', selectedPrice = '', selectedLabel = '') {
+        const row = document.createElement('div');
+        row.style.display = 'grid';
+        row.style.gridTemplateColumns = '2fr 1fr 1fr auto';
+        row.style.gap = '12px';
+        row.style.marginBottom = '8px';
+        row.style.alignItems = 'center';
+        row.className = 'product-row';
+
+        let options = '<option value="">Seleccionar producto</option>';
+        supplierProducts.forEach(p => {
+            options += `<option value="${p.id}">${p.name} (SKU: ${p.sku})</option>`;
+        });
+
+        const initialLabel = selectedId ? selectedLabel : "Seleccionar producto";
+        const initialVal = selectedId ? selectedId : "";
+        const labelColor = selectedId ? '#2d3748' : '#4a5568';
+
+        row.innerHTML = `
+            <div class="form-group" style="margin: 0; position: relative;">
+                <div class="product-custom-select" style="cursor: pointer; padding: 8px 12px; border: 1px solid #E2E8F0; border-radius: 6px; background: #fff; font-size: 13px; min-height: 36px; display: flex; justify-content: space-between; align-items: center; user-select: none;">
+                    <span class="selected-text" style="color: ${labelColor};">${initialLabel}</span>
+                    <span style="font-size: 10px; color: #a0aec0;">▼</span>
+                </div>
+                
+                <input type="hidden" name="product_id[]" class="product-select" required value="${initialVal}">
+
+                <div class="product-dropdown-menu" style="display: none; position: absolute; top: 105%; left: 0; right: 0; background: #fff; border: 1px solid #cbd5e0; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; padding: 8px;">
+                    <div style="position: relative; margin-bottom: 8px;">
+                        <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #a0aec0; font-size: 13px;">🔍</span>
+                        <input type="text" class="product-search-input" placeholder="Buscar producto..." style="width: 100%; padding: 6px 6px 6px 26px; border: 1px solid #E2E8F0; border-radius: 4px; font-size: 12px;">
+                    </div>
+                    <div class="options-list" style="max-height: 160px; overflow-y: auto;">
+                        <div class="dropdown-opt" data-value="" style="padding: 6px 8px; font-size: 13px; color: #718096; cursor: pointer; border-radius: 4px;">Seleccionar producto</div>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group" style="margin: 0;">
+                <input type="number" name="quantity[]" min="1" required placeholder="0" value="${selectedQty}" style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
+            </div>
+            <div class="form-group" style="margin: 0;">
+                <input type="number" name="unit_price[]" min="0.01" step="0.01" required placeholder="0.00" value="${selectedPrice}" style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
+            </div>
+            <button type="button" class="btn-icon delete-btn" style="background:none; border:none; font-size:18px; cursor:pointer; color:#F56565; padding: 4px 8px; display: flex; align-items: center; justify-content: center;" onclick="this.closest('.product-row').remove(); updateProductDropdowns();">
+                🗑️
+            </button>
+        `;
+        container.appendChild(row);
+
+        const customSelect = row.querySelector('.product-custom-select');
+        const hiddenInput = row.querySelector('.product-select');
+        const dropdownMenu = row.querySelector('.product-dropdown-menu');
+        const searchInput = row.querySelector('.product-search-input');
+        const optionsList = row.querySelector('.options-list');
+
+        function buildOptions() {
+            optionsList.innerHTML = '<div class="dropdown-opt" data-value="" style="padding: 6px 8px; font-size: 13px; color: #718096; cursor: pointer; border-radius: 4px;">Seleccionar producto</div>';
+            supplierProducts.forEach(p => {
+                const opt = document.createElement('div');
+                opt.className = 'dropdown-opt';
+                opt.setAttribute('data-value', p.id);
+                opt.setAttribute('data-sku', p.sku);
+                opt.setAttribute('data-price', p.price || 0.00);
+                opt.style.padding = '8px';
+                opt.style.fontSize = '12.5px';
+                opt.style.cursor = 'pointer';
+                opt.style.borderRadius = '4px';
+                opt.style.transition = 'background 0.2s';
+                opt.innerHTML = `<span style="font-weight: 500;">${p.name}</span> <span style="color: #a0aec0; font-size: 11px;">(SKU: ${p.sku})</span>`;
+                
+                opt.addEventListener('mouseenter', () => opt.style.backgroundColor = '#f7fafc');
+                opt.addEventListener('mouseleave', () => opt.style.backgroundColor = 'transparent');
+                opt.addEventListener('click', () => {
+                    selectValue(p.id, `${p.name} (SKU: ${p.sku})`, p.price);
+                });
+                optionsList.appendChild(opt);
+            });
+        }
+        buildOptions();
+
+        customSelect.addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.querySelectorAll('.product-dropdown-menu').forEach(menu => {
+                if (menu !== dropdownMenu) menu.style.display = 'none';
+            });
+            const isOpen = dropdownMenu.style.display === 'block';
+            dropdownMenu.style.display = isOpen ? 'none' : 'block';
+            if (!isOpen) {
+                searchInput.value = '';
+                filterOptions('');
+                searchInput.focus();
+            }
+        });
+
+        document.addEventListener('click', () => {
+            dropdownMenu.style.display = 'none';
+        });
+        dropdownMenu.addEventListener('click', (e) => e.stopPropagation());
+
+        searchInput.addEventListener('input', (e) => {
+            filterOptions(e.target.value);
+        });
+
+        function filterOptions(query) {
+            const cleanQuery = query.toLowerCase();
+            const opts = optionsList.querySelectorAll('.dropdown-opt');
+            opts.forEach(opt => {
+                const val = opt.getAttribute('data-value');
+                if (!val) return;
+                const text = opt.textContent.toLowerCase();
+                opt.style.display = text.includes(cleanQuery) ? 'block' : 'none';
+            });
+        }
+
+        function selectValue(id, label, defaultPrice) {
+            const allSelects = container.querySelectorAll('.product-select');
+            let isDuplicate = false;
+            allSelects.forEach(select => {
+                if (select !== hiddenInput && select.value === String(id)) {
+                    isDuplicate = true;
+                }
+            });
+
+            if (isDuplicate) {
+                alert('Este producto ya ha sido seleccionado en otra línea de esta orden.');
+                dropdownMenu.style.display = 'none';
+                return;
+            }
+
+            hiddenInput.value = id;
+            customSelect.querySelector('.selected-text').textContent = label;
+            customSelect.querySelector('.selected-text').style.color = '#2d3748';
+            dropdownMenu.style.display = 'none';
+
+            if (defaultPrice && !selectedPrice) {
+                const priceInput = row.querySelectorAll('input')[2];
+                if (priceInput) priceInput.value = defaultPrice;
+            }
+
+            hiddenInput.dispatchEvent(new Event('change'));
+            updateProductDropdowns();
+        }
+
+        hiddenInput.addEventListener('change', () => {
+            updateProductDropdowns();
+        });
+    }
+
+    function updateProductDropdowns() {
+        const allSelects = container.querySelectorAll('.product-select');
+        const selectedValues = Array.from(allSelects).map(s => s.value).filter(val => val !== '');
+        const allRows = container.querySelectorAll('.product-row');
+        
+        allRows.forEach(row => {
+            const hiddenInput = row.querySelector('.product-select');
+            const currentValue = hiddenInput.value;
+            const options = row.querySelectorAll('.options-list .dropdown-opt');
+            
+            options.forEach(opt => {
+                const optVal = opt.getAttribute('data-value');
+                if (optVal && optVal !== currentValue) {
+                    if (selectedValues.includes(optVal)) {
+                        opt.style.opacity = '0.5';
+                        opt.style.pointerEvents = 'none';
+                        opt.style.textDecoration = 'line-through';
+                    } else {
+                        opt.style.opacity = '1';
+                        opt.style.pointerEvents = 'auto';
+                        opt.style.textDecoration = 'none';
+                    }
+                } else {
+                    opt.style.opacity = '1';
+                    opt.style.pointerEvents = 'auto';
+                    opt.style.textDecoration = 'none';
+                }
+            });
+        });
+    }
+
+    document.getElementById('oc-form').addEventListener('submit', (e) => {
+        const allSelects = container.querySelectorAll('.product-select');
+        const values = Array.from(allSelects).map(s => s.value).filter(val => val !== '');
+        const uniqueValues = new Set(values);
+
+        if (values.length !== uniqueValues.size) {
+            e.preventDefault();
+            alert('Hay productos duplicados en las líneas de la orden de compra. Por favor, remueva las líneas repetidas.');
+        }
+    });
+});
+</script>
+{% endblock %}

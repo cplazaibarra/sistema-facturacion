@@ -50,6 +50,11 @@
                         {% endif %}
                     </td>
                     <td>
+                        {% if order.status == 'Borrador' %}
+                        <a href="{{ url_for('compras.editar_oc', po_id=order.id) }}" class="btn-small" style="background-color: #ED8936; text-decoration: none; color: white; display: inline-flex; align-items: center; gap: 4px; margin-right: 6px;">
+                            <span>✏️</span> Editar
+                        </a>
+                        {% endif %}
                         <a href="{{ url_for('compras.descargar_oc_pdf', po_id=order.id) }}" class="btn-small" style="background-color: #6B5B95; text-decoration: none; color: white; display: inline-flex; align-items: center; gap: 4px;">
                             <span>📄</span> PDF
                         </a>
