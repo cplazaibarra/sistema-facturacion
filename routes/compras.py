@@ -51,13 +51,17 @@ def nueva_oc():
                     "unit_price": price
                 })
                 
+        status = request.form.get('status', 'Emitida').strip()
+        if status not in ['Borrador', 'Emitida']:
+            status = 'Emitida'
+
         if not supplier_id or not items:
             flash("Debe seleccionar un proveedor y agregar al menos un producto.", "danger")
             suppliers = list_suppliers()
             return render_template('nueva_oc.html', suppliers=suppliers, default_date=datetime.now().strftime('%Y-%m-%d'))
             
-        oc_num = create_purchase_order(supplier_id, order_date, notes, items)
-        flash(f"Orden de Compra {oc_num} creada con éxito.", "success")
+        oc_num = create_purchase_order(supplier_id, order_date, notes, items, status=status)
+        flash(f"Orden de Compra {oc_num} guardada como {status} con éxito.", "success")
         return redirect(url_for('compras.list_oc'))
 
     suppliers = list_suppliers()

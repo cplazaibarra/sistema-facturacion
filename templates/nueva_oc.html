@@ -52,9 +52,19 @@
                 ➕ Agregar línea
             </button>
 
-            <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+            <!-- Input oculto para definir el estado (Borrador vs Emitida) -->
+            <input type="hidden" name="status" id="oc-status-input" value="Emitida">
+
+            <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px; align-items: center;">
                 <a href="{{ url_for('compras.list_oc') }}" class="btn-secondary" style="text-decoration: none; padding: 10px 16px;">Cancelar</a>
-                <button type="submit" class="sf-btn-primary" style="padding: 10px 20px;">Emitir Orden de Compra</button>
+                
+                <button type="submit" onclick="document.getElementById('oc-status-input').value = 'Borrador';" class="btn-secondary" style="padding: 10px 20px; background-color: #A0AEC0; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                    📂 Guardar Borrador
+                </button>
+                
+                <button type="submit" onclick="document.getElementById('oc-status-input').value = 'Emitida';" class="sf-btn-primary" style="padding: 10px 20px;">
+                    ✉️ Emitir Orden de Compra
+                </button>
             </div>
         </form>
     </div>

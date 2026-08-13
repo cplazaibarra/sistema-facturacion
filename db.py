@@ -2263,7 +2263,7 @@ def get_next_oc_number() -> str:
             next_id = (row["id"] + 1) if row else 1
             return f"OC-{next_id:05d}"
 
-def create_purchase_order(supplier_id: int, order_date: str, notes: str, items: list[dict]) -> str:
+def create_purchase_order(supplier_id: int, order_date: str, notes: str, items: list[dict], status: str = "Emitida") -> str:
     """Crea una Orden de Compra completa en la base de datos"""
     oc_num = get_next_oc_number()
     with get_connection() as conn:
@@ -2277,7 +2277,7 @@ def create_purchase_order(supplier_id: int, order_date: str, notes: str, items: 
                 INSERT INTO purchase_orders (oc_number, supplier_id, order_date, status, total_amount, notes, created_at)
                 VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
                 """,
-                (oc_num, supplier_id, order_date, "Emitida", total_amount, notes, datetime.utcnow().isoformat(timespec='seconds'))
+                (oc_num, supplier_id, order_date, status, total_amount, notes, datetime.utcnow().isoformat(timespec='seconds'))
             )
             po_id = cur.fetchone()["id"]
             
