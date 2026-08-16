@@ -429,4 +429,12 @@ def get_product_recipe(product_id):
     if not items:
         return jsonify({"error": "Receta no encontrada"}), 404
         
+    # Obtener stock físico actual
+    inventory_items = get_page_data("inventory_items") or []
+    stock_map = {item["code"]: float(item.get("stock", 0.0)) for item in inventory_items}
+    
+    for item in items:
+        sku = item["input_sku"]
+        item["stock"] = stock_map.get(sku, 0.0)
+        
     return jsonify({"product_id": product_id, "items": items})
