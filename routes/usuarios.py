@@ -23,15 +23,7 @@ usuarios_bp = Blueprint('usuarios', __name__)
 def administracion():
     """Módulo de Administración"""
     modules = get_page_data("admin_modules") or []
-    # Agregar la lista de precios si no existe
-    if not any(m.get('link') == '/administracion/listas-precios' for m in modules):
-        modules.append({
-            "icon": "🏷️",
-            "title": "Listas de Precios",
-            "desc": "Gestionar márgenes y listas de precios por categorías de clientes",
-            "action": "Configurar",
-            "link": "/administracion/listas-precios"
-        })
+    modules = [m for m in modules if m.get('link') != '/administracion/listas-precios']
     settings = get_page_data("admin_settings")
     return render_template('administracion.html', modules=modules, settings=settings)
 
