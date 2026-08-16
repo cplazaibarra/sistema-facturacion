@@ -374,7 +374,7 @@ def editar_producto(product_id):
         if product["sku"] and product["name"]:
             update_product(product_id, product)
 
-        return redirect(url_for('inventario.editar_producto', product_id=product_id))
+        return redirect(url_for('inventario.productos'))
 
     product = get_product(product_id)
     categories = get_page_data("inventory_categories") or []

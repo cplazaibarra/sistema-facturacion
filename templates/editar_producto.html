@@ -4,12 +4,25 @@
 {% block page_title %}Editar Producto{% endblock %}
 
 {% block content %}
+<!-- Barra superior de navegación y acciones -->
+<div class="sf-action-bar" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 14px 20px; border-radius: 8px; border-left: 4px solid #3182ce; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+    <div class="sf-action-left">
+        <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #2d3748;">Editar Producto: {{ product.name }}</h3>
+    </div>
+    <div class="sf-action-right">
+        <a href="{{ url_for('inventario.productos') }}" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 8px 16px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fff; color: #4a5568; font-weight: 600;">
+            <span>⬅️</span>
+            <span>Volver a la Lista de Productos</span>
+        </a>
+    </div>
+</div>
+
 <!-- Formulario de edición del producto -->
 <div id="formulario-producto">
 <div class="settings-section">
     <div class="settings-card">
         <div class="card-header">
-            <h3>Editar Producto</h3>
+            <h3>Información del Producto</h3>
         </div>
         
         <form class="settings-form" method="POST" enctype="multipart/form-data">
@@ -117,9 +130,15 @@
                 </div>
             </div>
 
-            <div class="form-actions">
-                <a href="{{ url_for('inventario.productos') }}" class="btn-secondary">Cancelar</a>
-                <button type="submit" class="btn-primary">Guardar Cambios</button>
+            <div class="form-actions" style="display: flex; gap: 12px; margin-top: 20px;">
+                <a href="{{ url_for('inventario.productos') }}" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 10px 18px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fff; color: #4a5568; font-weight: 600;">
+                    <span>⬅️</span>
+                    <span>Volver sin Guardar</span>
+                </a>
+                <button type="submit" class="btn-primary" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 6px; background: #0070d2; color: #fff; border: none; font-weight: 600; cursor: pointer;">
+                    <span>💾</span>
+                    <span>Guardar y Volver a Productos</span>
+                </button>
             </div>
         </form>
     </div>
