@@ -777,17 +777,19 @@
         }
         
         activeCardFilter = label;
-        cardElement.classList.add('active-filter');
+        if (cardElement) {
+            cardElement.classList.add('active-filter');
+        }
         
         rows.forEach(row => {
-            const status = row.getAttribute('data-status');
+            const status = (row.getAttribute('data-status') || '').toLowerCase().trim();
             const date = row.getAttribute('data-date'); // Formato: YYYY-MM-DD
             
             let match = false;
             
-            if (label === 'Ventas Completadas' && (status === 'Completada' || status === 'Completado')) {
+            if (label === 'Ventas Completadas' && (status.includes('completada') || status.includes('completado'))) {
                 match = true;
-            } else if (label === 'Ventas Pendientes' && (status === 'Pendiente' || status === 'Cotización')) {
+            } else if (label === 'Ventas Pendientes' && (status.includes('pendiente') || status.includes('cotiza'))) {
                 // Consideramos Pendiente y Cotización como ventas pendientes por procesar/facturar
                 match = true;
             } else if (label === 'Ventas Hoy') {
