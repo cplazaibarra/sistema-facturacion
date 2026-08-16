@@ -1614,6 +1614,15 @@ canvas {
     background: #EF4444;
 }
 
+.sf-badge-info {
+    background: rgba(59, 130, 246, 0.1);
+    color: #2563EB;
+}
+
+.sf-badge-info .sf-badge-dot {
+    background: #3B82F6;
+}
+
 /* Acciones de la tabla */
 .sf-actions {
     display: flex;

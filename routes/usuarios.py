@@ -1,5 +1,6 @@
-from flask import Blueprint, render_template, request, redirect, url_for
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from datetime import datetime
+import json
 from db import (
     get_page_data,
     list_roles,
@@ -11,7 +12,9 @@ from db import (
     get_user,
     insert_user,
     update_user,
-    delete_user
+    delete_user,
+    set_page_data,
+    list_products
 )
 
 usuarios_bp = Blueprint('usuarios', __name__)
@@ -19,9 +22,161 @@ usuarios_bp = Blueprint('usuarios', __name__)
 @usuarios_bp.route('/administracion')
 def administracion():
     """Módulo de Administración"""
-    modules = get_page_data("admin_modules")
+    modules = get_page_data("admin_modules") or []
+    # Agregar la lista de precios si no existe
+    if not any(m.get('link') == '/administracion/listas-precios' for m in modules):
+        modules.append({
+            "icon": "🏷️",
+            "title": "Listas de Precios",
+            "desc": "Gestionar márgenes y listas de precios por categorías de clientes",
+            "action": "Configurar",
+            "link": "/administracion/listas-precios"
+        })
     settings = get_page_data("admin_settings")
     return render_template('administracion.html', modules=modules, settings=settings)
+
+@usuarios_bp.route('/administracion/listas-precios', methods=['GET', 'POST'])
+def listas_precios():
+    from db import get_connection
+    
+    config = get_page_data("price_list_config") or {
+        "base_margin": 20.0,
+        "cat_a_name": "Categoría A",
+        "cat_a_margin": 5.0,
+        "cat_b_name": "Categoría B",
+        "cat_b_margin": 10.0,
+        "cat_c_name": "Categoría C",
+        "cat_c_margin": 15.0,
+        "cat_d_name": "Categoría D",
+        "cat_d_margin": 20.0
+    }
+    
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'save_config':
+            config["base_margin"] = float(request.form.get('base_margin', 20.0))
+            config["cat_a_name"] = request.form.get('cat_a_name', 'Categoría A').strip()
+            config["cat_a_margin"] = float(request.form.get('cat_a_margin', 5.0))
+            config["cat_b_name"] = request.form.get('cat_b_name', 'Categoría B').strip()
+            config["cat_b_margin"] = float(request.form.get('cat_b_margin', 10.0))
+            config["cat_c_name"] = request.form.get('cat_c_name', 'Categoría C').strip()
+            config["cat_c_margin"] = float(request.form.get('cat_c_margin', 15.0))
+            config["cat_d_name"] = request.form.get('cat_d_name', 'Categoría D').strip()
+            config["cat_d_margin"] = float(request.form.get('cat_d_margin', 20.0))
+            set_page_data("price_list_config", config)
+            flash("Configuración de categorías y márgenes actualizada.", "success")
+            return redirect(url_for('usuarios.listas_precios'))
+            
+        elif action == 'save_product_margins':
+            sku = request.form.get('sku')
+            base_margin = float(request.form.get('base_margin', 20.0))
+            margin_a = float(request.form.get('margin_a', 5.0))
+            margin_b = float(request.form.get('margin_b', 10.0))
+            margin_c = float(request.form.get('margin_c', 15.0))
+            margin_d = float(request.form.get('margin_d', 20.0))
+            
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO product_margins (product_sku, base_margin, margin_a, margin_b, margin_c, margin_d)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (product_sku) DO UPDATE
+                        SET base_margin = EXCLUDED.base_margin,
+                            margin_a = EXCLUDED.margin_a,
+                            margin_b = EXCLUDED.margin_b,
+                            margin_c = EXCLUDED.margin_c,
+                            margin_d = EXCLUDED.margin_d
+                        """,
+                        (sku, base_margin, margin_a, margin_b, margin_c, margin_d)
+                    )
+                conn.commit()
+            return jsonify({"status": "ok", "message": f"Márgenes de {sku} actualizados."})
+
+    # Carga de VPP por producto
+    vpp_map = {}
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT product_id, SUM(quantity) as total_qty, SUM(total) as total_spent
+                FROM inventory_entry_items
+                GROUP BY product_id
+                """
+            )
+            for row in cur.fetchall():
+                qty = row["total_qty"] or 0
+                spent = row["total_spent"] or 0.0
+                if qty > 0:
+                    vpp_map[row["product_id"]] = spent / qty
+
+    # Mapeo de precios por catálogo fallback
+    catalog_prices = {}
+    inventory_items = get_page_data("inventory_items") or []
+    for item in inventory_items:
+        catalog_prices[item["code"]] = item.get("price", 0.0)
+
+    # Carga de márgenes específicos de producto
+    prod_margins_map = {}
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM product_margins")
+            for row in cur.fetchall():
+                prod_margins_map[row["product_sku"]] = dict(row)
+
+    products_db = list_products()
+    products_display = []
+    
+    for p in products_db:
+        sku = p["sku"]
+        p_id = p["id"]
+        
+        vpp = vpp_map.get(p_id)
+        if vpp is None:
+            vpp = catalog_prices.get(sku, 0.0)
+            
+        m = prod_margins_map.get(sku)
+        if m:
+            base_margin = m["base_margin"]
+            margin_a = m["margin_a"]
+            margin_b = m["margin_b"]
+            margin_c = m["margin_c"]
+            margin_d = m["margin_d"]
+        else:
+            base_margin = config["base_margin"]
+            margin_a = config["cat_a_margin"]
+            margin_b = config["cat_b_margin"]
+            margin_c = config["cat_c_margin"]
+            margin_d = config["cat_d_margin"]
+            
+        # Calcular precios finales
+        price_base = vpp * (1 + base_margin / 100)
+        price_a = price_base * (1 + margin_a / 100)
+        price_b = price_base * (1 + margin_b / 100)
+        price_c = price_base * (1 + margin_c / 100)
+        price_d = price_base * (1 + margin_d / 100)
+        
+        products_display.append({
+            "sku": sku,
+            "name": p["name"],
+            "vpp": vpp,
+            "base_margin": base_margin,
+            "margin_a": margin_a,
+            "margin_b": margin_b,
+            "margin_c": margin_c,
+            "margin_d": margin_d,
+            "price_base": round(price_base, 2),
+            "price_a": round(price_a, 2),
+            "price_b": round(price_b, 2),
+            "price_c": round(price_c, 2),
+            "price_d": round(price_d, 2),
+        })
+
+    return render_template(
+        'listas_precios.html',
+        config=config,
+        products=products_display
+    )
 
 @usuarios_bp.route('/usuarios', methods=['GET', 'POST'])
 def usuarios():
@@ -67,16 +222,24 @@ def editar_usuario(user_id):
 def eliminar_usuario(user_id):
     """Eliminar usuario"""
     delete_user(user_id)
+    referrer = request.referrer
+    if referrer and '/roles' in referrer:
+        return redirect(url_for('usuarios.roles'))
     return redirect(url_for('usuarios.usuarios'))
 
 @usuarios_bp.route('/roles', methods=['GET', 'POST'])
 def roles():
     """Gestión de roles"""
     if request.method == 'POST':
+        # Construir JSON de permisos desde checkboxes
+        perms = {}
+        for p in ["dashboard", "usuarios", "ventas", "inventario", "productos", "administracion", "reportes", "configuracion", "crear_registros", "aprobar_registros", "solo_ver"]:
+            perms[p] = True if request.form.get(f"perm_{p}") else False
+            
         role = {
             "name": request.form.get('name', '').strip(),
             "description": request.form.get('description', '').strip(),
-            "permissions": request.form.get('permissions', '{}'),
+            "permissions": json.dumps(perms),
             "created_at": datetime.utcnow().isoformat(timespec='seconds'),
         }
 
@@ -86,16 +249,22 @@ def roles():
         return redirect(url_for('usuarios.roles'))
 
     all_roles = list_roles()
-    return render_template('roles.html', roles=all_roles)
+    users = list_users()
+    return render_template('roles.html', roles=all_roles, users=users)
 
 @usuarios_bp.route('/roles/<int:role_id>/editar', methods=['GET', 'POST'])
 def editar_rol(role_id):
     """Editar rol"""
     if request.method == 'POST':
+        # Construir JSON de permisos desde checkboxes
+        perms = {}
+        for p in ["dashboard", "usuarios", "ventas", "inventario", "productos", "administracion", "reportes", "configuracion", "crear_registros", "aprobar_registros", "solo_ver"]:
+            perms[p] = True if request.form.get(f"perm_{p}") else False
+
         role = {
             "name": request.form.get('name', '').strip(),
             "description": request.form.get('description', '').strip(),
-            "permissions": request.form.get('permissions', '{}'),
+            "permissions": json.dumps(perms),
         }
         update_role(role_id, role)
         return redirect(url_for('usuarios.roles'))
@@ -107,4 +276,28 @@ def editar_rol(role_id):
 def eliminar_rol(role_id):
     """Eliminar rol"""
     delete_role(role_id)
+    return redirect(url_for('usuarios.roles'))
+
+@usuarios_bp.route('/usuarios/<int:user_id>/reasignar-rol', methods=['POST'])
+def quick_update_role(user_id):
+    """Reasignar rol rápidamente desde la pantalla de roles"""
+    role_id = request.form.get('role_id', type=int)
+    if not role_id:
+        flash("Rol no válido.", "danger")
+        return redirect(url_for('usuarios.roles'))
+        
+    user = get_user(user_id)
+    if not user:
+        flash("Usuario no encontrado.", "danger")
+        return redirect(url_for('usuarios.roles'))
+        
+    # Conservar el resto de campos del usuario y solo actualizar role_id
+    updated_user_data = {
+        "email": user["email"],
+        "full_name": user["full_name"],
+        "role_id": role_id,
+        "is_active": user["is_active"]
+    }
+    update_user(user_id, updated_user_data)
+    flash(f"Rol del usuario {user['full_name']} actualizado correctamente.", "success")
     return redirect(url_for('usuarios.roles'))

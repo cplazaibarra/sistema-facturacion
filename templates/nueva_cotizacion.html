@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}Nueva Cotización - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Nueva Cotización{% endblock %}
+
+{% block content %}
+<div class="ingreso-container">
+    <div class="ingreso-form-card" style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <h3>Registrar Nueva Cotización</h3>
+        <form class="ingreso-form" method="post" id="cotizacion-form" style="margin-top: 20px;">
+            
+            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                <div class="form-group">
+                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Nombre del Cliente *</label>
+                    <input type="text" class="form-control" name="customer_name" required placeholder="Ej: María González" style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Correo Electrónico *</label>
+                    <input type="email" class="form-control" name="customer_email" required placeholder="correo@ejemplo.com" style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Fecha de Cotización *</label>
+                    <input type="date" class="form-control" name="sale_date" value="{{ default_date }}" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label style="font-weight: 500; display: block; margin-bottom: 6px;">Notas / Condiciones Comerciales</label>
+                <textarea class="form-control" name="notes" placeholder="Validez de la oferta, plazos de entrega, etc..." style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px; height: 60px; resize: vertical;"></textarea>
+            </div>
+
+            <div class="form-divider" style="height: 1px; background: #E2E8F0; margin: 24px 0;"></div>
+
+            <h4 style="margin-bottom: 12px;">Productos a Cotizar</h4>
+            <div id="productos-cotizacion-section" style="margin-top: 15px;">
+                <!-- Cabecera de columnas única -->
+                <div style="display: grid; grid-template-columns: 2.5fr 1fr 1fr 1fr auto; gap: 12px; margin-bottom: 8px; font-weight: 600; font-size: 13px; color: #4a5568; border-bottom: 2px solid #E2E8F0; padding-bottom: 6px;">
+                    <div>Producto</div>
+                    <div>Cantidad</div>
+                    <div>Precio Unitario ($)</div>
+                    <div>Subtotal ($)</div>
+                    <div style="width: 40px; text-align: center;"></div>
+                </div>
+                
+                <div id="productos-cotizacion-container">
+                    <!-- Filas de productos dinámicas -->
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+                <button type="button" class="btn-secondary" id="add-product-btn" style="padding: 6px 12px; background-color: #ED8936; border: none; color: white; border-radius: 4px; cursor: pointer; font-weight: 600;">
+                    ➕ Agregar línea
+                </button>
+                
+                <div style="text-align: right; font-size: 1.1rem; font-weight: bold; color: #2D3748;">
+                    Total Cotización: <span id="total-val">$0.00</span>
+                </div>
+            </div>
+
+            <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px; align-items: center;">
+                <a href="{{ url_for('ventas.ventas') }}" class="btn-secondary" style="text-decoration: none; padding: 10px 16px;">Cancelar</a>
+                <button type="submit" class="sf-btn-primary" style="padding: 10px 20px;">
+                    📂 Guardar Cotización
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const container = document.getElementById('productos-cotizacion-container');
+    const addBtn = document.getElementById('add-product-btn');
+    const totalSpan = document.getElementById('total-val');
+    
+    // Lista de productos cargada desde Flask
+    const allProducts = {{ products|tojson|safe }};
+    
+    function createRow() {
+        const row = document.createElement('div');
+        row.className = 'product-row';
+        row.style.display = 'grid';
+        row.style.gridTemplateColumns = '2.5fr 1fr 1fr 1fr auto';
+        row.style.gap = '12px';
+        row.style.marginBottom = '8px';
+        row.style.alignItems = 'center';
+        
+        // Select de producto
+        const select = document.createElement('select');
+        select.name = 'product_id[]';
+        select.className = 'form-control';
+        select.required = true;
+        select.style.width = '100%';
+        select.style.padding = '8px';
+        select.style.border = '1px solid #E2E8F0';
+        select.style.borderRadius = '6px';
+        
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = 'Seleccionar producto';
+        select.appendChild(defaultOpt);
+        
+        allProducts.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = `${p.name} (SKU: ${p.sku})`;
+            opt.dataset.price = p.price;
+            select.appendChild(opt);
+        });
+        
+        // Input Cantidad
+        const qtyInput = document.createElement('input');
+        qtyInput.type = 'number';
+        qtyInput.name = 'quantity[]';
+        qtyInput.className = 'form-control';
+        qtyInput.placeholder = 'Cantidad';
+        qtyInput.min = '1';
+        qtyInput.required = true;
+        qtyInput.value = '1';
+        qtyInput.style.width = '100%';
+        qtyInput.style.padding = '8px';
+        qtyInput.style.border = '1px solid #E2E8F0';
+        qtyInput.style.borderRadius = '6px';
+        
+        // Input Precio
+        const priceInput = document.createElement('input');
+        priceInput.type = 'number';
+        priceInput.name = 'unit_price[]';
+        priceInput.className = 'form-control';
+        priceInput.placeholder = '0.00';
+        priceInput.step = '0.01';
+        priceInput.min = '0.01';
+        priceInput.required = true;
+        priceInput.style.width = '100%';
+        priceInput.style.padding = '8px';
+        priceInput.style.border = '1px solid #E2E8F0';
+        priceInput.style.borderRadius = '6px';
+        
+        // Subtotal Span
+        const subtotalSpan = document.createElement('div');
+        subtotalSpan.textContent = '$0.00';
+        subtotalSpan.style.fontWeight = '500';
+        subtotalSpan.style.color = '#4A5568';
+        subtotalSpan.style.padding = '8px';
+        
+        // Botón remover
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.textContent = '✕';
+        removeBtn.style.color = '#EF4444';
+        removeBtn.style.background = 'none';
+        removeBtn.style.border = 'none';
+        removeBtn.style.fontSize = '1.1rem';
+        removeBtn.style.cursor = 'pointer';
+        removeBtn.style.width = '40px';
+        
+        removeBtn.addEventListener('click', () => {
+            row.remove();
+            calculateTotal();
+        });
+        
+        // Evento cambio de producto -> Cargar precio
+        select.addEventListener('change', () => {
+            const selectedOpt = select.options[select.selectedIndex];
+            if (selectedOpt && selectedOpt.dataset.price) {
+                priceInput.value = selectedOpt.dataset.price;
+            } else {
+                priceInput.value = '';
+            }
+            updateRowSubtotal();
+            calculateTotal();
+        });
+        
+        // Evento cambios -> Actualizar subtotal e histograma
+        qtyInput.addEventListener('input', () => {
+            updateRowSubtotal();
+            calculateTotal();
+        });
+        priceInput.addEventListener('input', () => {
+            updateRowSubtotal();
+            calculateTotal();
+        });
+        
+        function updateRowSubtotal() {
+            const qty = parseFloat(qtyInput.value) || 0;
+            const price = parseFloat(priceInput.value) || 0;
+            const sub = qty * price;
+            subtotalSpan.textContent = `$${sub.toFixed(2)}`;
+        }
+        
+        row.appendChild(select);
+        row.appendChild(qtyInput);
+        row.appendChild(priceInput);
+        row.appendChild(subtotalSpan);
+        row.appendChild(removeBtn);
+        
+        container.appendChild(row);
+    }
+    
+    function calculateTotal() {
+        let total = 0;
+        const rows = container.querySelectorAll('.product-row');
+        rows.forEach(r => {
+            const qtyInput = r.querySelector('input[name="quantity[]"]');
+            const priceInput = r.querySelector('input[name="unit_price[]"]');
+            const qty = parseFloat(qtyInput.value) || 0;
+            const price = parseFloat(priceInput.value) || 0;
+            total += qty * price;
+        });
+        totalSpan.textContent = `$${total.toFixed(2)}`;
+    }
+    
+    // Agregar primera línea por defecto
+    createRow();
+    
+    addBtn.addEventListener('click', () => {
+        createRow();
+    });
+});
+</script>
+{% endblock %}

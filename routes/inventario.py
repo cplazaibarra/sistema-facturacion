@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, send_from_directory, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, send_from_directory, current_app, jsonify
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
@@ -17,7 +17,8 @@ from db import (
     list_products_by_supplier,
     rename_category,
     delete_category,
-    set_page_data
+    set_page_data,
+    list_sales
 )
 
 inventario_bp = Blueprint('inventario', __name__)
@@ -42,10 +43,76 @@ def uploaded_file(filename):
 @inventario_bp.route('/inventario')
 def inventario():
     """Módulo de Inventario"""
-    inventory_stats = get_page_data("inventory_stats")
-    inventory_items = get_page_data("inventory_items")
+    import re
+    inventory_stats = get_page_data("inventory_stats") or {"total": 0, "low_stock": 0, "total_value": 0.0}
+    inventory_items = get_page_data("inventory_items") or []
     inventory_categories = get_page_data("inventory_categories")
     inventory_stock_filters = get_page_data("inventory_stock_filters")
+    
+    # 1. Obtener todas las ventas pendientes
+    pending_sales = list_sales({"status": "Pendiente"})
+    
+    # 2. Cargar todos los productos para mapeo ID -> SKU y Nombre -> SKU
+    products_db = list_products()
+    id_to_sku = {p['id']: p['sku'] for p in products_db}
+    name_to_sku = {p['name'].strip().lower(): p['sku'] for p in products_db}
+    
+    # 3. Calcular stock reservado por SKU
+    reserved_by_sku = {}
+    for sale in pending_sales:
+        for p in sale.get('products', []):
+            qty = 0
+            sku = None
+            if isinstance(p, dict):
+                qty = p.get('quantity', 0)
+                p_id = p.get('product_id')
+                p_name = p.get('product_name', '')
+                if p_id and p_id in id_to_sku:
+                    sku = id_to_sku[p_id]
+                elif p_name:
+                    p_name_clean = p_name.strip().lower()
+                    if p_name_clean in name_to_sku:
+                        sku = name_to_sku[p_name_clean]
+                    else:
+                        for name_db, sku_db in name_to_sku.items():
+                            if name_db in p_name_clean or p_name_clean in name_db:
+                                sku = sku_db
+                                break
+            elif isinstance(p, str):
+                match = re.match(r'^(.*?)\s*\((\d+)\)$', p.strip())
+                if match:
+                    p_name = match.group(1).strip().lower()
+                    qty = int(match.group(2))
+                    if p_name in name_to_sku:
+                        sku = name_to_sku[p_name]
+                    else:
+                        for name_db, sku_db in name_to_sku.items():
+                            if name_db in p_name or p_name in name_db:
+                                sku = sku_db
+                                break
+            
+            if sku and qty > 0:
+                reserved_by_sku[sku] = reserved_by_sku.get(sku, 0) + qty
+
+    # 4. Aumentar cada ítem del inventario con su stock reservado y total
+    low_stock_count = 0
+    for item in inventory_items:
+        sku = item.get("code")
+        reserved = reserved_by_sku.get(sku, 0)
+        item["reserved"] = reserved
+        item["total_stock"] = item["stock"] + reserved
+        
+        min_stock = item.get("min_stock", 10)
+        if item["total_stock"] <= min_stock:
+            item["status"] = "Stock Bajo"
+            low_stock_count += 1
+        else:
+            item["status"] = "Normal"
+            
+        item["stock_percent"] = min(100, int((item["total_stock"] / max(1, item["stock"] + 100)) * 100))
+
+    inventory_stats["low_stock"] = low_stock_count
+    
     return render_template(
         'inventario.html',
         inventory_stats=inventory_stats,
@@ -308,3 +375,82 @@ def productos_por_proveedor(supplier_id):
     """Obtener productos asociados a un proveedor"""
     products = list_products_by_supplier(supplier_id)
     return jsonify(products)
+
+@inventario_bp.route('/inventario/producto/<string:code>/min-stock', methods=['POST'])
+def update_product_min_stock(code):
+    """Actualiza el stock mínimo de un producto en el JSON de inventario"""
+    new_min = request.form.get('min_stock', type=int)
+    if new_min is None or new_min < 0:
+        flash("Valor de stock mínimo no válido.", "danger")
+        return redirect(url_for('inventario.inventario'))
+        
+    items = get_page_data("inventory_items") or []
+    updated = False
+    for item in items:
+        if item.get("code") == code:
+            item["min_stock"] = new_min
+            updated = True
+            break
+            
+    if updated:
+        set_page_data("inventory_items", items)
+        flash(f"Stock mínimo del producto {code} actualizado a {new_min} correctamente.", "success")
+    else:
+        flash("Producto no encontrado en el inventario.", "danger")
+        
+    return redirect(url_for('inventario.inventario'))
+
+@inventario_bp.route('/api/inventario/producto/<string:code>/entradas')
+def product_entries_api(code):
+    """Obtiene el historial de entradas y promedio ponderado para un producto en los últimos X meses"""
+    from db import get_connection
+    from datetime import datetime, timedelta
+    
+    months = request.args.get('months', default=1, type=int)
+    if months <= 0:
+        months = 1
+        
+    cutoff_date = (datetime.now() - timedelta(days=months * 30)).strftime('%Y-%m-%d')
+    
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, name FROM products WHERE sku = %s", (code,))
+            prod = cur.fetchone()
+            if not prod:
+                return jsonify({"error": "Producto no encontrado"}), 404
+                
+            product_id = prod["id"]
+            product_name = prod["name"]
+            
+            cur.execute(
+                """
+                SELECT ie.entry_date, ie.order_number, iei.quantity, iei.unit_price, iei.total
+                FROM inventory_entry_items iei
+                JOIN inventory_entries ie ON iei.inventory_entry_id = ie.id
+                WHERE iei.product_id = %s AND ie.entry_date >= %s
+                ORDER BY ie.entry_date DESC
+                """,
+                (product_id, cutoff_date)
+            )
+            rows = cur.fetchall()
+            
+            entries = []
+            total_qty = 0
+            total_amount = 0.0
+            
+            for row in rows:
+                r_dict = dict(row)
+                entries.append(r_dict)
+                total_qty += r_dict["quantity"]
+                total_amount += r_dict["total"]
+                
+            avg_price = total_amount / total_qty if total_qty > 0 else 0.0
+            
+            return jsonify({
+                "product_code": code,
+                "product_name": product_name,
+                "total_qty": total_qty,
+                "total_amount": round(total_amount, 2),
+                "avg_price": round(avg_price, 2),
+                "entries": entries
+            })

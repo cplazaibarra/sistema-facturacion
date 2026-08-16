@@ -1,5 +1,8 @@
 import os
 import json
+from dotenv import load_dotenv
+load_dotenv()  # Cargar variables del archivo .env local
+
 from flask import Flask, send_from_directory
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -66,4 +69,4 @@ def check_login():
         return redirect(url_for('auth.login'))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
+    app.run(debug=True, host='0.0.0.0', port=5001, use_reloader=True)

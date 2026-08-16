@@ -52,7 +52,7 @@
                 ➕ Agregar línea
             </button>
 
-            <!-- Input oculto para definir el estado (Borrador vs Emitida) -->
+            <!-- Input oculto para definir el estado (Borrador vs Pendiente Aprobación) -->
             <input type="hidden" name="status" id="oc-status-input" value="Borrador">
 
             <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px; align-items: center;">
@@ -62,8 +62,8 @@
                     📂 Guardar Cambios Borrador
                 </button>
                 
-                <button type="submit" onclick="document.getElementById('oc-status-input').value = 'Emitida';" class="sf-btn-primary" style="padding: 10px 20px;">
-                    ✉️ Emitir Orden de Compra (Finalizar)
+                <button type="submit" onclick="document.getElementById('oc-status-input').value = 'Pendiente Aprobación';" class="sf-btn-primary" style="padding: 10px 20px;">
+                    ✉️ Enviar a Aprobación
                 </button>
             </div>
         </form>

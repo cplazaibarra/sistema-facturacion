@@ -10,7 +10,7 @@
     </div>
     <div class="sf-action-right">
         <a href="{{ url_for('compras.nueva_oc') }}" class="sf-btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
-            <span>➕</span>
+            <i class="fa-solid fa-circle-plus"></i>
             <span>Nueva OC</span>
         </a>
     </div>
@@ -25,6 +25,8 @@
                     <th>Proveedor</th>
                     <th>Fecha Emisión</th>
                     <th>Total</th>
+                    <th>Creador</th>
+                    <th>Aprobador</th>
                     <th>Estado</th>
                     <th>Acciones</th>
                 </tr>
@@ -36,11 +38,15 @@
                     <td>{{ order.supplier_name }}</td>
                     <td>{{ order.order_date }}</td>
                     <td>${{ "{:,.2f}".format(order.total_amount) }}</td>
+                    <td>{{ order.creator_name or '-' }}</td>
+                    <td>{{ order.approver_name or '-' }}</td>
                     <td>
                         {% if order.status == 'Emitida' %}
                         <span class="badge" style="background-color: #00AEEF; color: white;">{{ order.status }}</span>
                         {% elif order.status == 'Borrador' %}
                         <span class="badge" style="background-color: #A0AEC0; color: white;">{{ order.status }}</span>
+                        {% elif order.status == 'Pendiente Aprobación' %}
+                        <span class="badge" style="background-color: #ED8936; color: white;">{{ order.status }}</span>
                         {% elif order.status == 'Parcialmente Recibida' %}
                         <span class="badge" style="background-color: #6B5B95; color: white;">{{ order.status }}</span>
                         {% elif order.status == 'Recibida' %}
@@ -51,18 +57,25 @@
                     </td>
                     <td>
                         {% if order.status == 'Borrador' %}
-                        <a href="{{ url_for('compras.editar_oc', po_id=order.id) }}" class="btn-small" style="background-color: #ED8936; text-decoration: none; color: white; display: inline-flex; align-items: center; gap: 4px; margin-right: 6px;">
-                            <span>✏️</span> Editar
+                        <a href="{{ url_for('compras.editar_oc', po_id=order.id) }}" class="badge" style="background-color: #ED8936; text-decoration: none; color: white; display: inline-flex; align-items: center; gap: 6px; margin-right: 6px;">
+                            <i class="fa-solid fa-pen"></i> Editar
                         </a>
                         {% endif %}
-                        <a href="{{ url_for('compras.descargar_oc_pdf', po_id=order.id) }}" class="btn-small" style="background-color: #6B5B95; text-decoration: none; color: white; display: inline-flex; align-items: center; gap: 4px;">
-                            <span>📄</span> PDF
+                        {% if order.status == 'Pendiente Aprobación' and session.get('role_name') in ['Aprobador', 'Gerente', 'Administrativo'] %}
+                        <form action="{{ url_for('compras.aprobar_oc', po_id=order.id) }}" method="POST" style="display: inline-block; margin-right: 6px;">
+                            <button type="submit" class="badge" style="background-color: #48BB78; border: none; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                                <i class="fa-solid fa-circle-check"></i> Aprobar
+                            </button>
+                        </form>
+                        {% endif %}
+                        <a href="{{ url_for('compras.descargar_oc_pdf', po_id=order.id) }}" class="badge" style="background-color: #6B5B95; text-decoration: none; color: white; display: inline-flex; align-items: center; gap: 6px;" target="_blank">
+                            <i class="fa-solid fa-file-pdf"></i> PDF
                         </a>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" style="text-align: center; color: #718096; padding: 24px;">No hay órdenes de compra registradas.</td>
+                    <td colspan="8" style="text-align: center; color: #718096; padding: 24px;">No hay órdenes de compra registradas.</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -21,6 +21,9 @@ DEFAULT_DATA: Dict[str, Any] = {
                 "administracion": True,
                 "reportes": True,
                 "configuracion": True,
+                "crear_registros": True,
+                "aprobar_registros": True,
+                "solo_ver": False,
             }),
         },
         {
@@ -35,6 +38,9 @@ DEFAULT_DATA: Dict[str, Any] = {
                 "administracion": False,
                 "reportes": True,
                 "configuracion": False,
+                "crear_registros": True,
+                "aprobar_registros": True,
+                "solo_ver": False,
             }),
         },
         {
@@ -49,6 +55,9 @@ DEFAULT_DATA: Dict[str, Any] = {
                 "administracion": False,
                 "reportes": False,
                 "configuracion": False,
+                "crear_registros": True,
+                "aprobar_registros": False,
+                "solo_ver": False,
             }),
         },
         {
@@ -63,6 +72,43 @@ DEFAULT_DATA: Dict[str, Any] = {
                 "administracion": False,
                 "reportes": True,
                 "configuracion": False,
+                "crear_registros": False,
+                "aprobar_registros": False,
+                "solo_ver": True,
+            }),
+        },
+        {
+            "name": "Aprobador",
+            "description": "Validación de información de pagos y aprobación de órdenes de compra",
+            "permissions": json.dumps({
+                "dashboard": True,
+                "usuarios": False,
+                "ventas": True,
+                "inventario": True,
+                "productos": True,
+                "administracion": True,
+                "reportes": True,
+                "configuracion": False,
+                "crear_registros": True,
+                "aprobar_registros": True,
+                "solo_ver": False,
+            }),
+        },
+        {
+            "name": "Digitador",
+            "description": "Creación de ventas, productos y OCs (sin permisos de aprobación)",
+            "permissions": json.dumps({
+                "dashboard": True,
+                "usuarios": False,
+                "ventas": True,
+                "inventario": True,
+                "productos": True,
+                "administracion": False,
+                "reportes": False,
+                "configuracion": False,
+                "crear_registros": True,
+                "aprobar_registros": False,
+                "solo_ver": False,
             }),
         },
     ],
@@ -445,7 +491,7 @@ DEFAULT_DATA: Dict[str, Any] = {
             "seller": {"name": "Laura Sánchez", "initials": "LS"},
         },
     ],
-    "sales_payment_status_options": ["Pendiente", "Pagado", "Parcial"],
+    "sales_payment_status_options": ["Pendiente", "Pendiente Aprobación Pago", "Pagado", "Parcial"],
     "sales_payment_method_options": [
         "Efectivo",
         "Transferencia",
@@ -802,6 +848,28 @@ def init_db() -> None:
                 )
                 """
             )
+            cur.execute(
+                """
+                ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+                """
+            )
+            cur.execute(
+                """
+                ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS product_margins (
+                    product_sku TEXT PRIMARY KEY,
+                    base_margin DOUBLE PRECISION DEFAULT 20.0,
+                    margin_a DOUBLE PRECISION DEFAULT 5.0,
+                    margin_b DOUBLE PRECISION DEFAULT 10.0,
+                    margin_c DOUBLE PRECISION DEFAULT 15.0,
+                    margin_d DOUBLE PRECISION DEFAULT 20.0
+                )
+                """
+            )
         conn.commit()
 
     seed_data_if_empty()
@@ -820,7 +888,12 @@ def seed_data_if_empty() -> None:
             default_roles = DEFAULT_DATA.get("default_roles", [])
             for role in default_roles:
                 cur.execute(
-                    "INSERT INTO roles (name, description, permissions, created_at) VALUES (%s, %s, %s, %s) ON CONFLICT (name) DO NOTHING",
+                    """
+                    INSERT INTO roles (name, description, permissions, created_at)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (name) DO UPDATE 
+                    SET permissions = EXCLUDED.permissions, description = EXCLUDED.description
+                    """,
                     (
                         role["name"],
                         role["description"],
@@ -1258,7 +1331,7 @@ def list_users() -> list[dict]:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT u.id, u.username, u.email, u.full_name, u.is_active,
+                SELECT u.id, u.username, u.email, u.full_name, u.role_id, u.is_active,
                        r.name as role_name, u.created_at
                 FROM users u
                 JOIN roles r ON u.role_id = r.id
@@ -1299,7 +1372,7 @@ def insert_user(user: dict) -> int:
                     user.get("password", "password123"),
                     user["full_name"],
                     user["role_id"],
-                    user.get("is_active", True),
+                    bool(user.get("is_active", True)),
                     user["created_at"],
                 ),
             )
@@ -1320,7 +1393,7 @@ def update_user(user_id: int, user: dict) -> None:
                     user.get("email"),
                     user.get("full_name"),
                     user.get("role_id"),
-                    user.get("is_active", True),
+                    bool(user.get("is_active", True)),
                     user_id,
                 ),
             )
@@ -2263,7 +2336,7 @@ def get_next_oc_number() -> str:
             next_id = (row["id"] + 1) if row else 1
             return f"OC-{next_id:05d}"
 
-def create_purchase_order(supplier_id: int, order_date: str, notes: str, items: list[dict], status: str = "Emitida") -> str:
+def create_purchase_order(supplier_id: int, order_date: str, notes: str, items: list[dict], status: str = "Emitida", created_by: int = None) -> str:
     """Crea una Orden de Compra completa en la base de datos"""
     oc_num = get_next_oc_number()
     with get_connection() as conn:
@@ -2274,10 +2347,10 @@ def create_purchase_order(supplier_id: int, order_date: str, notes: str, items: 
             # Insertar cabecera de la OC
             cur.execute(
                 """
-                INSERT INTO purchase_orders (oc_number, supplier_id, order_date, status, total_amount, notes, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
+                INSERT INTO purchase_orders (oc_number, supplier_id, order_date, status, total_amount, notes, created_by, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
                 """,
-                (oc_num, supplier_id, order_date, status, total_amount, notes, datetime.utcnow().isoformat(timespec='seconds'))
+                (oc_num, supplier_id, order_date, status, total_amount, notes, created_by, datetime.utcnow().isoformat(timespec='seconds'))
             )
             po_id = cur.fetchone()["id"]
             
@@ -2327,15 +2400,19 @@ def update_purchase_order(po_id: int, supplier_id: int, order_date: str, notes: 
         conn.commit()
 
 def list_purchase_orders() -> list[dict]:
-    """Lista todas las Órdenes de Compra"""
+    """Lista todas las Órdenes de Compra con creadores y aprobadores"""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
                 SELECT po.id, po.oc_number, po.order_date, po.status, po.total_amount, po.notes,
-                       s.name as supplier_name
+                       s.name as supplier_name,
+                       u1.full_name as creator_name,
+                       u2.full_name as approver_name
                 FROM purchase_orders po
                 JOIN suppliers s ON po.supplier_id = s.id
+                LEFT JOIN users u1 ON po.created_by = u1.id
+                LEFT JOIN users u2 ON po.approved_by = u2.id
                 ORDER BY po.id DESC
                 """
             )
@@ -2348,15 +2425,33 @@ def get_purchase_order(po_id: int) -> dict | None:
             cur.execute(
                 """
                 SELECT po.id, po.oc_number, po.order_date, po.status, po.total_amount, po.notes, po.supplier_id,
-                       s.name as supplier_name, s.description as supplier_description, s.website as supplier_website
+                       s.name as supplier_name, s.description as supplier_description, s.website as supplier_website,
+                       u1.full_name as creator_name,
+                       u2.full_name as approver_name
                 FROM purchase_orders po
                 JOIN suppliers s ON po.supplier_id = s.id
+                LEFT JOIN users u1 ON po.created_by = u1.id
+                LEFT JOIN users u2 ON po.approved_by = u2.id
                 WHERE po.id = %s
                 """,
                 (po_id,)
             )
             row = cur.fetchone()
             return dict(row) if row else None
+
+def approve_purchase_order(po_id: int, user_id: int) -> None:
+    """Aprueba una Orden de Compra cambiando su estado a 'Emitida' e indicando quién la aprobó"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE purchase_orders
+                SET status = 'Emitida', approved_by = %s
+                WHERE id = %s
+                """,
+                (user_id, po_id)
+            )
+        conn.commit()
 
 def get_purchase_order_items(po_id: int) -> list[dict]:
     """Obtiene los productos asociados a una OC"""

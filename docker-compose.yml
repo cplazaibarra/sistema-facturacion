@@ -13,6 +13,8 @@ services:
       POSTGRES_USER: facturador
       POSTGRES_PASSWORD: facturador_secure_pass_94
       POSTGRES_DB: facturacion
+    ports:
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:

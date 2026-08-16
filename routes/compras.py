@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, jsonify, flash, send_file
+from flask import Blueprint, render_template, request, redirect, url_for, jsonify, flash, send_file, session
 from datetime import datetime
 import io
 from db import (
@@ -9,7 +9,8 @@ from db import (
     list_purchase_orders,
     get_purchase_order,
     get_purchase_order_items,
-    list_active_purchase_orders_by_supplier
+    list_active_purchase_orders_by_supplier,
+    approve_purchase_order
 )
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -52,16 +53,17 @@ def nueva_oc():
                     "unit_price": price
                 })
                 
-        status = request.form.get('status', 'Emitida').strip()
-        if status not in ['Borrador', 'Emitida']:
-            status = 'Emitida'
+        status = request.form.get('status', 'Pendiente Aprobación').strip()
+        if status not in ['Borrador', 'Pendiente Aprobación', 'Emitida']:
+            status = 'Pendiente Aprobación'
 
         if not supplier_id or not items:
             flash("Debe seleccionar un proveedor y agregar al menos un producto.", "danger")
             suppliers = list_suppliers()
             return render_template('nueva_oc.html', suppliers=suppliers, default_date=datetime.now().strftime('%Y-%m-%d'))
             
-        oc_num = create_purchase_order(supplier_id, order_date, notes, items, status=status)
+        created_by = session.get('user_id')
+        oc_num = create_purchase_order(supplier_id, order_date, notes, items, status=status, created_by=created_by)
         flash(f"Orden de Compra {oc_num} guardada como {status} con éxito.", "success")
         return redirect(url_for('compras.list_oc'))
 
@@ -85,6 +87,8 @@ def editar_oc(po_id):
         order_date = request.form.get('order_date')
         notes = request.form.get('notes')
         status = request.form.get('status', 'Borrador').strip()
+        if status not in ['Borrador', 'Pendiente Aprobación']:
+            status = 'Borrador'
         
         product_ids = request.form.getlist('product_id[]')
         quantities = request.form.getlist('quantity[]')
@@ -119,6 +123,29 @@ def editar_oc(po_id):
     suppliers = list_suppliers()
     items = get_purchase_order_items(po_id)
     return render_template('editar_oc.html', po=po, items=items, suppliers=suppliers)
+
+@compras_bp.route('/compras/oc/<int:po_id>/aprobar', methods=['POST'])
+def aprobar_oc(po_id):
+    """Aprobar una orden de compra pendiente de aprobación"""
+    user_role = session.get('role_name')
+    user_id = session.get('user_id')
+    
+    if user_role not in ['Aprobador', 'Gerente', 'Administrativo']:
+        flash("No tienes permisos para aprobar órdenes de compra.", "danger")
+        return redirect(url_for('compras.list_oc'))
+        
+    po = get_purchase_order(po_id)
+    if not po:
+        flash("Orden de Compra no encontrada.", "danger")
+        return redirect(url_for('compras.list_oc'))
+        
+    if po['status'] != 'Pendiente Aprobación':
+        flash("Solo se pueden aprobar órdenes de compra en estado 'Pendiente Aprobación'.", "warning")
+        return redirect(url_for('compras.list_oc'))
+        
+    approve_purchase_order(po_id, user_id)
+    flash(f"Orden de Compra {po['oc_number']} aprobada con éxito.", "success")
+    return redirect(url_for('compras.list_oc'))
 
 @compras_bp.route('/api/compras/proveedores/<int:supplier_id>/productos')
 def api_supplier_products(supplier_id):
@@ -190,7 +217,9 @@ def descargar_oc_pdf(po_id):
         [Paragraph("Número de OC:", label_style), Paragraph(po["oc_number"], value_style),
          Paragraph("Fecha de Emisión:", label_style), Paragraph(po["order_date"], value_style)],
         [Paragraph("Proveedor:", label_style), Paragraph(po["supplier_name"], value_style),
-         Paragraph("Estado:", label_style), Paragraph(po["status"], value_style)]
+         Paragraph("Estado:", label_style), Paragraph(po["status"], value_style)],
+        [Paragraph("Creado por:", label_style), Paragraph(po.get("creator_name") or "-", value_style),
+         Paragraph("Aprobado por:", label_style), Paragraph(po.get("approver_name") or "-", value_style)]
     ]
     
     t_meta = Table(meta_data, colWidths=[100, 160, 110, 150])
@@ -254,7 +283,7 @@ def descargar_oc_pdf(po_id):
     
     return send_file(
         buffer,
-        as_attachment=True,
+        as_attachment=False,
         download_name=f"Orden_Compra_{po['oc_number']}.pdf",
         mimetype="application/pdf"
     )

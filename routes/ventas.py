@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, jsonify, session
+from flask import Blueprint, render_template, request, redirect, url_for, jsonify, session, flash
 from datetime import datetime
 from db import (
     get_page_data,
@@ -7,7 +7,11 @@ from db import (
     insert_sales_entry,
     list_sales_entries,
     list_roles,
-    upsert_sale_payment
+    upsert_sale_payment,
+    list_products,
+    insert_sale,
+    get_sale,
+    update_sale
 )
 
 ventas_bp = Blueprint('ventas', __name__)
@@ -93,7 +97,7 @@ def ventas():
                     "invoice_file": sale.get("invoice_file") or "",
                     "status": {
                         "label": sale["status"],
-                        "level": "success" if sale["status"] == "Completada" else "warning" if sale["status"] == "Pendiente" else "danger"
+                        "level": "success" if sale["status"] == "Completada" else "warning" if sale["status"] == "Pendiente" else "info" if sale["status"] == "Cotización" else "danger"
                     },
                     "seller": {
                         "name": sale["seller_name"],
@@ -149,13 +153,19 @@ def registrar_pago_venta():
     """Registrar o actualizar el pago de una factura de venta"""
     import os
     from werkzeug.utils import secure_filename
-    from flask import current_app, flash
-    from db import get_connection
+    from flask import current_app, flash, session
+    from db import get_connection, upsert_sale_payment
 
     sale_id = request.form.get('sale_id', type=int)
     payment_status = request.form.get('payment_status')  # 'Pendiente' o 'Pagado'
+    
+    # Validación de rol: si es digitador/vendedor y pone "Pagado", pasa a "Pendiente Aprobación Pago"
+    user_role = session.get('role_name')
+    if payment_status == 'Pagado' and user_role not in ['Aprobador', 'Gerente', 'Administrativo']:
+        payment_status = 'Pendiente Aprobación Pago'
+        
     invoice_due_date = request.form.get('invoice_due_date')
-    payment_date = request.form.get('payment_date') if payment_status == 'Pagado' else None
+    payment_date = request.form.get('payment_date') if payment_status in ['Pagado', 'Pendiente Aprobación Pago'] else None
 
     if not sale_id:
         flash('No se especificó un ID de venta válido.', 'danger')
@@ -163,11 +173,11 @@ def registrar_pago_venta():
 
     user_responsible = session.get('full_name', 'Administrador')
 
-    # Subir comprobante si existe y el estado es Pagado
+    # Subir comprobante si existe y el estado es Pagado o Pendiente Aprobación
     payment_proof_file = None
     file = request.files.get('payment_file')
     file_uploaded = False
-    if payment_status == 'Pagado' and file and file.filename:
+    if payment_status in ['Pagado', 'Pendiente Aprobación Pago'] and file and file.filename:
         safe_name = secure_filename(file.filename)
         ext = os.path.splitext(safe_name)[1]
         filename = f"comprobante_venta_{sale_id}_{int(datetime.utcnow().timestamp())}{ext}"
@@ -197,8 +207,8 @@ def registrar_pago_venta():
             old_payment_date = old_payment_row["payment_date"] if old_payment_row else None
             old_proof_file = old_payment_row["payment_proof_file"] if old_payment_row else None
 
-            # Si el estado de pago cambia a Pendiente (borrando o revirtiendo pago)
-            if payment_status == 'Pendiente' and old_payment_status == 'Pagado':
+            # Si el estado de pago cambia a Pendiente
+            if payment_status == 'Pendiente' and old_payment_status in ['Pagado', 'Pendiente Aprobación Pago']:
                 # Registrar historial de borrado de comprobante
                 cur.execute(
                     """
@@ -213,10 +223,10 @@ def registrar_pago_venta():
                         'Se cambió el estado a Pendiente y se eliminó la vinculación del comprobante.'
                     )
                 )
-            elif payment_status == 'Pagado':
-                if old_payment_status != 'Pagado' or file_uploaded:
+            elif payment_status in ['Pagado', 'Pendiente Aprobación Pago']:
+                if old_payment_status not in ['Pagado', 'Pendiente Aprobación Pago'] or file_uploaded:
                     # Registrar historial de subida o actualización del comprobante de pago
-                    action_lbl = 'Comprobante Subido' if old_payment_status != 'Pagado' else 'Comprobante Actualizado'
+                    action_lbl = 'Comprobante Subido' if old_payment_status not in ['Pagado', 'Pendiente Aprobación Pago'] else 'Comprobante Actualizado'
                     cur.execute(
                         """
                         INSERT INTO sales_payment_history (sale_id, action, user_name, changed_at, details)
@@ -227,7 +237,7 @@ def registrar_pago_venta():
                             action_lbl,
                             user_responsible,
                             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                            f'Se subió un nuevo comprobante de pago. Fecha real de pago: {payment_date}'
+                            f'Se subió un nuevo comprobante de pago. Estado: {payment_status}. Fecha real de pago: {payment_date}'
                         )
                     )
                 elif old_payment_date != payment_date:
@@ -293,8 +303,7 @@ def registrar_pago_venta():
                 )
 
             # Si es reversión a Pendiente, mantener el archivo anterior a menos que explícitamente se borre. 
-            # Si se sube uno nuevo, usar el nuevo.
-            final_proof_file = payment_proof_file if payment_proof_file else (old_proof_file if payment_status == 'Pagado' else None)
+            final_proof_file = payment_proof_file if payment_proof_file else (old_proof_file if payment_status in ['Pagado', 'Pendiente Aprobación Pago'] else None)
 
             # 3. Guardar en la tabla sale_payments (upsert)
             payment_data = {
@@ -303,14 +312,14 @@ def registrar_pago_venta():
                 "invoice_due_date": invoice_due_date or sale_date,
                 "invoice_file": None,
                 "payment_proof_file": final_proof_file,
-                "payment_amount": total_amount if payment_status == 'Pagado' else 0.0,
+                "payment_amount": total_amount if payment_status in ['Pagado', 'Pendiente Aprobación Pago'] else 0.0,
                 "payment_date": payment_date,
                 "seller_uploaded_at": datetime.utcnow().isoformat(),
-                "payment_uploaded_at": datetime.utcnow().isoformat() if payment_status == 'Pagado' else None,
+                "payment_uploaded_at": datetime.utcnow().isoformat() if payment_status in ['Pagado', 'Pendiente Aprobación Pago'] else None,
                 "accounting_approved": 1 if payment_status == 'Pagado' else 0,
-                "accounting_approved_by": user_responsible,
+                "accounting_approved_by": user_responsible if payment_status == 'Pagado' else None,
                 "accounting_approved_at": datetime.utcnow().isoformat() if payment_status == 'Pagado' else None,
-                "accounting_comment": "Pago registrado desde panel rápido de Ventas",
+                "accounting_comment": "Pago registrado y aprobado automáticamente" if payment_status == 'Pagado' else "Pago registrado por Digitador, pendiente de validación por Aprobador",
                 "status": payment_status,
                 "updated_at": datetime.utcnow().isoformat()
             }
@@ -322,8 +331,85 @@ def registrar_pago_venta():
 
     if auto_completed:
         flash('El pago fue registrado y la venta se marcó automáticamente como Completada.', 'success')
+    elif payment_status == 'Pendiente Aprobación Pago':
+        flash('El pago ha sido registrado y enviado a aprobación.', 'warning')
     else:
         flash('Estado de pago actualizado correctamente para la venta.', 'success')
+    return redirect(url_for('ventas.ventas'))
+
+@ventas_bp.route('/ventas/pago/<int:sale_id>/aprobar', methods=['POST'])
+def aprobar_pago_venta(sale_id):
+    """Aprobar un pago pendiente de validación por parte del Aprobador"""
+    user_role = session.get('role_name')
+    user_responsible = session.get('full_name', 'Administrador')
+    
+    if user_role not in ['Aprobador', 'Gerente', 'Administrativo']:
+        flash("No tienes permisos para aprobar pagos.", "danger")
+        return redirect(url_for('ventas.ventas'))
+        
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # 1. Obtener la venta
+            cur.execute("SELECT payment_status, total_amount FROM sales WHERE id = %s", (sale_id,))
+            sale_row = cur.fetchone()
+            if not sale_row:
+                flash("Venta no encontrada.", "danger")
+                return redirect(url_for('ventas.ventas'))
+                
+            if sale_row['payment_status'] != 'Pendiente Aprobación Pago':
+                flash("El pago de esta venta no está pendiente de aprobación.", "warning")
+                return redirect(url_for('ventas.ventas'))
+                
+            # 2. Actualizar el estado de pago principal a 'Pagado' y el estado de la venta a 'Completada'
+            cur.execute("UPDATE sales SET payment_status = 'Pagado', status = 'Completada' WHERE id = %s", (sale_id,))
+            
+            # 3. Actualizar la tabla sale_payments
+            cur.execute(
+                """
+                UPDATE sale_payments
+                SET status = 'Pagado',
+                    accounting_approved = 1,
+                    accounting_approved_by = %s,
+                    accounting_approved_at = %s,
+                    payment_amount = %s,
+                    updated_at = %s
+                WHERE sale_id = %s
+                """,
+                (user_responsible, datetime.utcnow().isoformat(), sale_row['total_amount'], datetime.utcnow().isoformat(), sale_id)
+            )
+            
+            # 4. Registrar en historial de estado
+            cur.execute(
+                """
+                INSERT INTO sales_status_history (sale_id, status, user_name, changed_at, comment)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    sale_id,
+                    'Completada',
+                    f'Sistema (Aprobación por {user_responsible})',
+                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'Estado cambiado a Completada tras aprobación de pago'
+                )
+            )
+            
+            # 5. Registrar en historial de pagos
+            cur.execute(
+                """
+                INSERT INTO sales_payment_history (sale_id, action, user_name, changed_at, details)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    sale_id,
+                    'Pago Aprobado',
+                    user_responsible,
+                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'El pago fue validado y aprobado formalmente.'
+                )
+            )
+        conn.commit()
+        
+    flash("Pago aprobado y verificado correctamente.", "success")
     return redirect(url_for('ventas.ventas'))
 
 @ventas_bp.route('/ventas/actualizar-estado', methods=['POST'])
@@ -484,3 +570,129 @@ def ingreso_ventas():
         delivery_status_options=delivery_status_options,
         entries=entries,
     )
+
+@ventas_bp.route('/ventas/cotizacion/nueva', methods=['GET', 'POST'])
+def nueva_cotizacion():
+    """Crear una nueva cotización"""
+    from db import get_connection
+    if request.method == 'POST':
+        customer_name = request.form.get('customer_name', '').strip()
+        customer_email = request.form.get('customer_email', '').strip()
+        sale_date = request.form.get('sale_date', '').strip()
+        notes = request.form.get('notes', '').strip()
+        
+        product_ids = request.form.getlist('product_id[]')
+        quantities = request.form.getlist('quantity[]')
+        unit_prices = request.form.getlist('unit_price[]')
+        
+        # Obtener nombres de productos y construir el JSON
+        products_list = []
+        total_amount = 0.0
+        
+        # Cargar productos para buscar nombres
+        all_prods = {str(p['id']): p for p in list_products()}
+        
+        for p_id, qty, price in zip(product_ids, quantities, unit_prices):
+            if not p_id or not qty or not price:
+                continue
+            qty_int = int(qty)
+            price_float = float(price)
+            subtotal = qty_int * price_float
+            total_amount += subtotal
+            
+            prod_info = all_prods.get(p_id, {})
+            products_list.append({
+                "product_id": int(p_id),
+                "product_name": prod_info.get('name', 'Producto Desconocido'),
+                "quantity": qty_int,
+                "price": price_float,
+                "subtotal": subtotal
+            })
+            
+        if not products_list:
+            flash("Debe agregar al menos un producto a la cotización.", "warning")
+            return redirect(url_for('ventas.nueva_cotizacion'))
+            
+        # Generar número de cotización
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM sales")
+                next_id = cur.fetchone()["next_id"]
+                sale_number = f"COT-{next_id:05d}"
+                
+        # Construir registro de cotización
+        sale_data = {
+            "sale_number": sale_number,
+            "customer_name": customer_name,
+            "customer_email": customer_email,
+            "customer_initials": "".join([part[0].upper() for part in customer_name.split() if part])[:3],
+            "sale_date": sale_date,
+            "sale_time": datetime.now().strftime("%H:%M:%S"),
+            "products": products_list,
+            "total_amount": round(total_amount, 2),
+            "status": "Cotización",
+            "seller_name": session.get('user_name', 'Vendedor'),
+            "seller_initials": session.get('user_initials', 'V'),
+            "payment_method": "Cotización",
+            "payment_status": "Cotización",
+            "delivery_status": "Cotización",
+            "notes": notes,
+            "created_at": datetime.utcnow().isoformat(timespec='seconds')
+        }
+        
+        insert_sale(sale_data)
+        flash("Cotización guardada exitosamente.", "success")
+        return redirect(url_for('ventas.ventas'))
+        
+    products = list_products()
+    default_date = datetime.today().strftime('%Y-%m-%d')
+    return render_template('nueva_cotizacion.html', products=products, default_date=default_date)
+
+@ventas_bp.route('/ventas/cotizacion/<int:sale_id>/convertir', methods=['POST'])
+def convertir_cotizacion(sale_id):
+    """Convertir una cotización a venta real (Pendiente)"""
+    from db import get_connection
+    sale = get_sale(sale_id)
+    if not sale:
+        flash("Cotización no encontrada.", "danger")
+        return redirect(url_for('ventas.ventas'))
+        
+    if sale["status"] != "Cotización":
+        flash("Esta venta ya ha sido emitida.", "warning")
+        return redirect(url_for('ventas.ventas'))
+        
+    # Generar folio VTA-
+    new_sale_number = f"VTA-{sale_id:05d}"
+    
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE sales 
+                SET status = 'Pendiente', 
+                    payment_status = 'Pendiente', 
+                    delivery_status = 'Pendiente',
+                    payment_method = 'Por definir',
+                    sale_number = %s 
+                WHERE id = %s
+                """,
+                (new_sale_number, sale_id)
+            )
+            # Agregar historial de estado
+            cur.execute(
+                """
+                INSERT INTO sales_status_history (sale_id, status, user_name, changed_at, comment)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    sale_id, 
+                    "Pendiente", 
+                    session.get('user_name', 'Sistema'), 
+                    datetime.utcnow().isoformat(timespec='seconds'),
+                    "Convertido desde Cotización"
+                )
+            )
+        conn.commit()
+        
+    flash(f"Cotización convertida a Venta {new_sale_number} exitosamente.", "success")
+    return redirect(url_for('ventas.ventas'))

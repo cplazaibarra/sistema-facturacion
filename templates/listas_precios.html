@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Listas de Precios - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Listas de Precios{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px;">
+    <a href="/administracion" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 4px; border: 1px solid #cbd5e0; background: #fff; color: #4a5568; font-weight: 500;">
+        ⬅️ Volver a Administración
+    </a>
+</div>
+
+<!-- Configuración Global de Márgenes -->
+<div class="table-container" style="padding: 20px; margin-bottom: 30px; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0;">
+    <h3 style="margin-top: 0; margin-bottom: 15px; color: #2d3748; font-size: 1.1rem; border-bottom: 1px solid #edf2f7; padding-bottom: 8px;">Configuración de Categorías de Clientes y Márgenes Estándar</h3>
+    <form method="POST" action="/administracion/listas-precios" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; align-items: flex-end;">
+        <input type="hidden" name="action" value="save_config">
+        
+        <div class="form-group" style="margin-bottom: 0;">
+            <label style="display: block; font-size: 12px; color: #718096; font-weight: 600; margin-bottom: 6px;">Margen Base Empresa (%)</label>
+            <input type="number" step="0.1" name="base_margin" class="form-control" value="{{ config.base_margin }}" style="width: 100%;" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+            <label style="display: block; font-size: 12px; color: #718096; font-weight: 600; margin-bottom: 6px;">Categoría A (Nombre)</label>
+            <input type="text" name="cat_a_name" class="form-control" value="{{ config.cat_a_name }}" style="width: 100%;" required>
+            <input type="number" step="0.1" name="cat_a_margin" class="form-control" value="{{ config.cat_a_margin }}" style="width: 100%; margin-top: 6px;" placeholder="Margen %" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+            <label style="display: block; font-size: 12px; color: #718096; font-weight: 600; margin-bottom: 6px;">Categoría B (Nombre)</label>
+            <input type="text" name="cat_b_name" class="form-control" value="{{ config.cat_b_name }}" style="width: 100%;" required>
+            <input type="number" step="0.1" name="cat_b_margin" class="form-control" value="{{ config.cat_b_margin }}" style="width: 100%; margin-top: 6px;" placeholder="Margen %" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+            <label style="display: block; font-size: 12px; color: #718096; font-weight: 600; margin-bottom: 6px;">Categoría C (Nombre)</label>
+            <input type="text" name="cat_c_name" class="form-control" value="{{ config.cat_c_name }}" style="width: 100%;" required>
+            <input type="number" step="0.1" name="cat_c_margin" class="form-control" value="{{ config.cat_c_margin }}" style="width: 100%; margin-top: 6px;" placeholder="Margen %" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+            <label style="display: block; font-size: 12px; color: #718096; font-weight: 600; margin-bottom: 6px;">Categoría D (Nombre)</label>
+            <input type="text" name="cat_d_name" class="form-control" value="{{ config.cat_d_name }}" style="width: 100%;" required>
+            <input type="number" step="0.1" name="cat_d_margin" class="form-control" value="{{ config.cat_d_margin }}" style="width: 100%; margin-top: 6px;" placeholder="Margen %" required>
+        </div>
+
+        <div style="margin-bottom: 0;">
+            <button type="submit" class="btn-primary" style="width: 100%; padding: 10px; height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: bold;">
+                💾 Guardar Estándar
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Tabla Principal de Productos y Precios Calculados -->
+<div class="table-container">
+    <table class="data-table" style="width: 100%; table-layout: fixed;">
+        <thead>
+            <tr style="font-size: 11px;">
+                <th style="width: 80px;">SKU</th>
+                <th style="width: 140px;">Producto</th>
+                <th style="width: 85px; text-align: right;">VPP ($)</th>
+                <th style="width: 85px;">Margen Base</th>
+                <th style="width: 120px;">{{ config.cat_a_name }}</th>
+                <th style="width: 120px;">{{ config.cat_b_name }}</th>
+                <th style="width: 120px;">{{ config.cat_c_name }}</th>
+                <th style="width: 120px;">{{ config.cat_d_name }}</th>
+                <th style="width: 70px; text-align: center;">Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in products %}
+            <tr id="row-{{ p.sku }}" style="font-size: 12px;">
+                <td style="font-weight: bold; color: #4a5568;">{{ p.sku }}</td>
+                <td>
+                    <div style="font-weight: 600; color: #2d3748; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ p.name }}">{{ p.name }}</div>
+                </td>
+                <td style="text-align: right; font-weight: bold; color: #2d3748;">
+                    $<span class="vpp-val">{{ "%.2f"|format(p.vpp) }}</span>
+                </td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 2px;">
+                        <input type="number" step="0.1" class="base-margin-input" value="{{ p.base_margin }}" style="width: 55px; padding: 4px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 11px; text-align: center;" oninput="recalcRow('{{ p.sku }}')">%
+                    </div>
+                </td>
+                
+                <!-- Categoria A -->
+                <td style="background-color: #f7fafc;">
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <div style="display: flex; align-items: center; gap: 2px; font-size: 10px; color: #718096;">
+                            <span>Margen:</span>
+                            <input type="number" step="0.1" class="margin-a-input" value="{{ p.margin_a }}" style="width: 50px; padding: 2px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 10px; text-align: center;" oninput="recalcRow('{{ p.sku }}')">%
+                        </div>
+                        <div style="font-weight: bold; color: #2b6cb0;">
+                            P. Final: <span class="price-a-span">${{ "%.2f"|format(p.price_a) }}</span>
+                        </div>
+                    </div>
+                </td>
+
+                <!-- Categoria B -->
+                <td>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <div style="display: flex; align-items: center; gap: 2px; font-size: 10px; color: #718096;">
+                            <span>Margen:</span>
+                            <input type="number" step="0.1" class="margin-b-input" value="{{ p.margin_b }}" style="width: 50px; padding: 2px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 10px; text-align: center;" oninput="recalcRow('{{ p.sku }}')">%
+                        </div>
+                        <div style="font-weight: bold; color: #22543d;">
+                            P. Final: <span class="price-b-span">${{ "%.2f"|format(p.price_b) }}</span>
+                        </div>
+                    </div>
+                </td>
+
+                <!-- Categoria C -->
+                <td style="background-color: #f7fafc;">
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <div style="display: flex; align-items: center; gap: 2px; font-size: 10px; color: #718096;">
+                            <span>Margen:</span>
+                            <input type="number" step="0.1" class="margin-c-input" value="{{ p.margin_c }}" style="width: 50px; padding: 2px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 10px; text-align: center;" oninput="recalcRow('{{ p.sku }}')">%
+                        </div>
+                        <div style="font-weight: bold; color: #744210;">
+                            P. Final: <span class="price-c-span">${{ "%.2f"|format(p.price_c) }}</span>
+                        </div>
+                    </div>
+                </td>
+
+                <!-- Categoria D -->
+                <td>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <div style="display: flex; align-items: center; gap: 2px; font-size: 10px; color: #718096;">
+                            <span>Margen:</span>
+                            <input type="number" step="0.1" class="margin-d-input" value="{{ p.margin_d }}" style="width: 50px; padding: 2px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 10px; text-align: center;" oninput="recalcRow('{{ p.sku }}')">%
+                        </div>
+                        <div style="font-weight: bold; color: #4a5568;">
+                            P. Final: <span class="price-d-span">${{ "%.2f"|format(p.price_d) }}</span>
+                        </div>
+                    </div>
+                </td>
+
+                <!-- Guardar -->
+                <td style="text-align: center;">
+                    <button class="btn-primary" onclick="saveProductMargins('{{ p.sku }}')" style="padding: 6px; font-size: 11px; font-weight: bold; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" title="Guardar márgenes de este producto">
+                        💾
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function recalcRow(sku) {
+    const row = document.getElementById(`row-${sku}`);
+    if (!row) return;
+
+    const vpp = parseFloat(row.querySelector('.vpp-val').innerText) || 0.0;
+    const baseMargin = parseFloat(row.querySelector('.base-margin-input').value) || 0.0;
+    const marginA = parseFloat(row.querySelector('.margin-a-input').value) || 0.0;
+    const marginB = parseFloat(row.querySelector('.margin-b-input').value) || 0.0;
+    const marginC = parseFloat(row.querySelector('.margin-c-input').value) || 0.0;
+    const marginD = parseFloat(row.querySelector('.margin-d-input').value) || 0.0;
+
+    const priceBase = vpp * (1 + baseMargin / 100);
+    const priceA = priceBase * (1 + marginA / 100);
+    const priceB = priceBase * (1 + marginB / 100);
+    const priceC = priceBase * (1 + marginC / 100);
+    const priceD = priceBase * (1 + marginD / 100);
+
+    row.querySelector('.price-a-span').innerText = `$${priceA.toFixed(2)}`;
+    row.querySelector('.price-b-span').innerText = `$${priceB.toFixed(2)}`;
+    row.querySelector('.price-c-span').innerText = `$${priceC.toFixed(2)}`;
+    row.querySelector('.price-d-span').innerText = `$${priceD.toFixed(2)}`;
+}
+
+async function saveProductMargins(sku) {
+    const row = document.getElementById(`row-${sku}`);
+    if (!row) return;
+
+    const baseMargin = parseFloat(row.querySelector('.base-margin-input').value) || 0.0;
+    const marginA = parseFloat(row.querySelector('.margin-a-input').value) || 0.0;
+    const marginB = parseFloat(row.querySelector('.margin-b-input').value) || 0.0;
+    const marginC = parseFloat(row.querySelector('.margin-c-input').value) || 0.0;
+    const marginD = parseFloat(row.querySelector('.margin-d-input').value) || 0.0;
+
+    const formData = new FormData();
+    formData.append('action', 'save_product_margins');
+    formData.append('sku', sku);
+    formData.append('base_margin', baseMargin);
+    formData.append('margin_a', marginA);
+    formData.append('margin_b', marginB);
+    formData.append('margin_c', marginC);
+    formData.append('margin_d', marginD);
+
+    try {
+        const response = await fetch('/administracion/listas-precios', {
+            method: 'POST',
+            body: formData
+        });
+        if (response.ok) {
+            const data = await response.json();
+            alert(`Márgenes para ${sku} guardados correctamente.`);
+        } else {
+            alert('Error al guardar los márgenes.');
+        }
+    } catch (err) {
+        alert('Error de red al intentar guardar los cambios.');
+    }
+}
+</script>
+{% endblock %}

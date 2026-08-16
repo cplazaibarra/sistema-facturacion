@@ -60,17 +60,27 @@
                 <td>{{ item.code }}</td>
                 <td>
                     <div class="product-info">
-                        <div class="product-name">{{ item.name }}</div>
+                        <div class="product-name" style="cursor: pointer; color: #0070D2; text-decoration: underline;" onclick="openProductHistoryModal('{{ item.code }}', '{{ item.name }}')">{{ item.name }}</div>
                         <div class="product-desc">{{ item.desc }}</div>
                     </div>
                 </td>
                 <td>{{ item.category }}</td>
                 <td>
-                    <div class="stock-info">
-                        <div class="stock-bar {% if item.status == 'Stock Bajo' %}warning{% endif %}">
-                            <div class="stock-fill" style="width: {{ item.stock_percent }}%"></div>
+                    <div class="stock-info" style="display: flex; flex-direction: column; gap: 4px;">
+                        <div class="stock-bar {% if item.status == 'Stock Bajo' %}warning{% endif %}" style="width: 100%; height: 6px; background-color: #E2E8F0; border-radius: 3px; overflow: hidden; margin-bottom: 2px;">
+                            <div class="stock-fill" style="width: {{ item.stock_percent }}%; height: 100%; background-color: {% if item.status == 'Stock Bajo' %}#ED8936{% else %}#48BB78{% endif %}; border-radius: 3px;"></div>
                         </div>
-                        <span>{{ item.stock }} unidades</span>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px;">
+                            <span style="background: #EBF8FF; color: #2B6CB0; padding: 2px 6px; border-radius: 4px; border: 1px solid #BEE3F8;" title="Stock listo para vender en bodega">
+                                🟢 Físico: <strong>{{ item.stock }}</strong>
+                            </span>
+                            <span style="background: #FEFCBF; color: #B7791F; padding: 2px 6px; border-radius: 4px; border: 1px solid #FEFCBF;" title="Reservado por ventas pendientes">
+                                🟡 Reservado: <strong>{{ item.reserved }}</strong>
+                            </span>
+                            <span style="background: #EDF2F7; color: #4A5568; padding: 2px 6px; border-radius: 4px; border: 1px solid #E2E8F0; font-weight: bold;" title="Total físico + reservado en bodega">
+                                📦 Total: {{ item.total_stock }}
+                            </span>
+                        </div>
                     </div>
                 </td>
                 <td>{{ item.min_stock }}</td>
@@ -85,7 +95,7 @@
                     {% endif %}
                 </td>
                 <td>
-                    <button class="btn-icon" title="Editar">✏️</button>
+                    <button class="btn-icon" title="Editar Stock Mínimo" onclick="editMinStock('{{ item.code }}', {{ item.min_stock }})">✏️</button>
                     <button class="btn-icon" title="Eliminar">🗑️</button>
                 </td>
             </tr>
@@ -94,6 +104,29 @@
     </table>
 </div>
 <script>
+    function editMinStock(code, currentMin) {
+        const newVal = prompt(`Ingrese el nuevo stock mínimo para el producto ${code}:`, currentMin);
+        if (newVal !== null) {
+            const minStock = parseInt(newVal, 10);
+            if (!isNaN(minStock) && minStock >= 0) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `/inventario/producto/${code}/min-stock`;
+                
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'min_stock';
+                input.value = minStock;
+                
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+            } else {
+                alert('Por favor ingrese un número válido mayor o igual a 0.');
+            }
+        }
+    }
+
     (function () {
         const categoryFilter = document.getElementById('inventory-category-filter');
         const stockFilter = document.getElementById('inventory-stock-filter');
@@ -128,5 +161,119 @@
             searchInput.addEventListener('input', applyFilters);
         }
     })();
+</script>
+
+<!-- Modal para Historial de Entradas -->
+<div id="productHistoryModal" class="sf-modal" style="display: none; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000;">
+    <div class="sf-modal-backdrop" onclick="closeProductHistoryModal()" style="position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.5);"></div>
+    <div class="sf-modal-content" style="position: relative; background: #fff; padding: 25px; border-radius: 8px; width: 700px; max-width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.15); max-height: 85vh; overflow-y: auto;">
+        <div class="sf-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+            <h3 id="history_modal_title" style="margin: 0; color: #2D3748;">Historial de Entradas</h3>
+            <button class="sf-modal-close" onclick="closeProductHistoryModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #4a5568;">✕</button>
+        </div>
+        
+        <div class="sf-modal-body">
+            <!-- Filtro de meses -->
+            <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px; background-color: #f7fafc; padding: 12px; border-radius: 6px; border: 1px solid #edf2f7; font-size: 0.95rem;">
+                <span style="font-weight: 500; color: #4A5568;">Mirar historial hacia atrás:</span>
+                <input type="number" id="history-months" value="1" min="1" max="60" style="width: 70px; padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px; text-align: center; font-weight: 600;">
+                <span style="color: #4A5568;">meses</span>
+                <button class="btn-primary" onclick="loadProductHistory()" style="padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer;">Actualizar</button>
+            </div>
+            
+            <!-- Tarjetas de métricas -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+                <div style="background-color: #ebf8ff; padding: 14px; border-radius: 6px; border: 1px solid #bee3f8; text-align: center;">
+                    <div style="font-size: 11px; color: #2b6cb0; text-transform: uppercase; font-weight: 600; margin-bottom: 4px; letter-spacing: 0.5px;">Valor Promedio Ponderado</div>
+                    <strong id="history_avg_val" style="font-size: 1.4rem; color: #2b6cb0; font-weight: 700;">$0.00</strong>
+                </div>
+                <div style="background-color: #f0fff4; padding: 14px; border-radius: 6px; border: 1px solid #c6f6d5; text-align: center;">
+                    <div style="font-size: 11px; color: #22543d; text-transform: uppercase; font-weight: 600; margin-bottom: 4px; letter-spacing: 0.5px;">Unidades Entradas</div>
+                    <strong id="history_total_qty" style="font-size: 1.4rem; color: #22543d; font-weight: 700;">0</strong>
+                </div>
+                <div style="background-color: #fffaf0; padding: 14px; border-radius: 6px; border: 1px solid #feebc8; text-align: center;">
+                    <div style="font-size: 11px; color: #744210; text-transform: uppercase; font-weight: 600; margin-bottom: 4px; letter-spacing: 0.5px;">Total Invertido</div>
+                    <strong id="history_total_spent" style="font-size: 1.4rem; color: #744210; font-weight: 700;">$0.00</strong>
+                </div>
+            </div>
+            
+            <!-- Tabla de entradas -->
+            <div style="overflow-x: auto;">
+                <table class="data-table" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background-color: #f7fafc; border-bottom: 2px solid #e2e8f0;">
+                            <th style="padding: 10px; text-align: left; font-size: 12px; font-weight: 600; color: #4a5568;">Fecha</th>
+                            <th style="padding: 10px; text-align: left; font-size: 12px; font-weight: 600; color: #4a5568;">N° Referencia / OC</th>
+                            <th style="padding: 10px; text-align: left; font-size: 12px; font-weight: 600; color: #4a5568;">Cantidad</th>
+                            <th style="padding: 10px; text-align: left; font-size: 12px; font-weight: 600; color: #4a5568;">P. Unitario ($)</th>
+                            <th style="padding: 10px; text-align: left; font-size: 12px; font-weight: 600; color: #4a5568;">Total ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history_entries_tbody">
+                        <!-- Carga dinámica -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentSelectedProductCode = null;
+
+function openProductHistoryModal(code, name) {
+    currentSelectedProductCode = code;
+    document.getElementById('history_modal_title').innerText = `${name} (SKU: ${code})`;
+    document.getElementById('history-months').value = 1;
+    document.getElementById('productHistoryModal').style.display = 'flex';
+    loadProductHistory();
+}
+
+function closeProductHistoryModal() {
+    document.getElementById('productHistoryModal').style.display = 'none';
+}
+
+async function loadProductHistory() {
+    if (!currentSelectedProductCode) return;
+    const months = document.getElementById('history-months').value || 1;
+    
+    const tbody = document.getElementById('history_entries_tbody');
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #718096; padding: 25px; font-style: italic;">Cargando historial de entradas...</td></tr>';
+    
+    try {
+        const response = await fetch(`/api/inventario/producto/${currentSelectedProductCode}/entradas?months=${months}`);
+        if (response.ok) {
+            const data = await response.json();
+            
+            // Cargar métricas
+            document.getElementById('history_avg_val').innerText = `$${data.avg_price.toFixed(2)}`;
+            document.getElementById('history_total_qty').innerText = data.total_qty + " unidades";
+            document.getElementById('history_total_spent').innerText = `$${data.total_amount.toFixed(2)}`;
+            
+            // Cargar filas
+            tbody.innerHTML = '';
+            if (data.entries.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #a0aec0; padding: 25px; font-style: italic;">No se registraron entradas para este producto en los últimos ${months} meses.</td></tr>`;
+                return;
+            }
+            
+            data.entries.forEach(e => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="padding: 10px; border-bottom: 1px solid #edf2f7;">${e.entry_date}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #edf2f7;"><strong>${e.order_number}</strong></td>
+                    <td style="padding: 10px; border-bottom: 1px solid #edf2f7;">${e.quantity} unidades</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #edf2f7;">$${e.unit_price.toFixed(2)}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #edf2f7; font-weight: 600; color: #2d3748;">$${e.total.toFixed(2)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        } else {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #e53e3e; padding: 25px; font-weight: 500;">Error al cargar el historial.</td></tr>';
+        }
+    } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #e53e3e; padding: 25px; font-weight: 500;">Error de red al conectar al servidor.</td></tr>';
+    }
+}
 </script>
 {% endblock %}

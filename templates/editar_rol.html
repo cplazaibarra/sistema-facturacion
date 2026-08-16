@@ -21,9 +21,18 @@
             </div>
 
             <div class="form-group">
-                <label>Permisos (JSON)</label>
-                <textarea name="permissions" class="form-control" rows="8" placeholder='{"dashboard": true, "usuarios": false, ...}'>{{ role.permissions or '{}' }}</textarea>
-                <small>Ingrese un JSON válido con pares clave-valor booleanos</small>
+                <label style="margin-bottom: 12px; font-weight: 600;">Matriz de Permisos</label>
+                {% set perm_list = role.permissions|from_json %}
+                <div class="permissions-matrix" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; background-color: #F9FAFB; padding: 18px; border: 1px solid #E5E7EB; border-radius: 6px;">
+                    {% for key in ["dashboard", "usuarios", "ventas", "inventario", "productos", "administracion", "reportes", "configuracion", "crear_registros", "aprobar_registros", "solo_ver"] %}
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" name="perm_{{ key }}" id="perm_{{ key }}" {% if perm_list and perm_list.get(key) %}checked{% endif %} style="width: 16px; height: 16px; cursor: pointer;">
+                        <label for="perm_{{ key }}" style="margin: 0; cursor: pointer; font-size: 0.95rem; font-weight: normal; color: #4B5563;">
+                            {{ key|replace('_', ' ')|title }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
 
             <div class="form-actions">
