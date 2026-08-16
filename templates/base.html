@@ -77,12 +77,15 @@
                 </a>
                 
                 <div class="nav-section">
-                    <button class="nav-item nav-toggle {% if request.endpoint in ['reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
                         <span class="icon"><i class="fa-solid fa-chart-column"></i></span>
                         <span>Reportería</span>
                         <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
-                    <div class="nav-submenu {% if request.endpoint in ['reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos'] %}open{% endif %}">
+                    <div class="nav-submenu {% if request.endpoint in ['reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos'] %}open{% endif %}">
+                        <a href="{{ url_for('reportes.reportes_ingresos') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_ingresos' %}active{% endif %}">
+                            <span>Ingresos ($)</span>
+                        </a>
                         <a href="{{ url_for('reportes.reportes_ventas') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_ventas' %}active{% endif %}">
                             <span>Ventas</span>
                         </a>

@@ -2743,3 +2743,122 @@ def list_inventory_entries() -> list[dict]:
                 records.append(r)
             return records
 
+
+def get_income_report_data() -> dict:
+    """Calcula datos financieros de Ingresos: pagos históricos realizados y compromisos de cobros futuros."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            query = """
+                SELECT s.id, s.sale_number, s.customer_name, s.sale_date, s.total_amount, s.status, s.payment_status,
+                       sp.invoice_due_date, sp.payment_date, sp.payment_amount
+                FROM sales s
+                LEFT JOIN sale_payments sp ON sp.sale_id = s.id
+                WHERE s.status NOT IN ('Cancelada', 'Cancelado', 'Cotización')
+                ORDER BY s.sale_date ASC
+            """
+            cur.execute(query)
+            sales = cur.fetchall()
+
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    
+    month_names = {
+        "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril",
+        "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
+        "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
+    }
+
+    monthly_summary = {}
+    
+    total_historico = 0.0
+    total_futuro = 0.0
+    monto_retrasado = 0.0
+    count_retrasados = 0
+    
+    futuros_detalles = []
+    historicos_detalles = []
+
+    for sale in sales:
+        total = float(sale.get("total_amount") or 0.0)
+        p_status = sale.get("payment_status") or "Pendiente"
+        sale_date = str(sale.get("sale_date") or "")[:10]
+        due_date = str(sale.get("invoice_due_date") or "")[:10]
+        payment_date = str(sale.get("payment_date") or "")[:10]
+        
+        if p_status == "Pagado":
+            monto_pago = float(sale.get("payment_amount") or total)
+            target_month = payment_date[:7] if len(payment_date) >= 7 else (sale_date[:7] if len(sale_date) >= 7 else today_str[:7])
+            
+            total_historico += monto_pago
+            
+            if target_month not in monthly_summary:
+                y, m = target_month.split("-") if "-" in target_month else (today_str[:4], today_str[5:7])
+                monthly_summary[target_month] = {
+                    "month_key": target_month,
+                    "label": f"{month_names.get(m, m)} {y}",
+                    "realizado": 0.0,
+                    "comprometido": 0.0,
+                }
+            monthly_summary[target_month]["realizado"] += monto_pago
+            
+            historicos_detalles.append({
+                "sale_number": sale["sale_number"],
+                "customer_name": sale["customer_name"],
+                "sale_date": sale_date,
+                "payment_date": payment_date or sale_date,
+                "monto": monto_pago,
+                "status": "Pagado"
+            })
+        else:
+            target_due = due_date if (due_date and due_date != "-") else sale_date
+            target_month = target_due[:7] if len(target_due) >= 7 else today_str[:7]
+            
+            total_futuro += total
+            
+            is_overdue = False
+            if target_due and target_due != "-" and target_due < today_str:
+                is_overdue = True
+                monto_retrasado += total
+                count_retrasados += 1
+
+            if target_month not in monthly_summary:
+                y, m = target_month.split("-") if "-" in target_month else (today_str[:4], today_str[5:7])
+                monthly_summary[target_month] = {
+                    "month_key": target_month,
+                    "label": f"{month_names.get(m, m)} {y}",
+                    "realizado": 0.0,
+                    "comprometido": 0.0,
+                }
+            monthly_summary[target_month]["comprometido"] += total
+
+            futuros_detalles.append({
+                "sale_number": sale["sale_number"],
+                "customer_name": sale["customer_name"],
+                "sale_date": sale_date,
+                "due_date": target_due,
+                "monto": total,
+                "status": "Retrasada" if is_overdue else "Pendiente",
+                "is_overdue": is_overdue
+            })
+
+    sorted_months_keys = sorted(monthly_summary.keys())
+    chart_labels = [monthly_summary[k]["label"] for k in sorted_months_keys]
+    chart_realizados = [round(monthly_summary[k]["realizado"], 2) for k in sorted_months_keys]
+    chart_comprometidos = [round(monthly_summary[k]["comprometido"], 2) for k in sorted_months_keys]
+    
+    table_months = [monthly_summary[k] for k in sorted_months_keys]
+
+    return {
+        "total_historico": round(total_historico, 2),
+        "total_futuro": round(total_futuro, 2),
+        "total_proyectado": round(total_historico + total_futuro, 2),
+        "monto_retrasado": round(monto_retrasado, 2),
+        "count_retrasados": count_retrasados,
+        "chart_labels": chart_labels,
+        "chart_realizados": chart_realizados,
+        "chart_comprometidos": chart_comprometidos,
+        "table_months": table_months,
+        "futuros_detalles": futuros_detalles,
+        "historicos_detalles": historicos_detalles
+    }
+
+
