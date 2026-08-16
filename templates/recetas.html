@@ -38,7 +38,7 @@
                         </td>
                         <td style="padding: 12px;">
                             <ul style="margin: 0; padding-left: 16px; font-size: 12px; color: #4a5568;">
-                                {% for item in r.items %}
+                                {% for item in r['items'] %}
                                 <li>{{ item.input_name }} (SKU: {{ item.input_sku }}): <strong>{{ item.quantity_required }}</strong></li>
                                 {% endfor %}
                             </ul>
