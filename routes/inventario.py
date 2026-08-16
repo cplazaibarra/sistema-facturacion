@@ -312,6 +312,7 @@ def productos():
             "depth_cm": request.form.get('depth_cm') or None,
             "weight_kg": request.form.get('weight_kg') or None,
             "product_type": request.form.get('product_type', 'Final').strip(),
+            "cost": float(request.form.get('cost', 0.0) or 0.0),
             "created_at": datetime.utcnow().isoformat(timespec='seconds'),
         }
 
@@ -361,6 +362,7 @@ def editar_producto(product_id):
             "depth_cm": request.form.get('depth_cm') or None,
             "weight_kg": request.form.get('weight_kg') or None,
             "product_type": request.form.get('product_type', 'Final').strip(),
+            "cost": float(request.form.get('cost', 0.0) or 0.0),
         }
 
         # Manejar subida de foto

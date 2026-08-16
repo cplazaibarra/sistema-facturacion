@@ -583,6 +583,7 @@ def init_db() -> None:
                 "category": "TEXT",
                 "expiry_date": "TEXT",
                 "product_type": "TEXT DEFAULT 'Final'",
+                "cost": "DOUBLE PRECISION DEFAULT 0.0",
             }
             for column_name, column_type in missing_columns.items():
                 if column_name not in existing_columns:
@@ -1298,7 +1299,7 @@ def list_products() -> list[dict]:
             cur.execute(
                 """
                 SELECT id, sku, name, description, photo_url, barcode, internal_code,
-                       category, expiry_date, width_cm, height_cm, depth_cm, weight_kg, product_type
+                       category, expiry_date, width_cm, height_cm, depth_cm, weight_kg, product_type, cost
                 FROM products
                 ORDER BY id DESC
                 """
@@ -1314,8 +1315,8 @@ def insert_product(product: dict) -> int:
                 INSERT INTO products (
                     sku, name, description, photo_url, barcode, internal_code,
                     category, expiry_date, width_cm, height_cm, depth_cm,
-                    weight_kg, product_type, created_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    weight_kg, product_type, cost, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
@@ -1332,6 +1333,7 @@ def insert_product(product: dict) -> int:
                     product.get("depth_cm"),
                     product.get("weight_kg"),
                     product.get("product_type", "Final"),
+                    product.get("cost", 0.0),
                     product["created_at"],
                 ),
             )
@@ -1346,7 +1348,7 @@ def get_product(product_id: int) -> dict:
             cur.execute(
                 """
                 SELECT id, sku, name, description, photo_url, barcode, internal_code,
-                       category, expiry_date, width_cm, height_cm, depth_cm, weight_kg, product_type
+                       category, expiry_date, width_cm, height_cm, depth_cm, weight_kg, product_type, cost
                 FROM products
                 WHERE id = %s
                 """,
@@ -1365,7 +1367,7 @@ def update_product(product_id: int, product: dict) -> None:
                     sku = %s, name = %s, description = %s, photo_url = %s,
                     barcode = %s, internal_code = %s, category = %s, expiry_date = %s,
                     width_cm = %s, height_cm = %s, depth_cm = %s, weight_kg = %s,
-                    product_type = %s
+                    product_type = %s, cost = %s
                 WHERE id = %s
                 """,
                 (
@@ -1382,6 +1384,7 @@ def update_product(product_id: int, product: dict) -> None:
                     product.get("depth_cm"),
                     product.get("weight_kg"),
                     product.get("product_type", "Final"),
+                    product.get("cost", 0.0),
                     product_id,
                 ),
             )

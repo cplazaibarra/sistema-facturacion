@@ -102,12 +102,16 @@
             </div>
 
             <div class="form-row" style="margin-bottom: 16px;">
-                <div class="form-group" style="width: 100%;">
+                <div class="form-group">
                     <label>Tipo de Producto *</label>
                     <select name="product_type" class="form-control" required style="width: 100%; height: 38px;">
                         <option value="Final" {% if product.product_type == 'Final' %}selected{% endif %}>Final (Vendible)</option>
                         <option value="Insumo" {% if product.product_type == 'Insumo' %}selected{% endif %}>Insumo (Materia Prima)</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label>Costo Unitario ($)</label>
+                    <input type="number" name="cost" class="form-control" step="1" min="0" value="{{ product.cost | round | int if product.cost is not none else '0' }}">
                 </div>
             </div>
 

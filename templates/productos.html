@@ -99,12 +99,16 @@
             </div>
 
             <div class="form-row" style="margin-bottom: 16px;">
-                <div class="form-group" style="width: 100%;">
+                <div class="form-group">
                     <label>Tipo de Producto *</label>
                     <select name="product_type" class="form-control" required style="width: 100%; height: 38px;">
                         <option value="Final" selected>Final (Vendible)</option>
                         <option value="Insumo">Insumo (Materia Prima)</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label>Costo Unitario ($)</label>
+                    <input type="number" name="cost" class="form-control" step="1" min="0" value="0">
                 </div>
             </div>
 
@@ -130,6 +134,7 @@
                     <th>Nombre</th>
                     <th>Descripción</th>
                     <th>Tipo</th>
+                    <th>Costo Unitario</th>
                     <th>Dimensiones (An x Al x Pr)</th>
                     <th>Peso (kg)</th>
                     <th style="text-align: center;">Acciones</th>
@@ -144,6 +149,9 @@
                     <td class="product-description" style="padding: 10px; color: var(--text-light);">{{ product.description or '-' }}</td>
                     <td class="product-type" style="padding: 10px; font-weight: bold; color: {% if product.product_type == 'Insumo' %}#dd6b20{% else %}#3182ce{% endif %};">
                         {{ product.product_type or 'Final' }}
+                    </td>
+                    <td class="product-cost" style="padding: 10px; font-weight: 500;">
+                        ${{ product.cost | round | int if product.cost is not none else '0' }}
                     </td>
                     <td class="product-dimensions" style="padding: 10px;">
                         {% if product.width_cm or product.height_cm or product.depth_cm %}
