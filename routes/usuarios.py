@@ -39,30 +39,36 @@ def administracion():
 def listas_precios():
     from db import get_connection
     
-    config = get_page_data("price_list_config") or {
-        "base_margin": 20.0,
-        "cat_a_name": "Categoría A",
-        "cat_a_margin": 5.0,
-        "cat_b_name": "Categoría B",
-        "cat_b_margin": 10.0,
-        "cat_c_name": "Categoría C",
-        "cat_c_margin": 15.0,
-        "cat_d_name": "Categoría D",
-        "cat_d_margin": 20.0
-    }
+    config = get_page_data("price_list_config")
+    if not config or "categories" not in config:
+        config = {
+            "base_margin": 20.0,
+            "categories": [
+                {"id": "cat_0", "name": "Categoría A", "margin": 5.0},
+                {"id": "cat_1", "name": "Categoría B", "margin": 10.0},
+                {"id": "cat_2", "name": "Categoría C", "margin": 15.0},
+                {"id": "cat_3", "name": "Categoría D", "margin": 20.0}
+            ]
+        }
     
     if request.method == 'POST':
         action = request.form.get('action')
         if action == 'save_config':
             config["base_margin"] = float(request.form.get('base_margin', 20.0))
-            config["cat_a_name"] = request.form.get('cat_a_name', 'Categoría A').strip()
-            config["cat_a_margin"] = float(request.form.get('cat_a_margin', 5.0))
-            config["cat_b_name"] = request.form.get('cat_b_name', 'Categoría B').strip()
-            config["cat_b_margin"] = float(request.form.get('cat_b_margin', 10.0))
-            config["cat_c_name"] = request.form.get('cat_c_name', 'Categoría C').strip()
-            config["cat_c_margin"] = float(request.form.get('cat_c_margin', 15.0))
-            config["cat_d_name"] = request.form.get('cat_d_name', 'Categoría D').strip()
-            config["cat_d_margin"] = float(request.form.get('cat_d_margin', 20.0))
+            
+            cat_names = request.form.getlist('cat_name[]')
+            cat_margins = request.form.getlist('cat_margin[]')
+            
+            categories = []
+            for i, (name, margin) in enumerate(zip(cat_names, cat_margins)):
+                if not name.strip():
+                    continue
+                categories.append({
+                    "id": f"cat_{i}",
+                    "name": name.strip(),
+                    "margin": float(margin or 0.0)
+                })
+            config["categories"] = categories
             set_page_data("price_list_config", config)
             flash("Configuración de categorías y márgenes actualizada.", "success")
             return redirect(url_for('usuarios.listas_precios'))
@@ -70,25 +76,24 @@ def listas_precios():
         elif action == 'save_product_margins':
             sku = request.form.get('sku')
             base_margin = float(request.form.get('base_margin', 20.0))
-            margin_a = float(request.form.get('margin_a', 5.0))
-            margin_b = float(request.form.get('margin_b', 10.0))
-            margin_c = float(request.form.get('margin_c', 15.0))
-            margin_d = float(request.form.get('margin_d', 20.0))
+            
+            category_margins = {}
+            for key, value in request.form.items():
+                if key.startswith('margins['):
+                    cat_id = key.split('[')[1].split(']')[0]
+                    category_margins[cat_id] = float(value or 0.0)
             
             with get_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
                         """
-                        INSERT INTO product_margins (product_sku, base_margin, margin_a, margin_b, margin_c, margin_d)
-                        VALUES (%s, %s, %s, %s, %s, %s)
+                        INSERT INTO product_margins (product_sku, base_margin, category_margins)
+                        VALUES (%s, %s, %s::jsonb)
                         ON CONFLICT (product_sku) DO UPDATE
                         SET base_margin = EXCLUDED.base_margin,
-                            margin_a = EXCLUDED.margin_a,
-                            margin_b = EXCLUDED.margin_b,
-                            margin_c = EXCLUDED.margin_c,
-                            margin_d = EXCLUDED.margin_d
+                            category_margins = EXCLUDED.category_margins
                         """,
-                        (sku, base_margin, margin_a, margin_b, margin_c, margin_d)
+                        (sku, base_margin, json.dumps(category_margins))
                     )
                 conn.commit()
             return jsonify({"status": "ok", "message": f"Márgenes de {sku} actualizados."})
@@ -136,40 +141,37 @@ def listas_precios():
             vpp = catalog_prices.get(sku, 0.0)
             
         m = prod_margins_map.get(sku)
+        product_cat_margins = {}
         if m:
             base_margin = m["base_margin"]
-            margin_a = m["margin_a"]
-            margin_b = m["margin_b"]
-            margin_c = m["margin_c"]
-            margin_d = m["margin_d"]
+            product_cat_margins = m["category_margins"] or {}
         else:
             base_margin = config["base_margin"]
-            margin_a = config["cat_a_margin"]
-            margin_b = config["cat_b_margin"]
-            margin_c = config["cat_c_margin"]
-            margin_d = config["cat_d_margin"]
             
-        # Calcular precios finales
         price_base = vpp * (1 + base_margin / 100)
-        price_a = price_base * (1 + margin_a / 100)
-        price_b = price_base * (1 + margin_b / 100)
-        price_c = price_base * (1 + margin_c / 100)
-        price_d = price_base * (1 + margin_d / 100)
         
+        categories_display = []
+        for cat in config["categories"]:
+            cat_id = cat["id"]
+            margin = product_cat_margins.get(cat_id)
+            if margin is None:
+                margin = cat["margin"]
+                
+            price_final = price_base * (1 + margin / 100)
+            categories_display.append({
+                "id": cat_id,
+                "name": cat["name"],
+                "margin": margin,
+                "price_final": round(price_final, 2)
+            })
+            
         products_display.append({
             "sku": sku,
             "name": p["name"],
             "vpp": vpp,
             "base_margin": base_margin,
-            "margin_a": margin_a,
-            "margin_b": margin_b,
-            "margin_c": margin_c,
-            "margin_d": margin_d,
             "price_base": round(price_base, 2),
-            "price_a": round(price_a, 2),
-            "price_b": round(price_b, 2),
-            "price_c": round(price_c, 2),
-            "price_d": round(price_d, 2),
+            "categories": categories_display
         })
 
     return render_template(

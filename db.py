@@ -858,15 +858,13 @@ def init_db() -> None:
                 ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
                 """
             )
+            cur.execute("DROP TABLE IF EXISTS product_margins;")
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS product_margins (
                     product_sku TEXT PRIMARY KEY,
                     base_margin DOUBLE PRECISION DEFAULT 20.0,
-                    margin_a DOUBLE PRECISION DEFAULT 5.0,
-                    margin_b DOUBLE PRECISION DEFAULT 10.0,
-                    margin_c DOUBLE PRECISION DEFAULT 15.0,
-                    margin_d DOUBLE PRECISION DEFAULT 20.0
+                    category_margins JSONB DEFAULT '{}'::jsonb
                 )
                 """
             )
