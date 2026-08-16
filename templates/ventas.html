@@ -762,7 +762,11 @@
     let activeCardFilter = null;
 
     function filterSalesByCard(label, cardElement) {
+        console.log("filterSalesByCard triggered for label:", label);
+        alert("Filtro clickeado: " + label);
+        
         const rows = document.querySelectorAll('.sf-table-row');
+        console.log("Total sf-table-row elements found:", rows.length);
         
         // Quitar clase activa a todas las tarjetas
         document.querySelectorAll('.sf-metric-card').forEach(card => {
@@ -771,6 +775,7 @@
         
         // Si el filtro activo es el mismo que se hizo click, lo desactivamos (desfiltrar)
         if (activeCardFilter === label) {
+            console.log("Deactivating filter:", label);
             activeCardFilter = null;
             rows.forEach(row => row.style.display = '');
             return;
@@ -781,7 +786,8 @@
             cardElement.classList.add('active-filter');
         }
         
-        rows.forEach(row => {
+        let matchCount = 0;
+        rows.forEach((row, index) => {
             const status = (row.getAttribute('data-status') || '').toLowerCase().trim();
             const date = row.getAttribute('data-date'); // Formato: YYYY-MM-DD
             const saleNumber = (row.getAttribute('data-sale-number') || '').toLowerCase().trim();
@@ -793,7 +799,6 @@
             } else if (label === 'Ventas Pendientes' && status === 'pendiente' && saleNumber.startsWith('vta')) {
                 match = true;
             } else if (label === 'Ventas Hoy') {
-                // Obtener fecha local de hoy en formato YYYY-MM-DD
                 const today = new Date();
                 const year = today.getFullYear();
                 const month = String(today.getMonth() + 1).padStart(2, '0');
@@ -804,12 +809,20 @@
                     match = true;
                 }
             } else {
-                // Para "Clientes Activos" u otros, no filtramos por estado directamente (mostramos todos)
                 match = true;
+            }
+            
+            if (match) matchCount++;
+            
+            if (index < 3) {
+                console.log(`Row index ${index}: num=${saleNumber}, status=${status}, match=${match}`);
             }
             
             row.style.display = match ? '' : 'none';
         });
+        
+        console.log(`Filter applied. Matches count: ${matchCount}/${rows.length}`);
+        alert(`Filtro aplicado: se encontraron ${matchCount} coincidencias.`);
     }
 
     function closeEditSaleStatusModal() {
