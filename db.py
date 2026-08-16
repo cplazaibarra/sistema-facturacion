@@ -892,6 +892,11 @@ def init_db() -> None:
             )
             cur.execute(
                 """
+                ALTER TABLE production_orders ADD COLUMN IF NOT EXISTS unit_cost DOUBLE PRECISION;
+                """
+            )
+            cur.execute(
+                """
                 CREATE TABLE IF NOT EXISTS production_order_items (
                     id SERIAL PRIMARY KEY,
                     production_order_id INTEGER NOT NULL,

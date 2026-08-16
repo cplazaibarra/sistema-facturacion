@@ -84,7 +84,7 @@
                     </div>
                 </td>
                 <td>{{ item.min_stock }}</td>
-                <td>${{ "%.2f"|format(item.price) }}</td>
+                <td>${{ item.price | round | int }}</td>
                 <td>
                     {% if item.status == 'Normal' %}
                     <span class="badge success">{{ item.status }}</span>
@@ -246,9 +246,10 @@ async function loadProductHistory() {
             const data = await response.json();
             
             // Cargar métricas
-            document.getElementById('history_avg_val').innerText = `$${data.avg_price.toFixed(2)}`;
+            // Cargar métricas
+            document.getElementById('history_avg_val').innerText = `$${Math.round(data.avg_price)}`;
             document.getElementById('history_total_qty').innerText = data.total_qty + " unidades";
-            document.getElementById('history_total_spent').innerText = `$${data.total_amount.toFixed(2)}`;
+            document.getElementById('history_total_spent').innerText = `$${Math.round(data.total_amount)}`;
             
             // Cargar filas
             tbody.innerHTML = '';
@@ -263,8 +264,8 @@ async function loadProductHistory() {
                     <td style="padding: 10px; border-bottom: 1px solid #edf2f7;">${e.entry_date}</td>
                     <td style="padding: 10px; border-bottom: 1px solid #edf2f7;"><strong>${e.order_number}</strong></td>
                     <td style="padding: 10px; border-bottom: 1px solid #edf2f7;">${e.quantity} unidades</td>
-                    <td style="padding: 10px; border-bottom: 1px solid #edf2f7;">$${e.unit_price.toFixed(2)}</td>
-                    <td style="padding: 10px; border-bottom: 1px solid #edf2f7; font-weight: 600; color: #2d3748;">$${e.total.toFixed(2)}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #edf2f7;">$${Math.round(e.unit_price)}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #edf2f7; font-weight: 600; color: #2d3748;">$${Math.round(e.total)}</td>
                 `;
                 tbody.appendChild(row);
             });

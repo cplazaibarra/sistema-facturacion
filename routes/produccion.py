@@ -14,7 +14,7 @@ def list_ots():
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT po.id, po.ot_number, po.quantity, po.status, po.notes, po.created_at, po.approved_at, po.completed_at,
+                SELECT po.id, po.ot_number, po.quantity, po.status, po.notes, po.created_at, po.approved_at, po.completed_at, po.unit_cost,
                        p.sku as final_product_sku, p.name as final_product_name
                 FROM production_orders po
                 JOIN products p ON po.final_product_id = p.id
@@ -362,10 +362,10 @@ def finalizar_ot(ot_id):
             cur.execute(
                 """
                 UPDATE production_orders
-                SET status = 'Finalizada', completed_at = %s
+                SET status = 'Finalizada', completed_at = %s, unit_cost = %s
                 WHERE id = %s
                 """,
-                (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ot_id)
+                (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), actual_unit_price, ot_id)
             )
         conn.commit()
         
