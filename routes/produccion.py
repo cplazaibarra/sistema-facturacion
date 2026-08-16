@@ -50,15 +50,27 @@ def nueva_ot():
         quantity = int(request.form.get('quantity', 0))
         notes = request.form.get('notes', '').strip()
         
-        input_ids = request.form.getlist('input_product_id[]')
-        quantities = request.form.getlist('quantity_required[]')
-        
         if not final_product_id or quantity <= 0:
             flash("Debe seleccionar un producto final y una cantidad válida.", "danger")
             return redirect(url_for('produccion.nueva_ot'))
             
         with get_connection() as conn:
             with conn.cursor() as cur:
+                # Cargar componentes de la receta
+                cur.execute(
+                    """
+                    SELECT pri.input_product_id, pri.quantity_required
+                    FROM product_recipe_items pri
+                    JOIN product_recipes pr ON pri.recipe_id = pr.id
+                    WHERE pr.final_product_id = %s
+                    """,
+                    (final_product_id,)
+                )
+                recipe_items = cur.fetchall()
+                if not recipe_items:
+                    flash("El producto seleccionado no tiene una receta definida.", "danger")
+                    return redirect(url_for('produccion.nueva_ot'))
+                
                 # Generar ot_number
                 cur.execute("SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM production_orders")
                 next_id = cur.fetchone()["next_id"]
@@ -82,24 +94,38 @@ def nueva_ot():
                 )
                 ot_id = cur.fetchone()["id"]
                 
-                # Insertar insumos
-                for inp_id, qty in zip(input_ids, quantities):
-                    if not inp_id or not qty:
-                        continue
+                # Insertar insumos requeridos basados en receta
+                for row in recipe_items:
+                    inp_id = row["input_product_id"]
+                    unit_qty = row["quantity_required"]
+                    total_qty_req = unit_qty * quantity
                     cur.execute(
                         """
                         INSERT INTO production_order_items (production_order_id, input_product_id, quantity_required)
                         VALUES (%s, %s, %s)
                         """,
-                        (ot_id, int(inp_id), float(qty))
+                        (ot_id, inp_id, total_qty_req)
                     )
             conn.commit()
             
         flash(f"Solicitud de Fabricación {ot_number} creada correctamente.", "success")
         return redirect(url_for('produccion.list_ots'))
         
+    # Cargar sólo productos finales que tienen receta definida
+    final_products = []
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT p.id, p.sku, p.name
+                FROM products p
+                JOIN product_recipes pr ON p.id = pr.final_product_id
+                WHERE p.product_type = 'Final'
+                """
+            )
+            final_products = [dict(row) for row in cur.fetchall()]
+            
     products = list_products()
-    final_products = [p for p in products if p.get('product_type', 'Final') == 'Final']
     input_products = [p for p in products if p.get('product_type', 'Final') == 'Insumo']
     categories = get_page_data("inventory_categories") or []
     
@@ -273,3 +299,134 @@ def finalizar_ot(ot_id):
         
     flash("Orden de Trabajo finalizada. Insumos rebajados y producto terminado ingresado al stock.", "success")
     return redirect(url_for('produccion.list_ots'))
+
+@produccion_bp.route('/produccion/recetas')
+def list_recetas():
+    """Listar recetas de producción"""
+    from db import get_connection
+    recipes = []
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT pr.id, pr.created_at, p.sku as final_sku, p.name as final_name
+                FROM product_recipes pr
+                JOIN products p ON pr.final_product_id = p.id
+                ORDER BY pr.id DESC
+                """
+            )
+            rows = cur.fetchall()
+            for r in rows:
+                recipe_id = r["id"]
+                cur.execute(
+                    """
+                    SELECT pri.quantity_required, p.sku as input_sku, p.name as input_name
+                    FROM product_recipe_items pri
+                    JOIN products p ON pri.input_product_id = p.id
+                    WHERE pri.recipe_id = %s
+                    """,
+                    (recipe_id,)
+                )
+                items = [dict(row) for row in cur.fetchall()]
+                r_dict = dict(r)
+                r_dict["items"] = items
+                recipes.append(r_dict)
+                
+    return render_template('recetas.html', recipes=recipes)
+
+@produccion_bp.route('/produccion/recetas/nueva', methods=['GET', 'POST'])
+def nueva_receta():
+    """Crear una nueva receta"""
+    from db import get_connection
+    if request.method == 'POST':
+        final_product_id = int(request.form.get('final_product_id'))
+        
+        input_ids = request.form.getlist('input_product_id[]')
+        quantities = request.form.getlist('quantity_required[]')
+        
+        if not final_product_id:
+            flash("Debe seleccionar un producto final.", "danger")
+            return redirect(url_for('produccion.nueva_receta'))
+            
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                # Insertar receta
+                cur.execute(
+                    """
+                    INSERT INTO product_recipes (final_product_id, created_at)
+                    VALUES (%s, %s)
+                    RETURNING id
+                    """,
+                    (final_product_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                )
+                recipe_id = cur.fetchone()["id"]
+                
+                # Insertar componentes unitarios
+                for inp_id, qty in zip(input_ids, quantities):
+                    if not inp_id or not qty:
+                        continue
+                    cur.execute(
+                        """
+                        INSERT INTO product_recipe_items (recipe_id, input_product_id, quantity_required)
+                        VALUES (%s, %s, %s)
+                        """,
+                        (recipe_id, int(inp_id), float(qty))
+                    )
+            conn.commit()
+            
+        flash("Receta de fabricación creada correctamente.", "success")
+        return redirect(url_for('produccion.list_recetas'))
+        
+    # Cargar sólo productos finales que no tienen receta
+    final_products = []
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, sku, name
+                FROM products
+                WHERE product_type = 'Final' AND id NOT IN (SELECT final_product_id FROM product_recipes)
+                """
+            )
+            final_products = [dict(row) for row in cur.fetchall()]
+            
+    products = list_products()
+    input_products = [p for p in products if p.get('product_type', 'Final') == 'Insumo']
+    categories = get_page_data("inventory_categories") or []
+    
+    return render_template('nueva_receta.html', final_products=final_products, input_products=input_products, categories=categories)
+
+@produccion_bp.route('/produccion/recetas/<int:recipe_id>/eliminar', methods=['POST'])
+def eliminar_receta(recipe_id):
+    """Eliminar una receta"""
+    from db import get_connection
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM product_recipes WHERE id = %s", (recipe_id,))
+        conn.commit()
+    flash("Receta de fabricación eliminada.", "success")
+    return redirect(url_for('produccion.list_recetas'))
+
+@produccion_bp.route('/api/productos/<int:product_id>/receta')
+def get_product_recipe(product_id):
+    """API para obtener los insumos y cantidades unitarias de la receta de un producto"""
+    from db import get_connection
+    items = []
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT pri.quantity_required, p.sku as input_sku, p.name as input_name
+                FROM product_recipe_items pri
+                JOIN product_recipes pr ON pri.recipe_id = pr.id
+                JOIN products p ON pri.input_product_id = p.id
+                WHERE pr.final_product_id = %s
+                """,
+                (product_id,)
+            )
+            items = [dict(row) for row in cur.fetchall()]
+            
+    if not items:
+        return jsonify({"error": "Receta no encontrada"}), 404
+        
+    return jsonify({"product_id": product_id, "items": items})

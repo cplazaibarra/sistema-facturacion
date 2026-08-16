@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Recetas de Fabricación - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Recetas de Fabricación (BOM){% endblock %}
+
+{% block content %}
+<div class="header-section" style="margin-bottom: 20px; display: flex; gap: 10px;">
+    <a href="/produccion" class="btn-secondary" style="text-decoration: none; padding: 10px 18px; border-radius: 6px; font-weight: bold; display: inline-flex; align-items: center; gap: 6px;">
+        ⬅️ Volver a Producción
+    </a>
+    <a href="/produccion/recetas/nueva" class="btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 6px; font-weight: bold;">
+        📝 Crear Nueva Receta
+    </a>
+</div>
+
+<div class="recent-section">
+    <div class="recent-card" style="background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px;">
+        <div class="card-header" style="border-bottom: 1px solid #edf2f7; padding-bottom: 12px; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #2d3748;">Fórmulas y Recetas Registradas</h3>
+        </div>
+        
+        <table class="data-table" style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #f7fafc; text-align: left; font-size: 11px; text-transform: uppercase; color: #718096; border-bottom: 2px solid #edf2f7;">
+                    <th style="padding: 12px;">Producto Final (1 Unidad)</th>
+                    <th style="padding: 12px;">Insumos / Ingredientes Unitarios</th>
+                    <th style="padding: 12px;">Fecha de Creación</th>
+                    <th style="padding: 12px; text-align: center; width: 100px;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if recipes %}
+                    {% for r in recipes %}
+                    <tr style="border-bottom: 1px solid #edf2f7; font-size: 13px;">
+                        <td style="padding: 12px; font-weight: bold; color: #2d3748;">
+                            <span style="font-size: 14px;">{{ r.final_name }}</span>
+                            <div style="font-size: 11px; color: #718096; font-weight: normal; margin-top: 2px;">SKU: {{ r.final_sku }}</div>
+                        </td>
+                        <td style="padding: 12px;">
+                            <ul style="margin: 0; padding-left: 16px; font-size: 12px; color: #4a5568;">
+                                {% for item in r.items %}
+                                <li>{{ item.input_name }} (SKU: {{ item.input_sku }}): <strong>{{ item.quantity_required }}</strong></li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                        <td style="padding: 12px; color: #718096;">{{ r.created_at }}</td>
+                        <td style="padding: 12px; text-align: center;">
+                            <form method="POST" action="/produccion/recetas/{{ r.id }}/eliminar" onsubmit="return confirm('¿Está seguro de que desea eliminar esta receta de fabricación?');" style="margin: 0;">
+                                <button type="submit" class="btn-icon" style="color: #e53e3e; background: none; border: none; cursor: pointer; font-size: 1.1rem;" title="Eliminar Receta">
+                                    🗑️
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="4" style="padding: 30px; text-align: center; color: #a0aec0;">
+                            No hay recetas de fabricación registradas en el sistema.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

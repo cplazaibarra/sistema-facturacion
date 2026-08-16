@@ -897,6 +897,28 @@ def init_db() -> None:
                 )
                 """
             )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS product_recipes (
+                    id SERIAL PRIMARY KEY,
+                    final_product_id INTEGER NOT NULL UNIQUE,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (final_product_id) REFERENCES products(id) ON DELETE CASCADE
+                )
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS product_recipe_items (
+                    id SERIAL PRIMARY KEY,
+                    recipe_id INTEGER NOT NULL,
+                    input_product_id INTEGER NOT NULL,
+                    quantity_required DOUBLE PRECISION NOT NULL,
+                    FOREIGN KEY (recipe_id) REFERENCES product_recipes(id) ON DELETE CASCADE,
+                    FOREIGN KEY (input_product_id) REFERENCES products(id) ON DELETE RESTRICT
+                )
+                """
+            )
         conn.commit()
 
     seed_data_if_empty()
