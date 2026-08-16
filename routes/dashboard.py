@@ -20,7 +20,7 @@ def dashboard():
         recent_sales.append({
             "id": sale["sale_number"],
             "cliente": sale["customer_name"],
-            "producto": ", ".join(sale["products"][:2]),
+            "producto": ", ".join([p.get("name", p.get("sku", "")) for p in sale["products"]][:2]),
             "cantidad": len(sale["products"]),
             "total": sale["total_amount"],
             "estado": sale["status"],

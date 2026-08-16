@@ -97,7 +97,7 @@
                     <td>{{ sale.cliente }}</td>
                     <td>{{ sale.producto }}</td>
                     <td>{{ sale.cantidad }}</td>
-                    <td>${{ "%.2f"|format(sale.total) }}</td>
+                    <td>${{ sale.total | round | int }}</td>
                     <td>
                         {% if sale.estado == 'Completado' %}
                         <span class="badge success">{{ sale.estado }}</span>
