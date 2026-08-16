@@ -37,17 +37,11 @@
 <!-- Tarjetas de métricas estilo Salesforce -->
 <div class="sf-metrics-grid">
     {% for metric in ventas_metrics %}
-    <div class="sf-metric-card">
-        <div class="sf-metric-header">
-            <span class="sf-metric-icon {{ metric.color }}">{{ metric.icon | safe }}</span>
-            <span class="sf-metric-trend {% if metric.trend != '...' %}positive{% endif %}">
-                {{ metric.trend }}
-            </span>
-        </div>
-        <div class="sf-metric-value">{{ metric.value }}</div>
-        <div class="sf-metric-label">{{ metric.label }}</div>
-        <div class="sf-metric-footer">
-            <span class="sf-metric-secondary">{{ metric.secondary }}</span>
+    <div class="sf-metric-card" onclick="filterSalesByCard('{{ metric.label }}', this)">
+        <span class="sf-metric-icon {{ metric.color }}">{{ metric.icon | safe }}</span>
+        <div class="sf-metric-content">
+            <div class="sf-metric-value">{{ metric.value }}</div>
+            <div class="sf-metric-label">{{ metric.label }}</div>
         </div>
     </div>
     {% endfor %}
@@ -153,7 +147,7 @@
          </thead>
         <tbody>
             {% for sale in ventas_records %}
-            <tr class="sf-table-row">
+            <tr class="sf-table-row" data-status="{{ sale.status.label }}" data-date="{{ sale.date }}">
                 <td>
                     <input type="checkbox" class="sf-checkbox">
                 </td>
@@ -763,6 +757,57 @@
         }
         
         document.getElementById('editSaleStatusModal').style.display = 'flex';
+    }
+
+    let activeCardFilter = null;
+
+    function filterSalesByCard(label, cardElement) {
+        const rows = document.querySelectorAll('.sf-table-row');
+        
+        // Quitar clase activa a todas las tarjetas
+        document.querySelectorAll('.sf-metric-card').forEach(card => {
+            card.classList.remove('active-filter');
+        });
+        
+        // Si el filtro activo es el mismo que se hizo click, lo desactivamos (desfiltrar)
+        if (activeCardFilter === label) {
+            activeCardFilter = null;
+            rows.forEach(row => row.style.display = '');
+            return;
+        }
+        
+        activeCardFilter = label;
+        cardElement.classList.add('active-filter');
+        
+        rows.forEach(row => {
+            const status = row.getAttribute('data-status');
+            const date = row.getAttribute('data-date'); // Formato: YYYY-MM-DD
+            
+            let match = false;
+            
+            if (label === 'Ventas Completadas' && (status === 'Completada' || status === 'Completado')) {
+                match = true;
+            } else if (label === 'Ventas Pendientes' && (status === 'Pendiente' || status === 'Cotización')) {
+                // Consideramos Pendiente y Cotización como ventas pendientes por procesar/facturar
+                match = true;
+            } else if (label === 'Ventas Hoy') {
+                // Obtener fecha local de hoy en formato YYYY-MM-DD
+                const today = new Date();
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const day = String(today.getDate()).padStart(2, '0');
+                const todayStr = `${year}-${month}-${day}`;
+                
+                if (date && date.trim().startsWith(todayStr)) {
+                    match = true;
+                }
+            } else {
+                // Para "Clientes Activos" u otros, no filtramos por estado directamente (mostramos todos)
+                match = true;
+            }
+            
+            row.style.display = match ? '' : 'none';
+        });
     }
 
     function closeEditSaleStatusModal() {
