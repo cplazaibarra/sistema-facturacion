@@ -762,11 +762,7 @@
     let activeCardFilter = null;
 
     function filterSalesByCard(label, cardElement) {
-        console.log("filterSalesByCard triggered for label:", label);
-        alert("Filtro clickeado: " + label);
-        
         const rows = document.querySelectorAll('.sf-table-row');
-        console.log("Total sf-table-row elements found:", rows.length);
         
         // Quitar clase activa a todas las tarjetas
         document.querySelectorAll('.sf-metric-card').forEach(card => {
@@ -775,9 +771,10 @@
         
         // Si el filtro activo es el mismo que se hizo click, lo desactivamos (desfiltrar)
         if (activeCardFilter === label) {
-            console.log("Deactivating filter:", label);
             activeCardFilter = null;
-            rows.forEach(row => row.style.display = '');
+            rows.forEach(row => {
+                row.classList.remove('hidden-row');
+            });
             return;
         }
         
@@ -786,8 +783,7 @@
             cardElement.classList.add('active-filter');
         }
         
-        let matchCount = 0;
-        rows.forEach((row, index) => {
+        rows.forEach(row => {
             const status = (row.getAttribute('data-status') || '').toLowerCase().trim();
             const date = row.getAttribute('data-date'); // Formato: YYYY-MM-DD
             const saleNumber = (row.getAttribute('data-sale-number') || '').toLowerCase().trim();
@@ -812,17 +808,12 @@
                 match = true;
             }
             
-            if (match) matchCount++;
-            
-            if (index < 3) {
-                console.log(`Row index ${index}: num=${saleNumber}, status=${status}, match=${match}`);
+            if (match) {
+                row.classList.remove('hidden-row');
+            } else {
+                row.classList.add('hidden-row');
             }
-            
-            row.style.display = match ? '' : 'none';
         });
-        
-        console.log(`Filter applied. Matches count: ${matchCount}/${rows.length}`);
-        alert(`Filtro aplicado: se encontraron ${matchCount} coincidencias.`);
     }
 
     function closeEditSaleStatusModal() {

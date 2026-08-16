@@ -2084,3 +2084,8 @@ canvas {
 .toggle-sidebar-btn:hover {
     background-color: #edf2f7;
 }
+
+/* Ocultar filas de tablas con alta prioridad */
+.hidden-row {
+    display: none !important;
+}
