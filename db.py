@@ -584,6 +584,7 @@ def init_db() -> None:
                 "expiry_date": "TEXT",
                 "product_type": "TEXT DEFAULT 'Final'",
                 "cost": "DOUBLE PRECISION DEFAULT 0.0",
+                "is_deleted": "BOOLEAN DEFAULT FALSE",
             }
             for column_name, column_type in missing_columns.items():
                 if column_name not in existing_columns:
@@ -1301,6 +1302,7 @@ def list_products() -> list[dict]:
                 SELECT id, sku, name, description, photo_url, barcode, internal_code,
                        category, expiry_date, width_cm, height_cm, depth_cm, weight_kg, product_type, cost
                 FROM products
+                WHERE is_deleted = FALSE OR is_deleted IS NULL
                 ORDER BY id DESC
                 """
             )
@@ -1394,7 +1396,7 @@ def update_product(product_id: int, product: dict) -> None:
 def delete_product(product_id: int) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM products WHERE id = %s", (product_id,))
+            cur.execute("UPDATE products SET is_deleted = TRUE WHERE id = %s", (product_id,))
         conn.commit()
 
 # Funciones para Roles
