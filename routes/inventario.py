@@ -98,6 +98,7 @@ def inventario():
     from db import get_connection
     with get_connection() as conn:
         with conn.cursor() as cur:
+            # 3.5.1 Insumos iniciales planificados en OTs Aprobadas
             cur.execute(
                 """
                 SELECT poi.quantity_required, p.sku
@@ -110,6 +111,21 @@ def inventario():
             for row in cur.fetchall():
                 sku = row["sku"]
                 qty = row["quantity_required"]
+                reserved_by_sku[sku] = reserved_by_sku.get(sku, 0) + qty
+
+            # 3.5.2 Insumos adicionales sumados en OTs Aprobadas
+            cur.execute(
+                """
+                SELECT poai.quantity, p.sku
+                FROM production_order_additional_items poai
+                JOIN production_orders po ON poai.production_order_id = po.id
+                JOIN products p ON poai.input_product_id = p.id
+                WHERE po.status = 'Aprobada'
+                """
+            )
+            for row in cur.fetchall():
+                sku = row["sku"]
+                qty = row["quantity"]
                 reserved_by_sku[sku] = reserved_by_sku.get(sku, 0) + qty
 
     # 4. Aumentar cada ítem del inventario con su stock reservado y total

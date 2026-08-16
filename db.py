@@ -924,6 +924,20 @@ def init_db() -> None:
                 )
                 """
             )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS production_order_additional_items (
+                    id SERIAL PRIMARY KEY,
+                    production_order_id INTEGER NOT NULL,
+                    input_product_id INTEGER NOT NULL,
+                    quantity DOUBLE PRECISION NOT NULL,
+                    reason TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (production_order_id) REFERENCES production_orders(id) ON DELETE CASCADE,
+                    FOREIGN KEY (input_product_id) REFERENCES products(id) ON DELETE RESTRICT
+                )
+                """
+            )
         conn.commit()
 
     seed_data_if_empty()

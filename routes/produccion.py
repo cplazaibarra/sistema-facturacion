@@ -35,11 +35,27 @@ def list_ots():
                     (ot_id,)
                 )
                 items = [dict(row) for row in cur.fetchall()]
+                
+                # Cargar insumos adicionales
+                cur.execute(
+                    """
+                    SELECT poai.quantity, poai.reason, p.sku as input_sku, p.name as input_name
+                    FROM production_order_additional_items poai
+                    JOIN products p ON poai.input_product_id = p.id
+                    WHERE poai.production_order_id = %s
+                    """,
+                    (ot_id,)
+                )
+                additional_items = [dict(row) for row in cur.fetchall()]
+                
                 ot_dict = dict(r)
                 ot_dict["items"] = items
+                ot_dict["additional_items"] = additional_items
                 ots.append(ot_dict)
                 
-    return render_template('produccion.html', ots=ots)
+    products = list_products()
+    input_products = [p for p in products if p.get('product_type', 'Final') == 'Insumo']
+    return render_template('produccion.html', ots=ots, input_products=input_products)
 
 @produccion_bp.route('/produccion/nueva', methods=['GET', 'POST'])
 def nueva_ot():
@@ -254,13 +270,36 @@ def finalizar_ot(ot_id):
             # Mapear inventario por código para facilitar acceso
             inv_map = {item["code"]: item for item in inventory_items}
             
-            # Descontar insumos
+            total_manufacturing_cost = 0.0
+            
+            # Descontar insumos planificados
             for item in items:
                 sku = item["input_sku"]
                 qty = item["quantity_required"]
                 if sku in inv_map:
                     # Rebaja física definitiva
                     inv_map[sku]["stock"] = max(0.0, inv_map[sku]["stock"] - qty)
+                    cost_unit = float(inv_map[sku].get("price", 0.0))
+                    total_manufacturing_cost += cost_unit * qty
+                    
+            # Descontar insumos adicionales
+            cur.execute(
+                """
+                SELECT poai.quantity, p.sku as input_sku
+                FROM production_order_additional_items poai
+                JOIN products p ON poai.input_product_id = p.id
+                WHERE poai.production_order_id = %s
+                """,
+                (ot_id,)
+            )
+            add_items = cur.fetchall()
+            for item in add_items:
+                sku = item["input_sku"]
+                qty = item["quantity"]
+                if sku in inv_map:
+                    inv_map[sku]["stock"] = max(0.0, inv_map[sku]["stock"] - qty)
+                    cost_unit = float(inv_map[sku].get("price", 0.0))
+                    total_manufacturing_cost += cost_unit * qty
                     
             # Incrementar producto terminado
             final_sku = ot["final_sku"]
@@ -286,26 +325,8 @@ def finalizar_ot(ot_id):
             # Guardar inventario
             set_page_data("inventory_items", inventory_items)
             
-            # 3.8. Registrar el ingreso en el historial de entradas
-            cur.execute(
-                """
-                SELECT COALESCE(SUM(total), 0) as total_amt, COALESCE(SUM(quantity), 0) as total_qty
-                FROM inventory_entry_items
-                WHERE product_id = %s
-                """,
-                (ot["final_product_id"],)
-            )
-            row_vpp = cur.fetchone()
-            current_vpp = 0.0
-            if row_vpp and row_vpp["total_qty"] > 0:
-                current_vpp = row_vpp["total_amt"] / row_vpp["total_qty"]
-            else:
-                for item in inventory_items:
-                    if item["code"] == final_sku:
-                        current_vpp = float(item.get("price", 0.0))
-                        break
-            
-            total_cost = current_vpp * ot["quantity"]
+            # 3.8. Registrar el ingreso en el historial de entradas con el costo real recalculado
+            actual_unit_price = total_manufacturing_cost / ot["quantity"] if ot["quantity"] > 0 else 0.0
             
             cur.execute(
                 """
@@ -316,8 +337,8 @@ def finalizar_ot(ot_id):
                 (
                     datetime.now().strftime("%Y-%m-%d"),
                     ot["ot_number"],
-                    f"Ingreso por Fabricación / OT {ot['ot_number']}",
-                    total_cost,
+                    f"Ingreso por Fabricación (Costo Real Recalculado) / OT {ot['ot_number']}",
+                    total_manufacturing_cost,
                     datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 )
             )
@@ -332,8 +353,8 @@ def finalizar_ot(ot_id):
                     entry_id,
                     ot["final_product_id"],
                     ot["quantity"],
-                    current_vpp,
-                    total_cost
+                    actual_unit_price,
+                    total_manufacturing_cost
                 )
             )
             
@@ -349,6 +370,47 @@ def finalizar_ot(ot_id):
         conn.commit()
         
     flash("Orden de Trabajo finalizada. Insumos rebajados y producto terminado ingresado al stock.", "success")
+    return redirect(url_for('produccion.list_ots'))
+
+@produccion_bp.route('/produccion/ot/<int:ot_id>/adicionar-insumo', methods=['POST'])
+def adicionar_insumo(ot_id):
+    """Agregar un insumo adicional a una OT en proceso"""
+    from db import get_connection
+    
+    input_product_id = int(request.form.get('input_product_id', 0))
+    quantity = float(request.form.get('quantity', 0.0))
+    reason = request.form.get('reason', '').strip()
+    
+    if not input_product_id or quantity <= 0.0 or not reason:
+        flash("Debe completar todos los datos para agregar el insumo adicional.", "danger")
+        return redirect(url_for('produccion.list_ots'))
+        
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Verificar que la OT esté Aprobada (En Proceso)
+            cur.execute("SELECT status FROM production_orders WHERE id = %s", (ot_id,))
+            ot = cur.fetchone()
+            if not ot or ot["status"] != 'Aprobada':
+                flash("Solo se pueden agregar insumos a Órdenes de Trabajo en estado Aprobada.", "danger")
+                return redirect(url_for('produccion.list_ots'))
+                
+            # Registrar el insumo adicional
+            cur.execute(
+                """
+                INSERT INTO production_order_additional_items (production_order_id, input_product_id, quantity, reason, created_at)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    ot_id,
+                    input_product_id,
+                    quantity,
+                    reason,
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                )
+            )
+        conn.commit()
+        
+    flash("Insumo adicional agregado y reservado en stock correctamente.", "success")
     return redirect(url_for('produccion.list_ots'))
 
 @produccion_bp.route('/produccion/recetas')
