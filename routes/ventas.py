@@ -141,12 +141,16 @@ def ventas():
     ]
 
     roles = list_roles()
-    return render_template(
+    from flask import make_response
+    response = make_response(render_template(
         'ventas.html',
         ventas_metrics=ventas_metrics,
         ventas_records=ventas_records,
         roles=roles,
-    )
+    ))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    return response
 
 @ventas_bp.route('/ventas/registrar-pago', methods=['POST'])
 def registrar_pago_venta():
