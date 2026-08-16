@@ -147,7 +147,7 @@
          </thead>
         <tbody>
             {% for sale in ventas_records %}
-            <tr class="sf-table-row" data-status="{{ sale.status.label }}" data-date="{{ sale.date }}">
+            <tr class="sf-table-row" data-status="{{ sale.status.label }}" data-date="{{ sale.date }}" data-sale-number="{{ sale.sale_number }}">
                 <td>
                     <input type="checkbox" class="sf-checkbox">
                 </td>
@@ -784,12 +784,13 @@
         rows.forEach(row => {
             const status = (row.getAttribute('data-status') || '').toLowerCase().trim();
             const date = row.getAttribute('data-date'); // Formato: YYYY-MM-DD
+            const saleNumber = (row.getAttribute('data-sale-number') || '').toLowerCase().trim();
             
             let match = false;
             
             if (label === 'Ventas Completadas' && status.includes('completada')) {
                 match = true;
-            } else if (label === 'Ventas Pendientes' && status === 'pendiente') {
+            } else if (label === 'Ventas Pendientes' && status === 'pendiente' && saleNumber.startsWith('vta')) {
                 match = true;
             } else if (label === 'Ventas Hoy') {
                 // Obtener fecha local de hoy en formato YYYY-MM-DD
