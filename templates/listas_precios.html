@@ -76,13 +76,13 @@
                     <div style="font-weight: 600; color: #2d3748; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ p.name }}">{{ p.name }}</div>
                 </td>
                 <td style="text-align: right; font-weight: bold; color: #2d3748; padding: 10px;">
-                    $<span class="vpp-val">{{ "%.2f"|format(p.vpp) }}</span>
+                    $<span class="vpp-val">{{ p.vpp | round | int }}</span>
                 </td>
                 <td style="padding: 10px; text-align: center;">
                     <input type="number" step="0.1" class="base-margin-input" value="{{ p.base_margin }}" style="width: 55px; padding: 4px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 11px; text-align: center;" oninput="recalcRow('{{ p.sku }}')">%
                 </td>
                 <td style="text-align: right; font-weight: bold; color: #4a5568; padding: 10px; background-color: #f7fafc;">
-                    $<span class="price-base-span">{{ "%.2f"|format(p.price_base) }}</span>
+                    $<span class="price-base-span">{{ p.price_base | round | int }}</span>
                 </td>
                 
                 <!-- Celdas Dinámicas de Margen por Categoría -->
@@ -94,7 +94,7 @@
                             <input type="number" step="0.1" class="margin-input" data-cat-id="{{ cat.id }}" value="{{ cat.margin }}" style="width: 50px; padding: 2px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 10px; text-align: center;" oninput="recalcRow('{{ p.sku }}')">%
                         </div>
                         <div style="font-weight: bold; color: #2b6cb0;">
-                            P. Final: $<span class="price-span" data-cat-id="{{ cat.id }}">{{ "%.2f"|format(cat.price_final) }}</span>
+                            P. Final: $<span class="price-span" data-cat-id="{{ cat.id }}">{{ cat.price_final | round | int }}</span>
                         </div>
                     </div>
                 </td>
@@ -148,7 +148,7 @@ function recalcRow(sku) {
     const baseMargin = parseFloat(row.querySelector('.base-margin-input').value) || 0.0;
     const priceBase = vpp * (1 + baseMargin / 100);
 
-    row.querySelector('.price-base-span').innerText = priceBase.toFixed(2);
+    row.querySelector('.price-base-span').innerText = Math.round(priceBase);
 
     // Iterar sobre todos los inputs de margen de categoría dinámicos en la fila
     const marginInputs = row.querySelectorAll('.margin-input');
@@ -159,7 +159,7 @@ function recalcRow(sku) {
         
         const priceSpan = row.querySelector(`.price-span[data-cat-id="${catId}"]`);
         if (priceSpan) {
-            priceSpan.innerText = priceFinal.toFixed(2);
+            priceSpan.innerText = Math.round(priceFinal);
         }
     });
 }

@@ -133,6 +133,8 @@ def listas_precios():
     products_display = []
     
     for p in products_db:
+        if p.get("product_type", "Final") == "Insumo":
+            continue
         sku = p["sku"]
         p_id = p["id"]
         
