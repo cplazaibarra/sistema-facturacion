@@ -101,7 +101,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentRecipeItems = data.items;
                 warningDiv.style.display = 'none';
                 previewSection.style.display = 'block';
-                submitBtn.disabled = false;
                 renderRecipePreview(qty);
             } else {
                 currentRecipeItems = [];
@@ -117,10 +116,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderRecipePreview(qty) {
         itemsList.innerHTML = '';
+        let hasInsuficiente = false;
+        
         currentRecipeItems.forEach(item => {
             const totalRequired = item.quantity_required * qty;
             const stock = parseFloat(item.stock) || 0;
             const isInsuficiente = totalRequired > stock;
+            if (isInsuficiente) {
+                hasInsuficiente = true;
+            }
             
             const stockColor = isInsuficiente ? '#e53e3e' : '#2d3748';
             const totalColor = isInsuficiente ? '#e53e3e' : '#2b6cb0';
@@ -140,6 +144,9 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             itemsList.appendChild(div);
         });
+
+        // Habilitar submit sólo si la cantidad es mayor a cero y no hay insumos insuficientes
+        submitBtn.disabled = (qty <= 0 || hasInsuficiente);
     }
 
     productSelect.addEventListener('change', loadRecipe);
