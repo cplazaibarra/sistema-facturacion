@@ -104,7 +104,7 @@
             <div class="form-row" style="margin-bottom: 16px;">
                 <div class="form-group">
                     <label>Tipo de Producto *</label>
-                    <select name="product_type" class="form-control" required style="width: 100%; height: 38px;">
+                    <select name="product_type" class="form-control" required>
                         <option value="Final" {% if product.product_type == 'Final' %}selected{% endif %}>Final (Vendible)</option>
                         <option value="Insumo" {% if product.product_type == 'Insumo' %}selected{% endif %}>Insumo (Materia Prima)</option>
                     </select>
