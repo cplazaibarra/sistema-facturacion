@@ -868,6 +868,14 @@ def init_db() -> None:
                 )
                 """
             )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS client_categories (
+                    email TEXT PRIMARY KEY,
+                    category_id TEXT NOT NULL
+                )
+                """
+            )
         conn.commit()
 
     seed_data_if_empty()

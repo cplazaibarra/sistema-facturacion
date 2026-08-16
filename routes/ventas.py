@@ -578,6 +578,7 @@ def nueva_cotizacion():
     if request.method == 'POST':
         customer_name = request.form.get('customer_name', '').strip()
         customer_email = request.form.get('customer_email', '').strip()
+        customer_category = request.form.get('customer_category', '').strip()
         sale_date = request.form.get('sale_date', '').strip()
         notes = request.form.get('notes', '').strip()
         
@@ -585,6 +586,20 @@ def nueva_cotizacion():
         quantities = request.form.getlist('quantity[]')
         unit_prices = request.form.getlist('unit_price[]')
         
+        # Guardar / Actualizar categoría del cliente
+        if customer_email and customer_category:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO client_categories (email, category_id)
+                        VALUES (%s, %s)
+                        ON CONFLICT (email) DO UPDATE SET category_id = EXCLUDED.category_id
+                        """,
+                        (customer_email, customer_category)
+                    )
+                conn.commit()
+
         # Obtener nombres de productos y construir el JSON
         products_list = []
         total_amount = 0.0
@@ -646,7 +661,99 @@ def nueva_cotizacion():
         
     products = list_products()
     default_date = datetime.today().strftime('%Y-%m-%d')
-    return render_template('nueva_cotizacion.html', products=products, default_date=default_date)
+    
+    # Lógica de construcción de precios por categorías de clientes para la cotización
+    config = get_page_data("price_list_config")
+    if not config or "categories" not in config:
+        config = {
+            "base_margin": 20.0,
+            "categories": [
+                {"id": "cat_0", "name": "Categoría A", "margin": 5.0},
+                {"id": "cat_1", "name": "Categoría B", "margin": 10.0},
+                {"id": "cat_2", "name": "Categoría C", "margin": 15.0},
+                {"id": "cat_3", "name": "Categoría D", "margin": 20.0}
+            ]
+        }
+        
+    vpp_map = {}
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT product_id, SUM(quantity) as total_qty, SUM(total) as total_spent
+                FROM inventory_entry_items
+                GROUP BY product_id
+                """
+            )
+            for row in cur.fetchall():
+                qty = row["total_qty"] or 0
+                spent = row["total_spent"] or 0.0
+                if qty > 0:
+                    vpp_map[row["product_id"]] = spent / qty
+
+    catalog_prices = {}
+    inventory_items = get_page_data("inventory_items") or []
+    for item in inventory_items:
+        catalog_prices[item["code"]] = item.get("price", 0.0)
+
+    prod_margins_map = {}
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM product_margins")
+            for row in cur.fetchall():
+                prod_margins_map[row["product_sku"]] = dict(row)
+
+    products_prices_map = {}
+    for p in products:
+        sku = p["sku"]
+        p_id = p["id"]
+        
+        vpp = vpp_map.get(p_id)
+        if vpp is None:
+            vpp = catalog_prices.get(sku, 0.0)
+            
+        m = prod_margins_map.get(sku)
+        product_cat_margins = {}
+        if m:
+            base_margin = m["base_margin"]
+            product_cat_margins = m["category_margins"] or {}
+        else:
+            base_margin = config["base_margin"]
+            
+        price_base = vpp * (1 + base_margin / 100)
+        
+        prices = {
+            "default": round(price_base, 2)  # fallback si no se selecciona categoría
+        }
+        for cat in config["categories"]:
+            cat_id = cat["id"]
+            margin = product_cat_margins.get(cat_id)
+            if margin is None:
+                margin = cat["margin"]
+                
+            price_final = price_base * (1 + margin / 100)
+            prices[cat_id] = round(price_final, 2)
+            
+        products_prices_map[str(p_id)] = prices
+
+    return render_template(
+        'nueva_cotizacion.html',
+        products=products,
+        default_date=default_date,
+        categories=config["categories"],
+        products_prices_map=products_prices_map
+    )
+
+@ventas_bp.route('/api/clientes/<string:email>/categoria')
+def get_client_category(email):
+    from db import get_connection
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT category_id FROM client_categories WHERE email = %s", (email.strip(),))
+            row = cur.fetchone()
+            if row:
+                return jsonify({"email": email, "category_id": row["category_id"]})
+    return jsonify({"error": "Cliente no encontrado"}), 404
 
 @ventas_bp.route('/ventas/cotizacion/<int:sale_id>/convertir', methods=['POST'])
 def convertir_cotizacion(sale_id):

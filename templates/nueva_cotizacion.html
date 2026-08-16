@@ -9,7 +9,7 @@
         <h3>Registrar Nueva Cotización</h3>
         <form class="ingreso-form" method="post" id="cotizacion-form" style="margin-top: 20px;">
             
-            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1.2fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                 <div class="form-group">
                     <label style="font-weight: 500; display: block; margin-bottom: 6px;">Nombre del Cliente *</label>
                     <input type="text" class="form-control" name="customer_name" required placeholder="Ej: María González" style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
@@ -17,6 +17,15 @@
                 <div class="form-group">
                     <label style="font-weight: 500; display: block; margin-bottom: 6px;">Correo Electrónico *</label>
                     <input type="email" class="form-control" name="customer_email" required placeholder="correo@ejemplo.com" style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                </div>
+                <div class="form-group">
+                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Categoría de Cliente *</label>
+                    <select class="form-control" name="customer_category" id="customer-category-select" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px; height: 38px; font-size: 13px;">
+                        <option value="">-- Seleccionar Categoría --</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.id }}">{{ cat.name }} ({{ cat.margin }}% adic.)</option>
+                        {% endfor %}
+                    </select>
                 </div>
                 <div class="form-group">
                     <label style="font-weight: 500; display: block; margin-bottom: 6px;">Fecha de Cotización *</label>
@@ -72,9 +81,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('productos-cotizacion-container');
     const addBtn = document.getElementById('add-product-btn');
     const totalSpan = document.getElementById('total-val');
+    const emailInput = document.querySelector('input[name="customer_email"]');
+    const categorySelect = document.getElementById('customer-category-select');
     
-    // Lista de productos cargada desde Flask
+    // Lista de productos y mapa de precios cargados desde Flask
     const allProducts = {{ products|tojson|safe }};
+    const productPricesMap = {{ products_prices_map|tojson|safe }};
     
     function createRow() {
         const row = document.createElement('div');
@@ -104,7 +116,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const opt = document.createElement('option');
             opt.value = p.id;
             opt.textContent = `${p.name} (SKU: ${p.sku})`;
-            opt.dataset.price = p.price;
             select.appendChild(opt);
         });
         
@@ -159,11 +170,13 @@ document.addEventListener('DOMContentLoaded', () => {
             calculateTotal();
         });
         
-        // Evento cambio de producto -> Cargar precio
+        // Evento cambio de producto -> Cargar precio según categoría
         select.addEventListener('change', () => {
-            const selectedOpt = select.options[select.selectedIndex];
-            if (selectedOpt && selectedOpt.dataset.price) {
-                priceInput.value = selectedOpt.dataset.price;
+            const productId = select.value;
+            const selectedCategory = categorySelect.value || 'default';
+            if (productId && productPricesMap[productId]) {
+                const prices = productPricesMap[productId];
+                priceInput.value = prices[selectedCategory] || prices['default'] || 0.00;
             } else {
                 priceInput.value = '';
             }
@@ -171,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
             calculateTotal();
         });
         
-        // Evento cambios -> Actualizar subtotal e histograma
+        // Evento cambios -> Actualizar subtotal
         qtyInput.addEventListener('input', () => {
             updateRowSubtotal();
             calculateTotal();
@@ -209,6 +222,52 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         totalSpan.textContent = `$${total.toFixed(2)}`;
     }
+    
+    // Evento cambio global de Categoría de Cliente -> Recalcular precios de todos los productos agregados
+    categorySelect.addEventListener('change', () => {
+        const rows = container.querySelectorAll('.product-row');
+        rows.forEach(r => {
+            const selectEl = r.querySelector('select[name="product_id[]"]');
+            const priceInputEl = r.querySelector('input[name="unit_price[]"]');
+            const qtyInputEl = r.querySelector('input[name="quantity[]"]');
+            const subtotalSpanEl = r.querySelector('div');
+            
+            const productId = selectEl.value;
+            const selectedCategory = categorySelect.value || 'default';
+            
+            if (productId && productPricesMap[productId]) {
+                const prices = productPricesMap[productId];
+                const price = prices[selectedCategory] || prices['default'] || 0.00;
+                priceInputEl.value = price;
+                
+                const qty = parseFloat(qtyInputEl.value) || 0;
+                const sub = qty * price;
+                if (subtotalSpanEl) {
+                    subtotalSpanEl.textContent = `$${sub.toFixed(2)}`;
+                }
+            }
+        });
+        calculateTotal();
+    });
+    
+    // Evento blur de email -> Buscar categoría de cliente existente
+    emailInput.addEventListener('blur', async () => {
+        const email = emailInput.value.trim();
+        if (!email) return;
+        try {
+            const response = await fetch(`/api/clientes/${encodeURIComponent(email)}/categoria`);
+            if (response.ok) {
+                const data = await response.json();
+                categorySelect.value = data.category_id;
+                categorySelect.dispatchEvent(new Event('change'));
+                emailInput.style.borderColor = '#48BB78'; // verde
+            } else {
+                emailInput.style.borderColor = '#E2E8F0'; // gris default
+            }
+        } catch (err) {
+            console.error("Error fetching client category:", err);
+        }
+    });
     
     // Agregar primera línea por defecto
     createRow();
