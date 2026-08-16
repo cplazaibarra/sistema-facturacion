@@ -945,6 +945,16 @@ def init_db() -> None:
                 )
                 """
             )
+            cur.execute(
+                """
+                ALTER TABLE production_order_items ADD COLUMN IF NOT EXISTS unit_cost DOUBLE PRECISION;
+                """
+            )
+            cur.execute(
+                """
+                ALTER TABLE production_order_additional_items ADD COLUMN IF NOT EXISTS unit_cost DOUBLE PRECISION;
+                """
+            )
         conn.commit()
 
     seed_data_if_empty()

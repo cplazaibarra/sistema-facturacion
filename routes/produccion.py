@@ -10,6 +10,7 @@ def list_ots():
     """Listar órdenes de trabajo (OT)"""
     from db import get_connection
     ots = []
+    
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -27,7 +28,7 @@ def list_ots():
                 # Cargar insumos para esta OT
                 cur.execute(
                     """
-                    SELECT poi.quantity_required, p.sku as input_sku, p.name as input_name
+                    SELECT poi.quantity_required, poi.unit_cost, p.sku as input_sku, p.name as input_name, p.cost as input_cost
                     FROM production_order_items poi
                     JOIN products p ON poi.input_product_id = p.id
                     WHERE poi.production_order_id = %s
@@ -35,11 +36,14 @@ def list_ots():
                     (ot_id,)
                 )
                 items = [dict(row) for row in cur.fetchall()]
+                for item in items:
+                    if item.get("unit_cost") is None:
+                        item["unit_cost"] = float(item.get("input_cost") or 0.0)
                 
                 # Cargar insumos adicionales
                 cur.execute(
                     """
-                    SELECT poai.quantity, poai.reason, p.sku as input_sku, p.name as input_name
+                    SELECT poai.quantity, poai.unit_cost, poai.reason, p.sku as input_sku, p.name as input_name, p.cost as input_cost
                     FROM production_order_additional_items poai
                     JOIN products p ON poai.input_product_id = p.id
                     WHERE poai.production_order_id = %s
@@ -47,6 +51,9 @@ def list_ots():
                     (ot_id,)
                 )
                 additional_items = [dict(row) for row in cur.fetchall()]
+                for add in additional_items:
+                    if add.get("unit_cost") is None:
+                        add["unit_cost"] = float(add.get("input_cost") or 0.0)
                 
                 ot_dict = dict(r)
                 ot_dict["items"] = items
@@ -255,7 +262,7 @@ def finalizar_ot(ot_id):
             # 2. Cargar insumos requeridos
             cur.execute(
                 """
-                SELECT poi.quantity_required, p.sku as input_sku
+                SELECT poi.id, poi.quantity_required, p.sku as input_sku, p.cost as input_cost
                 FROM production_order_items poi
                 JOIN products p ON poi.input_product_id = p.id
                 WHERE poi.production_order_id = %s
@@ -279,13 +286,18 @@ def finalizar_ot(ot_id):
                 if sku in inv_map:
                     # Rebaja física definitiva
                     inv_map[sku]["stock"] = max(0.0, inv_map[sku]["stock"] - qty)
-                    cost_unit = float(inv_map[sku].get("price", 0.0))
+                    cost_unit = float(item["input_cost"] or 0.0)
                     total_manufacturing_cost += cost_unit * qty
+                    # Registrar costo histórico
+                    cur.execute(
+                        "UPDATE production_order_items SET unit_cost = %s WHERE id = %s",
+                        (cost_unit, item["id"])
+                    )
                     
             # Descontar insumos adicionales
             cur.execute(
                 """
-                SELECT poai.quantity, p.sku as input_sku
+                SELECT poai.id, poai.quantity, p.sku as input_sku, p.cost as input_cost
                 FROM production_order_additional_items poai
                 JOIN products p ON poai.input_product_id = p.id
                 WHERE poai.production_order_id = %s
@@ -298,8 +310,13 @@ def finalizar_ot(ot_id):
                 qty = item["quantity"]
                 if sku in inv_map:
                     inv_map[sku]["stock"] = max(0.0, inv_map[sku]["stock"] - qty)
-                    cost_unit = float(inv_map[sku].get("price", 0.0))
+                    cost_unit = float(item["input_cost"] or 0.0)
                     total_manufacturing_cost += cost_unit * qty
+                    # Registrar costo histórico
+                    cur.execute(
+                        "UPDATE production_order_additional_items SET unit_cost = %s WHERE id = %s",
+                        (cost_unit, item["id"])
+                    )
                     
             # Incrementar producto terminado
             final_sku = ot["final_sku"]

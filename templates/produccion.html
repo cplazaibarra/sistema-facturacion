@@ -35,7 +35,11 @@
                 {% if ots %}
                     {% for ot in ots %}
                     <tr style="border-bottom: 1px solid #edf2f7; font-size: 13px;">
-                        <td style="padding: 12px; font-weight: bold; color: #2b6cb0;">{{ ot.ot_number }}</td>
+                        <td style="padding: 12px; font-weight: bold;">
+                            <a href="javascript:void(0)" onclick="verDetalleOT({{ ot.id }})" style="color: #2b6cb0; text-decoration: underline;" title="Haga clic para ver el desglose detallado de costos de esta OT">
+                                {{ ot.ot_number }}
+                            </a>
+                        </td>
                         <td style="padding: 12px;">
                             <div style="font-weight: 600; color: #2d3748;">{{ ot.final_product_name }}</div>
                             <div style="font-size: 11px; color: #718096;">SKU: {{ ot.final_product_sku }}</div>
@@ -102,7 +106,7 @@
                     {% endfor %}
                 {% else %}
                     <tr>
-                        <td colspan="6" style="padding: 30px; text-align: center; color: #a0aec0;">
+                        <td colspan="7" style="padding: 30px; text-align: center; color: #a0aec0;">
                             No hay órdenes de trabajo (OT) registradas.
                         </td>
                     </tr>
@@ -121,7 +125,7 @@
         <form id="add-insumo-form" method="POST">
             <div class="form-group" style="margin-bottom: 12px;">
                 <label style="display: block; font-size: 12px; font-weight: 600; color: #4a5568; margin-bottom: 4px;">Seleccionar Insumo *</label>
-                <select name="input_product_id" required class="form-control" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; height: 38px;">
+                <select name="input_product_id" required class="form-control" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px;">
                     <option value="">-- Seleccionar --</option>
                     {% for p in input_products %}
                     <option value="{{ p.id }}">{{ p.name }} (SKU: {{ p.sku }})</option>
@@ -151,7 +155,72 @@
     </div>
 </div>
 
+<!-- Modal para Ver Detalle de OT -->
+<div id="ot-detail-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); backdrop-filter: blur(4px); align-items: center; justify-content: center;">
+    <div style="background-color: #fefefe; padding: 24px; border: 1px solid #e2e8f0; width: 90%; max-width: 750px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); position: relative; margin: auto; max-height: 90vh; overflow-y: auto;">
+        <h3 style="margin-top: 0; margin-bottom: 6px; color: #2d3748;" id="detail-ot-title">Detalle de Orden de Trabajo</h3>
+        <span id="detail-ot-status" style="position: absolute; right: 24px; top: 24px; color: white; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: bold;">-</span>
+        
+        <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 15px 0;">
+        
+        <!-- Info General -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px; margin-bottom: 20px; line-height: 1.5; color: #4a5568;">
+            <div>
+                <strong>Producto Final:</strong> <span id="detail-product-name">-</span><br>
+                <strong>Cantidad:</strong> <span id="detail-qty">-</span> unidades<br>
+                <strong>Costo Unitario Final:</strong> <span id="detail-unit-cost">-</span>
+            </div>
+            <div>
+                <strong>Fecha Creación:</strong> <span id="detail-created">-</span><br>
+                <strong>Fecha Aprobación:</strong> <span id="detail-approved">-</span><br>
+                <strong>Fecha Finalización:</strong> <span id="detail-completed">-</span>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 15px; font-size: 13px; color: #4a5568;">
+            <strong>Notas de la OT:</strong> <span id="detail-notes">-</span>
+        </div>
+
+        <h4 style="margin-bottom: 10px; color: #2d3748; border-bottom: 1px solid #edf2f7; padding-bottom: 6px; font-size: 14px;">Insumos y Costos Utilizados</h4>
+        <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <thead>
+                <tr style="background: #f7fafc; text-align: left; font-size: 10px; text-transform: uppercase; color: #718096; border-bottom: 1px solid #edf2f7;">
+                    <th style="padding: 8px;">Insumo</th>
+                    <th style="padding: 8px;">Tipo</th>
+                    <th style="padding: 8px; text-align: center;">Cantidad</th>
+                    <th style="padding: 8px; text-align: right;">Costo Unitario</th>
+                    <th style="padding: 8px; text-align: right;">Costo Total</th>
+                    <th style="padding: 8px;">Detalle / Motivo</th>
+                </tr>
+            </thead>
+            <tbody id="detail-ingredients-tbody">
+                <!-- Se poblará dinámicamente -->
+            </tbody>
+            <tfoot>
+                <tr style="font-weight: bold; border-top: 2px solid #edf2f7; color: #2d3748; background: #f7fafc;">
+                    <td colspan="4" style="padding: 10px; text-align: right;">Costo Total de Producción:</td>
+                    <td id="detail-summary-total-cost" style="padding: 10px; text-align: right; font-size: 13px; color: #2d3748;">$0</td>
+                    <td></td>
+                </tr>
+                <tr style="font-weight: bold; color: #2b6cb0; background: #ebf8ff;">
+                    <td colspan="4" style="padding: 10px; text-align: right;">Costo Unitario de Producción:</td>
+                    <td id="detail-summary-unit-cost" style="padding: 10px; text-align: right; font-size: 13px; color: #2b6cb0;">$0</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+        
+        <div style="display: flex; justify-content: flex-end; margin-top: 24px;">
+            <button type="button" onclick="closeOTDetailModal()" style="padding: 10px 24px; border: none; border-radius: 6px; background: #4a5568; color: #fff; cursor: pointer; font-weight: bold;">
+                Cerrar Detalle
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
+const OTS_DATA = {{ ots | tojson | safe }};
+
 function openAddInsumoModal(otId, otNumber) {
     document.getElementById('modal-ot-subtitle').innerText = "Orden de Trabajo: " + otNumber;
     document.getElementById('add-insumo-form').action = '/produccion/ot/' + otId + '/adicionar-insumo';
@@ -160,6 +229,97 @@ function openAddInsumoModal(otId, otNumber) {
 
 function closeAddInsumoModal() {
     document.getElementById('add-insumo-modal').style.display = 'none';
+}
+
+function verDetalleOT(otId) {
+    const ot = OTS_DATA.find(o => o.id === otId);
+    if (!ot) return;
+    
+    document.getElementById('detail-ot-title').innerText = "Orden de Trabajo: " + ot.ot_number;
+    
+    // Status badge
+    const statusEl = document.getElementById('detail-ot-status');
+    statusEl.innerText = ot.status;
+    if (ot.status === 'Solicitada') {
+        statusEl.style.backgroundColor = '#eebc63';
+    } else if (ot.status === 'Aprobada') {
+        statusEl.style.backgroundColor = '#3182ce';
+    } else {
+        statusEl.style.backgroundColor = '#48bb78';
+    }
+    
+    // Info
+    document.getElementById('detail-product-name').innerText = ot.final_product_name + " (SKU: " + ot.final_product_sku + ")";
+    document.getElementById('detail-qty').innerText = ot.quantity;
+    
+    const unitCostText = ot.unit_cost ? `$${Math.round(ot.unit_cost)}` : 'Pendiente (En fabricación)';
+    document.getElementById('detail-unit-cost').innerText = unitCostText;
+    
+    document.getElementById('detail-created').innerText = ot.created_at || '-';
+    document.getElementById('detail-approved').innerText = ot.approved_at || '-';
+    document.getElementById('detail-completed').innerText = ot.completed_at || '-';
+    document.getElementById('detail-notes').innerText = ot.notes || 'Sin observaciones.';
+    
+    // Ingredients table
+    const tbody = document.getElementById('detail-ingredients-tbody');
+    tbody.innerHTML = '';
+    
+    let totalCost = 0;
+    
+    // Planified ingredients
+    ot.items.forEach(item => {
+        const qty = item.quantity_required;
+        const uCost = Math.round(item.unit_cost || 0);
+        const tCost = Math.round(qty * uCost);
+        totalCost += tCost;
+        
+        const row = document.createElement('tr');
+        row.style.borderBottom = '1px solid #edf2f7';
+        row.innerHTML = `
+            <td style="padding: 8px;"><strong>${item.input_name}</strong><br><small style="color:#718096;">SKU: ${item.input_sku}</small></td>
+            <td style="padding: 8px;"><span style="color: #4a5568; font-weight: 500;">Planificado</span></td>
+            <td style="padding: 8px; text-align: center; font-weight: bold;">${qty}</td>
+            <td style="padding: 8px; text-align: right;">$${uCost}</td>
+            <td style="padding: 8px; text-align: right; font-weight: bold;">$${tCost}</td>
+            <td style="padding: 8px; color: #a0aec0;">-</td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    // Additional ingredients
+    if (ot.additional_items) {
+        ot.additional_items.forEach(add => {
+            const qty = add.quantity;
+            const uCost = Math.round(add.unit_cost || 0);
+            const tCost = Math.round(qty * uCost);
+            totalCost += tCost;
+            
+            const row = document.createElement('tr');
+            row.style.borderBottom = '1px solid #edf2f7';
+            row.style.backgroundColor = '#fff5f5';
+            row.innerHTML = `
+                <td style="padding: 8px; color: #c53030;"><strong>${add.input_name}</strong><br><small style="color:#e53e3e;">SKU: ${add.input_sku}</small></td>
+                <td style="padding: 8px;"><span style="color: #c53030; font-weight: bold;">➕ Adicional</span></td>
+                <td style="padding: 8px; text-align: center; font-weight: bold; color: #c53030;">+${qty}</td>
+                <td style="padding: 8px; text-align: right; color: #c53030;">$${uCost}</td>
+                <td style="padding: 8px; text-align: right; font-weight: bold; color: #c53030;">$${tCost}</td>
+                <td style="padding: 8px; font-style: italic; color: #718096;">${add.reason}</td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+    
+    // Footers
+    document.getElementById('detail-summary-total-cost').innerText = `$${Math.round(totalCost)}`;
+    
+    const finalUnitCost = ot.quantity > 0 ? Math.round(totalCost / ot.quantity) : 0;
+    document.getElementById('detail-summary-unit-cost').innerText = `$${finalUnitCost}`;
+    
+    document.getElementById('ot-detail-modal').style.display = 'flex';
+}
+
+function closeOTDetailModal() {
+    document.getElementById('ot-detail-modal').style.display = 'none';
 }
 </script>
 {% endblock %}
