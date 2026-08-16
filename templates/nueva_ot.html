@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Nueva Orden de Trabajo - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Nueva Orden de Trabajo / Pedido de Fábrica{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px;">
+    <a href="/produccion" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 4px; border: 1px solid #cbd5e0; background: #fff; color: #4a5568; font-weight: 500;">
+        ⬅️ Volver a Producción
+    </a>
+</div>
+
+<div class="ingreso-container">
+    <div class="ingreso-form-card" style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <h3 style="margin-top: 0; margin-bottom: 20px; color: #2d3748;">Registrar Solicitud de Fabricación</h3>
+        
+        <form class="ingreso-form" method="POST" id="ot-form">
+            <!-- Producto a fabricar y cantidad -->
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 20px;">
+                <div class="form-group">
+                    <label style="font-weight: 600; display: block; margin-bottom: 6px; color: #4a5568;">Producto Final a Fabricar *</label>
+                    <select class="form-control" name="final_product_id" required style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 6px; height: 42px;">
+                        <option value="">-- Seleccionar Producto Final --</option>
+                        {% for p in final_products %}
+                        <option value="{{ p.id }}">{{ p.name }} (SKU: {{ p.sku }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label style="font-weight: 600; display: block; margin-bottom: 6px; color: #4a5568;">Cantidad a Producir *</label>
+                    <input type="number" class="form-control" name="quantity" min="1" required placeholder="Ej: 50" style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 6px; height: 42px;">
+                </div>
+            </div>
+
+            <!-- Notas de la producción -->
+            <div class="form-group" style="margin-bottom: 24px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 6px; color: #4a5568;">Notas / Instrucciones Especiales</label>
+                <textarea class="form-control" name="notes" placeholder="Ej: Utilizar frascos lavados y etiquetado estándar" style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 6px; height: 60px; resize: vertical;"></textarea>
+            </div>
+
+            <div class="form-divider" style="height: 1px; background: #E2E8F0; margin: 24px 0;"></div>
+
+            <!-- Insumos dinámicos -->
+            <h4 style="margin-bottom: 12px; color: #2d3748;">Insumos / Componentes Necesarios</h4>
+            <div id="insumos-section" style="margin-top: 15px;">
+                <div style="display: grid; grid-template-columns: 3fr 1.5fr auto; gap: 12px; margin-bottom: 8px; font-weight: 600; font-size: 13px; color: #4a5568; border-bottom: 2px solid #E2E8F0; padding-bottom: 6px;">
+                    <div>Insumo (Materia Prima)</div>
+                    <div>Cantidad Total Necesaria</div>
+                    <div style="width: 40px;"></div>
+                </div>
+                
+                <div id="insumos-container">
+                    <!-- Filas de insumos se agregan dinámicamente con JS -->
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+                <button type="button" class="btn-secondary" id="add-insumo-btn" style="padding: 8px 16px; background-color: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+                    ➕ Agregar Insumo
+                </button>
+            </div>
+
+            <div style="margin-top: 30px; display: flex; justify-content: flex-end; gap: 12px; align-items: center;">
+                <a href="/produccion" class="btn-secondary" style="text-decoration: none; padding: 10px 18px; border-radius: 6px;">Cancelar</a>
+                <button type="submit" class="btn-primary" style="padding: 10px 24px; border-radius: 6px; font-weight: bold;">
+                    📂 Solicitar Fabricación
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const container = document.getElementById('insumos-container');
+    const addBtn = document.getElementById('add-insumo-btn');
+    
+    // Lista de productos insumos
+    const inputProducts = {{ input_products|tojson|safe }};
+    
+    function createRow() {
+        const row = document.createElement('div');
+        row.className = 'insumo-row';
+        row.style.display = 'grid';
+        row.style.gridTemplateColumns = '3fr 1.5fr auto';
+        row.style.gap = '12px';
+        row.style.marginBottom = '8px';
+        row.style.alignItems = 'center';
+        
+        // Select de Insumo
+        const select = document.createElement('select');
+        select.name = 'input_product_id[]';
+        select.className = 'form-control';
+        select.required = true;
+        select.style.width = '100%';
+        select.style.padding = '8px';
+        select.style.border = '1px solid #E2E8F0';
+        select.style.borderRadius = '6px';
+        
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = 'Seleccionar insumo';
+        select.appendChild(defaultOpt);
+        
+        inputProducts.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = `${p.name} (SKU: ${p.sku})`;
+            select.appendChild(opt);
+        });
+        
+        // Input Cantidad
+        const qtyInput = document.createElement('input');
+        qtyInput.type = 'number';
+        qtyInput.name = 'quantity_required[]';
+        qtyInput.className = 'form-control';
+        qtyInput.placeholder = 'Cantidad total';
+        qtyInput.step = '0.01';
+        qtyInput.min = '0.01';
+        qtyInput.required = true;
+        qtyInput.style.width = '100%';
+        qtyInput.style.padding = '8px';
+        qtyInput.style.border = '1px solid #E2E8F0';
+        qtyInput.style.borderRadius = '6px';
+        
+        // Botón remover
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.textContent = '✕';
+        removeBtn.style.color = '#EF4444';
+        removeBtn.style.background = 'none';
+        removeBtn.style.border = 'none';
+        removeBtn.style.fontSize = '1.1rem';
+        removeBtn.style.cursor = 'pointer';
+        removeBtn.style.width = '40px';
+        
+        removeBtn.addEventListener('click', () => {
+            row.remove();
+        });
+        
+        row.appendChild(select);
+        row.appendChild(qtyInput);
+        row.appendChild(removeBtn);
+        
+        container.appendChild(row);
+    }
+    
+    // Agregar primera línea por defecto
+    createRow();
+    
+    addBtn.addEventListener('click', () => {
+        createRow();
+    });
+});
+</script>
+{% endblock %}

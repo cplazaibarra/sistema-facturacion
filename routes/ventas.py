@@ -659,7 +659,7 @@ def nueva_cotizacion():
         flash("Cotización guardada exitosamente.", "success")
         return redirect(url_for('ventas.ventas'))
         
-    products = list_products()
+    products = [p for p in list_products() if p.get('product_type', 'Final') == 'Final']
     default_date = datetime.today().strftime('%Y-%m-%d')
     
     # Lógica de construcción de precios por categorías de clientes para la cotización

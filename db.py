@@ -582,6 +582,7 @@ def init_db() -> None:
                 "internal_code": "TEXT",
                 "category": "TEXT",
                 "expiry_date": "TEXT",
+                "product_type": "TEXT DEFAULT 'Final'",
             }
             for column_name, column_type in missing_columns.items():
                 if column_name not in existing_columns:
@@ -870,9 +871,29 @@ def init_db() -> None:
             )
             cur.execute(
                 """
-                CREATE TABLE IF NOT EXISTS client_categories (
-                    email TEXT PRIMARY KEY,
-                    category_id TEXT NOT NULL
+                CREATE TABLE IF NOT EXISTS production_orders (
+                    id SERIAL PRIMARY KEY,
+                    ot_number TEXT NOT NULL UNIQUE,
+                    final_product_id INTEGER NOT NULL,
+                    quantity INTEGER NOT NULL,
+                    status TEXT NOT NULL,
+                    notes TEXT,
+                    created_at TEXT NOT NULL,
+                    approved_at TEXT,
+                    completed_at TEXT,
+                    FOREIGN KEY (final_product_id) REFERENCES products(id) ON DELETE RESTRICT
+                )
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS production_order_items (
+                    id SERIAL PRIMARY KEY,
+                    production_order_id INTEGER NOT NULL,
+                    input_product_id INTEGER NOT NULL,
+                    quantity_required DOUBLE PRECISION NOT NULL,
+                    FOREIGN KEY (production_order_id) REFERENCES production_orders(id) ON DELETE CASCADE,
+                    FOREIGN KEY (input_product_id) REFERENCES products(id) ON DELETE RESTRICT
                 )
                 """
             )
@@ -1100,6 +1121,60 @@ def seed_data_if_empty() -> None:
                             datetime.utcnow().isoformat(timespec='seconds')
                         )
                     )
+            
+            # Sembrar insumos específicos si no existen en products
+            insumos = [
+                {"sku": "INS001", "name": "Miel a Granel (kg)", "desc": "Miel de abeja a granel para envasar", "category": "Miel", "product_type": "Insumo", "stock": 1000.0, "min_stock": 100, "price": 4.50},
+                {"sku": "INS002", "name": "Frasco de Vidrio 500g", "desc": "Frasco de vidrio vacío", "category": "Propóleo", "product_type": "Insumo", "stock": 500.0, "min_stock": 50, "price": 0.50},
+                {"sku": "INS003", "name": "Tapa para Frasco", "desc": "Tapa plástica color amarillo", "category": "Propóleo", "product_type": "Insumo", "stock": 500.0, "min_stock": 50, "price": 0.10}
+            ]
+            for ins in insumos:
+                cur.execute("SELECT id FROM products WHERE sku = %s", (ins["sku"],))
+                if not cur.fetchone():
+                    cur.execute(
+                        """
+                        INSERT INTO products (
+                            sku, name, description, photo_url, barcode, internal_code,
+                            category, product_type, created_at
+                        ) VALUES (%s, %s, %s, '', '', %s, %s, %s, %s)
+                        """,
+                        (
+                            ins["sku"],
+                            ins["name"],
+                            ins["desc"],
+                            ins["sku"],
+                            ins["category"],
+                            ins["product_type"],
+                            datetime.utcnow().isoformat(timespec='seconds')
+                        )
+                    )
+            
+            # Sembrar en inventory_items (page_data) si no existen
+            cur.execute("SELECT json FROM page_data WHERE key = 'inventory_items'")
+            row = cur.fetchone()
+            if row:
+                inv_items = json.loads(row["json"])
+                existing_codes = {item.get("code") for item in inv_items}
+                updated_inv = False
+                for ins in insumos:
+                    if ins["sku"] not in existing_codes:
+                        inv_items.append({
+                            "code": ins["sku"],
+                            "name": ins["name"],
+                            "desc": ins["desc"],
+                            "category": ins["category"],
+                            "stock": ins["stock"],
+                            "min_stock": ins["min_stock"],
+                            "price": ins["price"],
+                            "status": "Normal",
+                            "stock_percent": 100
+                        })
+                        updated_inv = True
+                if updated_inv:
+                    cur.execute(
+                        "UPDATE page_data SET json = %s WHERE key = 'inventory_items'",
+                        (json.dumps(inv_items, ensure_ascii=False),)
+                    )
         conn.commit()
 
 
@@ -1177,7 +1252,7 @@ def list_products() -> list[dict]:
             cur.execute(
                 """
                 SELECT id, sku, name, description, photo_url, barcode, internal_code,
-                       category, expiry_date, width_cm, height_cm, depth_cm, weight_kg
+                       category, expiry_date, width_cm, height_cm, depth_cm, weight_kg, product_type
                 FROM products
                 ORDER BY id DESC
                 """
@@ -1193,8 +1268,8 @@ def insert_product(product: dict) -> int:
                 INSERT INTO products (
                     sku, name, description, photo_url, barcode, internal_code,
                     category, expiry_date, width_cm, height_cm, depth_cm,
-                    weight_kg, created_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    weight_kg, product_type, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
@@ -1210,6 +1285,7 @@ def insert_product(product: dict) -> int:
                     product.get("height_cm"),
                     product.get("depth_cm"),
                     product.get("weight_kg"),
+                    product.get("product_type", "Final"),
                     product["created_at"],
                 ),
             )
@@ -1224,7 +1300,7 @@ def get_product(product_id: int) -> dict:
             cur.execute(
                 """
                 SELECT id, sku, name, description, photo_url, barcode, internal_code,
-                       category, expiry_date, width_cm, height_cm, depth_cm, weight_kg
+                       category, expiry_date, width_cm, height_cm, depth_cm, weight_kg, product_type
                 FROM products
                 WHERE id = %s
                 """,
@@ -1242,7 +1318,8 @@ def update_product(product_id: int, product: dict) -> None:
                 UPDATE products SET
                     sku = %s, name = %s, description = %s, photo_url = %s,
                     barcode = %s, internal_code = %s, category = %s, expiry_date = %s,
-                    width_cm = %s, height_cm = %s, depth_cm = %s, weight_kg = %s
+                    width_cm = %s, height_cm = %s, depth_cm = %s, weight_kg = %s,
+                    product_type = %s
                 WHERE id = %s
                 """,
                 (
@@ -1258,6 +1335,7 @@ def update_product(product_id: int, product: dict) -> None:
                     product.get("height_cm"),
                     product.get("depth_cm"),
                     product.get("weight_kg"),
+                    product.get("product_type", "Final"),
                     product_id,
                 ),
             )

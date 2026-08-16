@@ -94,6 +94,24 @@ def inventario():
             if sku and qty > 0:
                 reserved_by_sku[sku] = reserved_by_sku.get(sku, 0) + qty
 
+    # 3.5. Obtener insumos reservados de OTs activas (Aprobadas)
+    from db import get_connection
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT poi.quantity_required, p.sku
+                FROM production_order_items poi
+                JOIN production_orders po ON poi.production_order_id = po.id
+                JOIN products p ON poi.input_product_id = p.id
+                WHERE po.status = 'Aprobada'
+                """
+            )
+            for row in cur.fetchall():
+                sku = row["sku"]
+                qty = row["quantity_required"]
+                reserved_by_sku[sku] = reserved_by_sku.get(sku, 0) + qty
+
     # 4. Aumentar cada ítem del inventario con su stock reservado y total
     low_stock_count = 0
     for item in inventory_items:
@@ -277,6 +295,7 @@ def productos():
             "height_cm": request.form.get('height_cm') or None,
             "depth_cm": request.form.get('depth_cm') or None,
             "weight_kg": request.form.get('weight_kg') or None,
+            "product_type": request.form.get('product_type', 'Final').strip(),
             "created_at": datetime.utcnow().isoformat(timespec='seconds'),
         }
 
@@ -325,6 +344,7 @@ def editar_producto(product_id):
             "height_cm": request.form.get('height_cm') or None,
             "depth_cm": request.form.get('depth_cm') or None,
             "weight_kg": request.form.get('weight_kg') or None,
+            "product_type": request.form.get('product_type', 'Final').strip(),
         }
 
         # Manejar subida de foto

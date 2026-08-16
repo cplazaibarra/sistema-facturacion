@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Producción - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Fábrica de Productos / Órdenes de Trabajo{% endblock %}
+
+{% block content %}
+<div class="header-section" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+    <a href="/produccion/nueva" class="btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 6px; font-weight: bold;">
+        🏭 Crear Pedido de Fábrica
+    </a>
+</div>
+
+<div class="recent-section">
+    <div class="recent-card" style="background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px;">
+        <div class="card-header" style="border-bottom: 1px solid #edf2f7; padding-bottom: 12px; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #2d3748;">Órdenes de Trabajo (OT)</h3>
+        </div>
+        
+        <table class="data-table" style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #f7fafc; text-align: left; font-size: 11px; text-transform: uppercase; color: #718096; border-bottom: 2px solid #edf2f7;">
+                    <th style="padding: 12px;">OT #</th>
+                    <th style="padding: 12px;">Producto Final</th>
+                    <th style="padding: 12px; text-align: center;">Cantidad</th>
+                    <th style="padding: 12px;">Insumos Requeridos</th>
+                    <th style="padding: 12px;">Estado</th>
+                    <th style="padding: 12px; text-align: center;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if ots %}
+                    {% for ot in ots %}
+                    <tr style="border-bottom: 1px solid #edf2f7; font-size: 13px;">
+                        <td style="padding: 12px; font-weight: bold; color: #2b6cb0;">{{ ot.ot_number }}</td>
+                        <td style="padding: 12px;">
+                            <div style="font-weight: 600; color: #2d3748;">{{ ot.final_product_name }}</div>
+                            <div style="font-size: 11px; color: #718096;">SKU: {{ ot.final_product_sku }}</div>
+                        </td>
+                        <td style="padding: 12px; text-align: center; font-weight: bold; color: #2d3748;">{{ ot.quantity }}</td>
+                        <td style="padding: 12px;">
+                            <ul style="margin: 0; padding-left: 16px; font-size: 12px; color: #4a5568;">
+                                {% for item in ot.items %}
+                                <li>{{ item.input_name }}: <strong>{{ item.quantity_required }}</strong></li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                        <td style="padding: 12px;">
+                            {% if ot.status == 'Solicitada' %}
+                                <span style="background: #eebc63; color: white; padding: 4px 8px; border-radius: 9999px; font-size: 11px; font-weight: bold;">Solicitada</span>
+                            {% elif ot.status == 'Aprobada' %}
+                                <span style="background: #3182ce; color: white; padding: 4px 8px; border-radius: 9999px; font-size: 11px; font-weight: bold;">Aprobada (Reservada)</span>
+                            {% elif ot.status == 'Finalizada' %}
+                                <span style="background: #48bb78; color: white; padding: 4px 8px; border-radius: 9999px; font-size: 11px; font-weight: bold;">Finalizada</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 12px; text-align: center;">
+                            <div style="display: flex; gap: 8px; justify-content: center;">
+                                {% if ot.status == 'Solicitada' %}
+                                    <form method="POST" action="/produccion/ot/{{ ot.id }}/aprobar" style="margin: 0;">
+                                        <button type="submit" class="btn-primary" style="background: #3182ce; border-color: #3182ce; padding: 6px 12px; font-size: 12px; font-weight: bold;">
+                                            ✔️ Aprobar (Reservar Insumos)
+                                        </button>
+                                    </form>
+                                {% elif ot.status == 'Aprobada' %}
+                                    <form method="POST" action="/produccion/ot/{{ ot.id }}/finalizar" style="margin: 0;">
+                                        <button type="submit" class="btn-primary" style="background: #48bb78; border-color: #48bb78; padding: 6px 12px; font-size: 12px; font-weight: bold;">
+                                            📦 Finalizar (Ingresar Stock)
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <span style="color: #a0aec0; font-size: 12px;">Completado</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="6" style="padding: 30px; text-align: center; color: #a0aec0;">
+                            No hay órdenes de trabajo (OT) registradas.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
