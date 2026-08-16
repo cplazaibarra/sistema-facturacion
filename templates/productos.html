@@ -56,6 +56,33 @@
                     <input type="text" name="internal_code" class="form-control" placeholder="MIEL-001">
                 </div>
             </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Categoría</label>
+                    <select name="category" class="form-control">
+                        <option value="">Seleccionar categoría</option>
+                        {% for category in categories %}
+                        <option value="{{ category }}">{{ category }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label style="font-weight: bold; color: #2b6cb0;">Tipo de Producto *</label>
+                    <select name="product_type" class="form-control" required style="font-weight: bold;">
+                        <option value="Final" selected>Final (Vendible)</option>
+                        <option value="Insumo">Insumo (Materia Prima)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Costo Unitario ($)</label>
+                    <input type="number" name="cost" class="form-control" step="1" min="0" value="0">
+                </div>
+                <div class="form-group">
+                </div>
+            </div>
 
             <div class="form-group">
                 <label>Descripción</label>
@@ -87,7 +114,7 @@
                 </div>
             </div>
 
-            <div class="form-row">
+            <div class="form-row" style="margin-bottom: 16px;">
                 <div class="form-group">
                     <label>Profundidad (cm)</label>
                     <input type="number" name="depth_cm" class="form-control" step="0.01" min="0">
@@ -95,20 +122,6 @@
                 <div class="form-group">
                     <label>Peso (kg)</label>
                     <input type="number" name="weight_kg" class="form-control" step="0.01" min="0">
-                </div>
-            </div>
-
-            <div class="form-row" style="margin-bottom: 16px;">
-                <div class="form-group">
-                    <label>Tipo de Producto *</label>
-                    <select name="product_type" class="form-control" required>
-                        <option value="Final" selected>Final (Vendible)</option>
-                        <option value="Insumo">Insumo (Materia Prima)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Costo Unitario ($)</label>
-                    <input type="number" name="cost" class="form-control" step="1" min="0" value="0">
                 </div>
             </div>
 

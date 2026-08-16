@@ -48,6 +48,22 @@
                         {% endif %}
                     </select>
                 </div>
+                <div class="form-group">
+                    <label style="font-weight: bold; color: #2b6cb0;">Tipo de Producto *</label>
+                    <select name="product_type" class="form-control" required style="font-weight: bold;">
+                        <option value="Final" {% if (product.product_type or 'Final') == 'Final' %}selected{% endif %}>Final (Vendible)</option>
+                        <option value="Insumo" {% if product.product_type == 'Insumo' %}selected{% endif %}>Insumo (Materia Prima)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Costo Unitario ($)</label>
+                    <input type="number" name="cost" class="form-control" step="1" min="0" value="{{ product.cost | round | int if product.cost is not none else '0' }}">
+                </div>
+                <div class="form-group">
+                </div>
             </div>
 
             <div class="form-group">
@@ -90,7 +106,7 @@
                 </div>
             </div>
 
-            <div class="form-row">
+            <div class="form-row" style="margin-bottom: 16px;">
                 <div class="form-group">
                     <label>Profundidad (cm)</label>
                     <input type="number" name="depth_cm" class="form-control" step="0.01" min="0" value="{{ product.depth_cm or '' }}">
@@ -98,20 +114,6 @@
                 <div class="form-group">
                     <label>Peso (kg)</label>
                     <input type="number" name="weight_kg" class="form-control" step="0.01" min="0" value="{{ product.weight_kg or '' }}">
-                </div>
-            </div>
-
-            <div class="form-row" style="margin-bottom: 16px;">
-                <div class="form-group">
-                    <label>Tipo de Producto *</label>
-                    <select name="product_type" class="form-control" required>
-                        <option value="Final" {% if product.product_type == 'Final' %}selected{% endif %}>Final (Vendible)</option>
-                        <option value="Insumo" {% if product.product_type == 'Insumo' %}selected{% endif %}>Insumo (Materia Prima)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Costo Unitario ($)</label>
-                    <input type="number" name="cost" class="form-control" step="1" min="0" value="{{ product.cost | round | int if product.cost is not none else '0' }}">
                 </div>
             </div>
 
