@@ -37,7 +37,9 @@
 <!-- Tarjetas de métricas estilo Salesforce -->
 <div class="sf-metrics-grid">
     {% for metric in ventas_metrics %}
-    <div class="sf-metric-card" onclick="filterSalesByCard('{{ metric.label }}', this)">
+    <div class="sf-metric-card {% if active_filter == metric.label %}active-filter{% endif %}" 
+         onclick="window.location.href='{{ url_for('ventas.ventas') }}?filter={{ metric.label | urlencode }}'" 
+         style="cursor:pointer;">
         <span class="sf-metric-icon {{ metric.color }}">{{ metric.icon | safe }}</span>
         <div class="sf-metric-content">
             <div class="sf-metric-value">{{ metric.value }}</div>
@@ -46,6 +48,13 @@
     </div>
     {% endfor %}
 </div>
+
+{% if active_filter %}
+<div style="display:flex; align-items:center; gap:10px; margin: 8px 0 0 0; padding: 6px 14px; background:#EBF8FF; border-radius:6px; border-left: 4px solid #3182ce; font-size:13px; color:#2b6cb0;">
+    <span>🔍 Filtro activo: <strong>{{ active_filter }}</strong></span>
+    <a href="{{ url_for('ventas.ventas') }}" style="margin-left:10px; color:#e53e3e; font-weight:600; text-decoration:none;">✕ Limpiar filtro</a>
+</div>
+{% endif %}
 
 <!-- Pestañas estilo Salesforce -->
 <div class="sf-tabs">

@@ -45,8 +45,25 @@ def ventas():
     if request.args.get('date_to'):
         filters['date_to'] = request.args.get('date_to')
 
+    # Filtro por tarjeta de métricas (filtro en servidor)
+    card_filter = request.args.get('filter', '')
+    active_filter = card_filter  # para marcar la tarjeta activa en la template
+
+    # Mapear el label de la tarjeta a valores de status en la BD
+    if card_filter == 'Ventas Pendientes':
+        filters['status'] = 'Pendiente'
+    elif card_filter == 'Ventas Completadas':
+        filters['status'] = 'Completada'
+    elif card_filter == 'Ventas Hoy':
+        filters['date_from'] = datetime.today().strftime('%Y-%m-%d')
+        filters['date_to'] = datetime.today().strftime('%Y-%m-%d')
+
     # Get sales from database
     sales_list = list_sales(filters if filters else None)
+
+    # Si el filtro es "Ventas Pendientes", excluir Cotizaciones (prefijo COT)
+    if card_filter == 'Ventas Pendientes':
+        sales_list = [s for s in sales_list if str(s.get('sale_number', '')).startswith('VTA')]
     today_str = datetime.today().strftime('%Y-%m-%d')
     # Format sales for template
     ventas_records = []
@@ -147,6 +164,7 @@ def ventas():
         ventas_metrics=ventas_metrics,
         ventas_records=ventas_records,
         roles=roles,
+        active_filter=active_filter,
     ))
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'
