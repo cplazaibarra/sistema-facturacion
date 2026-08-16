@@ -209,7 +209,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 body: formData
             });
-            const data = await response.json();
+            
+            let data;
+            try {
+                data = await response.json();
+            } catch(jsonErr) {
+                data = { status: 'error', message: 'Respuesta no válida del servidor.' };
+            }
             
             if (response.ok && data.status === 'ok') {
                 const select = document.getElementById('final-product-select');
@@ -221,13 +227,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 quickForm.reset();
                 closeProductModal();
-                alert(`Producto "${data.product.name}" creado y seleccionado correctamente.`);
+                alert(`✅ Producto "${data.product.name}" creado y seleccionado correctamente.`);
             } else {
-                alert(`Error: ${data.message || 'No se pudo guardar el producto.'}`);
+                alert(`⚠️ ${data.message || 'No se pudo guardar el producto.'}`);
             }
         } catch (err) {
             console.error(err);
-            alert('Error de red al intentar crear el producto.');
+            alert('⚠️ Error de red o conexión al intentar crear el producto.');
         }
     });
 });

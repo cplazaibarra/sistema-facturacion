@@ -190,6 +190,12 @@ def crear_producto_rapido():
     }
     
     try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id FROM products WHERE sku = %s", (sku,))
+                if cur.fetchone():
+                    return jsonify({"status": "error", "message": f"El SKU '{sku}' ya está registrado. Por favor ingrese un SKU distinto."}), 400
+
         product_id = insert_product(product)
         
         # También ingresarlo a inventory_items con stock 0
@@ -217,7 +223,10 @@ def crear_producto_rapido():
             }
         })
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        err_msg = str(e)
+        if "unique" in err_msg.lower() or "products_sku_key" in err_msg:
+            return jsonify({"status": "error", "message": f"El SKU '{sku}' ya está registrado en la base de datos."}), 400
+        return jsonify({"status": "error", "message": f"Error al guardar producto: {err_msg}"}), 400
 
 @produccion_bp.route('/produccion/ot/<int:ot_id>/aprobar', methods=['POST'])
 def aprobar_ot(ot_id):

@@ -66,8 +66,11 @@ def check_login():
         return
     if request.endpoint in ('auth.login', 'uploaded_file'):
         return
-    # Si no hay usuario en sesión, redirigir a login
+    # Si no hay usuario en sesión, redirigir a login o responder JSON si es API
     if 'user_id' not in session:
+        if request.path.startswith('/api/'):
+            from flask import jsonify
+            return jsonify({"status": "error", "message": "Sesión expirada. Por favor vuelva a iniciar sesión."}), 401
         return redirect(url_for('auth.login'))
 
 if __name__ == '__main__':
