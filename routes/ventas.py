@@ -34,39 +34,15 @@ def proyeccion_ventas():
 @ventas_bp.route('/ventas')
 def ventas():
     """Módulo de Ventas"""
-    # Get filter parameters
-    filters = {}
-    if request.args.get('status'):
-        filters['status'] = request.args.get('status')
-    if request.args.get('customer_name'):
-        filters['customer_name'] = request.args.get('customer_name')
-    if request.args.get('date_from'):
-        filters['date_from'] = request.args.get('date_from')
-    if request.args.get('date_to'):
-        filters['date_to'] = request.args.get('date_to')
-
-    # Filtro por tarjeta de métricas (filtro en servidor)
+    # Filtro por tarjeta de métricas o selector de vista
     card_filter = request.args.get('filter', '')
     active_filter = card_filter  # para marcar la tarjeta activa en la template
 
-    # Mapear el label de la tarjeta a valores de status en la BD
-    if card_filter == 'Ventas Pendientes':
-        filters['status'] = 'Pendiente'
-    elif card_filter == 'Ventas Completadas':
-        filters['status'] = 'Completada'
-    elif card_filter == 'Ventas Hoy':
-        filters['date_from'] = datetime.today().strftime('%Y-%m-%d')
-        filters['date_to'] = datetime.today().strftime('%Y-%m-%d')
-
-    # Get sales from database
-    sales_list = list_sales(filters if filters else None)
-
-    # Si el filtro es "Ventas Pendientes", excluir Cotizaciones (prefijo COT)
-    if card_filter == 'Ventas Pendientes':
-        sales_list = [s for s in sales_list if str(s.get('sale_number', '')).startswith('VTA')]
+    # Obtener todas las ventas para formatear e inspeccionar estados calculados
+    sales_list = list_sales(None)
     today_str = datetime.today().strftime('%Y-%m-%d')
-    # Format sales for template
-    ventas_records = []
+
+    ventas_records_all = []
     from db import get_connection
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -94,7 +70,7 @@ def ventas():
                 )
                 payment_history = [dict(row) for row in cur.fetchall()]
 
-                ventas_records.append({
+                ventas_records_all.append({
                     "id": sale["id"],
                     "sale_number": sale["sale_number"],
                     "customer": {
@@ -124,6 +100,27 @@ def ventas():
                     "payment_history": payment_history
                 })
 
+    # Contar pagos retrasados
+    count_retrasadas = sum(1 for v in ventas_records_all if v['payment_status'] == 'Retrasada')
+
+    # Aplicar filtrado a los registros según card_filter
+    ventas_records = []
+    for record in ventas_records_all:
+        if card_filter == 'Ventas Pendientes':
+            if record['status']['label'] == 'Pendiente' and str(record['sale_number']).startswith('VTA'):
+                ventas_records.append(record)
+        elif card_filter == 'Ventas Completadas':
+            if record['status']['label'] == 'Completada':
+                ventas_records.append(record)
+        elif card_filter in ['Pago Retrasado', 'Pagos Retrasados', 'Retrasada']:
+            if record['payment_status'] == 'Retrasada':
+                ventas_records.append(record)
+        elif card_filter == 'Ventas Hoy':
+            if record['date'] == today_str:
+                ventas_records.append(record)
+        else:
+            ventas_records.append(record)
+
     # Get metrics from database
     metrics = get_sales_metrics()
     ventas_metrics = [
@@ -147,6 +144,13 @@ def ventas():
             "label": "Ventas Pendientes",
             "secondary": "por procesar",
             "color": "orange",
+        },
+        {
+            "icon": "<i class=\"fa-solid fa-triangle-exclamation\"></i>",
+            "value": str(count_retrasadas),
+            "label": "Pago Retrasado",
+            "secondary": "pagos vencidos",
+            "color": "red",
         },
         {
             "icon": "<i class=\"fa-solid fa-users\"></i>",

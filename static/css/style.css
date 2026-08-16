@@ -1257,6 +1257,11 @@ canvas {
     color: white;
 }
 
+.sf-metric-icon.red {
+    background: linear-gradient(135deg, #EF4444, #DC2626);
+    color: white;
+}
+
 .sf-metric-content {
     display: flex;
     flex-direction: column;

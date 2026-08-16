@@ -8,12 +8,12 @@
 <div class="sf-action-bar">
     <div class="sf-action-left">
         <div class="sf-view-selector">
-            <select class="sf-select">
-                <option>Todas las Ventas</option>
-                <option>Ventas Recientes</option>
-                <option>Ventas Pendientes</option>
-                <option>Ventas Completadas</option>
-                <option>Ventas del Mes</option>
+            <select class="sf-select" onchange="if(this.value) window.location.href=this.value;">
+                <option value="{{ url_for('ventas.ventas') }}" {% if not active_filter %}selected{% endif %}>Todas las Ventas</option>
+                <option value="{{ url_for('ventas.ventas') }}?filter=Ventas%20Pendientes" {% if active_filter == 'Ventas Pendientes' %}selected{% endif %}>Ventas Pendientes</option>
+                <option value="{{ url_for('ventas.ventas') }}?filter=Ventas%20Completadas" {% if active_filter == 'Ventas Completadas' %}selected{% endif %}>Ventas Completadas</option>
+                <option value="{{ url_for('ventas.ventas') }}?filter=Pago%20Retrasado" {% if active_filter in ['Pago Retrasado', 'Pagos Retrasados'] %}selected{% endif %}>Pago Retrasado</option>
+                <option value="{{ url_for('ventas.ventas') }}?filter=Ventas%20Hoy" {% if active_filter == 'Ventas Hoy' %}selected{% endif %}>Ventas Hoy</option>
             </select>
         </div>
         <button class="sf-btn-icon" title="Actualizar">🔄</button>
