@@ -10,6 +10,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     {% block extra_css %}{% endblock %}
+    <script>
+        (function() {
+            if (localStorage.getItem("sidebar-collapsed") === "true") {
+                document.documentElement.classList.add("sidebar-collapsed");
+            }
+        })();
+    </script>
 </head>
 <body>
     <div class="container">
@@ -105,7 +112,10 @@
         <!-- Main Content -->
         <main class="main-content">
             <header class="header">
-                <div class="header-left">
+                <div class="header-left" style="display: flex; align-items: center; gap: 15px;">
+                    <button class="toggle-sidebar-btn" onclick="toggleSidebar()" title="Ocultar/Mostrar barra lateral">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
                     <h2>{% block page_title %}Dashboard{% endblock %}</h2>
                 </div>
                 <div class="header-right" style="display: flex; align-items: center; gap: 15px;">
@@ -140,6 +150,31 @@
     </div>
 
     <script>
+        // Inicializar el estado de la barra lateral de forma inmediata
+        (function() {
+            const sidebarState = localStorage.getItem("sidebar-collapsed");
+            if (sidebarState === "true") {
+                document.querySelector(".sidebar").classList.add("collapsed");
+                document.querySelector(".main-content").classList.add("collapsed");
+            }
+        })();
+
+        function toggleSidebar() {
+            const sidebar = document.querySelector(".sidebar");
+            const mainContent = document.querySelector(".main-content");
+            
+            sidebar.classList.toggle("collapsed");
+            mainContent.classList.toggle("collapsed");
+            
+            const isCollapsed = sidebar.classList.contains("collapsed");
+            if (isCollapsed) {
+                document.documentElement.classList.add("sidebar-collapsed");
+            } else {
+                document.documentElement.classList.remove("sidebar-collapsed");
+            }
+            localStorage.setItem("sidebar-collapsed", isCollapsed);
+        }
+
         function toggleSubmenu(button) {
             button.classList.toggle('expanded');
             const submenu = button.nextElementSibling;
