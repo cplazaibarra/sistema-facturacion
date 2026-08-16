@@ -787,10 +787,9 @@
             
             let match = false;
             
-            if (label === 'Ventas Completadas' && (status.includes('completada') || status.includes('completado'))) {
+            if (label === 'Ventas Completadas' && status.includes('completada')) {
                 match = true;
-            } else if (label === 'Ventas Pendientes' && (status.includes('pendiente') || status.includes('cotiza'))) {
-                // Consideramos Pendiente y Cotización como ventas pendientes por procesar/facturar
+            } else if (label === 'Ventas Pendientes' && status === 'pendiente') {
                 match = true;
             } else if (label === 'Ventas Hoy') {
                 // Obtener fecha local de hoy en formato YYYY-MM-DD
