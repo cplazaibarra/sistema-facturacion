@@ -224,7 +224,7 @@ def finalizar_ot(ot_id):
             # 1. Cargar datos de la OT
             cur.execute(
                 """
-                SELECT po.id, po.quantity, po.status, p.sku as final_sku
+                SELECT po.id, po.ot_number, po.quantity, po.status, po.final_product_id, p.sku as final_sku
                 FROM production_orders po
                 JOIN products p ON po.final_product_id = p.id
                 WHERE po.id = %s
@@ -285,6 +285,57 @@ def finalizar_ot(ot_id):
             
             # Guardar inventario
             set_page_data("inventory_items", inventory_items)
+            
+            # 3.8. Registrar el ingreso en el historial de entradas
+            cur.execute(
+                """
+                SELECT COALESCE(SUM(total), 0) as total_amt, COALESCE(SUM(quantity), 0) as total_qty
+                FROM inventory_entry_items
+                WHERE product_id = %s
+                """,
+                (ot["final_product_id"],)
+            )
+            row_vpp = cur.fetchone()
+            current_vpp = 0.0
+            if row_vpp and row_vpp["total_qty"] > 0:
+                current_vpp = row_vpp["total_amt"] / row_vpp["total_qty"]
+            else:
+                for item in inventory_items:
+                    if item["code"] == final_sku:
+                        current_vpp = float(item.get("price", 0.0))
+                        break
+            
+            total_cost = current_vpp * ot["quantity"]
+            
+            cur.execute(
+                """
+                INSERT INTO inventory_entries (entry_date, order_number, purchase_order_id, supplier_id, warehouse, notes, total_amount, created_at)
+                VALUES (%s, %s, NULL, NULL, 'Principal', %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    datetime.now().strftime("%Y-%m-%d"),
+                    ot["ot_number"],
+                    f"Ingreso por Fabricación / OT {ot['ot_number']}",
+                    total_cost,
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                )
+            )
+            entry_id = cur.fetchone()["id"]
+            
+            cur.execute(
+                """
+                INSERT INTO inventory_entry_items (inventory_entry_id, product_id, quantity, unit_price, total)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    entry_id,
+                    ot["final_product_id"],
+                    ot["quantity"],
+                    current_vpp,
+                    total_cost
+                )
+            )
             
             # 4. Actualizar estado de la OT
             cur.execute(

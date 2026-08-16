@@ -851,6 +851,11 @@ def init_db() -> None:
             )
             cur.execute(
                 """
+                ALTER TABLE inventory_entries ALTER COLUMN supplier_id DROP NOT NULL;
+                """
+            )
+            cur.execute(
+                """
                 ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
                 """
             )
