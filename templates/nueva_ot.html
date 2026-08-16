@@ -18,8 +18,13 @@
             <!-- Producto a fabricar y cantidad -->
             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 20px;">
                 <div class="form-group">
-                    <label style="font-weight: 600; display: block; margin-bottom: 6px; color: #4a5568;">Producto Final a Fabricar *</label>
-                    <select class="form-control" name="final_product_id" required style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 6px; height: 42px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <label style="font-weight: 600; color: #4a5568; margin: 0;">Producto Final a Fabricar *</label>
+                        <button type="button" onclick="openProductModal()" style="background: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                            ➕ Crear Producto
+                        </button>
+                    </div>
+                    <select class="form-control" name="final_product_id" id="final-product-select" required style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 6px; height: 42px;">
                         <option value="">-- Seleccionar Producto Final --</option>
                         {% for p in final_products %}
                         <option value="{{ p.id }}">{{ p.name }} (SKU: {{ p.sku }})</option>
@@ -70,7 +75,59 @@
     </div>
 </div>
 
+<!-- Modal para Creación Rápida de Producto -->
+<div id="product-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); backdrop-filter: blur(4px); align-items: center; justify-content: center;">
+    <div style="background-color: #fefefe; padding: 24px; border: 1px solid #e2e8f0; width: 90%; max-width: 480px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); position: relative; margin: auto;">
+        <h3 style="margin-top: 0; margin-bottom: 18px; color: #2d3748;">Crear Nuevo Producto Final</h3>
+        
+        <form id="quick-product-form">
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #4a5568; margin-bottom: 4px;">SKU *</label>
+                <input type="text" name="sku" required class="form-control" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px;" placeholder="Ej: PRD-NUEVO">
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #4a5568; margin-bottom: 4px;">Nombre del Producto *</label>
+                <input type="text" name="name" required class="form-control" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px;" placeholder="Ej: Miel de Eucalipto 250g">
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #4a5568; margin-bottom: 4px;">Código Interno</label>
+                <input type="text" name="internal_code" class="form-control" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px;" placeholder="Ej: MIEL-EUC-250">
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #4a5568; margin-bottom: 4px;">Categoría *</label>
+                <select name="category" required class="form-control" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; height: 38px;">
+                    {% for cat in categories %}
+                    <option value="{{ cat }}">{{ cat }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <input type="hidden" name="product_type" value="Final">
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button type="button" onclick="closeProductModal()" style="padding: 8px 16px; border: 1px solid #cbd5e0; border-radius: 6px; background: #fff; cursor: pointer; color: #4a5568; font-weight: 600;">
+                    Cancelar
+                </button>
+                <button type="submit" style="padding: 8px 20px; border: none; border-radius: 6px; background: #3182ce; color: #fff; cursor: pointer; font-weight: bold;">
+                    Guardar Producto
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
+function openProductModal() {
+    document.getElementById('product-modal').style.display = 'flex';
+}
+
+function closeProductModal() {
+    document.getElementById('product-modal').style.display = 'none';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('insumos-container');
     const addBtn = document.getElementById('add-insumo-btn');
@@ -150,6 +207,43 @@ document.addEventListener('DOMContentLoaded', () => {
     
     addBtn.addEventListener('click', () => {
         createRow();
+    });
+
+    // Formulario de creación rápida
+    const quickForm = document.getElementById('quick-product-form');
+    quickForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(quickForm);
+        
+        try {
+            const response = await fetch('/api/productos/rapido', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            
+            if (response.ok && data.status === 'ok') {
+                // Agregar al selector principal
+                const select = document.getElementById('final-product-select');
+                const opt = document.createElement('option');
+                opt.value = data.product.id;
+                opt.textContent = `${data.product.name} (SKU: ${data.product.sku})`;
+                select.appendChild(opt);
+                
+                // Seleccionarlo
+                select.value = data.product.id;
+                
+                // Limpiar y cerrar modal
+                quickForm.reset();
+                closeProductModal();
+                alert(`Producto "${data.product.name}" creado y seleccionado correctamente.`);
+            } else {
+                alert(`Error: ${data.message || 'No se pudo guardar el producto.'}`);
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Error de red al intentar crear el producto.');
+        }
     });
 });
 </script>

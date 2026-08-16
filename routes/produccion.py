@@ -101,8 +101,74 @@ def nueva_ot():
     products = list_products()
     final_products = [p for p in products if p.get('product_type', 'Final') == 'Final']
     input_products = [p for p in products if p.get('product_type', 'Final') == 'Insumo']
+    categories = get_page_data("inventory_categories") or []
     
-    return render_template('nueva_ot.html', final_products=final_products, input_products=input_products)
+    return render_template(
+        'nueva_ot.html',
+        final_products=final_products,
+        input_products=input_products,
+        categories=categories
+    )
+
+@produccion_bp.route('/api/productos/rapido', methods=['POST'])
+def crear_producto_rapido():
+    """Crear un producto rápidamente via AJAX"""
+    from db import get_connection, insert_product
+    
+    sku = request.form.get('sku', '').strip()
+    name = request.form.get('name', '').strip()
+    internal_code = request.form.get('internal_code', '').strip() or sku
+    category = request.form.get('category', '').strip() or 'Miel'
+    product_type = request.form.get('product_type', 'Final').strip()
+    
+    if not sku or not name:
+        return jsonify({"status": "error", "message": "SKU y Nombre son obligatorios"}), 400
+        
+    product = {
+        "sku": sku,
+        "name": name,
+        "description": "Creado rápidamente desde Producción",
+        "barcode": "",
+        "internal_code": internal_code,
+        "category": category,
+        "photo_url": "",
+        "width_cm": None,
+        "height_cm": None,
+        "depth_cm": None,
+        "weight_kg": None,
+        "product_type": product_type,
+        "created_at": datetime.utcnow().isoformat(timespec='seconds')
+    }
+    
+    try:
+        product_id = insert_product(product)
+        
+        # También ingresarlo a inventory_items con stock 0
+        inventory_items = get_page_data("inventory_items") or []
+        if not any(item["code"] == sku for item in inventory_items):
+            inventory_items.append({
+                "code": sku,
+                "name": name,
+                "desc": product["description"],
+                "category": category,
+                "stock": 0.0,
+                "min_stock": 10,
+                "price": 0.0,
+                "status": "Normal",
+                "stock_percent": 100
+            })
+            set_page_data("inventory_items", inventory_items)
+            
+        return jsonify({
+            "status": "ok",
+            "product": {
+                "id": product_id,
+                "sku": sku,
+                "name": name
+            }
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @produccion_bp.route('/produccion/ot/<int:ot_id>/aprobar', methods=['POST'])
 def aprobar_ot(ot_id):
