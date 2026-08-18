@@ -57,7 +57,7 @@
                 </a>
                 <a href="{{ url_for('inventario.inventario') }}" class="nav-item {% if request.endpoint == 'inventario.inventario' %}active{% endif %}">
                     <span class="icon"><i class="fa-solid fa-boxes-stacked"></i></span>
-                    <span>Inventario</span>
+                    <span>Bodega</span>
                 </a>
                 <a href="{{ url_for('compras.list_oc') }}" class="nav-item {% if request.endpoint in ['compras.list_oc', 'compras.nueva_oc'] %}active{% endif %}">
                     <span class="icon"><i class="fa-solid fa-file-signature"></i></span>
