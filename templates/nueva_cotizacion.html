@@ -4,82 +4,387 @@
 {% block page_title %}Nueva Cotización{% endblock %}
 
 {% block content %}
-<div class="ingreso-container">
-    <div class="ingreso-form-card" style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-        <h3>Registrar Nueva Cotización</h3>
-        <form class="ingreso-form" method="post" id="cotizacion-form" style="margin-top: 20px;">
-            
-            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1.2fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                <div class="form-group">
-                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Nombre del Cliente *</label>
-                    <input type="text" class="form-control" name="customer_name" required placeholder="Ej: María González" style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
-                </div>
-                <div class="form-group">
-                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Correo Electrónico *</label>
-                    <input type="email" class="form-control" name="customer_email" required placeholder="correo@ejemplo.com" style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
-                </div>
-                <div class="form-group">
-                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Categoría de Cliente *</label>
-                    <select class="form-control" name="customer_category" id="customer-category-select" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px; height: 38px; font-size: 13px;">
-                        <option value="">-- Seleccionar Categoría --</option>
-                        {% for cat in categories %}
-                        <option value="{{ cat.id }}">{{ cat.name }} ({{ cat.margin }}% adic.)</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Fecha de Cotización *</label>
-                    <input type="date" class="form-control" name="sale_date" value="{{ default_date }}" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
-                </div>
-            </div>
+<style>
+.cotizacion-modal-card {
+    background: #ffffff;
+    max-width: 680px;
+    margin: 20px auto;
+    border-radius: 12px;
+    padding: 28px 32px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
 
-            <div class="form-group" style="margin-bottom: 16px;">
-                <label style="font-weight: 500; display: block; margin-bottom: 6px;">Notas / Condiciones Comerciales</label>
-                <textarea class="form-control" name="notes" placeholder="Validez de la oferta, plazos de entrega, etc..." style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px; height: 60px; resize: vertical;"></textarea>
-            </div>
+.cotizacion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
 
-            <div class="form-divider" style="height: 1px; background: #E2E8F0; margin: 24px 0;"></div>
+.cotizacion-title-box h2 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a202c;
+}
 
-            <h4 style="margin-bottom: 12px;">Productos a Cotizar</h4>
-            <div id="productos-cotizacion-section" style="margin-top: 15px;">
-                <!-- Cabecera de columnas única -->
-                <div style="display: grid; grid-template-columns: 2.5fr 1fr 1fr 1fr auto; gap: 12px; margin-bottom: 8px; font-weight: 600; font-size: 13px; color: #4a5568; border-bottom: 2px solid #E2E8F0; padding-bottom: 6px;">
-                    <div>Producto</div>
-                    <div>Cantidad</div>
-                    <div>Precio Unitario ($)</div>
-                    <div>Subtotal ($)</div>
-                    <div style="width: 40px; text-align: center;"></div>
-                </div>
-                
-                <div id="productos-cotizacion-container">
-                    <!-- Filas de productos dinámicas -->
-                </div>
-            </div>
+.cotizacion-title-box p {
+    margin: 4px 0 0 0;
+    font-size: 13px;
+    color: #718096;
+}
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
-                <button type="button" class="btn-secondary" id="add-product-btn" style="padding: 6px 12px; background-color: #ED8936; border: none; color: white; border-radius: 4px; cursor: pointer; font-weight: 600;">
-                    ➕ Agregar línea
-                </button>
-                
-                <div style="text-align: right; font-size: 1.1rem; font-weight: bold; color: #2D3748;">
-                    Total Cotización: <span id="total-val">$0.00</span>
-                </div>
-            </div>
+.cotizacion-close-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #a0aec0;
+    cursor: pointer;
+    text-decoration: none;
+}
+.cotizacion-close-btn:hover {
+    color: #4a5568;
+}
 
-            <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px; align-items: center;">
-                <a href="{{ url_for('ventas.ventas') }}" class="btn-secondary" style="text-decoration: none; padding: 10px 16px;">Cancelar</a>
-                <button type="submit" class="sf-btn-primary" style="padding: 10px 20px;">
-                    📂 Guardar Cotización
-                </button>
-            </div>
-        </form>
+.form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.form-grid-3 {
+    display: grid;
+    grid-template-columns: 1.2fr 1.2fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.form-group-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-group-field label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #4a5568;
+}
+
+.form-field-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #cbd5e0;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #2d3748;
+    background: #ffffff;
+    outline: none;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+
+.form-field-input:focus {
+    border-color: #3182ce;
+    box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.15);
+}
+
+.products-header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 24px 0 12px 0;
+}
+
+.products-header-bar h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #2d3748;
+}
+
+.btn-add-product-pill {
+    background: #ffffff;
+    border: 1px solid #cbd5e0;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #2d3748;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.btn-add-product-pill:hover {
+    background: #f7fafc;
+    border-color: #a0aec0;
+}
+
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+}
+
+.items-table th {
+    font-size: 12px;
+    font-weight: 600;
+    color: #718096;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+}
+
+.items-table td {
+    padding: 10px 6px;
+    border-bottom: 1px solid #edf2f7;
+    vertical-align: middle;
+}
+
+.totals-summary-box {
+    margin-left: auto;
+    width: 240px;
+    margin-top: 12px;
+    margin-bottom: 24px;
+}
+
+.total-summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 13px;
+    color: #4a5568;
+}
+
+.total-summary-row.grand-total {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a202c;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 8px;
+    margin-top: 4px;
+}
+
+.status-radio-group {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.status-radio-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border: 1px solid #cbd5e0;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    user-select: none;
+    background: #fff;
+    flex: 1;
+}
+
+.status-radio-pill input[type="radio"] {
+    accent-color: #3182ce;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.actions-footer-row {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 16px;
+    margin-top: 28px;
+}
+
+.btn-draft-secondary {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #cbd5e0;
+    background: #ffffff;
+    color: #2d3748;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.2s;
+}
+
+.btn-draft-secondary:hover {
+    background: #f7fafc;
+}
+
+.btn-submit-primary {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    background: #3182ce;
+    color: #ffffff;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.2s;
+}
+
+.btn-submit-primary:hover {
+    background: #2b6cb0;
+}
+</style>
+
+<div class="cotizacion-modal-card">
+    <!-- Encabezado de la tarjeta -->
+    <div class="cotizacion-header">
+        <div class="cotizacion-title-box">
+            <h2>Nueva Cotización</h2>
+            <p>El documento se emite directo al cliente al confirmar.</p>
+        </div>
+        <a href="{{ url_for('ventas.ventas') }}" class="cotizacion-close-btn" title="Cerrar">✕</a>
     </div>
+
+    <form method="post" id="cotizacion-form">
+        <!-- Fila 1: Tipo de documento y Fecha -->
+        <div class="form-grid-2">
+            <div class="form-group-field">
+                <label>Tipo de documento</label>
+                <select name="doc_type" class="form-field-input">
+                    <option value="Cotización" selected>Cotización</option>
+                    <option value="Boleta electrónica">Boleta electrónica</option>
+                    <option value="Factura electrónica">Factura electrónica</option>
+                    <option value="Nota de Venta">Nota de Venta</option>
+                </select>
+            </div>
+            <div class="form-group-field">
+                <label>Fecha</label>
+                <input type="date" name="sale_date" class="form-field-input" value="{{ default_date }}" required>
+            </div>
+        </div>
+
+        <!-- Fila 2: Datos de Cliente -->
+        <div class="form-grid-3">
+            <div class="form-group-field">
+                <label>Cliente / Nombre *</label>
+                <input type="text" name="customer_name" required class="form-field-input" placeholder="🔍 Buscar cliente o ingresar nombre...">
+            </div>
+            <div class="form-group-field">
+                <label>Correo Electrónico *</label>
+                <input type="email" name="customer_email" required class="form-field-input" placeholder="correo@ejemplo.com">
+            </div>
+            <div class="form-group-field">
+                <label>Categoría Cliente *</label>
+                <select name="customer_category" id="customer-category-select" required class="form-field-input">
+                    <option value="">-- Selección --</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.id }}">{{ cat.name }} ({{ cat.margin }}%)</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <!-- Sección Productos -->
+        <div class="products-header-bar">
+            <h3>Productos</h3>
+            <button type="button" class="btn-add-product-pill" id="add-product-btn">
+                <span>+</span>
+                <span>Agregar producto</span>
+            </button>
+        </div>
+
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width: 45%;">Producto</th>
+                    <th style="width: 15%; text-align: center;">Cant.</th>
+                    <th style="width: 20%; text-align: right;">Precio</th>
+                    <th style="width: 20%; text-align: right;">Subtotal</th>
+                    <th style="width: 30px;"></th>
+                </tr>
+            </thead>
+            <tbody id="productos-cotizacion-container">
+                <!-- Filas dinámicas -->
+            </tbody>
+        </table>
+
+        <!-- Totales acumulados -->
+        <div class="totals-summary-box">
+            <div class="total-summary-row">
+                <span>Neto</span>
+                <span id="neto-val">$0</span>
+            </div>
+            <div class="total-summary-row">
+                <span>IVA 19%</span>
+                <span id="iva-val">$0</span>
+            </div>
+            <div class="total-summary-row grand-total">
+                <span>Total</span>
+                <span id="total-val">$0</span>
+            </div>
+        </div>
+
+        <!-- Fila Método de pago y Estado -->
+        <div class="form-grid-2">
+            <div class="form-group-field">
+                <label>Método de pago</label>
+                <select name="payment_method" class="form-field-input">
+                    <option value="Efectivo" selected>Efectivo</option>
+                    <option value="Transferencia">Transferencia bancaria</option>
+                    <option value="Tarjeta de Crédito/Débito">Tarjeta de Crédito / Débito</option>
+                    <option value="Crédito 30 días">Crédito 30 días</option>
+                </select>
+            </div>
+            <div class="form-group-field">
+                <label>Estado</label>
+                <div class="status-radio-group">
+                    <label class="status-radio-pill">
+                        <input type="radio" name="payment_status" value="Pagado">
+                        <span>Pagado</span>
+                    </label>
+                    <label class="status-radio-pill">
+                        <input type="radio" name="payment_status" value="Pendiente" checked>
+                        <span>Pendiente</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Observaciones / Condiciones -->
+        <div class="form-group-field" style="margin-top: 12px;">
+            <label>Notas / Términos de Cotización</label>
+            <textarea name="notes" class="form-field-input" rows="2" placeholder="Validez de la oferta, plazos de entrega, condiciones..."></textarea>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="actions-footer-row">
+            <button type="button" class="btn-draft-secondary" onclick="window.location.href='{{ url_for('ventas.ventas') }}'">
+                Guardar borrador
+            </button>
+            <button type="submit" class="btn-submit-primary">
+                <span>🚀</span>
+                <span>Emitir documento</span>
+            </button>
+        </div>
+    </form>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('productos-cotizacion-container');
     const addBtn = document.getElementById('add-product-btn');
+    const netoSpan = document.getElementById('neto-val');
+    const ivaSpan = document.getElementById('iva-val');
     const totalSpan = document.getElementById('total-val');
     const emailInput = document.querySelector('input[name="customer_email"]');
     const categorySelect = document.getElementById('customer-category-select');
@@ -87,25 +392,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Lista de productos y mapa de precios cargados desde Flask
     const allProducts = {{ products|tojson|safe }};
     const productPricesMap = {{ products_prices_map|tojson|safe }};
+
+    function formatMoney(val) {
+        return '$' + Math.round(val).toLocaleString('es-CL');
+    }
     
     function createRow() {
-        const row = document.createElement('div');
-        row.className = 'product-row';
-        row.style.display = 'grid';
-        row.style.gridTemplateColumns = '2.5fr 1fr 1fr 1fr auto';
-        row.style.gap = '12px';
-        row.style.marginBottom = '8px';
-        row.style.alignItems = 'center';
+        const tr = document.createElement('tr');
+        tr.className = 'product-row-tr';
         
-        // Select de producto
+        // Columna Producto
+        const tdProd = document.createElement('td');
         const select = document.createElement('select');
         select.name = 'product_id[]';
-        select.className = 'form-control';
+        select.className = 'form-field-input';
         select.required = true;
-        select.style.width = '100%';
-        select.style.padding = '8px';
-        select.style.border = '1px solid #E2E8F0';
-        select.style.borderRadius = '6px';
         
         const defaultOpt = document.createElement('option');
         defaultOpt.value = '';
@@ -118,59 +419,63 @@ document.addEventListener('DOMContentLoaded', () => {
             opt.textContent = `${p.name} (SKU: ${p.sku})`;
             select.appendChild(opt);
         });
+        tdProd.appendChild(select);
         
-        // Input Cantidad
+        // Columna Cantidad
+        const tdQty = document.createElement('td');
+        tdQty.style.textAlign = 'center';
         const qtyInput = document.createElement('input');
         qtyInput.type = 'number';
         qtyInput.name = 'quantity[]';
-        qtyInput.className = 'form-control';
-        qtyInput.placeholder = 'Cantidad';
+        qtyInput.className = 'form-field-input';
+        qtyInput.style.textAlign = 'center';
         qtyInput.min = '1';
         qtyInput.required = true;
         qtyInput.value = '1';
-        qtyInput.style.width = '100%';
-        qtyInput.style.padding = '8px';
-        qtyInput.style.border = '1px solid #E2E8F0';
-        qtyInput.style.borderRadius = '6px';
+        tdQty.appendChild(qtyInput);
         
-        // Input Precio
+        // Columna Precio
+        const tdPrice = document.createElement('td');
+        tdPrice.style.textAlign = 'right';
         const priceInput = document.createElement('input');
         priceInput.type = 'number';
         priceInput.name = 'unit_price[]';
-        priceInput.className = 'form-control';
-        priceInput.placeholder = '0.00';
+        priceInput.className = 'form-field-input';
+        priceInput.style.textAlign = 'right';
         priceInput.step = '0.01';
-        priceInput.min = '0.01';
+        priceInput.min = '0';
         priceInput.required = true;
-        priceInput.style.width = '100%';
-        priceInput.style.padding = '8px';
-        priceInput.style.border = '1px solid #E2E8F0';
-        priceInput.style.borderRadius = '6px';
+        priceInput.placeholder = '0.00';
+        tdPrice.appendChild(priceInput);
         
-        // Subtotal Span
-        const subtotalSpan = document.createElement('div');
-        subtotalSpan.textContent = '$0.00';
-        subtotalSpan.style.fontWeight = '500';
-        subtotalSpan.style.color = '#4A5568';
-        subtotalSpan.style.padding = '8px';
+        // Columna Subtotal
+        const tdSub = document.createElement('td');
+        tdSub.style.textAlign = 'right';
+        tdSub.style.fontWeight = '600';
+        tdSub.style.color = '#2d3748';
+        tdSub.textContent = '$0';
         
-        // Botón remover
+        // Columna Remover
+        const tdRemove = document.createElement('td');
+        tdRemove.style.textAlign = 'center';
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
         removeBtn.textContent = '✕';
-        removeBtn.style.color = '#EF4444';
+        removeBtn.style.color = '#a0aec0';
         removeBtn.style.background = 'none';
         removeBtn.style.border = 'none';
-        removeBtn.style.fontSize = '1.1rem';
+        removeBtn.style.fontSize = '16px';
         removeBtn.style.cursor = 'pointer';
-        removeBtn.style.width = '40px';
+        removeBtn.addEventListener('mouseenter', () => removeBtn.style.color = '#e53e3e');
+        removeBtn.addEventListener('mouseleave', () => removeBtn.style.color = '#a0aec0');
         
         removeBtn.addEventListener('click', () => {
-            row.remove();
+            tr.remove();
             calculateTotal();
         });
+        tdRemove.appendChild(removeBtn);
         
-        // Evento cambio de producto -> Cargar precio según categoría
+        // Evento cambio de producto
         select.addEventListener('change', () => {
             const productId = select.value;
             const selectedCategory = categorySelect.value || 'default';
@@ -184,7 +489,6 @@ document.addEventListener('DOMContentLoaded', () => {
             calculateTotal();
         });
         
-        // Evento cambios -> Actualizar subtotal
         qtyInput.addEventListener('input', () => {
             updateRowSubtotal();
             calculateTotal();
@@ -198,21 +502,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const qty = parseFloat(qtyInput.value) || 0;
             const price = parseFloat(priceInput.value) || 0;
             const sub = qty * price;
-            subtotalSpan.textContent = `$${sub.toFixed(2)}`;
+            tdSub.textContent = formatMoney(sub);
         }
         
-        row.appendChild(select);
-        row.appendChild(qtyInput);
-        row.appendChild(priceInput);
-        row.appendChild(subtotalSpan);
-        row.appendChild(removeBtn);
+        tr.appendChild(tdProd);
+        tr.appendChild(tdQty);
+        tr.appendChild(tdPrice);
+        tr.appendChild(tdSub);
+        tr.appendChild(tdRemove);
         
-        container.appendChild(row);
+        container.appendChild(tr);
     }
     
     function calculateTotal() {
         let total = 0;
-        const rows = container.querySelectorAll('.product-row');
+        const rows = container.querySelectorAll('.product-row-tr');
         rows.forEach(r => {
             const qtyInput = r.querySelector('input[name="quantity[]"]');
             const priceInput = r.querySelector('input[name="unit_price[]"]');
@@ -220,17 +524,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const price = parseFloat(priceInput.value) || 0;
             total += qty * price;
         });
-        totalSpan.textContent = `$${total.toFixed(2)}`;
+
+        const neto = Math.round(total / 1.19);
+        const iva = total - neto;
+
+        netoSpan.textContent = formatMoney(neto);
+        ivaSpan.textContent = formatMoney(iva);
+        totalSpan.textContent = formatMoney(total);
     }
     
-    // Evento cambio global de Categoría de Cliente -> Recalcular precios de todos los productos agregados
+    // Recalcular precios si cambia la categoría del cliente
     categorySelect.addEventListener('change', () => {
-        const rows = container.querySelectorAll('.product-row');
+        const rows = container.querySelectorAll('.product-row-tr');
         rows.forEach(r => {
             const selectEl = r.querySelector('select[name="product_id[]"]');
             const priceInputEl = r.querySelector('input[name="unit_price[]"]');
             const qtyInputEl = r.querySelector('input[name="quantity[]"]');
-            const subtotalSpanEl = r.querySelector('div');
+            const tdSubEl = r.children[3];
             
             const productId = selectEl.value;
             const selectedCategory = categorySelect.value || 'default';
@@ -242,15 +552,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const qty = parseFloat(qtyInputEl.value) || 0;
                 const sub = qty * price;
-                if (subtotalSpanEl) {
-                    subtotalSpanEl.textContent = `$${sub.toFixed(2)}`;
+                if (tdSubEl) {
+                    tdSubEl.textContent = formatMoney(sub);
                 }
             }
         });
         calculateTotal();
     });
     
-    // Evento blur de email -> Buscar categoría de cliente existente
+    // Auto buscar categoría si ingresa email conocido
     emailInput.addEventListener('blur', async () => {
         const email = emailInput.value.trim();
         if (!email) return;
@@ -260,16 +570,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
                 categorySelect.value = data.category_id;
                 categorySelect.dispatchEvent(new Event('change'));
-                emailInput.style.borderColor = '#48BB78'; // verde
+                emailInput.style.borderColor = '#38a169';
             } else {
-                emailInput.style.borderColor = '#E2E8F0'; // gris default
+                emailInput.style.borderColor = '#cbd5e0';
             }
         } catch (err) {
             console.error("Error fetching client category:", err);
         }
     });
     
-    // Agregar primera línea por defecto
+    // Crear primera línea por defecto
     createRow();
     
     addBtn.addEventListener('click', () => {
