@@ -605,8 +605,17 @@ def nueva_cotizacion():
         customer_name = request.form.get('customer_name', '').strip()
         customer_email = request.form.get('customer_email', '').strip()
         customer_category = request.form.get('customer_category', '').strip()
+        customer_rut = request.form.get('customer_rut', '').strip()
+        customer_dv = request.form.get('customer_dv', '').strip()
+        doc_type = request.form.get('doc_type', 'Boleta').strip()
         sale_date = request.form.get('sale_date', '').strip()
         notes = request.form.get('notes', '').strip()
+        
+        if customer_rut:
+            rut_str = f"RUT: {customer_rut}-{customer_dv}" if customer_dv else f"RUT: {customer_rut}"
+            notes = f"{rut_str} | Doc: {doc_type}\n{notes}".strip()
+        else:
+            notes = f"Doc: {doc_type}\n{notes}".strip()
         
         product_ids = request.form.getlist('product_id[]')
         quantities = request.form.getlist('quantity[]')

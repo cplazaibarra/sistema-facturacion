@@ -261,10 +261,8 @@
             <div class="form-group-field">
                 <label>Tipo de documento</label>
                 <select name="doc_type" class="form-field-input">
-                    <option value="Cotización" selected>Cotización</option>
-                    <option value="Boleta electrónica">Boleta electrónica</option>
-                    <option value="Factura electrónica">Factura electrónica</option>
-                    <option value="Nota de Venta">Nota de Venta</option>
+                    <option value="Boleta" selected>Boleta</option>
+                    <option value="Factura">Factura</option>
                 </select>
             </div>
             <div class="form-group-field">
@@ -273,12 +271,23 @@
             </div>
         </div>
 
-        <!-- Fila 2: Datos de Cliente -->
-        <div class="form-grid-3">
+        <!-- Fila 2: Datos de Cliente (RUT, Razón Social, Email, Categoría) -->
+        <div class="form-grid-2" style="margin-bottom: 12px;">
             <div class="form-group-field">
-                <label>Cliente / Nombre *</label>
-                <input type="text" name="customer_name" required class="form-field-input" placeholder="🔍 Buscar cliente o ingresar nombre...">
+                <label>RUT</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" name="customer_rut" class="form-field-input" placeholder="12345678" style="flex: 1;">
+                    <span style="color: #94a3b8; font-weight: bold;">-</span>
+                    <input type="text" name="customer_dv" class="form-field-input" placeholder="K" style="width: 45px; text-align: center;">
+                </div>
             </div>
+            <div class="form-group-field">
+                <label>Razón Social / Nombre Cliente *</label>
+                <input type="text" name="customer_name" required class="form-field-input" placeholder="Ej: Distribuidora Miel SpA">
+            </div>
+        </div>
+
+        <div class="form-grid-2" style="margin-bottom: 16px;">
             <div class="form-group-field">
                 <label>Correo Electrónico *</label>
                 <input type="email" name="customer_email" required class="form-field-input" placeholder="correo@ejemplo.com">
