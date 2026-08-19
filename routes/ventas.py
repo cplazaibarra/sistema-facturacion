@@ -833,7 +833,7 @@ def convertir_cotizacion(sale_id):
 
 @ventas_bp.route('/ventas/clientes', methods=['GET', 'POST'])
 def clientes():
-    from db import list_clients, insert_client, list_customer_categories
+    from db import list_clients, insert_client, get_page_data
     if request.method == 'POST':
         client_data = {
             "rut": request.form.get('rut', '').strip(),
@@ -859,7 +859,13 @@ def clientes():
         return redirect(url_for('ventas.clientes'))
 
     clients_list = list_clients()
-    categories = list_customer_categories()
+    config = get_page_data("price_list_config") or {}
+    categories = config.get("categories", [
+        {"id": "cat_0", "name": "Categoría A", "margin": 5.0},
+        {"id": "cat_1", "name": "Categoría B", "margin": 10.0},
+        {"id": "cat_2", "name": "Categoría C", "margin": 15.0},
+        {"id": "cat_3", "name": "Categoría D", "margin": 20.0}
+    ])
     return render_template('clientes.html', clients=clients_list, categories=categories)
 
 
