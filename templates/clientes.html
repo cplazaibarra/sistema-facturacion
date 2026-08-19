@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+
+{% block title %}Clientes - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Gestión de Clientes{% endblock %}
+
+{% block content %}
+<style>
+.client-card {
+    background: #ffffff;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+
+.client-card-header {
+    background: #f8fafc;
+    padding: 14px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.client-card-header h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.client-card-body {
+    padding: 20px;
+}
+
+.receptor-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.receptor-grid-full {
+    margin-bottom: 14px;
+}
+
+.input-rut-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.form-label-tag {
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 6px;
+    display: block;
+}
+
+.input-addon-group {
+    display: flex;
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.input-addon-label {
+    background: #f1f5f9;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 600;
+    border-right: 1px solid #cbd5e1;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+}
+
+.input-addon-field {
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    color: #1e293b;
+}
+
+.btn-blue-submit {
+    background: #0284c7;
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-blue-submit:hover {
+    background: #0369a1;
+}
+
+.clients-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.clients-table th {
+    background: #f8fafc;
+    padding: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    border-bottom: 2px solid #e2e8f0;
+    text-align: left;
+}
+
+.clients-table td {
+    padding: 12px;
+    font-size: 14px;
+    color: #334155;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+</style>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h2 style="margin: 0; font-size: 20px; color: #1e293b;">Clientes de la Plataforma</h2>
+    <button class="btn-blue-submit" onclick="toggleNewClientForm()">+ Registrar Nuevo Cliente</button>
+</div>
+
+<!-- Formulario Registrador de Cliente (DATOS RECEPTOR) -->
+<div id="new-client-card" class="client-card" style="display: none;">
+    <div class="client-card-header">
+        <h3>DATOS RECEPTOR</h3>
+        <button type="button" onclick="toggleNewClientForm()" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #64748b;">✕</button>
+    </div>
+    <div class="client-card-body">
+        <form method="POST" action="{{ url_for('ventas.clientes') }}">
+            <!-- Fila 1: RUT y Razón Social -->
+            <div class="receptor-grid-2">
+                <div>
+                    <label class="form-label-tag">RUT *</label>
+                    <div class="input-addon-group">
+                        <span class="input-addon-label">Rut</span>
+                        <input type="text" name="rut" placeholder="12345678" style="flex: 1; padding: 8px 12px; border: none; outline: none;">
+                        <span style="padding: 8px 4px; color: #94a3b8;">-</span>
+                        <input type="text" name="dv" placeholder="K" style="width: 40px; padding: 8px 4px; text-align: center; border: none; outline: none; border-left: 1px solid #cbd5e1;">
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label-tag">Razón Social *</label>
+                    <div class="input-addon-group">
+                        <span class="input-addon-label">Razón Social</span>
+                        <input type="text" name="razon_social" required class="input-addon-field" placeholder="Empresa / Nombre Completo">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fila 2: Tipo de Compra y Dirección -->
+            <div class="receptor-grid-2">
+                <div>
+                    <label class="form-label-tag">Tipo de Compra</label>
+                    <div class="input-addon-group">
+                        <span class="input-addon-label">Tipo de Compra</span>
+                        <select name="tipo_compra" class="input-addon-field">
+                            <option value="Del Giro" selected>Del Giro</option>
+                            <option value="Supermercados">Supermercados</option>
+                            <option value="Venta de Bienes inmuebles, 'BBRR'">Venta de Bienes inmuebles, 'BBRR'</option>
+                            <option value="Activo Fijo">Activo Fijo</option>
+                            <option value="IVA Uso Común">IVA Uso Común</option>
+                            <option value="IVA no Recuperable">IVA no Recuperable</option>
+                            <option value="No Corresponde incluir">No Corresponde incluir</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label-tag">Dirección</label>
+                    <div class="input-addon-group">
+                        <span class="input-addon-label">Dirección</span>
+                        <input type="text" name="direccion" class="input-addon-field" placeholder="Av. Principal 123">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fila 3: Comuna y Ciudad -->
+            <div class="receptor-grid-2">
+                <div>
+                    <label class="form-label-tag">Comuna</label>
+                    <div class="input-addon-group">
+                        <span class="input-addon-label">Comuna</span>
+                        <input type="text" name="comuna" class="input-addon-field" placeholder="Ej: Santiago">
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label-tag">Ciudad</label>
+                    <div class="input-addon-group">
+                        <span class="input-addon-label">Ciudad</span>
+                        <input type="text" name="ciudad" class="input-addon-field" placeholder="Ej: Santiago">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fila 4: Giro -->
+            <div class="receptor-grid-full">
+                <label class="form-label-tag">Giro Commercial</label>
+                <div class="input-addon-group">
+                    <span class="input-addon-label">Giro</span>
+                    <input type="text" name="giro" class="input-addon-field" placeholder="Ej: Venta al por mayor de alimentos">
+                </div>
+            </div>
+
+            <!-- Fila 5: Contacto y Rut solicita -->
+            <div class="receptor-grid-2">
+                <div>
+                    <label class="form-label-tag">Contacto</label>
+                    <div class="input-addon-group">
+                        <span class="input-addon-label">Contacto</span>
+                        <input type="text" name="contacto" class="input-addon-field" placeholder="Nombre o Teléfono de contacto">
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label-tag">RUT Solicita</label>
+                    <div class="input-addon-group">
+                        <span class="input-addon-label">Rut solicita</span>
+                        <input type="text" name="rut_solicita" placeholder="12345678" style="flex: 1; padding: 8px 12px; border: none; outline: none;">
+                        <span style="padding: 8px 4px; color: #94a3b8;">-</span>
+                        <input type="text" name="dv_solicita" placeholder="K" style="width: 40px; padding: 8px 4px; text-align: center; border: none; outline: none; border-left: 1px solid #cbd5e1;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fila 6: Correo, Teléfono y Categoría -->
+            <div class="receptor-grid-2" style="grid-template-columns: 1.2fr 1fr 1.2fr;">
+                <div>
+                    <label class="form-label-tag">Correo Electrónico</label>
+                    <div class="input-addon-group">
+                        <span class="input-addon-label">Email</span>
+                        <input type="email" name="email" class="input-addon-field" placeholder="cliente@ejemplo.com">
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label-tag">Teléfono</label>
+                    <div class="input-addon-group">
+                        <span class="input-addon-label">Teléfono</span>
+                        <input type="text" name="phone" class="input-addon-field" placeholder="+56 9 1234 5678">
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label-tag">Categoría de Cliente</label>
+                    <div class="input-addon-group">
+                        <span class="input-addon-label">Categoría</span>
+                        <select name="category_id" class="input-addon-field">
+                            <option value="">-- Sin categoría --</option>
+                            {% for cat in categories %}
+                            <option value="{{ cat.id }}">{{ cat.name }} ({{ cat.margin }}%)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px;">
+                <button type="button" onclick="toggleNewClientForm()" class="btn-secondary" style="padding: 8px 16px;">Cancelar</button>
+                <button type="submit" class="btn-blue-submit">Guardar Cliente</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Listado de Clientes Registrados -->
+<div class="client-card">
+    <div class="client-card-header">
+        <h3>LISTADO DE CLIENTES (RECEPTORES)</h3>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="clients-table">
+            <thead>
+                <tr>
+                    <th>RUT</th>
+                    <th>Razón Social</th>
+                    <th>Tipo Compra</th>
+                    <th>Giro / Comuna</th>
+                    <th>Contacto</th>
+                    <th>Email</th>
+                    <th>Categoría</th>
+                    <th style="text-align: right;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if clients %}
+                {% for c in clients %}
+                <tr>
+                    <td><strong>{{ c.rut }}{% if c.dv %}-{{ c.dv }}{% endif %}</strong></td>
+                    <td style="font-weight: 600; color: #0f172a;">{{ c.razon_social }}</td>
+                    <td><span style="background: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">{{ c.tipo_compra or 'Del Giro' }}</span></td>
+                    <td>
+                        <div>{{ c.giro or '-' }}</div>
+                        <small style="color: #64748b;">{{ c.comuna or '' }} {{ c.ciudad or '' }}</small>
+                    </td>
+                    <td>{{ c.contacto or '-' }}</td>
+                    <td>
+                        {% set ns = namespace(found=false, name='General') %}
+                        {% for cat in categories %}
+                            {% if cat.id == c.category_id %}
+                                {% set ns.name = cat.name %}
+                            {% endif %}
+                        {% endfor %}
+                        {{ ns.name }}
+                    </td>
+                    <td style="text-align: right;">
+                        <form method="POST" action="{{ url_for('ventas.eliminar_cliente', client_id=c.id) }}" onsubmit="return confirm('¿Eliminar este cliente?');" style="display: inline;">
+                            <button type="submit" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px;" title="Eliminar">🗑️</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="8" style="text-align: center; color: #94a3b8; padding: 32px;">
+                        No hay clientes registrados en el sistema. Haz clic en <strong>"+ Registrar Nuevo Cliente"</strong> para agregar el primero.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function toggleNewClientForm() {
+    const card = document.getElementById('new-client-card');
+    card.style.display = (card.style.display === 'none' || card.style.display === '') ? 'block' : 'none';
+}
+</script>
+{% endblock %}
