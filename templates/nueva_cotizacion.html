@@ -334,30 +334,16 @@
             </div>
         </div>
 
-        <!-- Fila Método de pago y Estado -->
-        <div class="form-grid-2">
-            <div class="form-group-field">
-                <label>Método de pago</label>
-                <select name="payment_method" class="form-field-input">
-                    <option value="Efectivo" selected>Efectivo</option>
-                    <option value="Transferencia">Transferencia bancaria</option>
-                    <option value="Tarjeta de Crédito/Débito">Tarjeta de Crédito / Débito</option>
-                    <option value="Crédito 30 días">Crédito 30 días</option>
-                </select>
-            </div>
-            <div class="form-group-field">
-                <label>Estado</label>
-                <div class="status-radio-group">
-                    <label class="status-radio-pill">
-                        <input type="radio" name="payment_status" value="Pagado">
-                        <span>Pagado</span>
-                    </label>
-                    <label class="status-radio-pill">
-                        <input type="radio" name="payment_status" value="Pendiente" checked>
-                        <span>Pendiente</span>
-                    </label>
-                </div>
-            </div>
+        <!-- Fila Método de pago -->
+        <div class="form-group-field" style="margin-bottom: 16px;">
+            <label>Método de pago</label>
+            <select name="payment_method" class="form-field-input">
+                <option value="Efectivo" selected>Efectivo</option>
+                <option value="Transferencia">Transferencia bancaria</option>
+                <option value="Tarjeta de Crédito/Débito">Tarjeta de Crédito / Débito</option>
+                <option value="Crédito 30 días">Crédito 30 días</option>
+            </select>
+            <input type="hidden" name="payment_status" value="Cotización">
         </div>
 
         <!-- Observaciones / Condiciones -->
