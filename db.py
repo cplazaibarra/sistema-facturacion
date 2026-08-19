@@ -972,9 +972,10 @@ def init_db() -> None:
                     dv_solicita VARCHAR(5),
                     email VARCHAR(255),
                     phone VARCHAR(50),
-                    category_id INTEGER,
+                    category_id VARCHAR(50),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
+                ALTER TABLE clients ALTER COLUMN category_id TYPE VARCHAR(50);
                 """
             )
         conn.commit()
@@ -2888,9 +2889,8 @@ def list_clients() -> list:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT c.*, cat.name as category_name
+                SELECT c.*
                 FROM clients c
-                LEFT JOIN customer_categories cat ON c.category_id = cat.id
                 ORDER BY c.razon_social ASC
             """)
             return cur.fetchall()
@@ -2926,7 +2926,7 @@ def insert_client(data: dict) -> int:
                     data.get("dv_solicita", "").strip(),
                     data.get("email", "").strip(),
                     data.get("phone", "").strip(),
-                    int(data["category_id"]) if data.get("category_id") else None,
+                    str(data["category_id"]).strip() if data.get("category_id") else None,
                 ),
             )
             client_id = cur.fetchone()["id"]
@@ -2959,7 +2959,7 @@ def update_client(client_id: int, data: dict) -> None:
                     data.get("dv_solicita", "").strip(),
                     data.get("email", "").strip(),
                     data.get("phone", "").strip(),
-                    int(data["category_id"]) if data.get("category_id") else None,
+                    str(data["category_id"]).strip() if data.get("category_id") else None,
                     client_id,
                 ),
             )
