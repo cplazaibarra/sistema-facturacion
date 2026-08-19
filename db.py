@@ -2972,4 +2972,67 @@ def delete_client(client_id: int) -> None:
         conn.commit()
 
 
+def get_client_by_rut(rut: str) -> dict:
+    if not rut:
+        return None
+    clean_rut = rut.strip().replace(".", "").replace("-", "")
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM clients WHERE REPLACE(REPLACE(rut, '.', ''), '-', '') = %s LIMIT 1", (clean_rut,))
+            return cur.fetchone()
+
+
+def upsert_client_by_rut(data: dict) -> int:
+    rut_raw = data.get("rut", "").strip()
+    if not rut_raw:
+        return None
+    clean_rut = rut_raw.replace(".", "").replace("-", "")
+    existing = get_client_by_rut(clean_rut)
+    
+    dv = data.get("dv", "").strip()
+    razon_social = data.get("razon_social", "").strip()
+    email = data.get("email", "").strip()
+    category_id = str(data["category_id"]).strip() if data.get("category_id") else None
+
+    if existing:
+        client_id = existing["id"]
+        update_data = {
+            "rut": rut_raw,
+            "dv": dv or existing.get("dv", ""),
+            "razon_social": razon_social or existing.get("razon_social", ""),
+            "tipo_compra": data.get("tipo_compra") or existing.get("tipo_compra") or "Del Giro",
+            "direccion": data.get("direccion") or existing.get("direccion") or "",
+            "comuna": data.get("comuna") or existing.get("comuna") or "",
+            "ciudad": data.get("ciudad") or existing.get("ciudad") or "",
+            "giro": data.get("giro") or existing.get("giro") or "",
+            "contacto": data.get("contacto") or existing.get("contacto") or "",
+            "rut_solicita": data.get("rut_solicita") or existing.get("rut_solicita") or "",
+            "dv_solicita": data.get("dv_solicita") or existing.get("dv_solicita") or "",
+            "email": email or existing.get("email", ""),
+            "phone": data.get("phone") or existing.get("phone") or "",
+            "category_id": category_id or existing.get("category_id")
+        }
+        update_client(client_id, update_data)
+        return client_id
+    else:
+        new_client = {
+            "rut": rut_raw,
+            "dv": dv,
+            "razon_social": razon_social,
+            "tipo_compra": data.get("tipo_compra", "Del Giro"),
+            "direccion": data.get("direccion", ""),
+            "comuna": data.get("comuna", ""),
+            "ciudad": data.get("ciudad", ""),
+            "giro": data.get("giro", ""),
+            "contacto": data.get("contacto", ""),
+            "rut_solicita": data.get("rut_solicita", ""),
+            "dv_solicita": data.get("dv_solicita", ""),
+            "email": email,
+            "phone": data.get("phone", ""),
+            "category_id": category_id
+        }
+        return insert_client(new_client)
+
+
+
 

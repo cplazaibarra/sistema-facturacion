@@ -555,6 +555,42 @@ document.addEventListener('DOMContentLoaded', () => {
         calculateTotal();
     });
     
+    // Auto buscar datos de cliente si ingresa RUT conocido
+    const rutInput = document.querySelector('input[name="customer_rut"]');
+    const dvInput = document.querySelector('input[name="customer_dv"]');
+    const nameInput = document.querySelector('input[name="customer_name"]');
+
+    async function checkClientByRut() {
+        const rut = (rutInput ? rutInput.value : '').trim();
+        if (!rut) return;
+        try {
+            const response = await fetch(`/api/clientes/buscar_por_rut/${encodeURIComponent(rut)}`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.status === 'ok' && data.client) {
+                    const c = data.client;
+                    if (c.dv && dvInput) dvInput.value = c.dv;
+                    if (c.razon_social && nameInput) nameInput.value = c.razon_social;
+                    if (c.email && emailInput) emailInput.value = c.email;
+                    if (c.category_id && categorySelect) {
+                        categorySelect.value = c.category_id;
+                        categorySelect.dispatchEvent(new Event('change'));
+                    }
+                    if (rutInput) rutInput.style.borderColor = '#38a169';
+                    if (nameInput) nameInput.style.borderColor = '#38a169';
+                }
+            } else {
+                if (rutInput) rutInput.style.borderColor = '#cbd5e0';
+            }
+        } catch (err) {
+            console.error("Error fetching client by RUT:", err);
+        }
+    }
+
+    if (rutInput) {
+        rutInput.addEventListener('blur', checkClientByRut);
+    }
+
     // Auto buscar categoría si ingresa email conocido
     emailInput.addEventListener('blur', async () => {
         const email = emailInput.value.trim();

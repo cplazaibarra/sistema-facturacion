@@ -621,7 +621,17 @@ def nueva_cotizacion():
         quantities = request.form.getlist('quantity[]')
         unit_prices = request.form.getlist('unit_price[]')
         
-        # Guardar / Actualizar categoría del cliente
+        # Guardar / Actualizar datos del cliente en la base de datos (con RUT como llave primaria)
+        from db import upsert_client_by_rut
+        if customer_rut:
+            upsert_client_by_rut({
+                "rut": customer_rut,
+                "dv": customer_dv,
+                "razon_social": customer_name,
+                "email": customer_email,
+                "category_id": customer_category
+            })
+
         if customer_email and customer_category:
             with get_connection() as conn:
                 with conn.cursor() as cur:
@@ -908,4 +918,25 @@ def eliminar_cliente(client_id):
     delete_client(client_id)
     flash("Cliente eliminado correctamente.", "info")
     return redirect(url_for('ventas.clientes'))
+
+
+@ventas_bp.route('/api/clientes/buscar_por_rut/<path:rut>')
+def api_buscar_cliente_por_rut(rut):
+    from db import get_client_by_rut
+    client = get_client_by_rut(rut)
+    if client:
+        return jsonify({
+            "status": "ok",
+            "client": {
+                "id": client["id"],
+                "rut": client["rut"],
+                "dv": client.get("dv", ""),
+                "razon_social": client.get("razon_social", ""),
+                "email": client.get("email", ""),
+                "phone": client.get("phone", ""),
+                "category_id": client.get("category_id", "")
+            }
+        })
+    return jsonify({"status": "not_found", "message": "Cliente no encontrado"}), 404
+
 
