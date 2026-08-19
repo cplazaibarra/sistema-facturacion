@@ -829,3 +829,68 @@ def convertir_cotizacion(sale_id):
         
     flash(f"Cotización convertida a Venta {new_sale_number} exitosamente.", "success")
     return redirect(url_for('ventas.ventas'))
+
+
+@ventas_bp.route('/ventas/clientes', methods=['GET', 'POST'])
+def clientes():
+    from db import list_clients, insert_client, list_customer_categories
+    if request.method == 'POST':
+        client_data = {
+            "rut": request.form.get('rut', '').strip(),
+            "dv": request.form.get('dv', '').strip(),
+            "razon_social": request.form.get('razon_social', '').strip(),
+            "tipo_compra": request.form.get('tipo_compra', 'Del Giro').strip(),
+            "direccion": request.form.get('direccion', '').strip(),
+            "comuna": request.form.get('comuna', '').strip(),
+            "ciudad": request.form.get('ciudad', '').strip(),
+            "giro": request.form.get('giro', '').strip(),
+            "contacto": request.form.get('contacto', '').strip(),
+            "rut_solicita": request.form.get('rut_solicita', '').strip(),
+            "dv_solicita": request.form.get('dv_solicita', '').strip(),
+            "email": request.form.get('email', '').strip(),
+            "phone": request.form.get('phone', '').strip(),
+            "category_id": request.form.get('category_id', '').strip()
+        }
+        if client_data['razon_social']:
+            insert_client(client_data)
+            flash("Cliente registrado exitosamente.", "success")
+        else:
+            flash("La Razón Social es requerida.", "warning")
+        return redirect(url_for('ventas.clientes'))
+
+    clients_list = list_clients()
+    categories = list_customer_categories()
+    return render_template('clientes.html', clients=clients_list, categories=categories)
+
+
+@ventas_bp.route('/ventas/clientes/<int:client_id>/editar', methods=['POST'])
+def editar_cliente(client_id):
+    from db import update_client
+    client_data = {
+        "rut": request.form.get('rut', '').strip(),
+        "dv": request.form.get('dv', '').strip(),
+        "razon_social": request.form.get('razon_social', '').strip(),
+        "tipo_compra": request.form.get('tipo_compra', 'Del Giro').strip(),
+        "direccion": request.form.get('direccion', '').strip(),
+        "comuna": request.form.get('comuna', '').strip(),
+        "ciudad": request.form.get('ciudad', '').strip(),
+        "giro": request.form.get('giro', '').strip(),
+        "contacto": request.form.get('contacto', '').strip(),
+        "rut_solicita": request.form.get('rut_solicita', '').strip(),
+        "dv_solicita": request.form.get('dv_solicita', '').strip(),
+        "email": request.form.get('email', '').strip(),
+        "phone": request.form.get('phone', '').strip(),
+        "category_id": request.form.get('category_id', '').strip()
+    }
+    update_client(client_id, client_data)
+    flash("Cliente actualizado exitosamente.", "success")
+    return redirect(url_for('ventas.clientes'))
+
+
+@ventas_bp.route('/ventas/clientes/<int:client_id>/eliminar', methods=['POST'])
+def eliminar_cliente(client_id):
+    from db import delete_client
+    delete_client(client_id)
+    flash("Cliente eliminado correctamente.", "info")
+    return redirect(url_for('ventas.clientes'))
+

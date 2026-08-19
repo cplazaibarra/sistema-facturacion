@@ -33,17 +33,20 @@
                     <span>Dashboard</span>
                 </a>
                 <div class="nav-section">
-                    <button class="nav-item nav-toggle {% if request.endpoint in ['ventas.ventas', 'usuarios.listas_precios'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['ventas.ventas', 'usuarios.listas_precios', 'ventas.clientes'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
                         <span class="icon"><i class="fa-solid fa-hand-holding-dollar"></i></span>
                         <span>Ventas</span>
                         <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
-                    <div class="nav-submenu {% if request.endpoint in ['ventas.ventas', 'usuarios.listas_precios'] %}open{% endif %}">
+                    <div class="nav-submenu {% if request.endpoint in ['ventas.ventas', 'usuarios.listas_precios', 'ventas.clientes'] %}open{% endif %}">
                         <a href="{{ url_for('ventas.ventas') }}" class="nav-item nav-subitem {% if request.endpoint == 'ventas.ventas' %}active{% endif %}">
                             <span>Ventas / Cotizaciones</span>
                         </a>
                         <a href="{{ url_for('usuarios.listas_precios') }}" class="nav-item nav-subitem {% if request.endpoint == 'usuarios.listas_precios' %}active{% endif %}">
                             <span>Listas de Precios</span>
+                        </a>
+                        <a href="{{ url_for('ventas.clientes') }}" class="nav-item nav-subitem {% if request.endpoint == 'ventas.clientes' %}active{% endif %}">
+                            <span>Clientes</span>
                         </a>
                     </div>
                 </div>

@@ -955,6 +955,28 @@ def init_db() -> None:
                 ALTER TABLE production_order_additional_items ADD COLUMN IF NOT EXISTS unit_cost DOUBLE PRECISION;
                 """
             )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS clients (
+                    id SERIAL PRIMARY KEY,
+                    rut VARCHAR(20),
+                    dv VARCHAR(5),
+                    razon_social VARCHAR(255) NOT NULL,
+                    tipo_compra VARCHAR(100) DEFAULT 'Del Giro',
+                    direccion TEXT,
+                    comuna VARCHAR(100),
+                    ciudad VARCHAR(100),
+                    giro VARCHAR(255),
+                    contacto VARCHAR(255),
+                    rut_solicita VARCHAR(20),
+                    dv_solicita VARCHAR(5),
+                    email VARCHAR(255),
+                    phone VARCHAR(50),
+                    category_id INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                """
+            )
         conn.commit()
 
     seed_data_if_empty()
@@ -2860,5 +2882,94 @@ def get_income_report_data() -> dict:
         "futuros_detalles": futuros_detalles,
         "historicos_detalles": historicos_detalles
     }
+
+
+def list_clients() -> list:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT c.*, cat.name as category_name
+                FROM clients c
+                LEFT JOIN customer_categories cat ON c.category_id = cat.id
+                ORDER BY c.razon_social ASC
+            """)
+            return cur.fetchall()
+
+def get_client_by_id(client_id: int) -> dict:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM clients WHERE id = %s", (client_id,))
+            return cur.fetchone()
+
+def insert_client(data: dict) -> int:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO clients (
+                    rut, dv, razon_social, tipo_compra, direccion, comuna, ciudad,
+                    giro, contacto, rut_solicita, dv_solicita, email, phone, category_id
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    data.get("rut", "").strip(),
+                    data.get("dv", "").strip(),
+                    data.get("razon_social", "").strip(),
+                    data.get("tipo_compra", "Del Giro").strip(),
+                    data.get("direccion", "").strip(),
+                    data.get("comuna", "").strip(),
+                    data.get("ciudad", "").strip(),
+                    data.get("giro", "").strip(),
+                    data.get("contacto", "").strip(),
+                    data.get("rut_solicita", "").strip(),
+                    data.get("dv_solicita", "").strip(),
+                    data.get("email", "").strip(),
+                    data.get("phone", "").strip(),
+                    int(data["category_id"]) if data.get("category_id") else None,
+                ),
+            )
+            client_id = cur.fetchone()["id"]
+        conn.commit()
+        return client_id
+
+def update_client(client_id: int, data: dict) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE clients SET
+                    rut = %s, dv = %s, razon_social = %s, tipo_compra = %s,
+                    direccion = %s, comuna = %s, ciudad = %s, giro = %s,
+                    contacto = %s, rut_solicita = %s, dv_solicita = %s,
+                    email = %s, phone = %s, category_id = %s
+                WHERE id = %s
+                """,
+                (
+                    data.get("rut", "").strip(),
+                    data.get("dv", "").strip(),
+                    data.get("razon_social", "").strip(),
+                    data.get("tipo_compra", "Del Giro").strip(),
+                    data.get("direccion", "").strip(),
+                    data.get("comuna", "").strip(),
+                    data.get("ciudad", "").strip(),
+                    data.get("giro", "").strip(),
+                    data.get("contacto", "").strip(),
+                    data.get("rut_solicita", "").strip(),
+                    data.get("dv_solicita", "").strip(),
+                    data.get("email", "").strip(),
+                    data.get("phone", "").strip(),
+                    int(data["category_id"]) if data.get("category_id") else None,
+                    client_id,
+                ),
+            )
+        conn.commit()
+
+def delete_client(client_id: int) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM clients WHERE id = %s", (client_id,))
+        conn.commit()
+
 
 
