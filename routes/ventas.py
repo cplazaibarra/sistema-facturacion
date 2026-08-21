@@ -711,6 +711,7 @@ def nueva_cotizacion():
         product_ids = request.form.getlist('product_id[]')
         quantities = request.form.getlist('quantity[]')
         unit_prices = request.form.getlist('unit_price[]')
+        discounts = request.form.getlist('discount[]')
         
         # Guardar / Actualizar datos del cliente en la base de datos (con RUT como llave primaria)
         from db import upsert_client_by_rut
@@ -743,12 +744,14 @@ def nueva_cotizacion():
         # Cargar productos para buscar nombres
         all_prods = {str(p['id']): p for p in list_products()}
         
-        for p_id, qty, price in zip(product_ids, quantities, unit_prices):
+        for idx, (p_id, qty, price) in enumerate(zip(product_ids, quantities, unit_prices)):
             if not p_id or not qty or not price:
                 continue
             qty_int = int(qty)
             price_float = float(price)
-            subtotal = qty_int * price_float
+            discount_float = float(discounts[idx]) if idx < len(discounts) and discounts[idx] else 0.0
+            
+            subtotal = qty_int * price_float * (1.0 - (discount_float / 100.0))
             total_amount += subtotal
             
             prod_info = all_prods.get(p_id, {})
@@ -757,7 +760,8 @@ def nueva_cotizacion():
                 "product_name": prod_info.get('name', 'Producto Desconocido'),
                 "quantity": qty_int,
                 "price": price_float,
-                "subtotal": subtotal
+                "discount": discount_float,
+                "subtotal": round(subtotal, 2)
             })
             
         if not products_list:

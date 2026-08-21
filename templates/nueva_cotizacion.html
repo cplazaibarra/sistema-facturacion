@@ -315,10 +315,11 @@
         <table class="items-table">
             <thead>
                 <tr>
-                    <th style="width: 45%;">Producto</th>
-                    <th style="width: 15%; text-align: center;">Cant.</th>
-                    <th style="width: 20%; text-align: right;">Precio</th>
-                    <th style="width: 20%; text-align: right;">Subtotal</th>
+                    <th style="width: 38%;">Producto</th>
+                    <th style="width: 12%; text-align: center;">Cant.</th>
+                    <th style="width: 18%; text-align: right;">Precio</th>
+                    <th style="width: 14%; text-align: center;">Desc. (%)</th>
+                    <th style="width: 18%; text-align: right;">Subtotal</th>
                     <th style="width: 30px;"></th>
                 </tr>
             </thead>
@@ -392,7 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return '$' + Math.round(val).toLocaleString('es-CL');
     }
     
-    function createRow(selectedProdId = null, initialQty = 1, initialPrice = null) {
+    function createRow(selectedProdId = null, initialQty = 1, initialPrice = null, initialDiscount = 0) {
         const tr = document.createElement('tr');
         tr.className = 'product-row-tr';
         
@@ -454,6 +455,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         tdPrice.appendChild(priceInput);
+
+        // Columna Descuento (%)
+        const tdDiscount = document.createElement('td');
+        tdDiscount.style.textAlign = 'center';
+        const discountInput = document.createElement('input');
+        discountInput.type = 'number';
+        discountInput.name = 'discount[]';
+        discountInput.className = 'form-field-input';
+        discountInput.style.textAlign = 'center';
+        discountInput.min = '0';
+        discountInput.max = '100';
+        discountInput.step = '1';
+        discountInput.placeholder = '0%';
+        discountInput.value = initialDiscount || 0;
+        tdDiscount.appendChild(discountInput);
         
         // Columna Subtotal
         const tdSub = document.createElement('td');
@@ -504,21 +520,28 @@ document.addEventListener('DOMContentLoaded', () => {
             updateRowSubtotal();
             calculateTotal();
         });
+        discountInput.addEventListener('input', () => {
+            updateRowSubtotal();
+            calculateTotal();
+        });
         
         function updateRowSubtotal() {
             const qty = parseFloat(qtyInput.value) || 0;
             const price = parseFloat(priceInput.value) || 0;
-            const sub = qty * price;
+            const discount = parseFloat(discountInput.value) || 0;
+            const sub = qty * price * (1 - (discount / 100));
             tdSub.textContent = formatMoney(sub);
         }
         
         tr.appendChild(tdProd);
         tr.appendChild(tdQty);
         tr.appendChild(tdPrice);
+        tr.appendChild(tdDiscount);
         tr.appendChild(tdSub);
         tr.appendChild(tdRemove);
         
         container.appendChild(tr);
+        updateRowSubtotal();
     }
     
     function calculateTotal() {
@@ -527,9 +550,11 @@ document.addEventListener('DOMContentLoaded', () => {
         rows.forEach(r => {
             const qtyInput = r.querySelector('input[name="quantity[]"]');
             const priceInput = r.querySelector('input[name="unit_price[]"]');
-            const qty = parseFloat(qtyInput.value) || 0;
-            const price = parseFloat(priceInput.value) || 0;
-            total += qty * price;
+            const discountInput = r.querySelector('input[name="discount[]"]');
+            const qty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
+            const price = parseFloat(priceInput ? priceInput.value : 0) || 0;
+            const discount = parseFloat(discountInput ? discountInput.value : 0) || 0;
+            total += qty * price * (1 - (discount / 100));
         });
 
         const neto = Math.round(total / 1.19);
@@ -547,7 +572,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const selectEl = r.querySelector('select[name="product_id[]"]');
             const priceInputEl = r.querySelector('input[name="unit_price[]"]');
             const qtyInputEl = r.querySelector('input[name="quantity[]"]');
-            const tdSubEl = r.children[3];
+            const discountInputEl = r.querySelector('input[name="discount[]"]');
+            const tdSubEl = r.children[4];
             
             const productId = selectEl.value;
             const selectedCategory = categorySelect.value || 'default';
@@ -557,8 +583,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const price = prices[selectedCategory] || prices['default'] || 0.00;
                 priceInputEl.value = price;
                 
-                const qty = parseFloat(qtyInputEl.value) || 0;
-                const sub = qty * price;
+                const qty = parseFloat(qtyInputEl ? qtyInputEl.value : 0) || 0;
+                const discount = parseFloat(discountInputEl ? discountInputEl.value : 0) || 0;
+                const sub = qty * price * (1 - (discount / 100));
                 if (tdSubEl) {
                     tdSubEl.textContent = formatMoney(sub);
                 }
@@ -629,7 +656,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const pId = p.product_id || p.id;
             const pQty = p.quantity || 1;
             const pPrice = p.price || p.unit_price || 0;
-            createRow(pId, pQty, pPrice);
+            const pDisc = p.discount || 0;
+            createRow(pId, pQty, pPrice, pDisc);
         });
     {% else %}
         createRow();

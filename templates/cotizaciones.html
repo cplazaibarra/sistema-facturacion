@@ -239,6 +239,7 @@
                         <th style="padding: 8px 12px;">Producto</th>
                         <th style="padding: 8px 12px; text-align: center;">Cant.</th>
                         <th style="padding: 8px 12px; text-align: right;">Precio Unit.</th>
+                        <th style="padding: 8px 12px; text-align: center;">Desc. (%)</th>
                         <th style="padding: 8px 12px; text-align: right;">Subtotal</th>
                     </tr>
                 </thead>
@@ -387,12 +388,14 @@ function openCotizacionDetail(sale) {
             const pName = p.product_name || p.name || 'Producto';
             const pQty = p.quantity || 1;
             const pPrice = p.price || p.unit_price || 0;
-            const pSub = p.subtotal || (pQty * pPrice);
+            const pDisc = p.discount || 0;
+            const pSub = p.subtotal || (pQty * pPrice * (1 - (pDisc / 100)));
 
             tr.innerHTML = `
                 <td style="padding: 10px 12px; font-weight: 500;">${pName}</td>
                 <td style="padding: 10px 12px; text-align: center;">${pQty}</td>
                 <td style="padding: 10px 12px; text-align: right;">$${Math.round(pPrice).toLocaleString('es-CL')}</td>
+                <td style="padding: 10px 12px; text-align: center;">${pDisc}%</td>
                 <td style="padding: 10px 12px; text-align: right; font-weight: 600;">$${Math.round(pSub).toLocaleString('es-CL')}</td>
             `;
             tbody.appendChild(tr);
