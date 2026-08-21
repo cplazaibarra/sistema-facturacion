@@ -34,8 +34,16 @@
             <tbody>
                 {% for order in orders %}
                 <tr>
-                    <td><strong>{{ order.oc_number }}</strong></td>
-                    <td>{{ order.supplier_name }}</td>
+                    <td>
+                        <a href="javascript:void(0);" onclick="openOCDetailModal({{ order.id }})" style="font-weight: 700; color: #0284c7; text-decoration: underline;" title="Ver Detalle de la Orden de Compra">
+                            {{ order.oc_number }}
+                        </a>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('proveedores.ver_proveedor', supplier_id=order.supplier_id) }}" style="color: #2b6cb0; font-weight: 600; text-decoration: underline;" title="Ver Ficha y Datos del Proveedor">
+                            {{ order.supplier_name }}
+                        </a>
+                    </td>
                     <td>{{ order.order_date }}</td>
                     <td>${{ "{:,.2f}".format(order.total_amount) }}</td>
                     <td>{{ order.creator_name or '-' }}</td>
@@ -82,4 +90,120 @@
         </table>
     </div>
 </div>
+
+<!-- Modal Ver Detalle Orden de Compra -->
+<div id="modal-view-oc" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; padding: 20px; overflow-y: auto;">
+    <div style="background: white; border-radius: 12px; width: 720px; max-width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px;">
+            <div>
+                <h2 id="modal-oc-title" style="margin: 0; font-size: 20px; color: #1e293b;">Orden de Compra</h2>
+                <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Comprobante de Pedido a Proveedor</p>
+            </div>
+            <button type="button" onclick="closeOCDetailModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #94a3b8;">✕</button>
+        </div>
+
+        <!-- DATOS CABECERA OC -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">DATOS ORDEN DE COMPRA</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px;">
+                <div><strong>N° Orden:</strong> <span id="modal-oc-number">-</span></div>
+                <div><strong>Proveedor:</strong> <a id="modal-oc-supplier-link" href="#" style="color: #2b6cb0; font-weight: 600; text-decoration: underline;">-</a></div>
+                <div><strong>Fecha Emisión:</strong> <span id="modal-oc-date">-</span></div>
+                <div><strong>Estado:</strong> <span id="modal-oc-status">-</span></div>
+                <div><strong>Creado por:</strong> <span id="modal-oc-creator">-</span></div>
+                <div><strong>Aprobado por:</strong> <span id="modal-oc-approver">-</span></div>
+                <div style="grid-column: span 2; border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 4px;">
+                    <strong>Notas / Observaciones:</strong>
+                    <div id="modal-oc-notes" style="color: #475569; margin-top: 4px; white-space: pre-wrap; font-size: 13px;">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PRODUCTOS SOLICITADOS -->
+        <div style="margin-bottom: 20px;">
+            <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #334155; text-transform: uppercase;">PRODUCTOS DE LA ORDEN</h4>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <thead>
+                    <tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1; text-align: left;">
+                        <th style="padding: 8px 12px;">Producto</th>
+                        <th style="padding: 8px 12px; text-align: center;">Pedida</th>
+                        <th style="padding: 8px 12px; text-align: center;">Recibida</th>
+                        <th style="padding: 8px 12px; text-align: right;">Precio Unit.</th>
+                        <th style="padding: 8px 12px; text-align: right;">Total</th>
+                    </tr>
+                </thead>
+                <tbody id="modal-oc-items-body">
+                </tbody>
+            </table>
+            
+            <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+                <div style="width: 250px; font-size: 16px; font-weight: 700; color: #0f172a; display: flex; justify-content: space-between; padding: 8px 0; border-top: 2px solid #cbd5e1;">
+                    <span>Total Orden:</span>
+                    <span id="modal-oc-total">$0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCIONES -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+            <a id="btn-modal-oc-pdf" href="#" target="_blank" class="sf-btn-secondary" style="padding: 8px 14px; font-weight: 600; text-decoration: none; background: #6B5B95; color: white; border-radius: 6px;">
+                📄 Descargar PDF
+            </a>
+            <button type="button" onclick="closeOCDetailModal()" style="padding: 8px 16px; background: #e2e8f0; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; color: #475569;">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+    async function openOCDetailModal(poId) {
+        try {
+            const res = await fetch(`/api/compras/oc/${poId}/detalle`);
+            if (!res.ok) throw new Error("Error al obtener detalle");
+            const data = await res.json();
+            const po = data.order;
+            const items = data.items;
+
+            document.getElementById('modal-oc-title').textContent = `Orden de Compra ${po.oc_number}`;
+            document.getElementById('modal-oc-number').textContent = po.oc_number || '-';
+            document.getElementById('modal-oc-supplier-link').textContent = po.supplier_name || '-';
+            document.getElementById('modal-oc-supplier-link').href = `/proveedores/${po.supplier_id}`;
+            document.getElementById('modal-oc-date').textContent = po.order_date || '-';
+            document.getElementById('modal-oc-status').textContent = po.status || '-';
+            document.getElementById('modal-oc-creator').textContent = po.creator_name || '-';
+            document.getElementById('modal-oc-approver').textContent = po.approver_name || '-';
+            document.getElementById('modal-oc-notes').textContent = po.notes || 'Sin observaciones adicionales';
+            document.getElementById('modal-oc-total').textContent = '$' + Math.round(po.total_amount || 0).toLocaleString('es-CL');
+            document.getElementById('btn-modal-oc-pdf').href = `/compras/oc/${po.id}/pdf`;
+
+            const tbody = document.getElementById('modal-oc-items-body');
+            tbody.innerHTML = '';
+
+            items.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #e2e8f0';
+                tr.innerHTML = `
+                    <td style="padding: 10px 12px; font-weight: 500;">${item.product_name}</td>
+                    <td style="padding: 10px 12px; text-align: center;">${item.quantity_ordered}</td>
+                    <td style="padding: 10px 12px; text-align: center; color: #2b6cb0; font-weight: 600;">${item.quantity_received || 0}</td>
+                    <td style="padding: 10px 12px; text-align: right;">$${Math.round(item.unit_price || 0).toLocaleString('es-CL')}</td>
+                    <td style="padding: 10px 12px; text-align: right; font-weight: 600;">$${Math.round(item.total_price || 0).toLocaleString('es-CL')}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('modal-view-oc').style.display = 'flex';
+        } catch(e) {
+            console.error(e);
+            alert("No se pudo cargar la orden de compra.");
+        }
+    }
+
+    function closeOCDetailModal() {
+        document.getElementById('modal-view-oc').style.display = 'none';
+    }
+</script>
+{% endblock %}
 {% endblock %}

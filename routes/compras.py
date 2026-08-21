@@ -166,6 +166,18 @@ def api_oc_items(po_id):
     items = get_purchase_order_items(po_id)
     return jsonify(items)
 
+@compras_bp.route('/api/compras/oc/<int:po_id>/detalle')
+def api_oc_detalle(po_id):
+    """API para obtener el detalle completo de una Orden de Compra"""
+    po = get_purchase_order(po_id)
+    if not po:
+        return jsonify({"error": "Orden de compra no encontrada"}), 404
+    items = get_purchase_order_items(po_id)
+    return jsonify({
+        "order": po,
+        "items": items
+    })
+
 @compras_bp.route('/compras/oc/<int:po_id>/pdf')
 def descargar_oc_pdf(po_id):
     """Genera y descarga la Orden de Compra en formato PDF usando ReportLab"""

@@ -2576,7 +2576,7 @@ def list_purchase_orders() -> list[dict]:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT po.id, po.oc_number, po.order_date, po.status, po.total_amount, po.notes,
+                SELECT po.id, po.oc_number, po.order_date, po.status, po.total_amount, po.notes, po.supplier_id,
                        s.name as supplier_name,
                        u1.full_name as creator_name,
                        u2.full_name as approver_name
