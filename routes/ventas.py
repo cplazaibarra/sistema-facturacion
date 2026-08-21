@@ -620,12 +620,13 @@ def actualizar_estado_venta():
                     )
             else:
                 # Si no existe, creamos un registro inicial de pagos
+                now_str = datetime.utcnow().isoformat(timespec='seconds')
                 cur.execute(
                     """
-                    INSERT INTO sale_payments (sale_id, invoice_number, invoice_file, status)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO sale_payments (sale_id, invoice_number, invoice_file, status, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     """,
-                    (sale_id, invoice_number, invoice_file_path, 'Factura pendiente')
+                    (sale_id, invoice_number, invoice_file_path, 'Factura pendiente', now_str, now_str)
                 )
 
             # 4. Registrar en el historial de cobros y facturas si se agrega número de factura o archivo
