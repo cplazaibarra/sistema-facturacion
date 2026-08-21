@@ -36,8 +36,21 @@ def _get_formatted_sales_data():
     today_str = datetime.today().strftime('%Y-%m-%d')
     ventas_records_all = []
     from db import get_connection
+
+    # Cargar mapa de clientes para enriquecer datos
+    clients_map = {}
     with get_connection() as conn:
         with conn.cursor() as cur:
+            cur.execute("SELECT * FROM clients")
+            for c in cur.fetchall():
+                c_dict = dict(c)
+                if c_dict.get("email"):
+                    clients_map[c_dict["email"].lower().strip()] = c_dict
+                if c_dict.get("razon_social"):
+                    clients_map[c_dict["razon_social"].lower().strip()] = c_dict
+                if c_dict.get("rut"):
+                    clients_map[c_dict["rut"].strip()] = c_dict
+
             for sale in sales_list:
                 raw_p_status = sale.get("payment_status") or "Pendiente"
                 due_date = sale.get("invoice_due_date") or ""
@@ -59,12 +72,39 @@ def _get_formatted_sales_data():
                 )
                 payment_history = [dict(row) for row in cur.fetchall()]
 
+                c_email = (sale.get("customer_email") or "").lower().strip()
+                c_name = (sale.get("customer_name") or "").lower().strip()
+                c_data = clients_map.get(c_email) or clients_map.get(c_name) or {}
+
+                notes_str = sale.get("notes") or ""
+                rut_val = c_data.get("rut") or ""
+                dv_val = c_data.get("dv") or ""
+                if not rut_val and "RUT:" in notes_str:
+                    try:
+                        rut_part = notes_str.split("RUT:")[1].split("|")[0].strip()
+                        if "-" in rut_part:
+                            rut_val, dv_val = rut_part.split("-", 1)
+                        else:
+                            rut_val = rut_part
+                    except Exception:
+                        pass
+
                 ventas_records_all.append({
                     "id": sale["id"],
                     "sale_number": sale["sale_number"],
                     "customer": {
+                        "id": c_data.get("id"),
+                        "rut": rut_val,
+                        "dv": dv_val,
                         "name": sale["customer_name"],
                         "email": sale.get("customer_email", ""),
+                        "phone": c_data.get("phone", ""),
+                        "direccion": c_data.get("direccion", ""),
+                        "comuna": c_data.get("comuna", ""),
+                        "ciudad": c_data.get("ciudad", ""),
+                        "giro": c_data.get("giro", ""),
+                        "tipo_compra": c_data.get("tipo_compra", "Del Giro"),
+                        "category_id": c_data.get("category_id", ""),
                         "initials": sale.get("customer_initials", ""),
                     },
                     "date": sale["sale_date"],
@@ -173,6 +213,8 @@ def ventas():
     ]
 
     roles = list_roles()
+    config = get_page_data("price_list_config")
+    categories = config.get("categories", [])
     from flask import make_response
     response = make_response(render_template(
         'ventas.html',
@@ -181,6 +223,7 @@ def ventas():
         all_clients=all_clients,
         all_products=all_products,
         roles=roles,
+        categories=categories,
         active_filter=active_filter,
     ))
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
@@ -252,6 +295,8 @@ def cotizaciones():
     ]
 
     roles = list_roles()
+    config = get_page_data("price_list_config")
+    categories = config.get("categories", [])
     from flask import make_response
     response = make_response(render_template(
         'cotizaciones.html',
@@ -260,11 +305,91 @@ def cotizaciones():
         all_clients=all_clients,
         all_products=all_products,
         roles=roles,
+        categories=categories,
         active_filter=active_filter,
     ))
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'
     return response
+
+
+@ventas_bp.route('/ventas/clientes/guardar_modal', methods=['POST'])
+def guardar_cliente_modal():
+    """Guardar o actualizar datos de un cliente desde el modal flotante"""
+    from db import upsert_client_by_rut, get_connection
+    rut = request.form.get('rut', '').strip()
+    dv = request.form.get('dv', '').strip()
+    razon_social = request.form.get('razon_social', '').strip()
+    email = request.form.get('email', '').strip()
+    phone = request.form.get('phone', '').strip()
+    tipo_compra = request.form.get('tipo_compra', 'Del Giro').strip()
+    category_id = request.form.get('category_id', '').strip()
+    direccion = request.form.get('direccion', '').strip()
+    giro = request.form.get('giro', '').strip()
+
+    if not razon_social:
+        flash("La Razón Social es requerida.", "warning")
+        return redirect(request.referrer or url_for('ventas.ventas'))
+
+    if rut:
+        upsert_client_by_rut({
+            "rut": rut,
+            "dv": dv,
+            "razon_social": razon_social,
+            "email": email,
+            "phone": phone,
+            "tipo_compra": tipo_compra,
+            "category_id": category_id,
+            "direccion": direccion,
+            "giro": giro
+        })
+    else:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                if email:
+                    cur.execute("SELECT id FROM clients WHERE email = %s", (email,))
+                    row = cur.fetchone()
+                    if row:
+                        cur.execute(
+                            """
+                            UPDATE clients SET razon_social = %s, phone = %s, tipo_compra = %s, category_id = %s, direccion = %s, giro = %s
+                            WHERE email = %s
+                            """,
+                            (razon_social, phone, tipo_compra, category_id, direccion, giro, email)
+                        )
+                    else:
+                        cur.execute(
+                            """
+                            INSERT INTO clients (razon_social, email, phone, tipo_compra, category_id, direccion, giro)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                            """,
+                            (razon_social, email, phone, tipo_compra, category_id, direccion, giro)
+                        )
+                else:
+                    cur.execute(
+                        """
+                        INSERT INTO clients (razon_social, email, phone, tipo_compra, category_id, direccion, giro)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (razon_social, email, phone, tipo_compra, category_id, direccion, giro)
+                    )
+            conn.commit()
+
+    if email and category_id:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO client_categories (email, category_id)
+                    VALUES (%s, %s)
+                    ON CONFLICT (email) DO UPDATE SET category_id = EXCLUDED.category_id
+                    """,
+                    (email, category_id)
+                )
+            conn.commit()
+
+    flash(f"Cliente '{razon_social}' actualizado exitosamente.", "success")
+    return redirect(request.referrer or url_for('ventas.ventas'))
 
 @ventas_bp.route('/ventas/registrar-pago', methods=['POST'])
 def registrar_pago_venta():

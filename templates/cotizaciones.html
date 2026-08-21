@@ -143,10 +143,10 @@
                     </a>
                 </td>
                 <td>
-                    <div class="sf-cell-user">
+                    <div class="sf-cell-user" style="cursor: pointer;" onclick='openEditClientModal({{ sale.customer|tojson|safe }})' title="Clic para ver y editar datos del cliente">
                         <div class="sf-avatar">{{ sale.customer.initials }}</div>
                         <div class="sf-user-info">
-                            <div class="sf-user-name">{{ sale.customer.name }}</div>
+                            <div class="sf-user-name" style="color: #0284c7; font-weight: 600; text-decoration: underline;">{{ sale.customer.name }} ✏️</div>
                             <div class="sf-user-detail">{{ sale.customer.email }}</div>
                         </div>
                     </div>
@@ -450,5 +450,106 @@ function openCotizacionDetail(sale) {
 function closeCotizacionDetailModal() {
     document.getElementById('modal-view-cotizacion').style.display = 'none';
 }
+
+function openEditClientModal(customer) {
+    if (!customer) return;
+    document.getElementById('edit_client_id').value = customer.id || '';
+    document.getElementById('edit_client_rut').value = customer.rut || '';
+    document.getElementById('edit_client_dv').value = customer.dv || '';
+    document.getElementById('edit_client_razon_social').value = customer.name || customer.razon_social || '';
+    document.getElementById('edit_client_email').value = customer.email || '';
+    document.getElementById('edit_client_phone').value = customer.phone || '';
+    document.getElementById('edit_client_tipo_compra').value = customer.tipo_compra || 'Del Giro';
+    document.getElementById('edit_client_category_id').value = customer.category_id || '';
+    document.getElementById('edit_client_direccion').value = customer.direccion || '';
+    document.getElementById('edit_client_giro').value = customer.giro || '';
+
+    document.getElementById('modal-edit-client').style.display = 'flex';
+}
+
+function closeEditClientModal() {
+    document.getElementById('modal-edit-client').style.display = 'none';
+}
 </script>
+
+<!-- Modal Ver / Editar Cliente -->
+<div id="modal-edit-client" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999; justify-content: center; align-items: center; padding: 20px; overflow-y: auto;">
+    <div style="background: white; border-radius: 12px; width: 650px; max-width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px;">
+            <div>
+                <h3 style="margin: 0; font-size: 18px; color: #1e293b;">✏️ Ver / Editar Datos del Cliente</h3>
+                <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Información registrada en la base de datos de clientes</p>
+            </div>
+            <button type="button" onclick="closeEditClientModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #94a3b8;">✕</button>
+        </div>
+
+        <form method="POST" action="{{ url_for('ventas.guardar_cliente_modal') }}">
+            <input type="hidden" id="edit_client_id" name="client_id">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">RUT Cliente</label>
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <input type="text" id="edit_client_rut" name="rut" placeholder="12345678" style="flex: 1; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                        <span>-</span>
+                        <input type="text" id="edit_client_dv" name="dv" placeholder="K" style="width: 45px; text-align: center; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                    </div>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Razón Social / Nombre *</label>
+                    <input type="text" id="edit_client_razon_social" name="razon_social" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Correo Electrónico *</label>
+                    <input type="email" id="edit_client_email" name="email" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Teléfono</label>
+                    <input type="text" id="edit_client_phone" name="phone" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Tipo de Compra</label>
+                    <select id="edit_client_tipo_compra" name="tipo_compra" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                        <option value="Del Giro">Del Giro</option>
+                        <option value="Supermercado">Supermercado</option>
+                        <option value="Bienes Raíces">Bienes Raíces</option>
+                        <option value="Activo Fijo">Activo Fijo</option>
+                        <option value="Gastos Generales">Gastos Generales</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Categoría Cliente</label>
+                    <select id="edit_client_category_id" name="category_id" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                        <option value="">-- Sin Categoría --</option>
+                        {% for cat in categories %}
+                            <option value="{{ cat.id }}">{{ cat.name }} ({{ cat.margin }}% margen)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Dirección</label>
+                    <input type="text" id="edit_client_direccion" name="direccion" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Giro Comercial</label>
+                    <input type="text" id="edit_client_giro" name="giro" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                <button type="button" onclick="closeEditClientModal()" style="padding: 8px 16px; background: #e2e8f0; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; color: #475569;">Cancelar</button>
+                <button type="submit" class="sf-btn-primary" style="padding: 8px 18px; border: none; background: #3182ce; color: white; border-radius: 6px; font-weight: 600; cursor: pointer;">💾 Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
