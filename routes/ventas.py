@@ -31,17 +31,9 @@ def proyeccion_ventas():
         proyeccion_chart=proyeccion_chart,
     )
 
-@ventas_bp.route('/ventas')
-def ventas():
-    """Módulo de Ventas"""
-    # Filtro por tarjeta de métricas o selector de vista
-    card_filter = request.args.get('filter', '')
-    active_filter = card_filter  # para marcar la tarjeta activa en la template
-
-    # Obtener todas las ventas para formatear e inspeccionar estados calculados
+def _get_formatted_sales_data():
     sales_list = list_sales(None)
     today_str = datetime.today().strftime('%Y-%m-%d')
-
     ventas_records_all = []
     from db import get_connection
     with get_connection() as conn:
@@ -50,20 +42,17 @@ def ventas():
                 raw_p_status = sale.get("payment_status") or "Pendiente"
                 due_date = sale.get("invoice_due_date") or ""
                 
-                # Calcular si está retrasada
                 calculated_payment_status = raw_p_status
                 if raw_p_status != "Pagado" and due_date and due_date != "-":
                     if due_date < today_str:
                         calculated_payment_status = "Retrasada"
 
-                # Obtener historial de estado
                 cur.execute(
                     "SELECT status, user_name, changed_at, comment FROM sales_status_history WHERE sale_id = %s ORDER BY id DESC",
                     (sale["id"],)
                 )
                 history = [dict(row) for row in cur.fetchall()]
 
-                # Obtener historial de cobros/pagos
                 cur.execute(
                     "SELECT action, user_name, changed_at, details FROM sales_payment_history WHERE sale_id = %s ORDER BY id DESC",
                     (sale["id"],)
@@ -82,6 +71,7 @@ def ventas():
                     "time": sale["sale_time"],
                     "products": sale["products"],
                     "total": f"${sale['total_amount']:.2f}",
+                    "total_raw": sale['total_amount'],
                     "payment_status": calculated_payment_status,
                     "invoice_due_date": sale.get("invoice_due_date") or "-",
                     "payment_date": sale.get("payment_date") or "-",
@@ -99,15 +89,26 @@ def ventas():
                     "history": history,
                     "payment_history": payment_history
                 })
+    return ventas_records_all, today_str
 
-    # Contar pagos retrasados
-    count_retrasadas = sum(1 for v in ventas_records_all if v['payment_status'] == 'Retrasada')
 
-    # Aplicar filtrado a los registros según card_filter
+@ventas_bp.route('/ventas')
+def ventas():
+    """Módulo exclusivo de Ventas"""
+    card_filter = request.args.get('filter', '')
+    active_filter = card_filter
+
+    ventas_records_all, today_str = _get_formatted_sales_data()
+
+    # Excluir cotizaciones para esta vista
+    only_ventas = [r for r in ventas_records_all if r['status']['label'] != 'Cotización' and not str(r['sale_number']).startswith('COT-')]
+
+    count_retrasadas = sum(1 for v in only_ventas if v['payment_status'] == 'Retrasada')
+
     ventas_records = []
-    for record in ventas_records_all:
+    for record in only_ventas:
         if card_filter == 'Ventas Pendientes':
-            if record['status']['label'] == 'Pendiente' and str(record['sale_number']).startswith('VTA'):
+            if record['status']['label'] == 'Pendiente':
                 ventas_records.append(record)
         elif card_filter == 'Ventas Completadas':
             if record['status']['label'] == 'Completada':
@@ -121,7 +122,16 @@ def ventas():
         else:
             ventas_records.append(record)
 
-    # Get metrics from database
+    # Extraer clientes y productos únicos para filtros
+    all_clients = sorted(list(set(v['customer']['name'] for v in only_ventas if v['customer']['name'])))
+    all_products_set = set()
+    for v in only_ventas:
+        for p in v['products']:
+            p_name = p.get('product_name') or p.get('name') if isinstance(p, dict) else str(p)
+            if p_name:
+                all_products_set.add(p_name)
+    all_products = sorted(list(all_products_set))
+
     metrics = get_sales_metrics()
     ventas_metrics = [
         {
@@ -167,6 +177,87 @@ def ventas():
         'ventas.html',
         ventas_metrics=ventas_metrics,
         ventas_records=ventas_records,
+        all_clients=all_clients,
+        all_products=all_products,
+        roles=roles,
+        active_filter=active_filter,
+    ))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    return response
+
+
+@ventas_bp.route('/ventas/cotizaciones')
+def cotizaciones():
+    """Módulo exclusivo de Cotizaciones"""
+    card_filter = request.args.get('filter', '')
+    active_filter = card_filter
+
+    ventas_records_all, today_str = _get_formatted_sales_data()
+
+    # Incluir únicamente cotizaciones
+    only_cotizaciones = [r for r in ventas_records_all if r['status']['label'] == 'Cotización' or str(r['sale_number']).startswith('COT-')]
+
+    cotizaciones_records = []
+    for record in only_cotizaciones:
+        if card_filter == 'Cotizaciones Hoy':
+            if record['date'] == today_str:
+                cotizaciones_records.append(record)
+        else:
+            cotizaciones_records.append(record)
+
+    # Extraer clientes y productos únicos para filtros
+    all_clients = sorted(list(set(c['customer']['name'] for c in only_cotizaciones if c['customer']['name'])))
+    all_products_set = set()
+    for c in only_cotizaciones:
+        for p in c['products']:
+            p_name = p.get('product_name') or p.get('name') if isinstance(p, dict) else str(p)
+            if p_name:
+                all_products_set.add(p_name)
+    all_products = sorted(list(all_products_set))
+
+    total_amount_cotizaciones = sum(c['total_raw'] for c in only_cotizaciones)
+    unique_clients_count = len(set(c['customer']['name'] for c in only_cotizaciones if c['customer']['name']))
+
+    cotizaciones_metrics = [
+        {
+            "icon": "<i class=\"fa-solid fa-file-invoice-dollar\"></i>",
+            "value": str(len(only_cotizaciones)),
+            "label": "Total Cotizaciones",
+            "secondary": "emitidas en sistema",
+            "color": "blue",
+        },
+        {
+            "icon": "<i class=\"fa-solid fa-clock\"></i>",
+            "value": str(len(cotizaciones_records)),
+            "label": "Cotizaciones Activas",
+            "secondary": "pendientes a venta",
+            "color": "orange",
+        },
+        {
+            "icon": "<i class=\"fa-solid fa-sack-dollar\"></i>",
+            "value": f"${total_amount_cotizaciones:.0f}",
+            "label": "Monto Cotizado",
+            "secondary": "monto total",
+            "color": "green",
+        },
+        {
+            "icon": "<i class=\"fa-solid fa-users\"></i>",
+            "value": str(unique_clients_count),
+            "label": "Clientes Cotizados",
+            "secondary": "receptores únicos",
+            "color": "purple",
+        },
+    ]
+
+    roles = list_roles()
+    from flask import make_response
+    response = make_response(render_template(
+        'cotizaciones.html',
+        cotizaciones_metrics=cotizaciones_metrics,
+        cotizaciones_records=cotizaciones_records,
+        all_clients=all_clients,
+        all_products=all_products,
         roles=roles,
         active_filter=active_filter,
     ))

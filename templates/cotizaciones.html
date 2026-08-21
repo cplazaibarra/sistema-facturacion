@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Cotizaciones - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Cotizaciones{% endblock %}
+
+{% block content %}
+<!-- Barra de acciones superior estilo Salesforce -->
+<div class="sf-action-bar">
+    <div class="sf-action-left">
+        <h2 style="margin: 0; font-size: 18px; color: #1e293b; font-weight: 700;">Gestión de Cotizaciones</h2>
+    </div>
+    <div class="sf-action-right">
+        <a href="{{ url_for('ventas.nueva_cotizacion') }}" class="sf-btn-primary" style="background-color: #ED8936; border: none; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+            <span>📋</span>
+            <span>Nueva Cotización</span>
+        </a>
+    </div>
+</div>
+
+<!-- Tarjetas de métricas para Cotizaciones -->
+<div class="sf-metrics-grid">
+    {% for metric in cotizaciones_metrics %}
+    <div class="sf-metric-card {% if active_filter == metric.label %}active-filter{% endif %}" 
+         onclick="window.location.href='{{ url_for('ventas.cotizaciones') }}?filter={{ metric.label | urlencode }}'" 
+         style="cursor:pointer;">
+        <span class="sf-metric-icon {{ metric.color }}">{{ metric.icon | safe }}</span>
+        <div class="sf-metric-content">
+            <div class="sf-metric-value">{{ metric.value }}</div>
+            <div class="sf-metric-label">{{ metric.label }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if active_filter %}
+<div style="display:flex; align-items:center; gap:10px; margin: 8px 0 0 0; padding: 6px 14px; background:#EBF8FF; border-radius:6px; border-left: 4px solid #3182ce; font-size:13px; color:#2b6cb0;">
+    <span>🔍 Filtro activo: <strong>{{ active_filter }}</strong></span>
+    <a href="{{ url_for('ventas.cotizaciones') }}" style="margin-left:10px; color:#e53e3e; font-weight:600; text-decoration:none;">✕ Limpiar filtro</a>
+</div>
+{% endif %}
+
+<!-- Barra de herramientas de la tabla con Filtros de Cliente y Producto -->
+<div class="sf-table-toolbar" style="flex-wrap: wrap; gap: 12px; padding: 12px 16px; margin-top: 16px;">
+    <div class="sf-toolbar-left" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; flex: 1;">
+        <div class="sf-search-box" style="min-width: 220px;">
+            <span class="sf-search-icon">🔍</span>
+            <input type="text" id="sf-search-input-cot" placeholder="Buscar cotizaciones..." class="sf-search-input" onkeyup="filterCotizacionesTable()">
+        </div>
+
+        <!-- Filtro por Cliente -->
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <label style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">👤 Cliente:</label>
+            <select id="sf-client-filter-cot" onchange="filterCotizacionesTable()" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; max-width: 180px;">
+                <option value="">-- Todos los Clientes --</option>
+                {% for client_name in all_clients %}
+                <option value="{{ client_name }}">{{ client_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Filtro por Producto -->
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <label style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">📦 Producto:</label>
+            <select id="sf-product-filter-cot" onchange="filterCotizacionesTable()" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; max-width: 200px;">
+                <option value="">-- Todos los Productos --</option>
+                {% for prod_name in all_products %}
+                <option value="{{ prod_name }}">{{ prod_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button type="button" onclick="clearCotizacionesFilters()" title="Limpiar Filtros" style="padding: 6px 12px; background: #e2e8f0; border: none; border-radius: 6px; font-size: 13px; color: #475569; font-weight: 600; cursor: pointer;">
+            ✕ Limpiar
+        </button>
+    </div>
+    <div class="sf-toolbar-right">
+        <span class="sf-record-count" id="sf-record-count-cot">{{ cotizaciones_records|length }} registros</span>
+    </div>
+</div>
+
+<!-- Tabla de Cotizaciones -->
+<div class="sf-table-container">
+    <table class="sf-table">
+        <thead>
+            <tr>
+                <th class="sf-th-checkbox">
+                    <input type="checkbox" class="sf-checkbox">
+                </th>
+                <th class="sf-th-sortable">
+                    <div class="sf-th-content">
+                        <span>N° Cotización</span>
+                        <span class="sf-sort-icon">⇅</span>
+                    </div>
+                </th>
+                <th class="sf-th-sortable">
+                    <div class="sf-th-content">
+                        <span>Cliente</span>
+                        <span class="sf-sort-icon">⇅</span>
+                    </div>
+                </th>
+                <th class="sf-th-sortable">
+                    <div class="sf-th-content">
+                        <span>Fecha</span>
+                        <span class="sf-sort-icon">⇅</span>
+                    </div>
+                </th>
+                <th class="sf-th-sortable">
+                    <div class="sf-th-content">
+                        <span>Productos</span>
+                        <span class="sf-sort-icon">⇅</span>
+                    </div>
+                </th>
+                <th class="sf-th-sortable">
+                    <div class="sf-th-content">
+                        <span>Total</span>
+                        <span class="sf-sort-icon">⇅</span>
+                    </div>
+                </th>
+                <th class="sf-th-sortable">
+                    <div class="sf-th-content">
+                        <span>Estado</span>
+                        <span class="sf-sort-icon">⇅</span>
+                    </div>
+                </th>
+                <th class="sf-th-sortable">
+                    <div class="sf-th-content">
+                        <span>Vendedor</span>
+                        <span class="sf-sort-icon">⇅</span>
+                    </div>
+                </th>
+                <th class="sf-th-actions" style="text-align: center;">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sale in cotizaciones_records %}
+            <tr class="sf-table-row" data-customer="{{ sale.customer.name }} {{ sale.customer.email }}" data-products="{% for product in sale.products %}{% if product is mapping %}{{ product.product_name or product.name }} {% else %}{{ product }} {% endif %}{% endfor %}">
+                <td>
+                    <input type="checkbox" class="sf-checkbox">
+                </td>
+                <td>
+                    <strong style="color: #0284c7;">{{ sale.sale_number }}</strong>
+                </td>
+                <td>
+                    <div class="sf-cell-user">
+                        <div class="sf-avatar">{{ sale.customer.initials }}</div>
+                        <div class="sf-user-info">
+                            <div class="sf-user-name">{{ sale.customer.name }}</div>
+                            <div class="sf-user-detail">{{ sale.customer.email }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div class="sf-cell-date">
+                        <div>{{ sale.date }}</div>
+                        <div class="sf-cell-time">{{ sale.time }}</div>
+                    </div>
+                </td>
+                <td>
+                    <div class="sf-product-pills">
+                        {% for product in sale.products %}
+                            {% if product is mapping %}
+                                <span class="sf-pill">{{ product.product_name or product.name }} ({{ product.quantity }})</span>
+                            {% else %}
+                                <span class="sf-pill">{{ product }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </td>
+                <td>
+                    <div class="sf-amount" style="font-weight: 700; color: #0f172a;">{{ sale.total }}</div>
+                </td>
+                <td>
+                    <span class="sf-badge sf-badge-info">
+                        <span class="sf-badge-dot"></span>
+                        Cotización
+                    </span>
+                </td>
+                <td>
+                    <div class="sf-cell-user">
+                        <div class="sf-avatar sf-avatar-seller">{{ sale.seller.initials }}</div>
+                        <div class="sf-user-name">{{ sale.seller.name }}</div>
+                    </div>
+                </td>
+                <td style="text-align: center; white-space: nowrap;">
+                    <form method="POST" action="{{ url_for('ventas.convertir_cotizacion', sale_id=sale.id) }}" onsubmit="return confirm('¿Emitir esta cotización como venta real?');" style="display: inline;">
+                        <button type="submit" class="sf-btn-primary" style="padding: 6px 12px; font-size: 12px; background-color: #ED8936; border: none; font-weight: 600;" title="Emitir Venta">
+                            ⚡ Emitir Venta
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="9" style="text-align: center; padding: 36px; color: #64748b;">
+                    No hay cotizaciones registradas en la plataforma.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function filterCotizacionesTable() {
+    const searchInput = document.getElementById('sf-search-input-cot');
+    const clientSelect = document.getElementById('sf-client-filter-cot');
+    const productSelect = document.getElementById('sf-product-filter-cot');
+
+    const searchVal = (searchInput ? searchInput.value : '').toLowerCase().trim();
+    const clientVal = (clientSelect ? clientSelect.value : '').toLowerCase().trim();
+    const productVal = (productSelect ? productSelect.value : '').toLowerCase().trim();
+
+    const rows = document.querySelectorAll('.sf-table tbody tr.sf-table-row');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const customerData = (row.getAttribute('data-customer') || '').toLowerCase();
+        const productsData = (row.getAttribute('data-products') || '').toLowerCase();
+        const fullText = (row.textContent || '').toLowerCase();
+
+        const matchSearch = !searchVal || fullText.includes(searchVal);
+        const matchClient = !clientVal || customerData.includes(clientVal);
+        const matchProduct = !productVal || productsData.includes(productVal);
+
+        if (matchSearch && matchClient && matchProduct) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    const displayCounter = document.getElementById('sf-record-count-cot');
+    if (displayCounter) {
+        displayCounter.textContent = `${visibleCount} registros`;
+    }
+}
+
+function clearCotizacionesFilters() {
+    if (document.getElementById('sf-search-input-cot')) document.getElementById('sf-search-input-cot').value = '';
+    if (document.getElementById('sf-client-filter-cot')) document.getElementById('sf-client-filter-cot').value = '';
+    if (document.getElementById('sf-product-filter-cot')) document.getElementById('sf-product-filter-cot').value = '';
+    filterCotizacionesTable();
+}
+</script>
+{% endblock %}
