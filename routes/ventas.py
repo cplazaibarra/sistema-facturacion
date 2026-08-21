@@ -72,6 +72,7 @@ def _get_formatted_sales_data():
                     "products": sale["products"],
                     "total": f"${sale['total_amount']:.2f}",
                     "total_raw": sale['total_amount'],
+                    "payment_method": sale.get("payment_method") or "Efectivo",
                     "payment_status": calculated_payment_status,
                     "invoice_due_date": sale.get("invoice_due_date") or "-",
                     "payment_date": sale.get("payment_date") or "-",

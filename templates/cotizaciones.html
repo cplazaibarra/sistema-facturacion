@@ -241,7 +241,8 @@
                 <div><strong>Fecha:</strong> <span id="modal-cot-date">-</span></div>
                 <div><strong>RUT:</strong> <span id="modal-cot-rut">-</span></div>
                 <div><strong>Razón Social / Nombre:</strong> <span id="modal-cot-customer">-</span></div>
-                <div style="grid-column: span 2;"><strong>Correo Electrónico:</strong> <span id="modal-cot-email">-</span></div>
+                <div><strong>Correo Electrónico:</strong> <span id="modal-cot-email">-</span></div>
+                <div><strong>Forma / Condición de Pago:</strong> <span id="modal-cot-payment-method" style="font-weight: 600; color: #3182ce;">-</span></div>
             </div>
         </div>
 
@@ -384,6 +385,7 @@ function openCotizacionDetail(sale) {
 
     document.getElementById('modal-cot-doctype').textContent = docType;
     document.getElementById('modal-cot-rut').textContent = rutStr;
+    document.getElementById('modal-cot-payment-method').textContent = sale.payment_method || sale.payment || 'Efectivo';
     document.getElementById('modal-cot-notes').textContent = cleanNotes || 'Sin observaciones adicionales';
 
     // Renderizar Productos
