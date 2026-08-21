@@ -172,10 +172,17 @@
                     <div class="sf-amount" style="font-weight: 700; color: #0f172a;">{{ sale.total }}</div>
                 </td>
                 <td>
+                    {% if sale.status.label == 'Borrador' %}
+                    <span class="sf-badge sf-badge-warning" style="background-color: #feebc8; color: #c05621; border: 1px solid #fbd38d;">
+                        <span class="sf-badge-dot" style="background-color: #dd6b20;"></span>
+                        Borrador
+                    </span>
+                    {% else %}
                     <span class="sf-badge sf-badge-info">
                         <span class="sf-badge-dot"></span>
                         Cotización
                     </span>
+                    {% endif %}
                 </td>
                 <td>
                     <div class="sf-cell-user">

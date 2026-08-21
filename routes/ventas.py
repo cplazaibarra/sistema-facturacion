@@ -775,6 +775,9 @@ def nueva_cotizacion():
                 next_id = cur.fetchone()["next_id"]
                 sale_number = f"COT-{next_id:05d}"
                 
+        # Estado seleccionado (Borrador vs Cotización)
+        cot_status = request.form.get('status', 'Cotización').strip()
+        
         # Construir registro de cotización
         sale_data = {
             "sale_number": sale_number,
@@ -785,19 +788,19 @@ def nueva_cotizacion():
             "sale_time": datetime.now().strftime("%H:%M:%S"),
             "products": products_list,
             "total_amount": round(total_amount, 2),
-            "status": "Cotización",
+            "status": cot_status,
             "seller_name": session.get('user_name', 'Vendedor'),
             "seller_initials": session.get('user_initials', 'V'),
-            "payment_method": "Cotización",
-            "payment_status": "Cotización",
-            "delivery_status": "Cotización",
+            "payment_method": cot_status,
+            "payment_status": cot_status,
+            "delivery_status": cot_status,
             "notes": notes,
             "created_at": datetime.utcnow().isoformat(timespec='seconds')
         }
         
         insert_sale(sale_data)
-        flash("Cotización guardada exitosamente.", "success")
-        return redirect(url_for('ventas.ventas'))
+        flash(f"Cotización guardada como '{cot_status}' exitosamente.", "success")
+        return redirect(url_for('ventas.cotizaciones'))
         
     products = [p for p in list_products() if p.get('product_type', 'Final') == 'Final']
     default_date = datetime.today().strftime('%Y-%m-%d')

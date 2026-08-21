@@ -362,12 +362,15 @@
             <textarea name="notes" class="form-field-input" rows="2" placeholder="Validez de la oferta, plazos de entrega, condiciones...">{{ cloned_quotation.notes if cloned_quotation else '' }}</textarea>
         </div>
 
+        <!-- Input oculto para definir el estado (Borrador vs Cotización) -->
+        <input type="hidden" name="status" id="cotizacion-status-input" value="Cotización">
+
         <!-- Botones de Acción -->
         <div class="actions-footer-row">
-            <button type="button" class="btn-draft-secondary" onclick="window.location.href='{{ url_for('ventas.ventas') }}'">
-                Guardar borrador
+            <button type="submit" onclick="document.getElementById('cotizacion-status-input').value = 'Borrador';" class="btn-draft-secondary" style="cursor: pointer;">
+                📂 Guardar borrador
             </button>
-            <button type="submit" class="btn-submit-primary">
+            <button type="submit" onclick="document.getElementById('cotizacion-status-input').value = 'Cotización';" class="btn-submit-primary" style="cursor: pointer;">
                 <span>🚀</span>
                 <span>Emitir documento</span>
             </button>
