@@ -950,51 +950,64 @@ def get_client_category(email):
 
 @ventas_bp.route('/ventas/cotizacion/<int:sale_id>/convertir', methods=['POST'])
 def convertir_cotizacion(sale_id):
-    """Convertir una cotización a venta real (Pendiente)"""
-    from db import get_connection
-    sale = get_sale(sale_id)
-    if not sale:
+    """Convertir una cotización a venta real (Crea VTA- sin eliminar COT-)"""
+    from db import get_connection, insert_sale
+    quotation = get_sale(sale_id)
+    if not quotation:
         flash("Cotización no encontrada.", "danger")
-        return redirect(url_for('ventas.ventas'))
+        return redirect(url_for('ventas.cotizaciones'))
         
-    if sale["status"] != "Cotización":
-        flash("Esta venta ya ha sido emitida.", "warning")
-        return redirect(url_for('ventas.ventas'))
+    if quotation["status"] != "Cotización" and not str(quotation.get("sale_number", "")).startswith("COT-"):
+        flash("Este registro no es una cotización válida.", "warning")
+        return redirect(url_for('ventas.cotizaciones'))
         
-    # Generar folio VTA-
-    new_sale_number = f"VTA-{sale_id:05d}"
-    
+    # Generar folio VTA- para la nueva venta
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                UPDATE sales 
-                SET status = 'Pendiente', 
-                    payment_status = 'Pendiente', 
-                    delivery_status = 'Pendiente',
-                    payment_method = 'Por definir',
-                    sale_number = %s 
-                WHERE id = %s
-                """,
-                (new_sale_number, sale_id)
-            )
-            # Agregar historial de estado
+            cur.execute("SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM sales")
+            next_id = cur.fetchone()["next_id"]
+            new_sale_number = f"VTA-{next_id:05d}"
+
+    # Crear nueva venta manteniendo la cotización original intacta
+    new_sale_data = {
+        "sale_number": new_sale_number,
+        "customer_name": quotation["customer_name"],
+        "customer_email": quotation.get("customer_email", ""),
+        "customer_initials": quotation.get("customer_initials", ""),
+        "sale_date": datetime.today().strftime('%Y-%m-%d'),
+        "sale_time": datetime.now().strftime("%H:%M:%S"),
+        "products": quotation["products"],
+        "total_amount": quotation["total_amount"],
+        "status": "Pendiente",
+        "seller_name": session.get('user_name', quotation.get("seller_name", "Vendedor")),
+        "seller_initials": session.get('user_initials', quotation.get("seller_initials", "V")),
+        "payment_method": "Por definir",
+        "payment_status": "Pendiente",
+        "delivery_status": "Pendiente",
+        "notes": f"Emitido desde Cotización {quotation['sale_number']}\n" + (quotation.get("notes") or ""),
+        "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+    }
+
+    new_sale_id = insert_sale(new_sale_data)
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO sales_status_history (sale_id, status, user_name, changed_at, comment)
                 VALUES (%s, %s, %s, %s, %s)
                 """,
                 (
-                    sale_id, 
-                    "Pendiente", 
-                    session.get('user_name', 'Sistema'), 
+                    new_sale_id,
+                    "Pendiente",
+                    session.get('user_name', 'Sistema'),
                     datetime.utcnow().isoformat(timespec='seconds'),
-                    "Convertido desde Cotización"
+                    f"Venta creada a partir de Cotización {quotation['sale_number']}"
                 )
             )
         conn.commit()
         
-    flash(f"Cotización convertida a Venta {new_sale_number} exitosamente.", "success")
+    flash(f"Venta {new_sale_number} creada exitosamente a partir de la Cotización {quotation['sale_number']}. La cotización se conserva intacta.", "success")
     return redirect(url_for('ventas.ventas'))
 
 
