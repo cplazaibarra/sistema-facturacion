@@ -72,13 +72,13 @@
                         </div>
                         <div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px;">
                             <span style="background: #EBF8FF; color: #2B6CB0; padding: 2px 6px; border-radius: 4px; border: 1px solid #BEE3F8;" title="Stock listo para vender en bodega">
-                                🟢 Físico: <strong>{{ item.stock }}</strong>
+                                🟢 Disponible: <strong>{{ item.stock }}</strong>
                             </span>
                             <span style="background: #FEFCBF; color: #B7791F; padding: 2px 6px; border-radius: 4px; border: 1px solid #FEFCBF;" title="Reservado por ventas pendientes">
                                 🟡 Reservado: <strong>{{ item.reserved }}</strong>
                             </span>
-                            <span style="background: #EDF2F7; color: #4A5568; padding: 2px 6px; border-radius: 4px; border: 1px solid #E2E8F0; font-weight: bold;" title="Total físico + reservado en bodega">
-                                📦 Total: {{ item.total_stock }}
+                            <span style="background: #EDF2F7; color: #4A5568; padding: 2px 6px; border-radius: 4px; border: 1px solid #E2E8F0; font-weight: bold;" title="Total físico en bodega (Disponible + Reservado)">
+                                📦 Físico: {{ item.total_stock }}
                             </span>
                         </div>
                     </div>

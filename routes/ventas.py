@@ -798,6 +798,58 @@ def nueva_cotizacion():
     products = [p for p in list_products() if p.get('product_type', 'Final') == 'Final']
     default_date = datetime.today().strftime('%Y-%m-%d')
     
+    # Clonar cotización existente si se pasa clone_id
+    clone_id = request.args.get('clone_id', type=int)
+    cloned_quotation = None
+    if clone_id:
+        from db import get_sale
+        cloned_sale = get_sale(clone_id)
+        if cloned_sale:
+            notes_str = cloned_sale.get("notes") or ""
+            doc_type = "Boleta"
+            rut_val = ""
+            dv_val = ""
+            
+            if "Doc: Factura" in notes_str:
+                doc_type = "Factura"
+            elif "Doc: Boleta" in notes_str:
+                doc_type = "Boleta"
+                
+            if "RUT:" in notes_str:
+                try:
+                    rut_part = notes_str.split("RUT:")[1].split("|")[0].strip()
+                    if "-" in rut_part:
+                        rut_val, dv_val = rut_part.split("-", 1)
+                    else:
+                        rut_val = rut_part
+                except Exception:
+                    pass
+            
+            from db import get_client_by_rut
+            cat_id = ""
+            if rut_val:
+                c_data = get_client_by_rut(rut_val)
+                if c_data:
+                    cat_id = c_data.get("category_id") or ""
+
+            clean_notes = notes_str
+            if "\n" in notes_str:
+                clean_notes = notes_str.split("\n", 1)[1]
+            elif "Doc:" in notes_str or "RUT:" in notes_str:
+                clean_notes = ""
+
+            cloned_quotation = {
+                "id": cloned_sale["id"],
+                "doc_type": doc_type,
+                "customer_rut": rut_val,
+                "customer_dv": dv_val,
+                "customer_name": cloned_sale.get("customer_name", ""),
+                "customer_email": cloned_sale.get("customer_email", ""),
+                "customer_category": cat_id,
+                "notes": clean_notes,
+                "products": cloned_sale.get("products", [])
+            }
+    
     # Lógica de construcción de precios por categorías de clientes para la cotización
     config = get_page_data("price_list_config")
     if not config or "categories" not in config:
@@ -877,7 +929,8 @@ def nueva_cotizacion():
         products=products,
         default_date=default_date,
         categories=config["categories"],
-        products_prices_map=products_prices_map
+        products_prices_map=products_prices_map,
+        cloned_quotation=cloned_quotation
     )
 
 @ventas_bp.route('/api/clientes/<string:email>/categoria')

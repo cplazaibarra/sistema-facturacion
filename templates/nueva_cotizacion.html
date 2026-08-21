@@ -261,8 +261,8 @@
             <div class="form-group-field">
                 <label>Tipo de documento</label>
                 <select name="doc_type" class="form-field-input">
-                    <option value="Boleta" selected>Boleta</option>
-                    <option value="Factura">Factura</option>
+                    <option value="Boleta" {% if cloned_quotation and cloned_quotation.doc_type == 'Boleta' %}selected{% endif %}>Boleta</option>
+                    <option value="Factura" {% if cloned_quotation and cloned_quotation.doc_type == 'Factura' %}selected{% endif %}>Factura</option>
                 </select>
             </div>
             <div class="form-group-field">
@@ -276,28 +276,28 @@
             <div class="form-group-field">
                 <label>RUT</label>
                 <div style="display: flex; gap: 8px; align-items: center;">
-                    <input type="text" name="customer_rut" class="form-field-input" placeholder="12345678" style="flex: 1;">
+                    <input type="text" name="customer_rut" class="form-field-input" value="{{ cloned_quotation.customer_rut if cloned_quotation else '' }}" placeholder="12345678" style="flex: 1;">
                     <span style="color: #94a3b8; font-weight: bold;">-</span>
-                    <input type="text" name="customer_dv" class="form-field-input" placeholder="K" style="width: 45px; text-align: center;">
+                    <input type="text" name="customer_dv" class="form-field-input" value="{{ cloned_quotation.customer_dv if cloned_quotation else '' }}" placeholder="K" style="width: 45px; text-align: center;">
                 </div>
             </div>
             <div class="form-group-field">
                 <label>Razón Social / Nombre Cliente *</label>
-                <input type="text" name="customer_name" required class="form-field-input" placeholder="Ej: Distribuidora Miel SpA">
+                <input type="text" name="customer_name" value="{{ cloned_quotation.customer_name if cloned_quotation else '' }}" required class="form-field-input" placeholder="Ej: Distribuidora Miel SpA">
             </div>
         </div>
 
         <div class="form-grid-2" style="margin-bottom: 16px;">
             <div class="form-group-field">
                 <label>Correo Electrónico *</label>
-                <input type="email" name="customer_email" required class="form-field-input" placeholder="correo@ejemplo.com">
+                <input type="email" name="customer_email" value="{{ cloned_quotation.customer_email if cloned_quotation else '' }}" required class="form-field-input" placeholder="correo@ejemplo.com">
             </div>
             <div class="form-group-field">
                 <label>Categoría Cliente *</label>
                 <select name="customer_category" id="customer-category-select" required class="form-field-input">
                     <option value="">-- Selección --</option>
                     {% for cat in categories %}
-                    <option value="{{ cat.id }}">{{ cat.name }} ({{ cat.margin }}%)</option>
+                    <option value="{{ cat.id }}" {% if cloned_quotation and cloned_quotation.customer_category == cat.id %}selected{% endif %}>{{ cat.name }} ({{ cat.margin }}%)</option>
                     {% endfor %}
                 </select>
             </div>
@@ -358,7 +358,7 @@
         <!-- Observaciones / Condiciones -->
         <div class="form-group-field" style="margin-top: 12px;">
             <label>Notas / Términos de Cotización</label>
-            <textarea name="notes" class="form-field-input" rows="2" placeholder="Validez de la oferta, plazos de entrega, condiciones..."></textarea>
+            <textarea name="notes" class="form-field-input" rows="2" placeholder="Validez de la oferta, plazos de entrega, condiciones...">{{ cloned_quotation.notes if cloned_quotation else '' }}</textarea>
         </div>
 
         <!-- Botones de Acción -->
@@ -392,7 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return '$' + Math.round(val).toLocaleString('es-CL');
     }
     
-    function createRow() {
+    function createRow(selectedProdId = null, initialQty = 1, initialPrice = null) {
         const tr = document.createElement('tr');
         tr.className = 'product-row-tr';
         
@@ -412,6 +412,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const opt = document.createElement('option');
             opt.value = p.id;
             opt.textContent = `${p.name} (SKU: ${p.sku})`;
+            if (selectedProdId && String(p.id) === String(selectedProdId)) {
+                opt.selected = true;
+            }
             select.appendChild(opt);
         });
         tdProd.appendChild(select);
@@ -426,7 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
         qtyInput.style.textAlign = 'center';
         qtyInput.min = '1';
         qtyInput.required = true;
-        qtyInput.value = '1';
+        qtyInput.value = initialQty || 1;
         tdQty.appendChild(qtyInput);
         
         // Columna Precio
@@ -441,6 +444,15 @@ document.addEventListener('DOMContentLoaded', () => {
         priceInput.min = '0';
         priceInput.required = true;
         priceInput.placeholder = '0.00';
+
+        if (initialPrice !== null && initialPrice !== undefined && initialPrice !== '') {
+            priceInput.value = initialPrice;
+        } else if (selectedProdId && productPricesMap[selectedProdId]) {
+            const prices = productPricesMap[selectedProdId];
+            const selectedCategory = categorySelect.value || 'default';
+            priceInput.value = prices[selectedCategory] || prices['default'] || 0.00;
+        }
+
         tdPrice.appendChild(priceInput);
         
         // Columna Subtotal
@@ -610,8 +622,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Crear primera línea por defecto
-    createRow();
+    // Crear líneas de producto (clonadas o por defecto)
+    {% if cloned_quotation and cloned_quotation.products %}
+        const clonedProducts = {{ cloned_quotation.products | tojson | safe }};
+        clonedProducts.forEach(p => {
+            const pId = p.product_id || p.id;
+            const pQty = p.quantity || 1;
+            const pPrice = p.price || p.unit_price || 0;
+            createRow(pId, pQty, pPrice);
+        });
+    {% else %}
+        createRow();
+    {% endif %}
     
     addBtn.addEventListener('click', () => {
         createRow();

@@ -138,7 +138,9 @@
                     <input type="checkbox" class="sf-checkbox">
                 </td>
                 <td>
-                    <strong style="color: #0284c7;">{{ sale.sale_number }}</strong>
+                    <a href="javascript:void(0);" onclick='openCotizacionDetail({{ sale|tojson|safe }})' style="font-weight: 700; color: #0284c7; text-decoration: underline;" title="Ver Detalle en formato de creación">
+                        {{ sale.sale_number }}
+                    </a>
                 </td>
                 <td>
                     <div class="sf-cell-user">
@@ -182,11 +184,16 @@
                     </div>
                 </td>
                 <td style="text-align: center; white-space: nowrap;">
-                    <form method="POST" action="{{ url_for('ventas.convertir_cotizacion', sale_id=sale.id) }}" onsubmit="return confirm('¿Emitir esta cotización como venta real?');" style="display: inline;">
-                        <button type="submit" class="sf-btn-primary" style="padding: 6px 12px; font-size: 12px; background-color: #ED8936; border: none; font-weight: 600;" title="Emitir Venta">
-                            ⚡ Emitir Venta
-                        </button>
-                    </form>
+                    <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
+                        <a href="{{ url_for('ventas.nueva_cotizacion') }}?clone_id={{ sale.id }}" class="sf-btn-secondary" style="padding: 6px 10px; font-size: 12px; text-decoration: none; font-weight: 600; background: #edf2f7; color: #2d3748; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;" title="Clonar y Modificar">
+                            📋 Clonar
+                        </a>
+                        <form method="POST" action="{{ url_for('ventas.convertir_cotizacion', sale_id=sale.id) }}" onsubmit="return confirm('¿Emitir esta cotización como venta real?');" style="display: inline;">
+                            <button type="submit" class="sf-btn-primary" style="padding: 6px 12px; font-size: 12px; background-color: #ED8936; border: none; font-weight: 600;" title="Emitir Venta">
+                                ⚡ Emitir Venta
+                            </button>
+                        </form>
+                    </div>
                 </td>
             </tr>
             {% else %}
@@ -198,6 +205,92 @@
             {% endfor %}
         </tbody>
     </table>
+</div>
+
+<!-- Modal para ver Cotización en formato de creación -->
+<div id="modal-view-cotizacion" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; padding: 20px; overflow-y: auto;">
+    <div style="background: white; border-radius: 12px; width: 700px; max-width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px;">
+            <div>
+                <h2 id="modal-cot-title" style="margin: 0; font-size: 20px; color: #1e293b;">Cotización</h2>
+                <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Documento emitido al cliente</p>
+            </div>
+            <button type="button" onclick="closeCotizacionDetailModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #94a3b8;">✕</button>
+        </div>
+
+        <!-- SECCIÓN 1: DATOS RECEPTOR -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">DATOS RECEPTOR</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px;">
+                <div><strong>Tipo de Documento:</strong> <span id="modal-cot-doctype">Boleta</span></div>
+                <div><strong>Fecha:</strong> <span id="modal-cot-date">-</span></div>
+                <div><strong>RUT:</strong> <span id="modal-cot-rut">-</span></div>
+                <div><strong>Razón Social / Nombre:</strong> <span id="modal-cot-customer">-</span></div>
+                <div style="grid-column: span 2;"><strong>Correo Electrónico:</strong> <span id="modal-cot-email">-</span></div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 2: PRODUCTOS SOLICITADOS -->
+        <div style="margin-bottom: 20px;">
+            <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #334155; text-transform: uppercase;">PRODUCTOS SOLICITADOS</h4>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <thead>
+                    <tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1; text-align: left;">
+                        <th style="padding: 8px 12px;">Producto</th>
+                        <th style="padding: 8px 12px; text-align: center;">Cant.</th>
+                        <th style="padding: 8px 12px; text-align: right;">Precio Unit.</th>
+                        <th style="padding: 8px 12px; text-align: right;">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody id="modal-cot-products-body">
+                </tbody>
+            </table>
+            
+            <!-- Resumen Totales (Neto, IVA, Total) -->
+            <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+                <div style="width: 250px; font-size: 14px;">
+                    <div style="display: flex; justify-content: space-between; padding: 4px 0; color: #64748b;">
+                        <span>Neto:</span>
+                        <strong id="modal-cot-neto">$0</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 4px 0; color: #64748b;">
+                        <span>IVA 19%:</span>
+                        <strong id="modal-cot-iva">$0</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-top: 2px solid #cbd5e1; font-size: 16px; font-weight: 700; color: #0f172a; margin-top: 4px;">
+                        <span>Total:</span>
+                        <span id="modal-cot-total">$0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 3: NOTAS / TÉRMINOS -->
+        <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 24px;">
+            <strong style="display: block; font-size: 13px; color: #475569; margin-bottom: 4px;">Notas / Términos de Cotización:</strong>
+            <p id="modal-cot-notes" style="margin: 0; font-size: 13px; color: #334155; white-space: pre-wrap;">-</p>
+        </div>
+
+        <!-- ACCIONES -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+            <button type="button" onclick="window.print()" class="sf-btn-secondary" style="padding: 8px 14px; font-weight: 600; cursor: pointer;">
+                🖨️ Imprimir
+            </button>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" onclick="closeCotizacionDetailModal()" style="padding: 8px 16px; background: #e2e8f0; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; color: #475569;">
+                    Cerrar
+                </button>
+                <a id="btn-modal-clone" href="#" class="sf-btn-secondary" style="padding: 8px 16px; font-weight: 600; text-decoration: none; background: #edf2f7; color: #2d3748; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;">
+                    📋 Clonar y Modificar
+                </a>
+                <form id="form-modal-convert" method="POST" action="" style="display: inline;" onsubmit="return confirm('¿Emitir esta cotización como venta real?');">
+                    <button type="submit" class="sf-btn-primary" style="padding: 8px 16px; background-color: #ED8936; border: none; font-weight: 600; cursor: pointer;">
+                        ⚡ Emitir Venta
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -241,6 +334,87 @@ function clearCotizacionesFilters() {
     if (document.getElementById('sf-client-filter-cot')) document.getElementById('sf-client-filter-cot').value = '';
     if (document.getElementById('sf-product-filter-cot')) document.getElementById('sf-product-filter-cot').value = '';
     filterCotizacionesTable();
+}
+
+function openCotizacionDetail(sale) {
+    const modal = document.getElementById('modal-view-cotizacion');
+    document.getElementById('modal-cot-title').textContent = `Cotización N° ${sale.sale_number}`;
+    document.getElementById('modal-cot-date').textContent = sale.date || '-';
+    document.getElementById('modal-cot-customer').textContent = sale.customer.name || '-';
+    document.getElementById('modal-cot-email').textContent = sale.customer.email || '-';
+
+    // Parse RUT y Tipo Documento desde notas si existen
+    const notesStr = sale.notes || '';
+    let docType = 'Boleta';
+    let rutStr = '-';
+    let cleanNotes = notesStr;
+
+    if (notesStr.includes('Doc: Factura')) docType = 'Factura';
+    else if (notesStr.includes('Doc: Boleta')) docType = 'Boleta';
+
+    if (notesStr.includes('RUT:')) {
+        try {
+            rutStr = notesStr.split('RUT:')[1].split('|')[0].strip();
+        } catch(e) {
+            rutStr = '-';
+        }
+    }
+
+    if (notesStr.includes('\n')) {
+        cleanNotes = notesStr.split('\n').slice(1).join('\n');
+    } else if (notesStr.includes('Doc:') || notesStr.includes('RUT:')) {
+        cleanNotes = 'Sin observaciones adicionales';
+    }
+
+    document.getElementById('modal-cot-doctype').textContent = docType;
+    document.getElementById('modal-cot-rut').textContent = rutStr;
+    document.getElementById('modal-cot-notes').textContent = cleanNotes || 'Sin observaciones adicionales';
+
+    // Renderizar Productos
+    const tbody = document.getElementById('modal-cot-products-body');
+    tbody.innerHTML = '';
+
+    let totalRaw = sale.total_raw || 0;
+    if (!totalRaw && sale.total) {
+        totalRaw = parseFloat(sale.total.replace('$', '').replace('.', '').replace(',', '.')) || 0;
+    }
+
+    if (Array.isArray(sale.products)) {
+        sale.products.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid #e2e8f0';
+
+            const pName = p.product_name || p.name || 'Producto';
+            const pQty = p.quantity || 1;
+            const pPrice = p.price || p.unit_price || 0;
+            const pSub = p.subtotal || (pQty * pPrice);
+
+            tr.innerHTML = `
+                <td style="padding: 10px 12px; font-weight: 500;">${pName}</td>
+                <td style="padding: 10px 12px; text-align: center;">${pQty}</td>
+                <td style="padding: 10px 12px; text-align: right;">$${Math.round(pPrice).toLocaleString('es-CL')}</td>
+                <td style="padding: 10px 12px; text-align: right; font-weight: 600;">$${Math.round(pSub).toLocaleString('es-CL')}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    const neto = Math.round(totalRaw / 1.19);
+    const iva = totalRaw - neto;
+
+    document.getElementById('modal-cot-neto').textContent = '$' + neto.toLocaleString('es-CL');
+    document.getElementById('modal-cot-iva').textContent = '$' + iva.toLocaleString('es-CL');
+    document.getElementById('modal-cot-total').textContent = '$' + Math.round(totalRaw).toLocaleString('es-CL');
+
+    // Configurar botones de acción del modal
+    document.getElementById('btn-modal-clone').href = `/ventas/cotizacion/nueva?clone_id=${sale.id}`;
+    document.getElementById('form-modal-convert').action = `/ventas/cotizacion/${sale.id}/convertir`;
+
+    modal.style.display = 'flex';
+}
+
+function closeCotizacionDetailModal() {
+    document.getElementById('modal-view-cotizacion').style.display = 'none';
 }
 </script>
 {% endblock %}
