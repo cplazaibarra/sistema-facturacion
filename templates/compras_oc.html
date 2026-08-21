@@ -76,9 +76,9 @@
                             </button>
                         </form>
                         {% endif %}
-                        <a href="{{ url_for('compras.descargar_oc_pdf', po_id=order.id) }}" class="badge" style="background-color: #6B5B95; text-decoration: none; color: white; display: inline-flex; align-items: center; gap: 6px;" target="_blank">
-                            <i class="fa-solid fa-file-pdf"></i> PDF
-                        </a>
+                        {% if order.status not in ['Borrador', 'Pendiente Aprobación'] or (order.status == 'Pendiente Aprobación' and session.get('role_name') not in ['Aprobador', 'Gerente', 'Administrativo']) %}
+                        <span style="color: #a0aec0; font-size: 13px;">-</span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% else %}
