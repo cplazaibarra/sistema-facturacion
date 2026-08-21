@@ -558,6 +558,21 @@ def actualizar_estado_venta():
         file.save(filepath)
         invoice_file_path = f"/uploads/{filename}"
 
+    # Validar que si el estado es 'Completada', obligatoriamente exista o se haya subido un archivo de factura/boleta
+    if new_status == 'Completada':
+        has_file = bool(invoice_file_path)
+        if not has_file:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT invoice_file FROM sale_payments WHERE sale_id = %s", (sale_id,))
+                    row = cur.fetchone()
+                    if row and row.get("invoice_file"):
+                        has_file = True
+
+        if not has_file:
+            flash("Para marcar la venta como Completada es obligatorio adjuntar el archivo de la Factura o Boleta.", "warning")
+            return redirect(url_for('ventas.ventas'))
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             # 1. Registrar el historial de cambio de estado

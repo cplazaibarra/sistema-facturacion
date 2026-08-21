@@ -549,11 +549,16 @@
 
                 <div class="sf-form-group" style="margin-bottom: 15px;">
                     <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Estado de la Venta</label>
-                    <select class="sf-select" id="edit_sale_status_val" name="status" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                    <select class="sf-select" id="edit_sale_status_val" name="status" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;" onchange="toggleCompletadaWarning()">
                         <option value="Pendiente">Pendiente</option>
+                        <option value="En Preparación">En Preparación</option>
+                        <option value="Para Despacho">Para Despacho</option>
                         <option value="Completada">Completada</option>
                         <option value="Cancelada">Cancelada</option>
                     </select>
+                    <div id="completada-warning-note" style="display: none; background: #fffaf0; border: 1px solid #feebc8; color: #c05621; padding: 10px; border-radius: 6px; font-size: 12px; margin-top: 8px;">
+                        ⚠️ <strong>Requisito obligatorio:</strong> Para marcar la venta como <strong>Completada</strong> es obligatorio adjuntar el archivo de la Factura o Boleta.
+                    </div>
                 </div>
 
                 <!-- Campo para el Número de Factura -->
@@ -912,8 +917,36 @@
             historyContainer.innerHTML = '<span style="color: #e53e3e; font-size: 12px;">Error al cargar el historial.</span>';
         }
         
+        toggleCompletadaWarning();
         document.getElementById('editSaleStatusModal').style.display = 'flex';
     }
+
+    function toggleCompletadaWarning() {
+        const val = document.getElementById('edit_sale_status_val').value;
+        const note = document.getElementById('completada-warning-note');
+        if (note) {
+            note.style.display = (val === 'Completada') ? 'block' : 'none';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const statusForm = document.getElementById('editSaleStatusForm');
+        if (statusForm) {
+            statusForm.addEventListener('submit', (e) => {
+                const val = document.getElementById('edit_sale_status_val').value;
+                const fileInput = document.getElementById('edit_sale_invoice_file');
+                const previewContainer = document.getElementById('modal_invoice_preview_container');
+                const hasExistingFile = previewContainer && previewContainer.style.display !== 'none';
+                const hasNewFile = fileInput && fileInput.files && fileInput.files.length > 0;
+
+                if (val === 'Completada' && !hasExistingFile && !hasNewFile) {
+                    e.preventDefault();
+                    alert('⚠️ Para marcar la venta como Completada es obligatorio adjuntar el archivo de la Factura o Boleta.');
+                    return false;
+                }
+            });
+        }
+    });
 
     let activeCardFilter = null;
 
