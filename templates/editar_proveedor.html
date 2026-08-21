@@ -29,12 +29,6 @@
                 </div>
             </div>
 
-            <!-- Giro Comercial -->
-            <div style="margin-bottom: 16px;">
-                <label style="font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Giro Comercial</label>
-                <input type="text" name="giro" class="form-control" value="{{ supplier.giro or '' }}" placeholder="Ej: Importación y distribución de envases y artículos industriales" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
-            </div>
-
             <!-- Dirección, Comuna y Ciudad -->
             <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                 <div>
@@ -48,29 +42,6 @@
                 <div>
                     <label style="font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Ciudad</label>
                     <input type="text" name="ciudad" class="form-control" value="{{ supplier.ciudad or '' }}" placeholder="Ej: Santiago" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
-                </div>
-            </div>
-
-            <!-- Email, Teléfono y Tipo de Compra -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                <div>
-                    <label style="font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Correo Electrónico</label>
-                    <input type="email" name="email" class="form-control" value="{{ supplier.email or '' }}" placeholder="contacto@proveedor.com" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
-                </div>
-                <div>
-                    <label style="font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Teléfono Contacto</label>
-                    <input type="text" name="phone" class="form-control" value="{{ supplier.phone or '' }}" placeholder="+56 9 1234 5678" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
-                </div>
-                <div>
-                    <label style="font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Tipo de Compra</label>
-                    <select name="tipo_compra" class="form-control" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
-                        <option value="Del Giro" {% if supplier.tipo_compra == 'Del Giro' or not supplier.tipo_compra %}selected{% endif %}>Del Giro</option>
-                        <option value="Supermercados" {% if supplier.tipo_compra == 'Supermercados' %}selected{% endif %}>Supermercados</option>
-                        <option value="Activo Fijo" {% if supplier.tipo_compra == 'Activo Fijo' %}selected{% endif %}>Activo Fijo</option>
-                        <option value="IVA Uso Común" {% if supplier.tipo_compra == 'IVA Uso Común' %}selected{% endif %}>IVA Uso Común</option>
-                        <option value="IVA no Recuperable" {% if supplier.tipo_compra == 'IVA no Recuperable' %}selected{% endif %}>IVA no Recuperable</option>
-                        <option value="No Corresponde incluir" {% if supplier.tipo_compra == 'No Corresponde incluir' %}selected{% endif %}>No Corresponde incluir</option>
-                    </select>
                 </div>
             </div>
 

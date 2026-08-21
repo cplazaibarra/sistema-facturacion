@@ -18,12 +18,8 @@
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 14px; color: #334155;">
             <div><strong>Razón Social:</strong> {{ supplier.razon_social or supplier.name }}</div>
-            <div><strong>Giro Comercial:</strong> {{ supplier.giro or 'No especificado' }}</div>
             <div><strong>Dirección:</strong> {{ supplier.direccion or 'No especificada' }}</div>
             <div><strong>Comuna / Ciudad:</strong> {{ supplier.comuna or '-' }} / {{ supplier.ciudad or '-' }}</div>
-            <div><strong>Correo Electrónico:</strong> {{ supplier.email or 'No especificado' }}</div>
-            <div><strong>Teléfono:</strong> {{ supplier.phone or 'No especificado' }}</div>
-            <div><strong>Tipo de Compra:</strong> {{ supplier.tipo_compra or 'Del Giro' }}</div>
             <div><strong>Sitio Web:</strong> 
                 {% if supplier.website %}
                 <a href="{{ supplier.website }}" target="_blank" style="color: #0284c7; text-decoration: underline;">{{ supplier.website }}</a>
