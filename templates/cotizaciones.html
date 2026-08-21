@@ -195,11 +195,19 @@
                         <a href="{{ url_for('ventas.nueva_cotizacion') }}?clone_id={{ sale.id }}" class="sf-btn-secondary" style="padding: 6px 10px; font-size: 12px; text-decoration: none; font-weight: 600; background: #edf2f7; color: #2d3748; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;" title="Clonar y Modificar">
                             📋 Clonar
                         </a>
+                        {% if sale.status.label == 'Borrador' %}
+                        <form method="POST" action="{{ url_for('ventas.emitir_cotizacion', sale_id=sale.id) }}" onsubmit="return confirm('¿Emitir esta cotización oficialmente?');" style="display: inline;">
+                            <button type="submit" class="sf-btn-primary" style="padding: 6px 12px; font-size: 12px; background-color: #3182CE; border: none; font-weight: 600;" title="Hacer Cotización">
+                                🚀 Hacer Cotización
+                            </button>
+                        </form>
+                        {% else %}
                         <form method="POST" action="{{ url_for('ventas.convertir_cotizacion', sale_id=sale.id) }}" onsubmit="return confirm('¿Emitir esta cotización como venta real?');" style="display: inline;">
                             <button type="submit" class="sf-btn-primary" style="padding: 6px 12px; font-size: 12px; background-color: #ED8936; border: none; font-weight: 600;" title="Emitir Venta">
                                 ⚡ Emitir Venta
                             </button>
                         </form>
+                        {% endif %}
                     </div>
                 </td>
             </tr>
@@ -291,8 +299,8 @@
                 <a id="btn-modal-clone" href="#" class="sf-btn-secondary" style="padding: 8px 16px; font-weight: 600; text-decoration: none; background: #edf2f7; color: #2d3748; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;">
                     📋 Clonar y Modificar
                 </a>
-                <form id="form-modal-convert" method="POST" action="" style="display: inline;" onsubmit="return confirm('¿Emitir esta cotización como venta real?');">
-                    <button type="submit" class="sf-btn-primary" style="padding: 8px 16px; background-color: #ED8936; border: none; font-weight: 600; cursor: pointer;">
+                <form id="form-modal-convert" method="POST" action="" style="display: inline;">
+                    <button id="btn-modal-action" type="submit" class="sf-btn-primary" style="padding: 8px 16px; background-color: #ED8936; border: none; font-weight: 600; cursor: pointer;">
                         ⚡ Emitir Venta
                     </button>
                 </form>
@@ -418,7 +426,21 @@ function openCotizacionDetail(sale) {
 
     // Configurar botones de acción del modal
     document.getElementById('btn-modal-clone').href = `/ventas/cotizacion/nueva?clone_id=${sale.id}`;
-    document.getElementById('form-modal-convert').action = `/ventas/cotizacion/${sale.id}/convertir`;
+
+    const formModalConvert = document.getElementById('form-modal-convert');
+    const btnModalAction = document.getElementById('btn-modal-action');
+
+    if (sale.status && sale.status.label === 'Borrador') {
+        formModalConvert.action = `/ventas/cotizacion/${sale.id}/emitir-cotizacion`;
+        formModalConvert.onsubmit = () => confirm('¿Emitir esta cotización oficialmente?');
+        btnModalAction.style.backgroundColor = '#3182CE';
+        btnModalAction.innerHTML = '🚀 Hacer Cotización';
+    } else {
+        formModalConvert.action = `/ventas/cotizacion/${sale.id}/convertir`;
+        formModalConvert.onsubmit = () => confirm('¿Emitir esta cotización como venta real?');
+        btnModalAction.style.backgroundColor = '#ED8936';
+        btnModalAction.innerHTML = '⚡ Emitir Venta';
+    }
 
     modal.style.display = 'flex';
 }

@@ -951,6 +951,33 @@ def get_client_category(email):
                 return jsonify({"email": email, "category_id": row["category_id"]})
     return jsonify({"error": "Cliente no encontrado"}), 404
 
+@ventas_bp.route('/ventas/cotizacion/<int:sale_id>/emitir-cotizacion', methods=['POST'])
+def emitir_cotizacion(sale_id):
+    """Cambiar estado de Borrador a Cotización"""
+    from db import get_connection, get_sale
+    sale = get_sale(sale_id)
+    if not sale:
+        flash("Cotización no encontrada.", "danger")
+        return redirect(url_for('ventas.cotizaciones'))
+        
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE sales 
+                SET status = 'Cotización', 
+                    payment_status = 'Cotización', 
+                    delivery_status = 'Cotización'
+                WHERE id = %s
+                """,
+                (sale_id,)
+            )
+        conn.commit()
+        
+    flash(f"La cotización {sale['sale_number']} se ha emitido oficialmente.", "success")
+    return redirect(url_for('ventas.cotizaciones'))
+
+
 @ventas_bp.route('/ventas/cotizacion/<int:sale_id>/convertir', methods=['POST'])
 def convertir_cotizacion(sale_id):
     """Convertir una cotización a venta real (Crea VTA- sin eliminar COT-)"""
