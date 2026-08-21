@@ -31,6 +31,16 @@
             </div>
 
             <div class="form-group" style="margin-bottom: 16px;">
+                <label style="font-weight: 500; display: block; margin-bottom: 6px;">Método / Condición de Pago *</label>
+                <select class="form-control" name="payment_method" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                    <option value="Efectivo" selected>Efectivo</option>
+                    <option value="Transferencia bancaria">Transferencia bancaria</option>
+                    <option value="Tarjeta de Crédito / Débito">Tarjeta de Crédito / Débito</option>
+                    <option value="Crédito 30 días">Crédito 30 días</option>
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
                 <label style="font-weight: 500; display: block; margin-bottom: 6px;">Notas / Términos de Compra</label>
                 <textarea class="form-control" name="notes" placeholder="Términos de pago, plazos de entrega, etc..." style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px; height: 60px; resize: vertical;"></textarea>
             </div>

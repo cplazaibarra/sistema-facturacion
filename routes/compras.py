@@ -52,7 +52,8 @@ def nueva_oc():
                     "quantity": qty,
                     "unit_price": price
                 })
-                
+        
+        payment_method = request.form.get('payment_method', 'Efectivo').strip()
         status = request.form.get('status', 'Pendiente Aprobación').strip()
         if status not in ['Borrador', 'Pendiente Aprobación', 'Emitida']:
             status = 'Pendiente Aprobación'
@@ -63,7 +64,7 @@ def nueva_oc():
             return render_template('nueva_oc.html', suppliers=suppliers, default_date=datetime.now().strftime('%Y-%m-%d'))
             
         created_by = session.get('user_id')
-        oc_num = create_purchase_order(supplier_id, order_date, notes, items, status=status, created_by=created_by)
+        oc_num = create_purchase_order(supplier_id, order_date, notes, items, status=status, created_by=created_by, payment_method=payment_method)
         flash(f"Orden de Compra {oc_num} guardada como {status} con éxito.", "success")
         return redirect(url_for('compras.list_oc'))
 
@@ -86,9 +87,7 @@ def editar_oc(po_id):
         supplier_id = request.form.get('supplier_id', type=int)
         order_date = request.form.get('order_date')
         notes = request.form.get('notes')
-        status = request.form.get('status', 'Borrador').strip()
-        if status not in ['Borrador', 'Pendiente Aprobación']:
-            status = 'Borrador'
+        payment_method = request.form.get('payment_method', 'Efectivo').strip()
         
         product_ids = request.form.getlist('product_id[]')
         quantities = request.form.getlist('quantity[]')
@@ -109,6 +108,10 @@ def editar_oc(po_id):
                     "quantity": qty,
                     "unit_price": price
                 })
+        
+        status = request.form.get('status', 'Borrador').strip()
+        if status not in ['Borrador', 'Pendiente Aprobación', 'Emitida']:
+            status = 'Borrador'
                 
         if not supplier_id or not items:
             flash("Debe seleccionar un proveedor y agregar al menos un producto.", "danger")
@@ -116,7 +119,7 @@ def editar_oc(po_id):
             items_current = get_purchase_order_items(po_id)
             return render_template('editar_oc.html', po=po, items=items_current, suppliers=suppliers)
             
-        update_purchase_order(po_id, supplier_id, order_date, notes, items, status=status)
+        update_purchase_order(po_id, supplier_id, order_date, notes, items, status=status, payment_method=payment_method)
         flash(f"Orden de Compra {po['oc_number']} actualizada como {status} con éxito.", "success")
         return redirect(url_for('compras.list_oc'))
 
@@ -229,9 +232,11 @@ def descargar_oc_pdf(po_id):
         [Paragraph("Número de OC:", label_style), Paragraph(po["oc_number"], value_style),
          Paragraph("Fecha de Emisión:", label_style), Paragraph(po["order_date"], value_style)],
         [Paragraph("Proveedor:", label_style), Paragraph(po["supplier_name"], value_style),
-         Paragraph("Estado:", label_style), Paragraph(po["status"], value_style)],
-        [Paragraph("Creado por:", label_style), Paragraph(po.get("creator_name") or "-", value_style),
-         Paragraph("Aprobado por:", label_style), Paragraph(po.get("approver_name") or "-", value_style)]
+         Paragraph("Forma de Pago:", label_style), Paragraph(po.get("payment_method") or "Efectivo", value_style)],
+        [Paragraph("Estado:", label_style), Paragraph(po["status"], value_style),
+         Paragraph("Creado por:", label_style), Paragraph(po.get("creator_name") or "-", value_style)],
+        [Paragraph("Aprobado por:", label_style), Paragraph(po.get("approver_name") or "-", value_style),
+         Paragraph("", label_style), Paragraph("", value_style)]
     ]
     
     t_meta = Table(meta_data, colWidths=[100, 160, 110, 150])

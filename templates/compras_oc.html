@@ -109,9 +109,10 @@
                 <div><strong>N° Orden:</strong> <span id="modal-oc-number">-</span></div>
                 <div><strong>Proveedor:</strong> <a id="modal-oc-supplier-link" href="#" style="color: #2b6cb0; font-weight: 600; text-decoration: underline;">-</a></div>
                 <div><strong>Fecha Emisión:</strong> <span id="modal-oc-date">-</span></div>
+                <div><strong>Forma / Condición Pago:</strong> <span id="modal-oc-payment-method" style="font-weight: 600; color: #2b6cb0;">-</span></div>
                 <div><strong>Estado:</strong> <span id="modal-oc-status">-</span></div>
                 <div><strong>Creado por:</strong> <span id="modal-oc-creator">-</span></div>
-                <div><strong>Aprobado por:</strong> <span id="modal-oc-approver">-</span></div>
+                <div style="grid-column: span 2;"><strong>Aprobado por:</strong> <span id="modal-oc-approver">-</span></div>
                 <div style="grid-column: span 2; border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 4px;">
                     <strong>Notas / Observaciones:</strong>
                     <div id="modal-oc-notes" style="color: #475569; margin-top: 4px; white-space: pre-wrap; font-size: 13px;">-</div>
@@ -171,6 +172,7 @@
             document.getElementById('modal-oc-supplier-link').textContent = po.supplier_name || '-';
             document.getElementById('modal-oc-supplier-link').href = `/proveedores/${po.supplier_id}`;
             document.getElementById('modal-oc-date').textContent = po.order_date || '-';
+            document.getElementById('modal-oc-payment-method').textContent = po.payment_method || 'Efectivo';
             document.getElementById('modal-oc-status').textContent = po.status || '-';
             document.getElementById('modal-oc-creator').textContent = po.creator_name || '-';
             document.getElementById('modal-oc-approver').textContent = po.approver_name || '-';

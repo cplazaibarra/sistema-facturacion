@@ -866,6 +866,11 @@ def init_db() -> None:
                 ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
                 """
             )
+            cur.execute(
+                """
+                ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'Efectivo';
+                """
+            )
             cur.execute("DROP TABLE IF EXISTS product_margins;")
             cur.execute(
                 """
@@ -2507,7 +2512,7 @@ def get_next_oc_number() -> str:
             next_id = (row["id"] + 1) if row else 1
             return f"OC-{next_id:05d}"
 
-def create_purchase_order(supplier_id: int, order_date: str, notes: str, items: list[dict], status: str = "Emitida", created_by: int = None) -> str:
+def create_purchase_order(supplier_id: int, order_date: str, notes: str, items: list[dict], status: str = "Emitida", created_by: int = None, payment_method: str = "Efectivo") -> str:
     """Crea una Orden de Compra completa en la base de datos"""
     oc_num = get_next_oc_number()
     with get_connection() as conn:
@@ -2518,10 +2523,10 @@ def create_purchase_order(supplier_id: int, order_date: str, notes: str, items: 
             # Insertar cabecera de la OC
             cur.execute(
                 """
-                INSERT INTO purchase_orders (oc_number, supplier_id, order_date, status, total_amount, notes, created_by, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                INSERT INTO purchase_orders (oc_number, supplier_id, order_date, status, total_amount, notes, created_by, payment_method, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
                 """,
-                (oc_num, supplier_id, order_date, status, total_amount, notes, created_by, datetime.utcnow().isoformat(timespec='seconds'))
+                (oc_num, supplier_id, order_date, status, total_amount, notes, created_by, payment_method or 'Efectivo', datetime.utcnow().isoformat(timespec='seconds'))
             )
             po_id = cur.fetchone()["id"]
             
@@ -2538,7 +2543,7 @@ def create_purchase_order(supplier_id: int, order_date: str, notes: str, items: 
         conn.commit()
     return oc_num
 
-def update_purchase_order(po_id: int, supplier_id: int, order_date: str, notes: str, items: list[dict], status: str = "Borrador") -> None:
+def update_purchase_order(po_id: int, supplier_id: int, order_date: str, notes: str, items: list[dict], status: str = "Borrador", payment_method: str = "Efectivo") -> None:
     """Actualiza una Orden de Compra (borrador) y sus ítems en la base de datos"""
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -2549,10 +2554,10 @@ def update_purchase_order(po_id: int, supplier_id: int, order_date: str, notes: 
             cur.execute(
                 """
                 UPDATE purchase_orders
-                SET supplier_id = %s, order_date = %s, status = %s, total_amount = %s, notes = %s
+                SET supplier_id = %s, order_date = %s, status = %s, total_amount = %s, notes = %s, payment_method = %s
                 WHERE id = %s
                 """,
-                (supplier_id, order_date, status, total_amount, notes, po_id)
+                (supplier_id, order_date, status, total_amount, notes, payment_method or 'Efectivo', po_id)
             )
             
             # Eliminar ítems anteriores para reinsertar los actualizados
@@ -2576,7 +2581,7 @@ def list_purchase_orders() -> list[dict]:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT po.id, po.oc_number, po.order_date, po.status, po.total_amount, po.notes, po.supplier_id,
+                SELECT po.id, po.oc_number, po.order_date, po.status, po.total_amount, po.notes, po.supplier_id, po.payment_method,
                        s.name as supplier_name,
                        u1.full_name as creator_name,
                        u2.full_name as approver_name
@@ -2595,7 +2600,7 @@ def get_purchase_order(po_id: int) -> dict | None:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT po.id, po.oc_number, po.order_date, po.status, po.total_amount, po.notes, po.supplier_id,
+                SELECT po.id, po.oc_number, po.order_date, po.status, po.total_amount, po.notes, po.supplier_id, po.payment_method,
                        s.name as supplier_name, s.description as supplier_description, s.website as supplier_website,
                        u1.full_name as creator_name,
                        u2.full_name as approver_name
