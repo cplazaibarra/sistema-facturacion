@@ -22,7 +22,8 @@
             <div><strong>Comuna / Ciudad:</strong> {{ supplier.comuna or '-' }} / {{ supplier.ciudad or '-' }}</div>
             <div><strong>Sitio Web:</strong> 
                 {% if supplier.website %}
-                <a href="{{ supplier.website }}" target="_blank" style="color: #0284c7; text-decoration: underline;">{{ supplier.website }}</a>
+                {% set web_link = supplier.website if (supplier.website.startswith('http://') or supplier.website.startswith('https://')) else 'https://' ~ supplier.website %}
+                <a href="{{ web_link }}" target="_blank" style="color: #0284c7; text-decoration: underline;">{{ supplier.website }}</a>
                 {% else %}
                 No especificado
                 {% endif %}

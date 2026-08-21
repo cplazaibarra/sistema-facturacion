@@ -56,7 +56,7 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
                 <div>
                     <label style="font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Sitio Web</label>
-                    <input type="url" name="website" class="form-control" placeholder="https://www.proveedor.com" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
+                    <input type="text" name="website" class="form-control" placeholder="www.proveedor.com" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
                 </div>
                 <div>
                     <label style="font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Descripción / Observaciones</label>
@@ -99,7 +99,8 @@
                     <td>{{ supplier.description or '-' }}</td>
                     <td>
                         {% if supplier.website %}
-                        <a href="{{ supplier.website }}" target="_blank">Visitar</a>
+                        {% set web_link = supplier.website if (supplier.website.startswith('http://') or supplier.website.startswith('https://')) else 'https://' ~ supplier.website %}
+                        <a href="{{ web_link }}" target="_blank">Visitar</a>
                         {% else %}
                         -
                         {% endif %}
