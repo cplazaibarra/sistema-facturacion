@@ -57,7 +57,7 @@
                     <span class="icon"><i class="fa-solid fa-jar"></i></span>
                     <span>Productos</span>
                 </a>
-                <a href="{{ url_for('usuarios.administracion') }}" class="nav-item {% if request.endpoint in ['usuarios.administracion', 'usuarios.usuarios', 'usuarios.roles', 'proveedores.proveedores', 'proveedores.ver_proveedor', 'proveedores.editar_proveedor', 'proveedores.agregar_contacto', 'proveedores.editar_contacto', 'proveedores.eliminar_contacto'] %}active{% endif %}">
+                <a href="{{ url_for('usuarios.administracion') }}" class="nav-item {% if request.endpoint in ['usuarios.administracion', 'usuarios.usuarios', 'usuarios.roles'] %}active{% endif %}">
                     <span class="icon"><i class="fa-solid fa-sliders"></i></span>
                     <span>Administración</span>
                 </a>
@@ -65,10 +65,21 @@
                     <span class="icon"><i class="fa-solid fa-boxes-stacked"></i></span>
                     <span>Bodega</span>
                 </a>
-                <a href="{{ url_for('compras.list_oc') }}" class="nav-item {% if request.endpoint in ['compras.list_oc', 'compras.nueva_oc'] %}active{% endif %}">
-                    <span class="icon"><i class="fa-solid fa-file-signature"></i></span>
-                    <span>Compra</span>
-                </a>
+                <div class="nav-section">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['compras.list_oc', 'compras.nueva_oc', 'compras.editar_oc', 'proveedores.proveedores', 'proveedores.ver_proveedor', 'proveedores.editar_proveedor', 'proveedores.agregar_contacto', 'proveedores.editar_contacto'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                        <span class="icon"><i class="fa-solid fa-cart-shopping"></i></span>
+                        <span>Compra</span>
+                        <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
+                    </button>
+                    <div class="nav-submenu {% if request.endpoint in ['compras.list_oc', 'compras.nueva_oc', 'compras.editar_oc', 'proveedores.proveedores', 'proveedores.ver_proveedor', 'proveedores.editar_proveedor', 'proveedores.agregar_contacto', 'proveedores.editar_contacto'] %}open{% endif %}">
+                        <a href="{{ url_for('compras.list_oc') }}" class="nav-item nav-subitem {% if request.endpoint in ['compras.list_oc', 'compras.nueva_oc', 'compras.editar_oc'] %}active{% endif %}">
+                            <span>Órdenes de Compra</span>
+                        </a>
+                        <a href="{{ url_for('proveedores.proveedores') }}" class="nav-item nav-subitem {% if request.endpoint in ['proveedores.proveedores', 'proveedores.ver_proveedor', 'proveedores.editar_proveedor', 'proveedores.agregar_contacto', 'proveedores.editar_contacto'] %}active{% endif %}">
+                            <span>Proveedores</span>
+                        </a>
+                    </div>
+                </div>
                 <a href="{{ url_for('inventario.ingreso_mercaderia') }}" class="nav-item {% if request.endpoint == 'inventario.ingreso_mercaderia' %}active{% endif %}">
                     <span class="icon"><i class="fa-solid fa-dolly"></i></span>
                     <span>Ingreso Mercadería</span>
