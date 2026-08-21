@@ -61,7 +61,11 @@
             <tbody>
                 {% for supplier in suppliers %}
                 <tr>
-                    <td>{{ supplier.name }}</td>
+                    <td>
+                        <a href="{{ url_for('proveedores.editar_proveedor', supplier_id=supplier.id) }}" style="color: #0284c7; font-weight: 600; text-decoration: underline;" title="Clic para ver y editar datos del proveedor">
+                            {{ supplier.name }}
+                        </a>
+                    </td>
                     <td>{{ supplier.description or '-' }}</td>
                     <td>
                         {% if supplier.website %}
