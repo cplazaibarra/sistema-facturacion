@@ -180,7 +180,7 @@
                     <input type="checkbox" class="sf-checkbox">
                 </td>
                   <td>
-                      <a href="#" class="sf-link" data-id="{{ sale.id }}" data-number="{{ sale.sale_number }}" data-status="{{ sale.status.label }}" data-invoice-number="{{ sale.invoice_number }}" data-invoice-file="{{ sale.invoice_file }}" data-history='{{ sale.history | tojson | safe }}' onclick="openEditSaleStatusModal(this)">{{ sale.sale_number }}</a>
+                      <a href="javascript:void(0);" class="sf-link" onclick='openVentaDetailModal({{ sale | tojson | safe }})' title="Ver Detalle de Venta y Productos">{{ sale.sale_number }}</a>
                   </td>
                 <td>
                     <div class="sf-cell-user">
@@ -212,9 +212,9 @@
                     <div class="sf-amount">{{ sale.total }}</div>
                 </td>
                   <td>
-                      <span class="sf-badge sf-badge-{{ sale.status.level }}">
+                      <span class="sf-badge sf-badge-{{ sale.status.level }}" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Haz clic para actualizar el estado de la venta" data-id="{{ sale.id }}" data-number="{{ sale.sale_number }}" data-status="{{ sale.status.label }}" data-invoice-number="{{ sale.invoice_number }}" data-invoice-file="{{ sale.invoice_file }}" data-history='{{ sale.history | tojson | safe }}' onclick="openEditSaleStatusModal(this)">
                           <span class="sf-badge-dot"></span>
-                          {{ sale.status.label }}
+                          {{ sale.status.label }} ✏️
                       </span>
                       
                       <!-- Quién lo pasó a Completada -->
@@ -315,7 +315,7 @@
                   </td>
                  <td>
                      <div class="sf-actions">
-                         <button class="sf-action-btn" title="Ver detalles">👁️</button>
+                         <button class="sf-action-btn" title="Ver detalles" onclick='openVentaDetailModal({{ sale | tojson | safe }})'>👁️</button>
                          {% if sale.status.label == 'Cotización' %}
                            <form action="{{ url_for('ventas.convertir_cotizacion', sale_id=sale.id) }}" method="POST" style="display: inline-block; margin: 0;" onsubmit="return confirm('¿Estás seguro de que deseas emitir esta cotización y convertirla en una venta real?');">
                                <button type="submit" class="sf-action-btn" title="Emitir Venta" style="background-color: #ED8936; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
@@ -591,10 +591,137 @@
         </div>
     </div>
 </div>
+
+<!-- Modal para Ver Detalle de Venta en formato similar a Cotización -->
+<div id="modal-view-venta" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; padding: 20px; overflow-y: auto;">
+    <div style="background: white; border-radius: 12px; width: 720px; max-width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px;">
+            <div>
+                <h2 id="modal-vta-title" style="margin: 0; font-size: 20px; color: #1e293b;">Detalle de Venta</h2>
+                <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Comprobante de Venta y Productos</p>
+            </div>
+            <button type="button" onclick="closeVentaDetailModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #94a3b8;">✕</button>
+        </div>
+
+        <!-- SECCIÓN 1: DATOS RECEPTOR / CLIENTE -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">DATOS CLIENTE Y VENTA</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px;">
+                <div><strong>N° Folio Venta:</strong> <span id="modal-vta-number">-</span></div>
+                <div><strong>Fecha Emitida:</strong> <span id="modal-vta-date">-</span></div>
+                <div><strong>Cliente / Razón Social:</strong> <span id="modal-vta-customer">-</span></div>
+                <div><strong>Correo Electrónico:</strong> <span id="modal-vta-email">-</span></div>
+                <div><strong>Estado de Venta:</strong> <span id="modal-vta-status">-</span></div>
+                <div><strong>Estado de Pago:</strong> <span id="modal-vta-pstatus">-</span></div>
+                <div style="grid-column: span 2;"><strong>Vendedor Responsable:</strong> <span id="modal-vta-seller">-</span></div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 2: PRODUCTOS VENDIDOS -->
+        <div style="margin-bottom: 20px;">
+            <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #334155; text-transform: uppercase;">PRODUCTOS VENDIDOS</h4>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <thead>
+                    <tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1; text-align: left;">
+                        <th style="padding: 8px 12px;">Producto</th>
+                        <th style="padding: 8px 12px; text-align: center;">Cant.</th>
+                        <th style="padding: 8px 12px; text-align: right;">Precio Unit.</th>
+                        <th style="padding: 8px 12px; text-align: center;">Desc. (%)</th>
+                        <th style="padding: 8px 12px; text-align: right;">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody id="modal-vta-products-body">
+                </tbody>
+            </table>
+            
+            <!-- Resumen Totales (Neto, IVA 19%, Total) -->
+            <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+                <div style="width: 250px; font-size: 14px;">
+                    <div style="display: flex; justify-content: space-between; padding: 4px 0; color: #64748b;">
+                        <span>Neto:</span>
+                        <strong id="modal-vta-neto">$0</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 4px 0; color: #64748b;">
+                        <span>IVA 19%:</span>
+                        <strong id="modal-vta-iva">$0</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-top: 2px solid #cbd5e1; font-size: 16px; font-weight: 700; color: #0f172a; margin-top: 4px;">
+                        <span>Total Venta:</span>
+                        <span id="modal-vta-total">$0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACCIONES -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+            <button type="button" onclick="window.print()" class="sf-btn-secondary" style="padding: 8px 14px; font-weight: 600; cursor: pointer; background: #edf2f7; border: none; border-radius: 6px; color: #2d3748;">
+                🖨️ Imprimir
+            </button>
+            <button type="button" onclick="closeVentaDetailModal()" style="padding: 8px 16px; background: #e2e8f0; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; color: #475569;">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    function openVentaDetailModal(sale) {
+        const modal = document.getElementById('modal-view-venta');
+        document.getElementById('modal-vta-title').textContent = `Venta N° ${sale.sale_number}`;
+        document.getElementById('modal-vta-number').textContent = sale.sale_number || '-';
+        document.getElementById('modal-vta-date').textContent = `${sale.date || ''} ${sale.time || ''}`.trim() || '-';
+        document.getElementById('modal-vta-customer').textContent = sale.customer ? sale.customer.name : '-';
+        document.getElementById('modal-vta-email').textContent = sale.customer ? sale.customer.email : '-';
+        document.getElementById('modal-vta-status').textContent = sale.status ? sale.status.label : '-';
+        document.getElementById('modal-vta-pstatus').textContent = sale.payment_status || '-';
+        document.getElementById('modal-vta-seller').textContent = sale.seller ? sale.seller.name : '-';
+
+        const tbody = document.getElementById('modal-vta-products-body');
+        tbody.innerHTML = '';
+
+        let totalRaw = sale.total_raw || 0;
+        if (!totalRaw && sale.total) {
+            totalRaw = parseFloat(String(sale.total).replace('$', '').replace(/\./g, '').replace(',', '.')) || 0;
+        }
+
+        if (Array.isArray(sale.products)) {
+            sale.products.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #e2e8f0';
+
+                const pName = p.product_name || p.name || 'Producto';
+                const pQty = p.quantity || 1;
+                const pPrice = p.price || p.unit_price || 0;
+                const pDisc = p.discount || 0;
+                const pSub = p.subtotal || (pQty * pPrice * (1 - (pDisc / 100)));
+
+                tr.innerHTML = `
+                    <td style="padding: 10px 12px; font-weight: 500;">${pName}</td>
+                    <td style="padding: 10px 12px; text-align: center;">${pQty}</td>
+                    <td style="padding: 10px 12px; text-align: right;">$${Math.round(pPrice).toLocaleString('es-CL')}</td>
+                    <td style="padding: 10px 12px; text-align: center;">${pDisc}%</td>
+                    <td style="padding: 10px 12px; text-align: right; font-weight: 600;">$${Math.round(pSub).toLocaleString('es-CL')}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        const neto = Math.round(totalRaw / 1.19);
+        const iva = totalRaw - neto;
+
+        document.getElementById('modal-vta-neto').textContent = '$' + neto.toLocaleString('es-CL');
+        document.getElementById('modal-vta-iva').textContent = '$' + iva.toLocaleString('es-CL');
+        document.getElementById('modal-vta-total').textContent = '$' + Math.round(totalRaw).toLocaleString('es-CL');
+
+        modal.style.display = 'flex';
+    }
+
+    function closeVentaDetailModal() {
+        document.getElementById('modal-view-venta').style.display = 'none';
+    }
     function switchTab(tabName) {
         console.log('Switching to tab:', tabName);
     }
