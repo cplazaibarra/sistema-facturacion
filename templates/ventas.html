@@ -186,7 +186,7 @@
                     <div class="sf-cell-user" style="cursor: pointer;" onclick='openEditClientModal({{ sale.customer|tojson|safe }})' title="Clic para ver y editar datos del cliente">
                         <div class="sf-avatar">{{ sale.customer.initials }}</div>
                         <div class="sf-user-info">
-                            <div class="sf-user-name" style="color: #0284c7; font-weight: 600; text-decoration: underline;">{{ sale.customer.name }} ✏️</div>
+                            <div class="sf-user-name" style="color: #0284c7; font-weight: 600; text-decoration: underline;">{{ sale.customer.name }}</div>
                             <div class="sf-user-detail">{{ sale.customer.email }}</div>
                         </div>
                     </div>
@@ -214,7 +214,7 @@
                   <td>
                       <span class="sf-badge sf-badge-{{ sale.status.level }}" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Haz clic para actualizar el estado de la venta" data-id="{{ sale.id }}" data-number="{{ sale.sale_number }}" data-status="{{ sale.status.label }}" data-invoice-number="{{ sale.invoice_number }}" data-invoice-file="{{ sale.invoice_file }}" data-history='{{ sale.history | tojson | safe }}' onclick="openEditSaleStatusModal(this)">
                           <span class="sf-badge-dot"></span>
-                          {{ sale.status.label }} ✏️
+                          {{ sale.status.label }}
                       </span>
                       
                       <!-- Quién lo pasó a Completada -->
@@ -232,17 +232,17 @@
                            {% if sale.payment_status == 'Pagado' %}
                            <span class="sf-badge sf-badge-success" style="background-color: rgba(72, 187, 120, 0.1); color: #48BB78; border: 1px solid rgba(72, 187, 120, 0.2);">
                                <span class="sf-badge-dot" style="background-color: #48BB78;"></span>
-                               Pagado ✏️
+                               Pagado
                            </span>
                            {% elif sale.payment_status == 'Pendiente Aprobación Pago' %}
                            <span class="sf-badge sf-badge-warning" style="background-color: rgba(236, 201, 75, 0.1); color: #D69E2E; border: 1px solid rgba(236, 201, 75, 0.2);">
                                <span class="sf-badge-dot" style="background-color: #D69E2E;"></span>
-                               Por Validar ✏️
+                               Por Validar
                            </span>
                            {% elif sale.payment_status == 'Retrasada' %}
                            <span class="sf-badge sf-badge-danger" style="background-color: rgba(229, 62, 62, 0.1); color: #E53E3E; border: 1px solid rgba(229, 62, 62, 0.2);">
                                <span class="sf-badge-dot" style="background-color: #E53E3E;"></span>
-                               Retrasada ✏️
+                               Retrasada
                            </span>
                            {% elif sale.payment_status == 'Cotización' %}
                             <span class="sf-badge sf-badge-info" style="background-color: rgba(59, 130, 246, 0.1); color: #2563EB; border: 1px solid rgba(59, 130, 246, 0.2);">
@@ -252,7 +252,7 @@
                            {% else %}
                            <span class="sf-badge sf-badge-warning" style="background-color: rgba(237, 137, 54, 0.1); color: #ED8936; border: 1px solid rgba(237, 137, 54, 0.2);">
                                <span class="sf-badge-dot" style="background-color: #ED8936;"></span>
-                               Pendiente ✏️
+                               Pendiente
                            </span>
                            {% endif %}
                       </div>
@@ -1098,7 +1098,7 @@
     <div style="background: white; border-radius: 12px; width: 650px; max-width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 24px;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px;">
             <div>
-                <h3 style="margin: 0; font-size: 18px; color: #1e293b;">✏️ Ver / Editar Datos del Cliente</h3>
+                <h3 style="margin: 0; font-size: 18px; color: #1e293b;">Ver / Editar Datos del Cliente</h3>
                 <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Información registrada en la base de datos de clientes</p>
             </div>
             <button type="button" onclick="closeEditClientModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #94a3b8;">✕</button>

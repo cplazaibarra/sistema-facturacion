@@ -146,7 +146,7 @@
                     <div class="sf-cell-user" style="cursor: pointer;" onclick='openEditClientModal({{ sale.customer|tojson|safe }})' title="Clic para ver y editar datos del cliente">
                         <div class="sf-avatar">{{ sale.customer.initials }}</div>
                         <div class="sf-user-info">
-                            <div class="sf-user-name" style="color: #0284c7; font-weight: 600; text-decoration: underline;">{{ sale.customer.name }} ✏️</div>
+                            <div class="sf-user-name" style="color: #0284c7; font-weight: 600; text-decoration: underline;">{{ sale.customer.name }}</div>
                             <div class="sf-user-detail">{{ sale.customer.email }}</div>
                         </div>
                     </div>
@@ -477,7 +477,7 @@ function closeEditClientModal() {
     <div style="background: white; border-radius: 12px; width: 650px; max-width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 24px;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px;">
             <div>
-                <h3 style="margin: 0; font-size: 18px; color: #1e293b;">✏️ Ver / Editar Datos del Cliente</h3>
+                <h3 style="margin: 0; font-size: 18px; color: #1e293b;">Ver / Editar Datos del Cliente</h3>
                 <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Información registrada en la base de datos de clientes</p>
             </div>
             <button type="button" onclick="closeEditClientModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #94a3b8;">✕</button>
