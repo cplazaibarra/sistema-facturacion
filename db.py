@@ -763,6 +763,16 @@ def init_db() -> None:
                 )
                 """
             )
+            cur.execute("ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS rut TEXT;")
+            cur.execute("ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS dv TEXT;")
+            cur.execute("ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS razon_social TEXT;")
+            cur.execute("ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS giro TEXT;")
+            cur.execute("ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS direccion TEXT;")
+            cur.execute("ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS comuna TEXT;")
+            cur.execute("ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS ciudad TEXT;")
+            cur.execute("ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS email TEXT;")
+            cur.execute("ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS phone TEXT;")
+            cur.execute("ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS tipo_compra TEXT;")
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS supplier_contacts (
@@ -2257,7 +2267,7 @@ def list_suppliers() -> list[dict]:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, name, description, website, created_at
+                SELECT id, name, description, website, rut, dv, razon_social, giro, direccion, comuna, ciudad, email, phone, tipo_compra, created_at
                 FROM suppliers
                 ORDER BY name
                 """
@@ -2270,7 +2280,7 @@ def get_supplier(supplier_id: int) -> dict:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, name, description, website, created_at
+                SELECT id, name, description, website, rut, dv, razon_social, giro, direccion, comuna, ciudad, email, phone, tipo_compra, created_at
                 FROM suppliers
                 WHERE id = %s
                 """,
@@ -2285,14 +2295,24 @@ def insert_supplier(supplier: dict) -> int:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO suppliers (name, description, website, created_at)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO suppliers (name, description, website, rut, dv, razon_social, giro, direccion, comuna, ciudad, email, phone, tipo_compra, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
                     supplier["name"],
                     supplier.get("description"),
                     supplier.get("website"),
+                    supplier.get("rut"),
+                    supplier.get("dv"),
+                    supplier.get("razon_social") or supplier["name"],
+                    supplier.get("giro"),
+                    supplier.get("direccion"),
+                    supplier.get("comuna"),
+                    supplier.get("ciudad"),
+                    supplier.get("email"),
+                    supplier.get("phone"),
+                    supplier.get("tipo_compra", "Del Giro"),
                     supplier.get("created_at", datetime.utcnow().isoformat(timespec='seconds')),
                 ),
             )
@@ -2307,13 +2327,23 @@ def update_supplier(supplier_id: int, supplier: dict) -> None:
             cur.execute(
                 """
                 UPDATE suppliers
-                SET name = %s, description = %s, website = %s
+                SET name = %s, description = %s, website = %s, rut = %s, dv = %s, razon_social = %s, giro = %s, direccion = %s, comuna = %s, ciudad = %s, email = %s, phone = %s, tipo_compra = %s
                 WHERE id = %s
                 """,
                 (
                     supplier.get("name"),
                     supplier.get("description"),
                     supplier.get("website"),
+                    supplier.get("rut"),
+                    supplier.get("dv"),
+                    supplier.get("razon_social"),
+                    supplier.get("giro"),
+                    supplier.get("direccion"),
+                    supplier.get("comuna"),
+                    supplier.get("ciudad"),
+                    supplier.get("email"),
+                    supplier.get("phone"),
+                    supplier.get("tipo_compra"),
                     supplier_id,
                 ),
             )

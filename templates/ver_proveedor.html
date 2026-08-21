@@ -11,20 +11,29 @@
 
 <!-- Información del proveedor -->
 <div class="settings-section">
-    <div class="settings-card">
-        <div class="card-header">
-            <h3>{{ supplier.name }}</h3>
+    <div class="settings-card" style="background: white; border-radius: 10px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 24px;">
+        <div class="card-header" style="border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 16px;">
+            <h3 style="margin: 0; font-size: 18px; color: #1e293b;">{{ supplier.name }}</h3>
+            <span style="font-size: 13px; color: #64748b;">RUT: <strong>{% if supplier.rut %}{{ supplier.rut }}-{{ supplier.dv }}{% else %}No especificado{% endif %}</strong></span>
         </div>
-        <div style="padding: 20px;">
-            <p><strong>Descripción:</strong> {{ supplier.description or 'No especificada' }}</p>
-            <p><strong>Sitio Web:</strong> 
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 14px; color: #334155;">
+            <div><strong>Razón Social:</strong> {{ supplier.razon_social or supplier.name }}</div>
+            <div><strong>Giro Comercial:</strong> {{ supplier.giro or 'No especificado' }}</div>
+            <div><strong>Dirección:</strong> {{ supplier.direccion or 'No especificada' }}</div>
+            <div><strong>Comuna / Ciudad:</strong> {{ supplier.comuna or '-' }} / {{ supplier.ciudad or '-' }}</div>
+            <div><strong>Correo Electrónico:</strong> {{ supplier.email or 'No especificado' }}</div>
+            <div><strong>Teléfono:</strong> {{ supplier.phone or 'No especificado' }}</div>
+            <div><strong>Tipo de Compra:</strong> {{ supplier.tipo_compra or 'Del Giro' }}</div>
+            <div><strong>Sitio Web:</strong> 
                 {% if supplier.website %}
-                <a href="{{ supplier.website }}" target="_blank">{{ supplier.website }}</a>
+                <a href="{{ supplier.website }}" target="_blank" style="color: #0284c7; text-decoration: underline;">{{ supplier.website }}</a>
                 {% else %}
                 No especificado
                 {% endif %}
-            </p>
-            <p><strong>Registrado:</strong> {{ supplier.created_at[:10] }}</p>
+            </div>
+            <div style="grid-column: span 2; border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: 4px;">
+                <strong>Descripción / Observaciones:</strong> {{ supplier.description or 'Sin observaciones adicionales' }}
+            </div>
         </div>
     </div>
 </div>

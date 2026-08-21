@@ -48,8 +48,20 @@ def api_crear_proveedor():
 def proveedores():
     """Gestión de proveedores"""
     if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        razon_social = request.form.get('razon_social', '').strip() or name
         supplier = {
-            "name": request.form.get('name', '').strip(),
+            "name": name or razon_social,
+            "razon_social": razon_social,
+            "rut": request.form.get('rut', '').strip(),
+            "dv": request.form.get('dv', '').strip().upper(),
+            "giro": request.form.get('giro', '').strip(),
+            "direccion": request.form.get('direccion', '').strip(),
+            "comuna": request.form.get('comuna', '').strip(),
+            "ciudad": request.form.get('ciudad', '').strip(),
+            "email": request.form.get('email', '').strip(),
+            "phone": request.form.get('phone', '').strip(),
+            "tipo_compra": request.form.get('tipo_compra', 'Del Giro').strip(),
             "description": request.form.get('description', '').strip(),
             "website": request.form.get('website', '').strip(),
             "created_at": datetime.utcnow().isoformat(timespec='seconds'),
@@ -74,8 +86,20 @@ def ver_proveedor(supplier_id):
 def editar_proveedor(supplier_id):
     """Editar un proveedor"""
     if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        razon_social = request.form.get('razon_social', '').strip() or name
         supplier = {
-            "name": request.form.get('name', '').strip(),
+            "name": name or razon_social,
+            "razon_social": razon_social,
+            "rut": request.form.get('rut', '').strip(),
+            "dv": request.form.get('dv', '').strip().upper(),
+            "giro": request.form.get('giro', '').strip(),
+            "direccion": request.form.get('direccion', '').strip(),
+            "comuna": request.form.get('comuna', '').strip(),
+            "ciudad": request.form.get('ciudad', '').strip(),
+            "email": request.form.get('email', '').strip(),
+            "phone": request.form.get('phone', '').strip(),
+            "tipo_compra": request.form.get('tipo_compra', 'Del Giro').strip(),
             "description": request.form.get('description', '').strip(),
             "website": request.form.get('website', '').strip(),
         }
