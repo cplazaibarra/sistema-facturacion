@@ -807,7 +807,7 @@ def nueva_cotizacion():
             "status": cot_status,
             "seller_name": session.get('user_name', 'Vendedor'),
             "seller_initials": session.get('user_initials', 'V'),
-            "payment_method": cot_status,
+            "payment_method": request.form.get('payment_method', 'Efectivo').strip(),
             "payment_status": cot_status,
             "delivery_status": cot_status,
             "notes": notes,
@@ -1014,30 +1014,58 @@ def convertir_cotizacion(sale_id):
             next_id = cur.fetchone()["next_id"]
             new_sale_number = f"VTA-{next_id:05d}"
 
+    from datetime import timedelta
+    sale_date_dt = datetime.today()
+    sale_date = sale_date_dt.strftime('%Y-%m-%d')
+    
+    pay_method = quotation.get("payment_method") or "Efectivo"
+    notes_raw = (quotation.get("notes") or "").lower()
+    
+    # Determinar si el pago es a 30 días o al contado / mismo día
+    if "30" in pay_method.lower() or "30" in notes_raw:
+        due_date_dt = sale_date_dt + timedelta(days=30)
+    else:
+        due_date_dt = sale_date_dt
+    invoice_due_date = due_date_dt.strftime('%Y-%m-%d')
+
+    # Preservar notas y origen de la cotización
+    cot_notes = quotation.get("notes") or ""
+    origin_tag = f"Cotización de Origen: {quotation['sale_number']}"
+    full_notes = f"{origin_tag}\n{cot_notes}" if cot_notes else origin_tag
+
     # Crear nueva venta manteniendo la cotización original intacta
     new_sale_data = {
         "sale_number": new_sale_number,
         "customer_name": quotation["customer_name"],
         "customer_email": quotation.get("customer_email", ""),
         "customer_initials": quotation.get("customer_initials", ""),
-        "sale_date": datetime.today().strftime('%Y-%m-%d'),
+        "sale_date": sale_date,
         "sale_time": datetime.now().strftime("%H:%M:%S"),
         "products": quotation["products"],
         "total_amount": quotation["total_amount"],
         "status": "Pendiente",
         "seller_name": session.get('user_name', quotation.get("seller_name", "Vendedor")),
         "seller_initials": session.get('user_initials', quotation.get("seller_initials", "V")),
-        "payment_method": "Por definir",
+        "payment_method": pay_method,
         "payment_status": "Pendiente",
         "delivery_status": "Pendiente",
-        "notes": f"Emitido desde Cotización {quotation['sale_number']}\n" + (quotation.get("notes") or ""),
+        "notes": full_notes,
         "created_at": datetime.utcnow().isoformat(timespec='seconds'),
     }
 
     new_sale_id = insert_sale(new_sale_data)
 
+    now_str = datetime.utcnow().isoformat(timespec='seconds')
     with get_connection() as conn:
         with conn.cursor() as cur:
+            # Crear registro inicial de pagos con la fecha de cobro/vencimiento automática
+            cur.execute(
+                """
+                INSERT INTO sale_payments (sale_id, invoice_due_date, status, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (new_sale_id, invoice_due_date, 'Factura pendiente', now_str, now_str)
+            )
             cur.execute(
                 """
                 INSERT INTO sales_status_history (sale_id, status, user_name, changed_at, comment)
@@ -1047,7 +1075,7 @@ def convertir_cotizacion(sale_id):
                     new_sale_id,
                     "Pendiente",
                     session.get('user_name', 'Sistema'),
-                    datetime.utcnow().isoformat(timespec='seconds'),
+                    now_str,
                     f"Venta creada a partir de Cotización {quotation['sale_number']}"
                 )
             )

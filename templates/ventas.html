@@ -614,12 +614,18 @@
             <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">DATOS CLIENTE Y VENTA</h4>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px;">
                 <div><strong>N° Folio Venta:</strong> <span id="modal-vta-number">-</span></div>
+                <div><strong>Cotización Origen:</strong> <span id="modal-vta-origin-cot" style="font-weight: 600; color: #3182ce;">-</span></div>
                 <div><strong>Fecha Emitida:</strong> <span id="modal-vta-date">-</span></div>
+                <div><strong>Vencimiento (Pago):</strong> <span id="modal-vta-due-date" style="font-weight: 600; color: #dd6b20;">-</span></div>
                 <div><strong>Cliente / Razón Social:</strong> <span id="modal-vta-customer">-</span></div>
                 <div><strong>Correo Electrónico:</strong> <span id="modal-vta-email">-</span></div>
                 <div><strong>Estado de Venta:</strong> <span id="modal-vta-status">-</span></div>
                 <div><strong>Estado de Pago:</strong> <span id="modal-vta-pstatus">-</span></div>
                 <div style="grid-column: span 2;"><strong>Vendedor Responsable:</strong> <span id="modal-vta-seller">-</span></div>
+                <div style="grid-column: span 2; border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 4px;">
+                    <strong>Notas / Términos de Cotización:</strong>
+                    <div id="modal-vta-notes" style="color: #475569; margin-top: 4px; white-space: pre-wrap; font-size: 13px;">-</div>
+                </div>
             </div>
         </div>
 
@@ -684,6 +690,19 @@
         document.getElementById('modal-vta-status').textContent = sale.status ? sale.status.label : '-';
         document.getElementById('modal-vta-pstatus').textContent = sale.payment_status || '-';
         document.getElementById('modal-vta-seller').textContent = sale.seller ? sale.seller.name : '-';
+
+        const notesStr = sale.notes || '';
+        let originCot = '-';
+        if (notesStr.includes('Cotización de Origen:')) {
+            try {
+                originCot = notesStr.split('Cotización de Origen:')[1].split('\n')[0].trim();
+            } catch(e) {
+                originCot = '-';
+            }
+        }
+        document.getElementById('modal-vta-origin-cot').textContent = originCot;
+        document.getElementById('modal-vta-due-date').textContent = sale.invoice_due_date || sale.date || '-';
+        document.getElementById('modal-vta-notes').textContent = notesStr || 'Sin observaciones adicionales';
 
         const tbody = document.getElementById('modal-vta-products-body');
         tbody.innerHTML = '';
