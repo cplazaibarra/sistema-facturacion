@@ -227,34 +227,35 @@
                           {% endif %}
                       {% endif %}
                   </td>
-                 <td>
-                      <div class="status-badge-container" style="position: relative; display: inline-block;">
+                  <td>
+                      <div class="status-badge-container" style="position: relative; display: inline-block; cursor: pointer;" data-id="{{ sale.id }}" data-number="{{ sale.sale_number }}" data-total="{{ sale.total }}" data-status="{{ sale.payment_status }}" data-due="{{ sale.invoice_due_date }}" data-payment-date="{{ sale.payment_date }}" data-proof="{{ sale.payment_proof_file }}" data-payment-history='{{ sale.payment_history | tojson | safe }}' onclick="openEditPaymentModal(this)" title="Haz clic para actualizar el pago de la factura">
                            {% if sale.payment_status == 'Pagado' %}
-                           <span class="sf-badge sf-badge-success" style="cursor: help; background-color: rgba(72, 187, 120, 0.1); color: #48BB78; border: 1px solid rgba(72, 187, 120, 0.2);" onmouseover="this.nextElementSibling.style.display='block'" onmouseout="this.nextElementSibling.style.display='none'">
+                           <span class="sf-badge sf-badge-success" style="background-color: rgba(72, 187, 120, 0.1); color: #48BB78; border: 1px solid rgba(72, 187, 120, 0.2);">
                                <span class="sf-badge-dot" style="background-color: #48BB78;"></span>
-                               Pagado
+                               Pagado ✏️
                            </span>
                            {% elif sale.payment_status == 'Pendiente Aprobación Pago' %}
-                           <span class="sf-badge sf-badge-warning" style="cursor: help; background-color: rgba(236, 201, 75, 0.1); color: #D69E2E; border: 1px solid rgba(236, 201, 75, 0.2);" onmouseover="this.nextElementSibling.style.display='block'" onmouseout="this.nextElementSibling.style.display='none'">
+                           <span class="sf-badge sf-badge-warning" style="background-color: rgba(236, 201, 75, 0.1); color: #D69E2E; border: 1px solid rgba(236, 201, 75, 0.2);">
                                <span class="sf-badge-dot" style="background-color: #D69E2E;"></span>
-                               Por Validar
+                               Por Validar ✏️
                            </span>
                            {% elif sale.payment_status == 'Retrasada' %}
-                           <span class="sf-badge sf-badge-danger" style="cursor: help; background-color: rgba(229, 62, 62, 0.1); color: #E53E3E; border: 1px solid rgba(229, 62, 62, 0.2);" onmouseover="this.nextElementSibling.style.display='block'" onmouseout="this.nextElementSibling.style.display='none'">
+                           <span class="sf-badge sf-badge-danger" style="background-color: rgba(229, 62, 62, 0.1); color: #E53E3E; border: 1px solid rgba(229, 62, 62, 0.2);">
                                <span class="sf-badge-dot" style="background-color: #E53E3E;"></span>
-                               Retrasada
+                               Retrasada ✏️
                            </span>
                            {% elif sale.payment_status == 'Cotización' %}
-                            <span class="sf-badge sf-badge-info" style="cursor: help; background-color: rgba(59, 130, 246, 0.1); color: #2563EB; border: 1px solid rgba(59, 130, 246, 0.2);" onmouseover="this.nextElementSibling.style.display='block'" onmouseout="this.nextElementSibling.style.display='none'">
+                            <span class="sf-badge sf-badge-info" style="background-color: rgba(59, 130, 246, 0.1); color: #2563EB; border: 1px solid rgba(59, 130, 246, 0.2);">
                                 <span class="sf-badge-dot" style="background-color: #3B82F6;"></span>
                                 Cotización
                             </span>
                            {% else %}
-                           <span class="sf-badge sf-badge-warning" style="cursor: help; background-color: rgba(237, 137, 54, 0.1); color: #ED8936; border: 1px solid rgba(237, 137, 54, 0.2);" onmouseover="this.nextElementSibling.style.display='block'" onmouseout="this.nextElementSibling.style.display='none'">
+                           <span class="sf-badge sf-badge-warning" style="background-color: rgba(237, 137, 54, 0.1); color: #ED8936; border: 1px solid rgba(237, 137, 54, 0.2);">
                                <span class="sf-badge-dot" style="background-color: #ED8936;"></span>
-                               Pendiente
+                               Pendiente ✏️
                            </span>
                            {% endif %}
+                      </div>
 
                           <!-- Popover flotante para mostrar historial de cobros y pagos -->
                           <div class="payment-history-popover" style="display: none; position: absolute; bottom: 50%; right: 105%; transform: translateY(50%); background: #2d3748; color: #fff; padding: 12px; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.25); z-index: 9999; width: 280px; font-size: 11px;">
