@@ -16,12 +16,17 @@
                 </div>
                 <div class="form-group">
                     <label style="font-weight: 500; display: block; margin-bottom: 6px;">Proveedor</label>
-                    <select class="form-control" name="supplier_id" id="oc-supplier" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
-                        <option value="">Seleccionar proveedor</option>
-                        {% for supplier in suppliers %}
-                        <option value="{{ supplier.id }}">{{ supplier.name }}</option>
-                        {% endfor %}
-                    </select>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <select class="form-control" name="supplier_id" id="oc-supplier" required style="flex: 1; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                            <option value="">Seleccionar proveedor</option>
+                            {% for supplier in suppliers %}
+                            <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" id="btn-open-supplier-modal" style="background-color: #3182CE; color: white; border: none; border-radius: 6px; padding: 8px 14px; font-weight: bold; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;" title="Agregar nuevo proveedor">
+                            ➕
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -70,6 +75,34 @@
     </div>
 </div>
 
+<!-- Modal para Registro Rápido de Proveedor -->
+<div id="modal-quick-supplier" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+    <div style="background: white; border-radius: 12px; width: 450px; max-width: 90%; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); position: relative;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #E2E8F0; padding-bottom: 12px;">
+            <h3 style="margin: 0; font-size: 18px; color: #2D3748;">Agregar Nuevo Proveedor</h3>
+            <button type="button" id="btn-close-supplier-modal" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #A0AEC0;">✕</button>
+        </div>
+        <form id="quick-supplier-form">
+            <div style="margin-bottom: 14px;">
+                <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; color: #4A5568;">Nombre del Proveedor *</label>
+                <input type="text" id="quick-supplier-name" required placeholder="Ej: Distribuidora Miel SpA" style="width: 100%; padding: 8px 12px; border: 1px solid #CBD5E0; border-radius: 6px; font-size: 14px;">
+            </div>
+            <div style="margin-bottom: 14px;">
+                <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; color: #4A5568;">Descripción / Rubro</label>
+                <input type="text" id="quick-supplier-desc" placeholder="Ej: Insumos de empaque y envases" style="width: 100%; padding: 8px 12px; border: 1px solid #CBD5E0; border-radius: 6px; font-size: 14px;">
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; color: #4A5568;">Sitio Web / Email</label>
+                <input type="text" id="quick-supplier-web" placeholder="Ej: www.proveedor.cl" style="width: 100%; padding: 8px 12px; border: 1px solid #CBD5E0; border-radius: 6px; font-size: 14px;">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" id="btn-cancel-supplier-modal" style="padding: 8px 16px; background: #E2E8F0; color: #4A5568; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">Cancelar</button>
+                <button type="submit" id="btn-save-supplier-modal" style="padding: 8px 16px; background: #3182CE; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Guardar Proveedor</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const supplierSelect = document.getElementById('oc-supplier');
@@ -78,6 +111,71 @@ document.addEventListener('DOMContentLoaded', () => {
     const addBtn = document.getElementById('add-product-btn');
     const hint = document.getElementById('supplier-hint');
     
+    // Elementos del Modal
+    const modalSupplier = document.getElementById('modal-quick-supplier');
+    const btnOpenSupplierModal = document.getElementById('btn-open-supplier-modal');
+    const btnCloseSupplierModal = document.getElementById('btn-close-supplier-modal');
+    const btnCancelSupplierModal = document.getElementById('btn-cancel-supplier-modal');
+    const quickSupplierForm = document.getElementById('quick-supplier-form');
+
+    const openSupplierModal = () => {
+        modalSupplier.style.display = 'flex';
+        document.getElementById('quick-supplier-name').focus();
+    };
+
+    const closeSupplierModal = () => {
+        modalSupplier.style.display = 'none';
+        quickSupplierForm.reset();
+    };
+
+    if (btnOpenSupplierModal) btnOpenSupplierModal.addEventListener('click', openSupplierModal);
+    if (btnCloseSupplierModal) btnCloseSupplierModal.addEventListener('click', closeSupplierModal);
+    if (btnCancelSupplierModal) btnCancelSupplierModal.addEventListener('click', closeSupplierModal);
+
+    modalSupplier.addEventListener('click', (e) => {
+        if (e.target === modalSupplier) closeSupplierModal();
+    });
+
+    quickSupplierForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('quick-supplier-name').value.trim();
+        const description = document.getElementById('quick-supplier-desc').value.trim();
+        const website = document.getElementById('quick-supplier-web').value.trim();
+
+        if (!name) return;
+
+        try {
+            const res = await fetch('/api/proveedores/crear', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description, website })
+            });
+
+            if (res.ok) {
+                const result = await res.json();
+                if (result.status === 'ok' && result.supplier) {
+                    // Agregar nuevo option al select de proveedores
+                    const newOpt = document.createElement('option');
+                    newOpt.value = result.supplier.id;
+                    newOpt.textContent = result.supplier.name;
+                    supplierSelect.appendChild(newOpt);
+
+                    // Seleccionar automáticamente el nuevo proveedor
+                    supplierSelect.value = result.supplier.id;
+                    supplierSelect.dispatchEvent(new Event('change'));
+
+                    closeSupplierModal();
+                }
+            } else {
+                const errorData = await res.json();
+                alert(errorData.message || 'Error al guardar el proveedor');
+            }
+        } catch (err) {
+            console.error('Error al registrar proveedor:', err);
+            alert('Ocurrió un error al guardar el proveedor.');
+        }
+    });
+
     let supplierProducts = [];
  
     supplierSelect.addEventListener('change', async () => {

@@ -2275,13 +2275,14 @@ def get_supplier(supplier_id: int) -> dict:
             return dict(row) if row else None
 
 
-def insert_supplier(supplier: dict) -> None:
+def insert_supplier(supplier: dict) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO suppliers (name, description, website, created_at)
                 VALUES (%s, %s, %s, %s)
+                RETURNING id
                 """,
                 (
                     supplier["name"],
@@ -2290,7 +2291,9 @@ def insert_supplier(supplier: dict) -> None:
                     supplier.get("created_at", datetime.utcnow().isoformat(timespec='seconds')),
                 ),
             )
+            supplier_id = cur.fetchone()["id"]
         conn.commit()
+        return supplier_id
 
 
 def update_supplier(supplier_id: int, supplier: dict) -> None:

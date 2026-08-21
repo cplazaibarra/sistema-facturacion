@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for
+from flask import Blueprint, render_template, request, redirect, url_for, jsonify
 from datetime import datetime
 from db import (
     list_suppliers,
@@ -14,6 +14,35 @@ from db import (
 )
 
 proveedores_bp = Blueprint('proveedores', __name__)
+
+@proveedores_bp.route('/api/proveedores/crear', methods=['POST'])
+def api_crear_proveedor():
+    """API para crear proveedor rápido vía AJAX"""
+    data = request.get_json() or {}
+    name = (data.get('name') or request.form.get('name') or '').strip()
+    description = (data.get('description') or request.form.get('description') or '').strip()
+    website = (data.get('website') or request.form.get('website') or '').strip()
+
+    if not name:
+        return jsonify({"status": "error", "message": "El nombre del proveedor es obligatorio"}), 400
+
+    supplier = {
+        "name": name,
+        "description": description,
+        "website": website,
+        "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+    }
+
+    supplier_id = insert_supplier(supplier)
+    return jsonify({
+        "status": "ok",
+        "supplier": {
+            "id": supplier_id,
+            "name": name,
+            "description": description,
+            "website": website
+        }
+    })
 
 @proveedores_bp.route('/proveedores', methods=['GET', 'POST'])
 def proveedores():
