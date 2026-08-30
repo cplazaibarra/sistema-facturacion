@@ -830,7 +830,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
                 if (data.status === 'ok' && data.client) {
                     const c = data.client;
-                    if (c.dv && dvInput) dvInput.value = c.dv;
+                    if (c.dv && dvInput && !dvInput.value.trim()) dvInput.value = c.dv;
                     if (c.razon_social && nameInput) nameInput.value = c.razon_social;
                     if (c.email && emailInput) emailInput.value = c.email;
                     if (c.category_id && categorySelect) {
