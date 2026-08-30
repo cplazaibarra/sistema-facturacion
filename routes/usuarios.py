@@ -132,7 +132,12 @@ def listas_precios():
         
         vpp = vpp_map.get(p_id)
         if vpp is None:
-            vpp = catalog_prices.get(sku, 0.0)
+            # Intentar obtener de catalog_prices
+            vpp = catalog_prices.get(sku)
+            
+        if vpp is None or vpp == 0.0:
+            # Usar el Costo Unitario de la tabla de productos
+            vpp = float(p.get("cost", 0.0) or 0.0)
             
         m = prod_margins_map.get(sku)
         product_cat_margins = {}
