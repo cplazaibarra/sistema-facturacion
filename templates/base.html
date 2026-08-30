@@ -157,9 +157,14 @@
             <div class="content">
                 {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
-                <div class="flash-messages">
+                <div class="toast-flash-wrapper" id="toast-flash-container">
                     {% for category, message in messages %}
-                    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                    <div class="toast-flash-item toast-{{ category }}">
+                        <span class="toast-icon">
+                            {% if category == 'success' %}✓{% elif category == 'warning' %}⚠️{% elif category == 'danger' %}✕{% else %}ℹ️{% endif %}
+                        </span>
+                        <span class="toast-text">{{ message|safe }}</span>
+                    </div>
                     {% endfor %}
                 </div>
                 {% endif %}
@@ -169,7 +174,56 @@
         </main>
     </div>
 
+    <style>
+        .toast-flash-wrapper {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 999999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast-flash-item {
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: white;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            animation: toastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .toast-success { background: #10B981; }
+        .toast-warning { background: #F59E0B; }
+        .toast-danger { background: #EF4444; }
+        .toast-info { background: #3B82F6; }
+        @keyframes toastSlideIn {
+            from { opacity: 0; transform: translateY(-20px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+    </style>
+
     <script>
+        // Auto-desvanecer notificaciones toast después de 2.2 segundos sin requerir clic
+        (function() {
+            const toastContainer = document.getElementById("toast-flash-container");
+            if (toastContainer) {
+                setTimeout(function() {
+                    toastContainer.style.transition = "opacity 0.4s ease, transform 0.4s ease";
+                    toastContainer.style.opacity = "0";
+                    toastContainer.style.transform = "translateY(-15px)";
+                    setTimeout(function() {
+                        toastContainer.remove();
+                    }, 400);
+                }, 2200);
+            }
+        })();
+
         // Inicializar el estado de la barra lateral de forma inmediata
         (function() {
             const sidebarState = localStorage.getItem("sidebar-collapsed");

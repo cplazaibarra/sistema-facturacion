@@ -1184,7 +1184,7 @@ def convertir_cotizacion(sale_id):
     now_str = datetime.utcnow().isoformat(timespec='seconds')
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # Crear registro inicial de pagos con la fecha de cobro/vencimiento automática
+            # 1. Crear registro inicial de pagos con la fecha de cobro/vencimiento automática
             cur.execute(
                 """
                 INSERT INTO sale_payments (sale_id, invoice_due_date, status, created_at, updated_at)
@@ -1192,6 +1192,7 @@ def convertir_cotizacion(sale_id):
                 """,
                 (new_sale_id, invoice_due_date, 'Factura pendiente', now_str, now_str)
             )
+            # 2. Registrar historial de la nueva venta
             cur.execute(
                 """
                 INSERT INTO sales_status_history (sale_id, status, user_name, changed_at, comment)
@@ -1205,10 +1206,20 @@ def convertir_cotizacion(sale_id):
                     f"Venta creada a partir de Cotización {quotation['sale_number']}"
                 )
             )
+            # 3. Guardar en las notas de la cotización de origen qué venta fue creada a partir de ella
+            new_cot_notes = quotation.get("notes") or ""
+            reference_line = f"Venta Generada: {new_sale_number}"
+            updated_cot_notes = f"{reference_line}\n{new_cot_notes}" if new_cot_notes else reference_line
+            cur.execute(
+                "UPDATE sales SET notes = %s WHERE id = %s",
+                (updated_cot_notes, sale_id)
+            )
         conn.commit()
         
-    flash(f"Venta {new_sale_number} creada exitosamente a partir de la Cotización {quotation['sale_number']}. La cotización se conserva intacta.", "success")
-    return redirect(url_for('ventas.ventas'))
+    from flask import Markup
+    msg = Markup(f"Venta {new_sale_number} creada exitosamente a partir de la Cotización {quotation['sale_number']}. <a href='{url_for('ventas.ventas')}?filter=Ventas+Pendientes' style='font-weight: bold; text-decoration: underline; color: #1A365D;'>Haz clic aquí para ir a ver la nueva venta</a>.")
+    flash(msg, "success")
+    return redirect(url_for('ventas.cotizaciones'))
 
 
 @ventas_bp.route('/ventas/clientes', methods=['GET', 'POST'])
