@@ -769,9 +769,54 @@ document.addEventListener('DOMContentLoaded', () => {
     const dvInput = document.querySelector('input[name="customer_dv"]');
     const nameInput = document.querySelector('input[name="customer_name"]');
 
+    // Validar RUT de Chile (módulo 11)
+    function validarRutChileno(rut, dv) {
+        if (!rut || !dv) return false;
+        // Limpiar caracteres
+        const cleanRut = rut.toString().replace(/[^0-9]/g, '');
+        const cleanDv = dv.toString().trim().toUpperCase();
+
+        if (cleanRut.length < 7 || cleanRut.length > 8) return false;
+
+        let sum = 0;
+        let mul = 2;
+        for (let i = cleanRut.length - 1; i >= 0; i--) {
+            sum += parseInt(cleanRut.charAt(i)) * mul;
+            mul = mul === 7 ? 2 : mul + 1;
+        }
+
+        const res = sum % 11;
+        let expectedDv = '';
+        if (res === 1) {
+            expectedDv = 'K';
+        } else if (res === 0) {
+            expectedDv = '0';
+        } else {
+            expectedDv = String(11 - res);
+        }
+
+        return cleanDv === expectedDv;
+    }
+
     async function checkClientByRut() {
         const rut = (rutInput ? rutInput.value : '').trim();
+        const dv = (dvInput ? dvInput.value : '').trim();
+        
         if (!rut) return;
+
+        // Validar RUT si también se ingresó el DV
+        if (rut && dv) {
+            if (!validarRutChileno(rut, dv)) {
+                rutInput.style.borderColor = '#e53e3e';
+                dvInput.style.borderColor = '#e53e3e';
+                alert('El RUT ingresado no es válido en Chile. Por favor verifique el número y el dígito verificador.');
+                return;
+            } else {
+                rutInput.style.borderColor = '#38a169';
+                dvInput.style.borderColor = '#38a169';
+            }
+        }
+
         try {
             const response = await fetch(`/api/clientes/buscar_por_rut/${encodeURIComponent(rut)}`);
             if (response.ok) {
@@ -786,10 +831,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         categorySelect.dispatchEvent(new Event('change'));
                     }
                     if (rutInput) rutInput.style.borderColor = '#38a169';
+                    if (dvInput) dvInput.style.borderColor = '#38a169';
                     if (nameInput) nameInput.style.borderColor = '#38a169';
                 }
             } else {
-                if (rutInput) rutInput.style.borderColor = '#cbd5e0';
+                if (rutInput && !dv) rutInput.style.borderColor = '#cbd5e0';
             }
         } catch (err) {
             console.error("Error fetching client by RUT:", err);
@@ -799,6 +845,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (rutInput) {
         rutInput.addEventListener('blur', checkClientByRut);
     }
+    if (dvInput) {
+        dvInput.addEventListener('blur', checkClientByRut);
+    }
+
+    // Validar RUT antes de enviar el formulario
+    document.getElementById('cotizacion-form')?.addEventListener('submit', (e) => {
+        const rut = (rutInput ? rutInput.value : '').trim();
+        const dv = (dvInput ? dvInput.value : '').trim();
+        if (rut && dv) {
+            if (!validarRutChileno(rut, dv)) {
+                e.preventDefault();
+                alert('El RUT ingresado no es válido. Por favor corréjalo antes de emitir la cotización.');
+            }
+        }
+    });
 
     // Auto buscar categoría si ingresa email conocido
     emailInput.addEventListener('blur', async () => {
