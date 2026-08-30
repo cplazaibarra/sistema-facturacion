@@ -687,6 +687,7 @@ document.addEventListener('DOMContentLoaded', () => {
             calculateTotal();
         });
         priceInput.addEventListener('input', () => {
+            priceInput.dataset.isManual = 'true';
             updateRowSubtotal();
             calculateTotal();
         });
@@ -735,7 +736,7 @@ document.addEventListener('DOMContentLoaded', () => {
         totalSpan.textContent = formatMoney(total);
     }
     
-    // Recalcular precios si cambia la categoría del cliente
+    // Recalcular precios si cambia la categoría del cliente (solo si no han sido ingresados manualmente)
     categorySelect.addEventListener('change', () => {
         const rows = container.querySelectorAll('.product-row-tr');
         rows.forEach(r => {
@@ -751,11 +752,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (productId && productPricesMap[productId]) {
                 const prices = productPricesMap[productId];
                 const price = prices[selectedCategory] || prices['default'] || 0.00;
-                priceInputEl.value = price;
+                
+                // Si el precio actual está vacío, es 0, o es igual al precio por defecto anterior, lo actualizamos.
+                // Si el usuario ya colocó un precio manual personalizado, lo respetamos y no lo sobrescribimos.
+                const currentPriceVal = parseFloat(priceInputEl.value) || 0;
+                if (currentPriceVal === 0 || priceInputEl.dataset.isManual !== 'true') {
+                    priceInputEl.value = price;
+                }
                 
                 const qty = parseFloat(qtyInputEl ? qtyInputEl.value : 0) || 0;
                 const discount = parseFloat(discountInputEl ? discountInputEl.value : 0) || 0;
-                const sub = qty * price * (1 - (discount / 100));
+                const finalPrice = parseFloat(priceInputEl.value) || 0;
+                const sub = qty * finalPrice * (1 - (discount / 100));
                 if (tdSubEl) {
                     tdSubEl.textContent = formatMoney(sub);
                 }
