@@ -158,7 +158,9 @@
                 <tr class="product-table-row" style="border-bottom: 1px solid var(--border-color); height: 50px;">
                     <td class="product-sku" style="padding: 10px;">{{ product.sku }}</td>
                     <td class="product-internal-code" style="padding: 10px;">{{ product.internal_code or '-' }}</td>
-                    <td class="product-name" style="padding: 10px; font-weight: 500;">{{ product.name }}</td>
+                    <td class="product-name" style="padding: 10px; font-weight: 500;">
+                        <a href="/productos/{{ product.id }}/editar" style="color: #3182ce; text-decoration: none; font-weight: 600;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">{{ product.name }}</a>
+                    </td>
                     <td class="product-description" style="padding: 10px; color: var(--text-light);">{{ product.description or '-' }}</td>
                     <td class="product-type" style="padding: 10px; font-weight: bold; color: {% if product.product_type == 'Insumo' %}#dd6b20{% else %}#3182ce{% endif %};">
                         {{ product.product_type or 'Final' }}
