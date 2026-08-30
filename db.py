@@ -2856,6 +2856,27 @@ def register_inventory_entry(po_id: int, order_number: str, entry_date: str, war
                     """,
                     (new_received, po_item["id"])
                 )
+                
+                # Recalcular Costo Promedio Ponderado para el producto y actualizar en tabla products
+                cur.execute(
+                    """
+                    SELECT SUM(quantity) as total_qty, SUM(total) as total_spent
+                    FROM inventory_entry_items
+                    WHERE product_id = %s
+                    """,
+                    (prod_id,)
+                )
+                cost_row = cur.fetchone()
+                if cost_row and cost_row["total_qty"] and cost_row["total_qty"] > 0:
+                    avg_cost = cost_row["total_spent"] / cost_row["total_qty"]
+                    cur.execute(
+                        """
+                        UPDATE products
+                        SET cost = %s
+                        WHERE id = %s
+                        """,
+                        (avg_cost, prod_id)
+                    )
             
             # 3. Validar el nuevo estado de la OC
             cur.execute(
