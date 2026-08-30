@@ -33,17 +33,19 @@
                 <div style="flex: 1; display: flex; align-items: center; gap: 4px;">
                     <input type="number" step="0.1" name="cat_margin[]" class="form-control" value="{{ cat.margin }}" style="width: 100%; font-size: 12px; padding: 6px; text-align: center;" placeholder="Margen %" required>%
                 </div>
-                <button type="button" class="btn-icon" onclick="removeCategoryField(this)" style="color: #e53e3e; background: none; border: none; cursor: pointer; padding: 4px; font-size: 1.1rem;" title="Eliminar Categoría">🗑️</button>
+                <button type="button" class="btn-icon" onclick="removeCategoryField(this)" style="color: #e53e3e; background: none; border: none; cursor: pointer; padding: 4px; font-size: 1.1rem;" title="Eliminar Categoría"><i class="fa-solid fa-trash"></i></button>
             </div>
             {% endfor %}
         </div>
 
         <div style="display: flex; gap: 10px;">
             <button type="button" class="btn-secondary" onclick="addCategoryField()" style="padding: 10px 16px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; background: #ebf8ff; color: #2b6cb0; border-color: #bee3f8;">
-                ➕ Agregar Categoría
+                <i class="fa-solid fa-plus"></i>
+                <span>Agregar Categoría</span>
             </button>
-            <button type="submit" class="btn-primary" style="padding: 10px 16px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
-                💾 Guardar Estándar
+            <button type="submit" class="btn-primary" style="padding: 10px 16px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; background-color: #48bb78; border: none; color: white;">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>Guardar Estándar</span>
             </button>
         </div>
     </form>
@@ -103,7 +105,7 @@
                 <!-- Guardar -->
                 <td style="text-align: center; padding: 10px;">
                     <button class="btn-primary" onclick="saveProductMargins('{{ p.sku }}')" style="padding: 6px 10px; font-size: 11px; font-weight: bold; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" title="Guardar márgenes de este producto">
-                        💾
+                        <i class="fa-solid fa-floppy-disk"></i>
                     </button>
                 </td>
             </tr>
@@ -128,7 +130,7 @@ function addCategoryField() {
         <div style="flex: 1; display: flex; align-items: center; gap: 4px;">
             <input type="number" step="0.1" name="cat_margin[]" class="form-control" style="width: 100%; font-size: 12px; padding: 6px; text-align: center;" placeholder="Margen %" value="0" required>%
         </div>
-        <button type="button" class="btn-icon" onclick="removeCategoryField(this)" style="color: #e53e3e; background: none; border: none; cursor: pointer; padding: 4px; font-size: 1.1rem;" title="Eliminar Categoría">🗑️</button>
+        <button type="button" class="btn-icon" onclick="removeCategoryField(this)" style="color: #e53e3e; background: none; border: none; cursor: pointer; padding: 4px; font-size: 1.1rem;" title="Eliminar Categoría"><i class="fa-solid fa-trash"></i></button>
     `;
     container.appendChild(div);
 }
