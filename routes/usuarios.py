@@ -160,6 +160,7 @@ def listas_precios():
             })
             
         products_display.append({
+            "id": p_id,
             "sku": sku,
             "name": p["name"],
             "vpp": vpp,
