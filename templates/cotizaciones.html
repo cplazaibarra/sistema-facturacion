@@ -204,7 +204,7 @@
                         {% else %}
                             {% if 'Venta Generada:' in (sale.notes or '') %}
                                 {% set vta_num = sale.notes.split('Venta Generada:')[1].split('\n')[0].strip() %}
-                                <a href="{{ url_for('ventas.ventas') }}?filter=Ventas+Pendientes" class="sf-btn-secondary" style="padding: 6px 10px; font-size: 12px; text-decoration: none; font-weight: 600; background: #e0f2fe; color: #0369a1; border-radius: 4px; display: inline-flex; align-items: center; border: 1px solid #bae6fd;" title="Ver Venta {{ vta_num }}">
+                                <a href="{{ url_for('ventas.ventas') }}?open_vta={{ vta_num }}" class="sf-btn-secondary" style="padding: 6px 10px; font-size: 12px; text-decoration: none; font-weight: 600; background: #e0f2fe; color: #0369a1; border-radius: 4px; display: inline-flex; align-items: center; border: 1px solid #bae6fd;" title="Ver Venta {{ vta_num }}">
                                     🔗 {{ vta_num }}
                                 </a>
                             {% else %}
@@ -457,7 +457,7 @@ function openCotizacionDetail(sale) {
         } catch(e) {}
         
         assocLink.textContent = vtaId;
-        assocLink.href = `/ventas?filter=Ventas+Pendientes`;
+        assocLink.href = `/ventas?open_vta=${vtaId}`;
         assocBox.style.display = 'flex';
         formModalConvert.style.display = 'none';
     } else {

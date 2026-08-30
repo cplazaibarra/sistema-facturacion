@@ -1091,6 +1091,20 @@
     function closeEditClientModal() {
         document.getElementById('modal-edit-client').style.display = 'none';
     }
+
+    // Auto abrir modal de venta si viene el parámetro open_vta en la URL
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const openVtaNum = urlParams.get('open_vta');
+        if (openVtaNum) {
+            // Mapear records de ventas inyectados por Flask
+            const allVentasRecords = {{ ventas_records|tojson|safe }};
+            const matchedSale = allVentasRecords.find(v => String(v.sale_number) === String(openVtaNum));
+            if (matchedSale) {
+                openVentaDetailModal(matchedSale);
+            }
+        }
+    });
 </script>
 
 <!-- Modal Ver / Editar Cliente -->
