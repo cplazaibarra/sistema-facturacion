@@ -119,6 +119,7 @@ def _get_formatted_sales_data():
                     "payment_proof_file": sale.get("payment_proof_file") or "",
                     "invoice_number": sale.get("invoice_number") or "",
                     "invoice_file": sale.get("invoice_file") or "",
+                    "notes": sale.get("notes") or "",
                     "status": {
                         "label": sale["status"],
                         "level": "success" if sale["status"] == "Completada" else "warning" if sale["status"] == "Pendiente" else "info" if sale["status"] == "Cotización" else "danger"
