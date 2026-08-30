@@ -57,6 +57,12 @@
                 </div>
             </div>
 
+            <!-- Alerta dinámica de stock insuficiente -->
+            <div id="insufficient-stock-alert" style="display: none; background: #fff5f5; border: 1px solid #feb2b2; color: #c53030; padding: 15px; border-radius: 8px; font-size: 13px; font-weight: 500; margin-bottom: 24px;">
+                <div style="font-weight: bold; margin-bottom: 6px;">⚠️ No se puede solicitar fabricación porque falta stock de productos:</div>
+                <ul id="insufficient-products-list" style="margin: 0; padding-left: 20px;"></ul>
+            </div>
+
             <div id="no-recipe-warning" style="display: none; background: #fff5f5; border: 1px solid #feb2b2; color: #c53030; padding: 15px; border-radius: 8px; font-size: 13px; font-weight: 500; margin-bottom: 24px; text-align: center;">
                 ⚠️ El producto seleccionado no tiene una receta registrada. No es posible crear la OT. <br>
                 <a href="/produccion/recetas/nueva" style="color: #2b6cb0; font-weight: bold; text-decoration: underline; margin-top: 6px; display: inline-block;">Crear Receta para este Producto</a>
@@ -64,7 +70,7 @@
 
             <div style="margin-top: 30px; display: flex; justify-content: flex-end; gap: 12px; align-items: center;">
                 <a href="/produccion" class="btn-secondary" style="text-decoration: none; padding: 10px 18px; border-radius: 6px;">Cancelar</a>
-                <button type="submit" class="btn-primary" id="submit-ot-btn" style="padding: 10px 24px; border-radius: 6px; font-weight: bold;" disabled>
+                <button type="submit" class="btn-primary" id="submit-ot-btn" style="padding: 10px 24px; border-radius: 6px; font-weight: bold; transition: background-color 0.2s;" disabled>
                     📂 Solicitar Fabricación
                 </button>
             </div>
@@ -117,6 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderRecipePreview(qty) {
         itemsList.innerHTML = '';
         let hasInsuficiente = false;
+        const insufficientProducts = [];
         
         currentRecipeItems.forEach(item => {
             const totalRequired = item.quantity_required * qty;
@@ -124,6 +131,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const isInsuficiente = totalRequired > stock;
             if (isInsuficiente) {
                 hasInsuficiente = true;
+                const diff = totalRequired - stock;
+                insufficientProducts.push(`${item.input_name} (Faltan ${diff.toFixed(0)} unidades)`);
             }
             
             const stockColor = isInsuficiente ? '#e53e3e' : '#2d3748';
@@ -158,8 +167,32 @@ document.addEventListener('DOMContentLoaded', () => {
             itemsList.appendChild(div);
         });
 
+        // Mostrar / Ocultar la alerta de stock insuficiente
+        const alertDiv = document.getElementById('insufficient-stock-alert');
+        const listUl = document.getElementById('insufficient-products-list');
+        if (hasInsuficiente) {
+            listUl.innerHTML = insufficientProducts.map(p => `<li>${p}</li>`).join('');
+            alertDiv.style.display = 'block';
+        } else {
+            alertDiv.style.display = 'none';
+        }
+
         // Habilitar submit sólo si la cantidad es mayor a cero y no hay insumos insuficientes
-        submitBtn.disabled = (qty <= 0 || hasInsuficiente);
+        const isDisabled = (qty <= 0 || hasInsuficiente);
+        submitBtn.disabled = isDisabled;
+        
+        // Formatear visualmente el botón a plomo si está inactivo
+        if (isDisabled) {
+            submitBtn.style.backgroundColor = '#d1d5db';
+            submitBtn.style.color = '#9ca3af';
+            submitBtn.style.cursor = 'not-allowed';
+            submitBtn.style.border = '1px solid #cbd5e0';
+        } else {
+            submitBtn.style.backgroundColor = '#0070d2';
+            submitBtn.style.color = '#fff';
+            submitBtn.style.cursor = 'pointer';
+            submitBtn.style.border = 'none';
+        }
     }
 
     productSelect.addEventListener('change', loadRecipe);
