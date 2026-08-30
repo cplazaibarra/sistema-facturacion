@@ -139,7 +139,11 @@ def listas_precios():
         else:
             base_margin = config["base_margin"]
             
-        price_base = vpp * (1 + base_margin / 100)
+        # Fórmula solicitada: costo / (1 - Margen_Total / 100)
+        # Margen Base: base_margin
+        # Precio Base: vpp / (1 - base_margin / 100)
+        denom_base = 1.0 - (base_margin / 100.0)
+        price_base = vpp / denom_base if denom_base > 0 else vpp
         
         categories_display = []
         for cat in config["categories"]:
@@ -147,8 +151,12 @@ def listas_precios():
             margin = product_cat_margins.get(cat_id)
             if margin is None:
                 margin = cat["margin"]
-                
-            price_final = price_base * (1 + margin / 100)
+            
+            # Margen Total = Margen Base + Margen Adicional
+            total_margin = base_margin + margin
+            denom_final = 1.0 - (total_margin / 100.0)
+            price_final = vpp / denom_final if denom_final > 0 else vpp
+            
             categories_display.append({
                 "id": cat_id,
                 "name": cat["name"],

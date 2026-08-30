@@ -157,7 +157,10 @@ function recalcRow(sku) {
 
     const vpp = parseFloat(row.querySelector('.vpp-val').innerText) || 0.0;
     const baseMargin = parseFloat(row.querySelector('.base-margin-input').value) || 0.0;
-    const priceBase = vpp * (1 + baseMargin / 100);
+    
+    // Precio Base = vpp / (1 - baseMargin/100)
+    const denomBase = 1.0 - (baseMargin / 100);
+    const priceBase = denomBase > 0 ? (vpp / denomBase) : vpp;
 
     row.querySelector('.price-base-span').innerText = Math.round(priceBase);
 
@@ -166,7 +169,11 @@ function recalcRow(sku) {
     marginInputs.forEach(input => {
         const catId = input.getAttribute('data-cat-id');
         const marginVal = parseFloat(input.value) || 0.0;
-        const priceFinal = priceBase * (1 + marginVal / 100);
+        
+        // Precio Final = vpp / (1 - (baseMargin + marginVal)/100)
+        const totalMargin = baseMargin + marginVal;
+        const denomFinal = 1.0 - (totalMargin / 100);
+        const priceFinal = denomFinal > 0 ? (vpp / denomFinal) : vpp;
         
         const priceSpan = row.querySelector(`.price-span[data-cat-id="${catId}"]`);
         if (priceSpan) {
