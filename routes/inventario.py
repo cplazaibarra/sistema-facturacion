@@ -128,13 +128,62 @@ def inventario():
                 qty = row["quantity"]
                 reserved_by_sku[sku] = reserved_by_sku.get(sku, 0) + qty
 
-    # 4. Aumentar cada ítem del inventario con su stock reservado y total
+            # 3.6 Obtener la distribución del stock físico ingresado por bodegas para cada producto
+            cur.execute(
+                """
+                SELECT p.sku, entries.warehouse, SUM(items.quantity) as qty
+                FROM inventory_entry_items items
+                JOIN inventory_entries entries ON items.inventory_entry_id = entries.id
+                JOIN products p ON items.product_id = p.id
+                GROUP BY p.sku, entries.warehouse
+                """
+            )
+            warehouse_distribution = {}
+            for row in cur.fetchall():
+                sku = row["sku"]
+                warehouse = row["warehouse"] or "Principal"
+                qty = float(row["qty"] or 0)
+                if sku not in warehouse_distribution:
+                    warehouse_distribution[sku] = {}
+                warehouse_distribution[sku][warehouse] = qty
+
+    # 4. Aumentar cada ítem del inventario con su stock reservado, total y distribución de bodegas
     low_stock_count = 0
     for item in inventory_items:
         sku = item.get("code")
         reserved = reserved_by_sku.get(sku, 0)
         item["reserved"] = reserved
         item["total_stock"] = item["stock"] + reserved
+        
+        # Calcular distribución proporcional por bodegas basándose en los ingresos históricos de mercadería
+        dist_map = warehouse_distribution.get(sku, {})
+        total_ingresos = sum(dist_map.values())
+        
+        warehouse_shares = []
+        if total_ingresos > 0:
+            # Distribuir el stock disponible actual proporcionalmente
+            remaining_stock = item["stock"]
+            keys = list(dist_map.keys())
+            for i, wh in enumerate(keys):
+                if i == len(keys) - 1:
+                    # Asignar el remanente a la última bodega para evitar errores de redondeo
+                    wh_qty = remaining_stock
+                else:
+                    share = dist_map[wh] / total_ingresos
+                    wh_qty = round(item["stock"] * share)
+                    remaining_stock -= wh_qty
+                
+                if wh_qty > 0:
+                    # Limpiar decimales si son enteros
+                    wh_qty_display = int(wh_qty) if wh_qty.is_integer() else round(wh_qty, 2)
+                    warehouse_shares.append(f"{wh}({wh_qty_display})")
+        else:
+            # Fallback si no hay ingresos previos registrados: poner todo el stock en la bodega 'Principal'
+            if item["stock"] > 0:
+                wh_qty_display = int(item["stock"]) if isinstance(item["stock"], (int, float)) and float(item["stock"]).is_integer() else item["stock"]
+                warehouse_shares.append(f"Principal({wh_qty_display})")
+                
+        item["warehouse_display"] = ", ".join(warehouse_shares) if warehouse_shares else "Sin Stock"
         
         min_stock = item.get("min_stock", 10)
         if item["total_stock"] <= min_stock:
@@ -144,7 +193,7 @@ def inventario():
             item["status"] = "Normal"
             
         item["stock_percent"] = min(100, int((item["total_stock"] / max(1, item["stock"] + 100)) * 100))
-
+        
     inventory_stats["low_stock"] = low_stock_count
     
     return render_template(
