@@ -402,26 +402,193 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Columna Producto
         const tdProd = document.createElement('td');
-        const select = document.createElement('select');
-        select.name = 'product_id[]';
-        select.className = 'form-field-input';
-        select.required = true;
-        
-        const defaultOpt = document.createElement('option');
-        defaultOpt.value = '';
-        defaultOpt.textContent = 'Seleccionar producto';
-        select.appendChild(defaultOpt);
-        
-        allProducts.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.id;
-            opt.textContent = `${p.name} (SKU: ${p.sku})`;
-            if (selectedProdId && String(p.id) === String(selectedProdId)) {
-                opt.selected = true;
+        tdProd.style.position = 'relative';
+
+        const customSelectContainer = document.createElement('div');
+        customSelectContainer.style.position = 'relative';
+
+        // Caja visual que simula el select
+        const customSelect = document.createElement('div');
+        customSelect.className = 'product-custom-select';
+        customSelect.style.cursor = 'pointer';
+        customSelect.style.padding = '8px 12px';
+        customSelect.style.border = '1px solid #E2E8F0';
+        customSelect.style.borderRadius = '6px';
+        customSelect.style.background = '#fff';
+        customSelect.style.fontSize = '13px';
+        customSelect.style.minHeight = '36px';
+        customSelect.style.display = 'flex';
+        customSelect.style.justifyContent = 'space-between';
+        customSelect.style.alignItems = 'center';
+        customSelect.style.userSelect = 'none';
+
+        const selectedText = document.createElement('span');
+        selectedText.className = 'selected-text';
+        selectedText.textContent = 'Seleccionar producto';
+        selectedText.style.color = '#718096';
+        customSelect.appendChild(selectedText);
+
+        const arrowSpan = document.createElement('span');
+        arrowSpan.textContent = '▼';
+        arrowSpan.style.fontSize = '10px';
+        arrowSpan.style.color = '#a0aec0';
+        customSelect.appendChild(arrowSpan);
+
+        // Input oculto para enviar en el formulario
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'product_id[]';
+        hiddenInput.className = 'product-select';
+        hiddenInput.required = true;
+
+        // Dropdown menú con buscador
+        const dropdownMenu = document.createElement('div');
+        dropdownMenu.className = 'product-dropdown-menu';
+        dropdownMenu.style.display = 'none';
+        dropdownMenu.style.position = 'absolute';
+        dropdownMenu.style.top = '105%';
+        dropdownMenu.style.left = '0';
+        dropdownMenu.style.right = '0';
+        dropdownMenu.style.background = '#fff';
+        dropdownMenu.style.border = '1px solid #cbd5e0';
+        dropdownMenu.style.borderRadius = '6px';
+        dropdownMenu.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+        dropdownMenu.style.zIndex = '1000';
+        dropdownMenu.style.padding = '8px';
+
+        // Contenedor del buscador con lupa
+        const searchWrapper = document.createElement('div');
+        searchWrapper.style.position = 'relative';
+        searchWrapper.style.marginBottom = '8px';
+
+        const searchIcon = document.createElement('span');
+        searchIcon.textContent = '🔍';
+        searchIcon.style.position = 'absolute';
+        searchIcon.style.left = '8px';
+        searchIcon.style.top = '50%';
+        searchIcon.style.transform = 'translateY(-50%)';
+        searchIcon.style.color = '#a0aec0';
+        searchIcon.style.fontSize = '13px';
+        searchWrapper.appendChild(searchIcon);
+
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.className = 'product-search-input';
+        searchInput.placeholder = 'Buscar producto...';
+        searchInput.style.width = '100%';
+        searchInput.style.padding = '6px 6px 6px 26px';
+        searchInput.style.border = '1px solid #E2E8F0';
+        searchInput.style.borderRadius = '4px';
+        searchInput.style.fontSize = '12px';
+        searchWrapper.appendChild(searchInput);
+        dropdownMenu.appendChild(searchWrapper);
+
+        // Lista de opciones
+        const optionsList = document.createElement('div');
+        optionsList.className = 'options-list';
+        optionsList.style.maxHeight = '180px';
+        optionsList.style.overflowY = 'auto';
+        dropdownMenu.appendChild(optionsList);
+
+        // Cargar opciones
+        function buildOptions() {
+            optionsList.innerHTML = '';
+            
+            // Opción por defecto
+            const defaultOpt = document.createElement('div');
+            defaultOpt.textContent = 'Seleccionar producto';
+            defaultOpt.style.padding = '6px 8px';
+            defaultOpt.style.fontSize = '13px';
+            defaultOpt.style.color = '#718096';
+            defaultOpt.style.cursor = 'pointer';
+            defaultOpt.addEventListener('click', () => {
+                selectValue('', 'Seleccionar producto');
+            });
+            optionsList.appendChild(defaultOpt);
+
+            allProducts.forEach(p => {
+                const opt = document.createElement('div');
+                opt.className = 'dropdown-opt';
+                opt.style.padding = '8px';
+                opt.style.fontSize = '12.5px';
+                opt.style.cursor = 'pointer';
+                opt.style.borderRadius = '4px';
+                opt.style.transition = 'background 0.2s';
+                opt.innerHTML = `<span style="font-weight: 500;">${p.name}</span> <span style="color: #a0aec0; font-size: 11px;">(SKU: ${p.sku})</span>`;
+                
+                opt.addEventListener('mouseenter', () => opt.style.backgroundColor = '#f7fafc');
+                opt.addEventListener('mouseleave', () => opt.style.backgroundColor = 'transparent');
+                
+                opt.addEventListener('click', () => {
+                    selectValue(p.id, `${p.name} (SKU: ${p.sku})`);
+                });
+
+                optionsList.appendChild(opt);
+            });
+        }
+        buildOptions();
+
+        // Alternar visualización del menú
+        customSelect.addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.querySelectorAll('.product-dropdown-menu').forEach(menu => {
+                if (menu !== dropdownMenu) menu.style.display = 'none';
+            });
+            const isOpen = dropdownMenu.style.display === 'block';
+            dropdownMenu.style.display = isOpen ? 'none' : 'block';
+            if (!isOpen) {
+                searchInput.value = '';
+                filterOptions('');
+                searchInput.focus();
             }
-            select.appendChild(opt);
         });
-        tdProd.appendChild(select);
+
+        // Cerrar al hacer clic afuera
+        document.addEventListener('click', () => {
+            dropdownMenu.style.display = 'none';
+        });
+        dropdownMenu.addEventListener('click', (e) => e.stopPropagation());
+
+        // Filtrar
+        searchInput.addEventListener('input', (e) => {
+            filterOptions(e.target.value);
+        });
+
+        function filterOptions(query) {
+            const cleanQuery = query.toLowerCase();
+            const opts = optionsList.querySelectorAll('.dropdown-opt');
+            opts.forEach(opt => {
+                const text = opt.textContent.toLowerCase();
+                // No filtrar la opción vacía inicial
+                if (opt.textContent === 'Seleccionar producto') return;
+                opt.style.display = text.includes(cleanQuery) ? 'block' : 'none';
+            });
+        }
+
+        function selectValue(id, label) {
+            hiddenInput.value = id;
+            selectedText.textContent = label;
+            selectedText.style.color = id ? '#2d3748' : '#718096';
+            dropdownMenu.style.display = 'none';
+
+            // Disparar evento de cambio manual
+            hiddenInput.dispatchEvent(new Event('change'));
+        }
+
+        // Si hay producto inicial seleccionado
+        if (selectedProdId) {
+            const matched = allProducts.find(p => String(p.id) === String(selectedProdId));
+            if (matched) {
+                hiddenInput.value = matched.id;
+                selectedText.textContent = `${matched.name} (SKU: ${matched.sku})`;
+                selectedText.style.color = '#2d3748';
+            }
+        }
+
+        customSelectContainer.appendChild(customSelect);
+        customSelectContainer.appendChild(hiddenInput);
+        customSelectContainer.appendChild(dropdownMenu);
+        tdProd.appendChild(customSelectContainer);
         
         // Columna Cantidad
         const tdQty = document.createElement('td');
@@ -502,8 +669,8 @@ document.addEventListener('DOMContentLoaded', () => {
         tdRemove.appendChild(removeBtn);
         
         // Evento cambio de producto
-        select.addEventListener('change', () => {
-            const productId = select.value;
+        hiddenInput.addEventListener('change', () => {
+            const productId = hiddenInput.value;
             const selectedCategory = categorySelect.value || 'default';
             if (productId && productPricesMap[productId]) {
                 const prices = productPricesMap[productId];
@@ -572,7 +739,7 @@ document.addEventListener('DOMContentLoaded', () => {
     categorySelect.addEventListener('change', () => {
         const rows = container.querySelectorAll('.product-row-tr');
         rows.forEach(r => {
-            const selectEl = r.querySelector('select[name="product_id[]"]');
+            const selectEl = r.querySelector('.product-select');
             const priceInputEl = r.querySelector('input[name="unit_price[]"]');
             const qtyInputEl = r.querySelector('input[name="quantity[]"]');
             const discountInputEl = r.querySelector('input[name="discount[]"]');
