@@ -1216,7 +1216,7 @@ def convertir_cotizacion(sale_id):
             )
         conn.commit()
         
-    from flask import Markup
+    from markupsafe import Markup
     msg = Markup(f"Venta {new_sale_number} creada exitosamente a partir de la Cotización {quotation['sale_number']}. <a href='{url_for('ventas.ventas')}?filter=Ventas+Pendientes' style='font-weight: bold; text-decoration: underline; color: #1A365D;'>Haz clic aquí para ir a ver la nueva venta</a>.")
     flash(msg, "success")
     return redirect(url_for('ventas.cotizaciones'))
