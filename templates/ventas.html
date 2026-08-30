@@ -224,7 +224,7 @@
                       {% endif %}
                   </td>
                   <td>
-                      <div class="status-badge-container" style="position: relative; display: inline-block; cursor: pointer;" data-id="{{ sale.id }}" data-number="{{ sale.sale_number }}" data-total="{{ sale.total }}" data-status="{{ sale.payment_status }}" data-due="{{ sale.invoice_due_date }}" data-payment-date="{{ sale.payment_date }}" data-proof="{{ sale.payment_proof_file }}" data-payment-history='{{ sale.payment_history | tojson | safe }}' onclick="openEditPaymentModal(this)" title="Haz clic para actualizar el pago de la factura">
+                      <div class="status-badge-container" style="position: relative; display: inline-block; cursor: pointer;" data-id="{{ sale.id }}" data-number="{{ sale.sale_number }}" data-total="{{ sale.total }}" data-status="{{ sale.payment_status }}" data-due="{{ sale.invoice_due_date }}" data-payment-date="{{ sale.payment_date }}" data-proof="{{ sale.payment_proof_file }}" data-payment-history='{{ sale.payment_history | tojson | safe }}' data-bank-account-id="{{ sale.bank_account_id or '' }}" onclick="openEditPaymentModal(this)" title="Haz clic para actualizar el pago de la factura">
                            {% if sale.payment_status == 'Pagado' %}
                            <span class="sf-badge sf-badge-success" style="background-color: rgba(72, 187, 120, 0.1); color: #48BB78; border: 1px solid rgba(72, 187, 120, 0.2);">
                                <span class="sf-badge-dot" style="background-color: #48BB78;"></span>
@@ -491,6 +491,16 @@
                     </div>
 
                     <div class="sf-form-group" style="margin-bottom: 15px;">
+                        <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Cuenta de Destino (Empresa) *</label>
+                        <select class="sf-select" id="edit_bank_account_id" name="bank_account_id" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                            <option value="">-- Seleccionar Cuenta --</option>
+                            {% for acc in bank_accounts %}
+                                <option value="{{ acc.id }}">{{ acc.bank_name }} - {{ acc.account_number }} ({{ acc.holder_name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="sf-form-group" style="margin-bottom: 15px;">
                         <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Comprobante de Pago (Foto / PDF)</label>
                         <input type="file" class="sf-input" id="edit_payment_file" name="payment_file" accept="image/*,application/pdf" style="width: 100%; padding: 6px; font-size: 13px; margin-bottom: 8px;">
                         
@@ -618,6 +628,7 @@
                 <div><strong>Estado de Venta:</strong> <span id="modal-vta-status">-</span></div>
                 <div><strong>Estado de Pago:</strong> <span id="modal-vta-pstatus">-</span></div>
                 <div><strong>Forma / Condición Pago:</strong> <span id="modal-vta-payment-method" style="font-weight: 600; color: #2b6cb0;">-</span></div>
+                <div><strong>Cuenta Destino Empresa:</strong> <span id="modal-vta-bank-account" style="font-weight: 600; color: #319795;">-</span></div>
                 <div><strong>Vendedor Responsable:</strong> <span id="modal-vta-seller">-</span></div>
                 <div style="grid-column: span 2; border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 4px;">
                     <strong>Notas / Términos de Cotización:</strong>
@@ -687,6 +698,12 @@
         document.getElementById('modal-vta-status').textContent = sale.status ? sale.status.label : '-';
         document.getElementById('modal-vta-pstatus').textContent = sale.payment_status || '-';
         document.getElementById('modal-vta-payment-method').textContent = sale.payment_method || sale.payment || 'Efectivo';
+        
+        // Mapear cuenta bancaria
+        const accountsList = {{ bank_accounts|tojson|safe }};
+        const matchedAcc = accountsList.find(a => Number(a.id) === Number(sale.bank_account_id));
+        document.getElementById('modal-vta-bank-account').textContent = matchedAcc ? `${matchedAcc.bank_name} (${matchedAcc.account_number})` : 'No especificada';
+
         document.getElementById('modal-vta-seller').textContent = sale.seller ? sale.seller.name : '-';
 
         const notesStr = sale.notes || '';
@@ -765,6 +782,7 @@
         const dueDate = element.getAttribute('data-due');
         const paymentDate = element.getAttribute('data-payment-date');
         const proofFile = element.getAttribute('data-proof');
+        const bankAccountId = element.getAttribute('data-bank-account-id');
         const rawHistory = element.getAttribute('data-payment-history') || '[]';
 
         document.getElementById('edit_sale_id').value = saleId;
@@ -778,6 +796,9 @@
         // Fechas por defecto
         document.getElementById('edit_due_date').value = (dueDate && dueDate !== '-') ? dueDate : '';
         document.getElementById('edit_payment_date').value = (paymentDate && paymentDate !== '-') ? paymentDate : new Date().toISOString().substring(0, 10);
+        
+        // Cargar cuenta bancaria
+        document.getElementById('edit_bank_account_id').value = bankAccountId || '';
         
         togglePaymentFields(cleanStatus);
         

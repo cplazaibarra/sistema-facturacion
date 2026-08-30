@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}Cuentas Bancarias de la Empresa - Bodega Miel{% endblock %}
+{% block page_title %}Cuentas Bancarias de la Empresa{% endblock %}
+
+{% block content %}
+<div class="sf-action-bar" style="margin-bottom: 24px;">
+    <div class="sf-action-left">
+        <h3 style="margin: 0; font-size: 16px; color: #475569;">Mantenedor de Cuentas para Recepción de Pagos</h3>
+    </div>
+    <div class="sf-action-right">
+        <button class="sf-btn-primary" onclick="openAddAccountModal()" style="background-color: #3182ce; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+            <span>➕</span>
+            <span>Registrar Nueva Cuenta</span>
+        </button>
+    </div>
+</div>
+
+<!-- Listado de Cuentas en Tabla Estilo Salesforce -->
+<div class="sf-table-container">
+    <table class="sf-table">
+        <thead>
+            <tr>
+                <th style="width: 20%;">Banco</th>
+                <th style="width: 20%;">N° de Cuenta</th>
+                <th style="width: 15%;">Tipo de Cuenta</th>
+                <th style="width: 25%;">Titular / RUT</th>
+                <th style="width: 10%; text-align: center;">Estado</th>
+                <th style="width: 10%; text-align: center;">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for acc in accounts %}
+            <tr class="sf-table-row">
+                <td>
+                    <div style="font-weight: 600; color: #1e293b;">{{ acc.bank_name }}</div>
+                </td>
+                <td>
+                    <code style="font-family: monospace; font-size: 14px; color: #475569;">{{ acc.account_number }}</code>
+                </td>
+                <td>{{ acc.account_type }}</td>
+                <td>
+                    <div style="font-weight: 500; color: #0f172a;">{{ acc.holder_name }}</div>
+                    {% if acc.holder_rut %}
+                    <div style="font-size: 12px; color: #64748b;">RUT: {{ acc.holder_rut }}</div>
+                    {% endif %}
+                    {% if acc.email %}
+                    <div style="font-size: 11px; color: #94a3b8;">{{ acc.email }}</div>
+                    {% endif %}
+                </td>
+                <td style="text-align: center;">
+                    {% if acc.status == 'Activa' %}
+                    <span class="sf-badge sf-badge-success" style="background-color: rgba(72, 187, 120, 0.1); color: #48BB78; border: 1px solid rgba(72, 187, 120, 0.2);">
+                        <span class="sf-badge-dot" style="background-color: #48BB78;"></span>
+                        Activa
+                    </span>
+                    {% else %}
+                    <span class="sf-badge sf-badge-danger" style="background-color: rgba(229, 62, 62, 0.1); color: #E53E3E; border: 1px solid rgba(229, 62, 62, 0.2);">
+                        <span class="sf-badge-dot" style="background-color: #E53E3E;"></span>
+                        Inactiva
+                    </span>
+                    {% endif %}
+                </td>
+                <td style="text-align: center;">
+                    <div style="display: flex; gap: 8px; justify-content: center;">
+                        <button type="button" class="sf-btn-secondary" onclick='openEditAccountModal({{ acc|tojson|safe }})' style="padding: 4px 8px; font-size: 12px;" title="Editar">
+                            ✏️ Editar
+                        </button>
+                        <form method="POST" action="{{ url_for('usuarios.eliminar_cuenta_bancaria', account_id=acc.id) }}" onsubmit="return confirm('¿Seguro que deseas eliminar esta cuenta bancaria?');" style="display: inline;">
+                            <button type="submit" class="sf-btn-secondary" style="padding: 4px 8px; font-size: 12px; color: #e53e3e; border-color: rgba(229, 62, 62, 0.2); background: rgba(229, 62, 62, 0.05);" title="Eliminar">
+                                🗑️ Borrar
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 36px; color: #64748b;">
+                    No hay cuentas bancarias registradas para la empresa.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal Registrar / Agregar Cuenta -->
+<div id="modal-add-account" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999; justify-content: center; align-items: center; padding: 20px; overflow-y: auto;">
+    <div style="background: white; border-radius: 12px; width: 550px; max-width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px;">
+            <div>
+                <h3 style="margin: 0; font-size: 18px; color: #1e293b;">Registrar Cuenta Bancaria</h3>
+                <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Datos de depósito para transferencias de clientes</p>
+            </div>
+            <button type="button" onclick="closeAddAccountModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #94a3b8;">✕</button>
+        </div>
+
+        <form method="POST" action="{{ url_for('usuarios.cuentas_bancarias') }}">
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Banco / Institución *</label>
+                <input type="text" name="bank_name" required placeholder="Ej: Banco Estado, Banco de Chile" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Número de Cuenta *</label>
+                    <input type="text" name="account_number" required placeholder="Ej: 123456789" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Tipo de Cuenta *</label>
+                    <select name="account_type" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px;">
+                        <option value="Cuenta Corriente">Cuenta Corriente</option>
+                        <option value="Cuenta Vista / RUT">Cuenta Vista / RUT</option>
+                        <option value="Cuenta de Ahorro">Cuenta de Ahorro</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; margin-bottom: 16px;">
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Nombre del Titular *</label>
+                    <input type="text" name="holder_name" required placeholder="Ej: Bodega Miel SpA" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">RUT Titular</label>
+                    <input type="text" name="holder_rut" placeholder="Ej: 76.543.210-K" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px;">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; margin-bottom: 16px;">
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Email de Confirmación Pagos</label>
+                    <input type="email" name="email" placeholder="pagos@bodegamiel.com" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Estado</label>
+                    <select name="status" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px;">
+                        <option value="Activa">Activa</option>
+                        <option value="Inactiva">Inactiva</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                <button type="button" onclick="closeAddAccountModal()" style="padding: 8px 16px; background: #e2e8f0; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; color: #475569;">Cancelar</button>
+                <button type="submit" style="padding: 8px 18px; border: none; background: #3182ce; color: white; border-radius: 6px; font-weight: 600; cursor: pointer;">💾 Registrar Cuenta</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Editar Cuenta -->
+<div id="modal-edit-account" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999; justify-content: center; align-items: center; padding: 20px; overflow-y: auto;">
+    <div style="background: white; border-radius: 12px; width: 550px; max-width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px;">
+            <div>
+                <h3 style="margin: 0; font-size: 18px; color: #1e293b;">Editar Cuenta Bancaria</h3>
+                <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Modificar los datos de la cuenta registrada</p>
+            </div>
+            <button type="button" onclick="closeEditAccountModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #94a3b8;">✕</button>
+        </div>
+
+        <form id="form-edit-account" method="POST" action="">
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Banco / Institución *</label>
+                <input type="text" id="edit_bank_name" name="bank_name" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Número de Cuenta *</label>
+                    <input type="text" id="edit_account_number" name="account_number" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Tipo de Cuenta *</label>
+                    <select id="edit_account_type" name="account_type" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px;">
+                        <option value="Cuenta Corriente">Cuenta Corriente</option>
+                        <option value="Cuenta Vista / RUT">Cuenta Vista / RUT</option>
+                        <option value="Cuenta de Ahorro">Cuenta de Ahorro</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; margin-bottom: 16px;">
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Nombre del Titular *</label>
+                    <input type="text" id="edit_holder_name" name="holder_name" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">RUT Titular</label>
+                    <input type="text" id="edit_holder_rut" name="holder_rut" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px;">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; margin-bottom: 16px;">
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Email de Confirmación Pagos</label>
+                    <input type="email" id="edit_email" name="email" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Estado</label>
+                    <select id="edit_status" name="status" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px;">
+                        <option value="Activa">Activa</option>
+                        <option value="Inactiva">Inactiva</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                <button type="button" onclick="closeEditAccountModal()" style="padding: 8px 16px; background: #e2e8f0; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; color: #475569;">Cancelar</button>
+                <button type="submit" style="padding: 8px 18px; border: none; background: #3182ce; color: white; border-radius: 6px; font-weight: 600; cursor: pointer;">💾 Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openAddAccountModal() {
+        document.getElementById('modal-add-account').style.display = 'flex';
+    }
+    function closeAddAccountModal() {
+        document.getElementById('modal-add-account').style.display = 'none';
+    }
+
+    function openEditAccountModal(acc) {
+        document.getElementById('form-edit-account').action = `/administracion/cuentas-bancarias/${acc.id}/editar`;
+        document.getElementById('edit_bank_name').value = acc.bank_name || '';
+        document.getElementById('edit_account_number').value = acc.account_number || '';
+        document.getElementById('edit_account_type').value = acc.account_type || 'Cuenta Corriente';
+        document.getElementById('edit_holder_name').value = acc.holder_name || '';
+        document.getElementById('edit_holder_rut').value = acc.holder_rut || '';
+        document.getElementById('edit_email').value = acc.email || '';
+        document.getElementById('edit_status').value = acc.status || 'Activa';
+
+        document.getElementById('modal-edit-account').style.display = 'flex';
+    }
+    function closeEditAccountModal() {
+        document.getElementById('modal-edit-account').style.display = 'none';
+    }
+</script>
+{% endblock %}

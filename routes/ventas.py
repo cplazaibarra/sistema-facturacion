@@ -72,6 +72,14 @@ def _get_formatted_sales_data():
                 )
                 payment_history = [dict(row) for row in cur.fetchall()]
 
+                # Obtener el bank_account_id del último pago en sale_payment_items
+                cur.execute(
+                    "SELECT bank_account_id FROM sale_payment_items WHERE sale_id = %s ORDER BY id DESC LIMIT 1",
+                    (sale["id"],)
+                )
+                bank_acc_row = cur.fetchone()
+                bank_account_id = bank_acc_row["bank_account_id"] if bank_acc_row else None
+
                 c_email = (sale.get("customer_email") or "").lower().strip()
                 c_name = (sale.get("customer_name") or "").lower().strip()
                 c_data = clients_map.get(c_email) or clients_map.get(c_name) or {}
@@ -120,6 +128,7 @@ def _get_formatted_sales_data():
                     "invoice_number": sale.get("invoice_number") or "",
                     "invoice_file": sale.get("invoice_file") or "",
                     "notes": sale.get("notes") or "",
+                    "bank_account_id": bank_account_id,
                     "status": {
                         "label": sale["status"],
                         "level": "success" if sale["status"] == "Completada" else "warning" if sale["status"] == "Pendiente" else "info" if sale["status"] == "Cotización" else "danger"
@@ -213,6 +222,9 @@ def ventas():
         },
     ]
 
+    from db import list_bank_accounts
+    bank_accounts = [acc for acc in list_bank_accounts() if acc.get("status") == "Activa"]
+
     roles = list_roles()
     config = get_page_data("price_list_config")
     categories = config.get("categories", [])
@@ -226,6 +238,7 @@ def ventas():
         roles=roles,
         categories=categories,
         active_filter=active_filter,
+        bank_accounts=bank_accounts,
     ))
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'
@@ -570,6 +583,69 @@ def registrar_pago_venta():
             
             # Utilizar upsert_sale_payment para guardar los datos de pago
             upsert_sale_payment(sale_id, payment_data)
+
+            # 4. Registrar en la tabla de transacciones de pago (sale_payment_items) si hay comprobante o se marca como Pagado
+            if payment_status in ['Pagado', 'Pendiente Aprobación Pago']:
+                bank_acc_id_str = request.form.get('bank_account_id')
+                bank_account_id = int(bank_acc_id_str) if bank_acc_id_str and bank_acc_id_str.isdigit() else None
+                
+                # Chequear si ya existe un registro de comprobante en sale_payment_items
+                cur.execute(
+                    "SELECT id FROM sale_payment_items WHERE sale_id = %s ORDER BY id DESC LIMIT 1",
+                    (sale_id,)
+                )
+                existing_item = cur.fetchone()
+                
+                if existing_item:
+                    # Actualizar
+                    cur.execute(
+                        """
+                        UPDATE sale_payment_items
+                        SET payment_amount = %s,
+                            payment_date = %s,
+                            payment_proof_file = COALESCE(%s, payment_proof_file),
+                            bank_account_id = %s,
+                            accounting_approved = %s,
+                            accounting_approved_by = %s,
+                            accounting_approved_at = %s,
+                            accounting_comment = %s
+                        WHERE id = %s
+                        """,
+                        (
+                            total_amount,
+                            payment_date,
+                            final_proof_file,
+                            bank_account_id,
+                            1 if payment_status == 'Pagado' else 0,
+                            user_responsible if payment_status == 'Pagado' else None,
+                            datetime.utcnow().isoformat() if payment_status == 'Pagado' else None,
+                            "Pago verificado y aprobado automáticamente" if payment_status == 'Pagado' else "Pendiente de validación",
+                            existing_item["id"]
+                        )
+                    )
+                else:
+                    # Insertar nuevo registro
+                    cur.execute(
+                        """
+                        INSERT INTO sale_payment_items (
+                            sale_id, payment_amount, payment_date, payment_proof_file, created_at,
+                            bank_account_id, accounting_approved, accounting_approved_by, accounting_approved_at, accounting_comment
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            sale_id,
+                            total_amount,
+                            payment_date,
+                            final_proof_file,
+                            datetime.utcnow().isoformat(),
+                            bank_account_id,
+                            1 if payment_status == 'Pagado' else 0,
+                            user_responsible if payment_status == 'Pagado' else None,
+                            datetime.utcnow().isoformat() if payment_status == 'Pagado' else None,
+                            "Pago verificado y aprobado automáticamente" if payment_status == 'Pagado' else "Pendiente de validación"
+                        )
+                    )
 
         conn.commit()
 

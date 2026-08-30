@@ -33,12 +33,12 @@
                     <span>Dashboard</span>
                 </a>
                 <div class="nav-section">
-                    <button class="nav-item nav-toggle {% if request.endpoint in ['ventas.ventas', 'ventas.cotizaciones', 'usuarios.listas_precios', 'ventas.clientes'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['ventas.ventas', 'ventas.cotizaciones', 'usuarios.listas_precios', 'ventas.clientes', 'usuarios.cuentas_bancarias'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
                         <span class="icon"><i class="fa-solid fa-hand-holding-dollar"></i></span>
                         <span>Ventas</span>
                         <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
-                    <div class="nav-submenu {% if request.endpoint in ['ventas.ventas', 'ventas.cotizaciones', 'usuarios.listas_precios', 'ventas.clientes'] %}open{% endif %}">
+                    <div class="nav-submenu {% if request.endpoint in ['ventas.ventas', 'ventas.cotizaciones', 'usuarios.listas_precios', 'ventas.clientes', 'usuarios.cuentas_bancarias'] %}open{% endif %}">
                         <a href="{{ url_for('ventas.ventas') }}" class="nav-item nav-subitem {% if request.endpoint == 'ventas.ventas' %}active{% endif %}">
                             <span>Ventas</span>
                         </a>
@@ -50,6 +50,9 @@
                         </a>
                         <a href="{{ url_for('ventas.clientes') }}" class="nav-item nav-subitem {% if request.endpoint == 'ventas.clientes' %}active{% endif %}">
                             <span>Clientes</span>
+                        </a>
+                        <a href="{{ url_for('usuarios.cuentas_bancarias') }}" class="nav-item nav-subitem {% if request.endpoint == 'usuarios.cuentas_bancarias' %}active{% endif %}">
+                            <span>Cuentas Empresa</span>
                         </a>
                     </div>
                 </div>

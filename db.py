@@ -722,6 +722,7 @@ def init_db() -> None:
                 "accounting_approved_by": "TEXT",
                 "accounting_approved_at": "TEXT",
                 "accounting_comment": "TEXT",
+                "bank_account_id": "INTEGER REFERENCES bank_accounts(id) ON DELETE SET NULL"
             }
             for col_name, col_type in item_missing_columns.items():
                 if col_name not in existing_item_columns:
@@ -991,6 +992,18 @@ def init_db() -> None:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
                 ALTER TABLE clients ALTER COLUMN category_id TYPE VARCHAR(50);
+
+                CREATE TABLE IF NOT EXISTS bank_accounts (
+                    id SERIAL PRIMARY KEY,
+                    bank_name VARCHAR(100) NOT NULL,
+                    account_number VARCHAR(100) NOT NULL UNIQUE,
+                    account_type VARCHAR(100) NOT NULL,
+                    holder_name VARCHAR(255) NOT NULL,
+                    holder_rut VARCHAR(50),
+                    email VARCHAR(255),
+                    status VARCHAR(50) DEFAULT 'Activa',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
                 """
             )
         conn.commit()
@@ -1848,6 +1861,91 @@ def delete_sale(sale_id: int) -> None:
         conn.commit()
 
 
+# === Bank Accounts Functions ===
+
+def list_bank_accounts() -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, bank_name, account_number, account_type, holder_name, holder_rut, email, status, created_at
+                FROM bank_accounts
+                ORDER BY id DESC
+                """
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+
+def get_bank_account(account_id: int) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, bank_name, account_number, account_type, holder_name, holder_rut, email, status, created_at
+                FROM bank_accounts
+                WHERE id = %s
+                """,
+                (account_id,)
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+
+
+def insert_bank_account(account: dict) -> int:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO bank_accounts (bank_name, account_number, account_type, holder_name, holder_rut, email, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    account["bank_name"],
+                    account["account_number"],
+                    account["account_type"],
+                    account["holder_name"],
+                    account.get("holder_rut", ""),
+                    account.get("email", ""),
+                    account.get("status", "Activa")
+                )
+            )
+            inserted_id = cur.fetchone()["id"]
+        conn.commit()
+        return inserted_id
+
+
+def update_bank_account(account_id: int, account: dict) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE bank_accounts SET
+                    bank_name = %s, account_number = %s, account_type = %s,
+                    holder_name = %s, holder_rut = %s, email = %s, status = %s
+                WHERE id = %s
+                """,
+                (
+                    account["bank_name"],
+                    account["account_number"],
+                    account["account_type"],
+                    account["holder_name"],
+                    account.get("holder_rut", ""),
+                    account.get("email", ""),
+                    account.get("status", "Activa"),
+                    account_id
+                )
+            )
+        conn.commit()
+
+
+def delete_bank_account(account_id: int) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM bank_accounts WHERE id = %s", (account_id,))
+        conn.commit()
+
+
 def get_sale_payments_map() -> dict[int, dict]:
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -2068,8 +2166,8 @@ def insert_sale_payment_item(item: dict) -> int:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO sale_payment_items (sale_id, payment_amount, payment_date, payment_proof_file, created_at)
-                VALUES (%s, %s, %s, %s, %s) RETURNING id
+                INSERT INTO sale_payment_items (sale_id, payment_amount, payment_date, payment_proof_file, created_at, bank_account_id)
+                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
                 """,
                 (
                     item["sale_id"],
@@ -2077,6 +2175,7 @@ def insert_sale_payment_item(item: dict) -> int:
                     item.get("payment_date"),
                     item.get("payment_proof_file"),
                     item["created_at"],
+                    item.get("bank_account_id"),
                 ),
             )
             inserted_id = cur.fetchone()["id"]

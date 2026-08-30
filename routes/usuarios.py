@@ -297,3 +297,66 @@ def quick_update_role(user_id):
     update_user(user_id, updated_user_data)
     flash(f"Rol del usuario {user['full_name']} actualizado correctamente.", "success")
     return redirect(url_for('usuarios.roles'))
+
+
+# === Endpoints para Cuentas Bancarias de la Empresa ===
+
+@usuarios_bp.route('/administracion/cuentas-bancarias', methods=['GET', 'POST'])
+def cuentas_bancarias():
+    """Administrar cuentas bancarias de la empresa"""
+    from db import list_bank_accounts, insert_bank_account
+    if request.method == 'POST':
+        account_data = {
+            "bank_name": request.form.get('bank_name', '').strip(),
+            "account_number": request.form.get('account_number', '').strip(),
+            "account_type": request.form.get('account_type', '').strip(),
+            "holder_name": request.form.get('holder_name', '').strip(),
+            "holder_rut": request.form.get('holder_rut', '').strip(),
+            "email": request.form.get('email', '').strip(),
+            "status": request.form.get('status', 'Activa').strip()
+        }
+        if not account_data["bank_name"] or not account_data["account_number"] or not account_data["holder_name"]:
+            flash("Banco, número de cuenta y titular son requeridos.", "warning")
+        else:
+            try:
+                insert_bank_account(account_data)
+                flash("Cuenta bancaria registrada exitosamente.", "success")
+            except Exception as e:
+                flash(f"Error al registrar la cuenta: Cuenta duplicada o datos inválidos.", "danger")
+        return redirect(url_for('usuarios.cuentas_bancarias'))
+
+    accounts = list_bank_accounts()
+    return render_template('cuentas_bancarias.html', accounts=accounts)
+
+
+@usuarios_bp.route('/administracion/cuentas-bancarias/<int:account_id>/editar', methods=['POST'])
+def editar_cuenta_bancaria(account_id):
+    """Editar una cuenta bancaria existente"""
+    from db import update_bank_account
+    account_data = {
+        "bank_name": request.form.get('bank_name', '').strip(),
+        "account_number": request.form.get('account_number', '').strip(),
+        "account_type": request.form.get('account_type', '').strip(),
+        "holder_name": request.form.get('holder_name', '').strip(),
+        "holder_rut": request.form.get('holder_rut', '').strip(),
+        "email": request.form.get('email', '').strip(),
+        "status": request.form.get('status', 'Activa').strip()
+    }
+    try:
+        update_bank_account(account_id, account_data)
+        flash("Cuenta bancaria actualizada correctamente.", "success")
+    except Exception as e:
+        flash(f"Error al actualizar la cuenta.", "danger")
+    return redirect(url_for('usuarios.cuentas_bancarias'))
+
+
+@usuarios_bp.route('/administracion/cuentas-bancarias/<int:account_id>/eliminar', methods=['POST'])
+def eliminar_cuenta_bancaria(account_id):
+    """Eliminar una cuenta bancaria"""
+    from db import delete_bank_account
+    try:
+        delete_bank_account(account_id)
+        flash("Cuenta bancaria eliminada correctamente.", "success")
+    except Exception as e:
+        flash("No se puede eliminar la cuenta porque tiene pagos asociados.", "danger")
+    return redirect(url_for('usuarios.cuentas_bancarias'))
