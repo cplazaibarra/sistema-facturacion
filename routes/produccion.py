@@ -568,12 +568,60 @@ def get_product_recipe(product_id):
     if not items:
         return jsonify({"error": "Receta no encontrada"}), 404
         
-    # Obtener stock físico actual
+    # Obtener stock físico actual y calcular distribución por bodegas
     inventory_items = get_page_data("inventory_items") or []
     stock_map = {item["code"]: float(item.get("stock", 0.0)) for item in inventory_items}
     
+    # Obtener distribución histórica por bodega
+    warehouse_distribution = {}
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT p.sku, entries.warehouse, SUM(items.quantity) as qty
+                FROM inventory_entry_items items
+                JOIN inventory_entries entries ON items.inventory_entry_id = entries.id
+                JOIN products p ON items.product_id = p.id
+                GROUP BY p.sku, entries.warehouse
+                """
+            )
+            for row in cur.fetchall():
+                sku = row["sku"]
+                warehouse = row["warehouse"] or "Principal"
+                qty = float(row["qty"] or 0)
+                if sku not in warehouse_distribution:
+                    warehouse_distribution[sku] = {}
+                warehouse_distribution[sku][warehouse] = qty
+    
     for item in items:
         sku = item["input_sku"]
-        item["stock"] = stock_map.get(sku, 0.0)
+        current_stock = stock_map.get(sku, 0.0)
+        item["stock"] = current_stock
+        
+        # Calcular distribución para el insumo
+        dist_map = warehouse_distribution.get(sku, {})
+        total_ingresos = sum(dist_map.values())
+        
+        warehouse_shares = []
+        if total_ingresos > 0:
+            remaining_stock = current_stock
+            keys = list(dist_map.keys())
+            for i, wh in enumerate(keys):
+                if i == len(keys) - 1:
+                    wh_qty = remaining_stock
+                else:
+                    share = dist_map[wh] / total_ingresos
+                    wh_qty = round(current_stock * share)
+                    remaining_stock -= wh_qty
+                
+                if wh_qty > 0:
+                    wh_qty_display = int(wh_qty) if wh_qty.is_integer() else round(wh_qty, 2)
+                    warehouse_shares.append(f"{wh}({wh_qty_display})")
+        else:
+            if current_stock > 0:
+                wh_qty_display = int(current_stock) if current_stock.is_integer() else current_stock
+                warehouse_shares.append(f"Principal({wh_qty_display})")
+                
+        item["warehouse_display"] = ", ".join(warehouse_shares) if warehouse_shares else "Sin Stock"
         
     return jsonify({"product_id": product_id, "items": items})
