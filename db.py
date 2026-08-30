@@ -2857,18 +2857,9 @@ def register_inventory_entry(po_id: int, order_number: str, entry_date: str, war
                     (new_received, po_item["id"])
                 )
                 
-                # Recalcular Costo Promedio Ponderado para el producto y actualizar en tabla products
-                cur.execute(
-                    """
-                    SELECT SUM(quantity) as total_qty, SUM(total) as total_spent
-                    FROM inventory_entry_items
-                    WHERE product_id = %s
-                    """,
-                    (prod_id,)
-                )
-                cost_row = cur.fetchone()
-                if cost_row and cost_row["total_qty"] and cost_row["total_qty"] > 0:
-                    avg_cost = cost_row["total_spent"] / cost_row["total_qty"]
+                # Recalcular Costo según regla: últimas compras 30 días, si no, última compra registrada
+                avg_cost = get_product_calculated_cost(prod_id)
+                if avg_cost and avg_cost > 0:
                     cur.execute(
                         """
                         UPDATE products
@@ -2900,6 +2891,50 @@ def register_inventory_entry(po_id: int, order_number: str, entry_date: str, war
                 
             cur.execute("UPDATE purchase_orders SET status = %s WHERE id = %s", (new_status, po_id))
         conn.commit()
+
+
+def get_product_calculated_cost(product_id: int) -> float | None:
+    """Calcula el costo del producto según:
+       1. Promedio ponderado de las compras de los últimos 30 días.
+       2. Si no hay compras los últimos 30 días, el valor unitario de la última compra registrada.
+       3. Si no hay registros de compra en absoluto, retorna None.
+    """
+    from datetime import datetime, timedelta
+    limit_date = (datetime.today() - timedelta(days=30)).strftime('%Y-%m-%d')
+    
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Intentar primero en los últimos 30 días
+            cur.execute(
+                """
+                SELECT SUM(items.quantity) as total_qty, SUM(items.total) as total_spent
+                FROM inventory_entry_items items
+                JOIN inventory_entries entries ON items.inventory_entry_id = entries.id
+                WHERE items.product_id = %s AND entries.entry_date >= %s
+                """,
+                (product_id, limit_date)
+            )
+            row = cur.fetchone()
+            if row and row["total_qty"] and row["total_qty"] > 0:
+                return row["total_spent"] / row["total_qty"]
+            
+            # Si no hay compras en los últimos 30 días, tomar el valor unitario de la última compra registrada
+            cur.execute(
+                """
+                SELECT items.unit_price
+                FROM inventory_entry_items items
+                JOIN inventory_entries entries ON items.inventory_entry_id = entries.id
+                WHERE items.product_id = %s
+                ORDER BY entries.entry_date DESC, entries.id DESC
+                LIMIT 1
+                """,
+                (product_id,)
+            )
+            last_purchase = cur.fetchone()
+            if last_purchase:
+                return last_purchase["unit_price"]
+                
+    return None
 
 def list_inventory_entries() -> list[dict]:
     """Obtiene los ingresos de mercadería recientes"""

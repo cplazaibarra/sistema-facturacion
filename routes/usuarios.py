@@ -90,22 +90,14 @@ def listas_precios():
                 conn.commit()
             return jsonify({"status": "ok", "message": f"Márgenes de {sku} actualizados."})
 
-    # Carga de VPP por producto
+    # Carga de VPP por producto usando la regla de negocio (últimos 30 días o última compra)
     vpp_map = {}
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT product_id, SUM(quantity) as total_qty, SUM(total) as total_spent
-                FROM inventory_entry_items
-                GROUP BY product_id
-                """
-            )
-            for row in cur.fetchall():
-                qty = row["total_qty"] or 0
-                spent = row["total_spent"] or 0.0
-                if qty > 0:
-                    vpp_map[row["product_id"]] = spent / qty
+    from db import get_product_calculated_cost, list_products
+    products_for_cost = list_products()
+    for prod in products_for_cost:
+        calc_cost = get_product_calculated_cost(prod["id"])
+        if calc_cost is not None:
+            vpp_map[prod["id"]] = calc_cost
 
     # Mapeo de precios por catálogo fallback
     catalog_prices = {}
