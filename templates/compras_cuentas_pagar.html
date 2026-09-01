@@ -1,0 +1,539 @@
+{% extends "base.html" %}
+{% block title %}Cuentas por Pagar - Compras{% endblock %}
+{% block page_title %}Compra > Cuentas por Pagar{% endblock %}
+
+{% block content %}
+<!-- Barra superior de acciones -->
+<div class="sf-action-bar" style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+    <div class="sf-action-left">
+        <h3 style="margin:0;font-size:20px;font-weight:700;color:#2d3748;display:flex;align-items:center;gap:8px;">
+            <i class="fa-solid fa-file-invoice-dollar" style="color:#3182ce;"></i> Cuentas por Pagar y Facturas de Compra
+        </h3>
+        <p style="margin:4px 0 0 0;color:#718096;font-size:13px;">
+            Control de facturas de proveedores, vencimientos, vinculación de guías de despacho y registro de pagos.
+        </p>
+    </div>
+    <div class="sf-action-right">
+        <button type="button" onclick="openNewInvoiceModal()" class="sf-btn-primary" style="display:inline-flex;align-items:center;gap:8px;background-color:#3182ce;border:none;padding:10px 18px;border-radius:8px;color:#fff;font-weight:600;cursor:pointer;box-shadow:0 2px 4px rgba(49,130,206,0.2);">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span>+ Cargar Factura</span>
+        </button>
+    </div>
+</div>
+
+<!-- KPIs -->
+<div class="stats-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
+    <div class="stat-card" style="background:#fff;padding:18px;border-radius:8px;border-left:5px solid #e53e3e;box-shadow:0 2px 5px rgba(0,0,0,.05);display:flex;align-items:center;gap:15px;">
+        <div style="background:#fff5f5;color:#e53e3e;width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div>
+            <div style="font-size:22px;font-weight:700;color:#e53e3e;">{{ stats.n_vencidas }}</div>
+            <div style="font-size:12px;color:#718096;font-weight:500;">Facturas Vencidas</div>
+        </div>
+    </div>
+    <div class="stat-card" style="background:#fff;padding:18px;border-radius:8px;border-left:5px solid #d69e2e;box-shadow:0 2px 5px rgba(0,0,0,.05);display:flex;align-items:center;gap:15px;">
+        <div style="background:#fffff0;color:#d69e2e;width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;">
+            <i class="fa-solid fa-file-invoice"></i>
+        </div>
+        <div>
+            <div style="font-size:22px;font-weight:700;color:#2d3748;">{{ stats.n_pendientes }}</div>
+            <div style="font-size:12px;color:#718096;font-weight:500;">Facturas Pendientes</div>
+        </div>
+    </div>
+    <div class="stat-card" style="background:#fff;padding:18px;border-radius:8px;border-left:5px solid #3182ce;box-shadow:0 2px 5px rgba(0,0,0,.05);display:flex;align-items:center;gap:15px;">
+        <div style="background:#ebf8ff;color:#3182ce;width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;">
+            <i class="fa-solid fa-circle-dollar-to-slot"></i>
+        </div>
+        <div>
+            <div style="font-size:22px;font-weight:700;color:#2d3748;">${{ "{:,.0f}".format(stats.total_pendiente) }}</div>
+            <div style="font-size:12px;color:#718096;font-weight:500;">Total por Pagar</div>
+        </div>
+    </div>
+    <div class="stat-card" style="background:#fff;padding:18px;border-radius:8px;border-left:5px solid #dd6b20;box-shadow:0 2px 5px rgba(0,0,0,.05);display:flex;align-items:center;gap:15px;">
+        <div style="background:#fffaf0;color:#dd6b20;width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;">
+            <i class="fa-solid fa-truck"></i>
+        </div>
+        <div>
+            <div style="font-size:22px;font-weight:700;color:#2d3748;">{{ stats.n_sin_factura }}</div>
+            <div style="font-size:12px;color:#718096;font-weight:500;">Guías sin Factura</div>
+        </div>
+    </div>
+</div>
+
+<!-- Alerta guías sin factura interactiva -->
+{% if guias_sin_factura %}
+<div style="background:#fffbeb;border:1px solid #f6e05e;border-radius:10px;padding:18px;margin-bottom:24px;box-shadow:0 2px 4px rgba(214,158,46,0.08);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <i class="fa-solid fa-triangle-exclamation" style="color:#d69e2e;font-size:20px;"></i>
+            <strong style="color:#744210;font-size:15px;">
+                Guías de Despacho pendientes de Factura ({{ guias_sin_factura|length }})
+            </strong>
+        </div>
+        <span style="font-size:12px;color:#975a16;background:#fefcbf;padding:4px 10px;border-radius:12px;">
+            Haz clic en "Subir Factura" para cargar el documento tributario
+        </span>
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+            <thead>
+                <tr style="background:#fef3c7;color:#92400e;text-align:left;">
+                    <th style="padding:8px 12px;">Fecha Ingreso</th>
+                    <th style="padding:8px 12px;">Proveedor</th>
+                    <th style="padding:8px 12px;">N° Guía / Recepción</th>
+                    <th style="padding:8px 12px;">OC Asociada</th>
+                    <th style="padding:8px 12px;text-align:right;">Monto Mercadería</th>
+                    <th style="padding:8px 12px;text-align:center;">Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in guias_sin_factura %}
+                <tr style="border-bottom:1px solid #fef3c7;">
+                    <td style="padding:8px 12px;color:#78350f;">{{ g.entry_date }}</td>
+                    <td style="padding:8px 12px;font-weight:600;color:#1e293b;">{{ g.supplier_name or 'Sin proveedor' }}</td>
+                    <td style="padding:8px 12px;color:#475569;"><strong>{{ g.order_number }}</strong></td>
+                    <td style="padding:8px 12px;color:#64748b;">{{ g.oc_number or '-' }}</td>
+                    <td style="padding:8px 12px;text-align:right;font-weight:600;color:#1e293b;">${{ "{:,.0f}".format(g.total_amount or 0) }}</td>
+                    <td style="padding:8px 12px;text-align:center;">
+                        <button type="button" onclick="openInvoiceForGuia({{ g.id }}, '{{ g.supplier_name or '' }}', {{ g.supplier_id or 'null' }}, '{{ g.order_number }}', {{ g.total_amount or 0 }}, {{ g.purchase_order_id or 'null' }})"
+                                style="padding:5px 12px;background:#3182ce;color:#fff;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Subir Factura
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Tabs de filtro -->
+<div style="display:flex;gap:4px;margin-bottom:0;border-bottom:2px solid #e2e8f0;">
+    {% for tab_id, tab_label in [('todas','Todas'),('pendiente','Pendientes'),('vencida','Vencidas'),('sin_factura','Sin Factura'),('pagada','Pagadas')] %}
+    <a href="?filtro={{ tab_id }}"
+       style="padding:8px 18px;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px 6px 0 0;
+              background:{% if filtro_activo == tab_id %}#fff{% else %}transparent{% endif %};
+              color:{% if filtro_activo == tab_id %}#3182ce{% else %}#718096{% endif %};
+              border:{% if filtro_activo == tab_id %}2px solid #e2e8f0;border-bottom:2px solid #fff{% else %}none{% endif %};">
+        {{ tab_label }}
+    </a>
+    {% endfor %}
+</div>
+
+<!-- Tabla de facturas -->
+<div style="background:#fff;border-radius:0 8px 8px 8px;box-shadow:0 2px 5px rgba(0,0,0,.05);overflow:hidden;">
+    <div style="overflow-x:auto;">
+        <table class="data-table" style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr style="background:#f7fafc;">
+                    <th style="padding:10px 14px;text-align:left;font-size:12px;color:#718096;font-weight:600;border-bottom:1px solid #e2e8f0;">PROVEEDOR</th>
+                    <th style="padding:10px 14px;text-align:left;font-size:12px;color:#718096;font-weight:600;border-bottom:1px solid #e2e8f0;">N° FACTURA</th>
+                    <th style="padding:10px 14px;text-align:left;font-size:12px;color:#718096;font-weight:600;border-bottom:1px solid #e2e8f0;">OC / ENTRADA</th>
+                    <th style="padding:10px 14px;text-align:right;font-size:12px;color:#718096;font-weight:600;border-bottom:1px solid #e2e8f0;">MONTO</th>
+                    <th style="padding:10px 14px;text-align:center;font-size:12px;color:#718096;font-weight:600;border-bottom:1px solid #e2e8f0;">VENCIMIENTO</th>
+                    <th style="padding:10px 14px;text-align:center;font-size:12px;color:#718096;font-weight:600;border-bottom:1px solid #e2e8f0;">ESTADO</th>
+                    <th style="padding:10px 14px;text-align:center;font-size:12px;color:#718096;font-weight:600;border-bottom:1px solid #e2e8f0;">ACCIONES</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in invoices %}
+                <tr style="border-bottom:1px solid #f0f0f0;">
+                    <td style="padding:11px 14px;font-weight:600;color:#2d3748;">{{ inv.supplier_name or '—' }}</td>
+                    <td style="padding:11px 14px;color:#4a5568;">
+                        {% if inv.invoice_number %}
+                            <strong><i class="fa-solid fa-file-invoice" style="color:#3b82f6;margin-right:4px;"></i>{{ inv.invoice_number }}</strong>
+                        {% else %}
+                            <span style="color:#a0aec0;font-style:italic;">Doc. sin N°</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:11px 14px;color:#718096;font-size:13px;">
+                        {% if inv.oc_number %}<span>{{ inv.oc_number }}</span>{% endif %}
+                        {% if inv.entry_number %}<br><small>Entrada: {{ inv.entry_number }}</small>{% endif %}
+                    </td>
+                    <td style="padding:11px 14px;text-align:right;font-weight:600;color:#2d3748;">${{ "{:,.0f}".format(inv.invoice_amount or 0) }}</td>
+                    <td style="padding:11px 14px;text-align:center;font-size:13px;">
+                        {% if inv.due_date %}
+                            <span style="color:{% if inv.payment_status == 'Vencida' %}#e53e3e;font-weight:700;{% else %}#4a5568;{% endif %}">{{ inv.due_date }}</span>
+                        {% else %}
+                            <span style="color:#a0aec0;">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:11px 14px;text-align:center;">
+                        {% if inv.payment_status == 'Vencida' %}
+                            <span style="background:#fff5f5;color:#e53e3e;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">⚠️ Vencida</span>
+                        {% elif inv.payment_status == 'Pendiente' %}
+                            <span style="background:#fffff0;color:#d69e2e;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">⏳ Por Pagar</span>
+                        {% elif inv.payment_status == 'Sin Factura' %}
+                            <span style="background:#fffaf0;color:#dd6b20;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">📄 Sin Factura</span>
+                        {% elif inv.payment_status == 'Pagada' %}
+                            <span style="background:#f0fff4;color:#276749;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">✅ Pagada</span>
+                        {% else %}
+                            <span style="background:#e2e8f0;color:#4a5568;padding:3px 10px;border-radius:20px;font-size:12px;">{{ inv.payment_status }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:11px 14px;text-align:center;">
+                        <div style="display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center;">
+                            <div style="display:flex;gap:6px;justify-content:center;align-items:center;">
+                                {% if inv.document_file %}
+                                <a href="/uploads/{{ inv.document_file }}" target="_blank"
+                                   style="padding:5px 10px;border-radius:6px;background:#ebf8ff;color:#3182ce;font-size:12px;text-decoration:none;font-weight:600;"
+                                   title="Ver Documento Tributario">
+                                    <i class="fa-solid fa-eye"></i> Ver
+                                </a>
+                                {% endif %}
+                                {% if inv.payment_status in ('Pendiente', 'Vencida', 'Sin Factura') %}
+                                <button onclick="openPayModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', {{ inv.invoice_amount or 0 }}, '{{ inv.payment_status }}')"
+                                        style="padding:5px 12px;border-radius:6px;background:#38a169;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:600;">
+                                    <i class="fa-solid fa-money-bill-wave"></i> Registrar Pago
+                                </button>
+                                {% endif %}
+                                {% if inv.payment_status == 'Pagada' and inv.payment_proof_file %}
+                                <a href="/uploads/{{ inv.payment_proof_file }}" target="_blank"
+                                   style="padding:5px 10px;border-radius:6px;background:#f0fff4;color:#276749;font-size:12px;text-decoration:none;font-weight:600;"
+                                   title="Ver Comprobante de Pago">
+                                    <i class="fa-solid fa-receipt"></i> Comprobante
+                                </a>
+                                {% endif %}
+                            </div>
+                            {% if inv.payment_status == 'Pagada' and inv.payment_date %}
+                            <div style="font-size:11px;color:#64748b;text-align:center;">
+                                <span><i class="fa-solid fa-check" style="color:#38a169;"></i> Pagado: {{ inv.payment_date }}</span>
+                                {% if inv.bank_name %}
+                                <br><span><i class="fa-solid fa-building-columns" style="color:#3b82f6;"></i> {{ inv.bank_name }} ({{ inv.account_number }})</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" style="padding:32px;text-align:center;color:#718096;">
+                        <i class="fa-solid fa-circle-check" style="font-size:28px;color:#9ae6b4;display:block;margin-bottom:8px;"></i>
+                        No hay facturas en este estado.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ─── MODAL 1: SUBIR / CARGAR NUEVA FACTURA ─────────────────────────────── -->
+<div id="new-invoice-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:20px;overflow-y:auto;">
+    <div style="background:#fff;border-radius:12px;padding:26px;width:560px;max-width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:1px solid #e2e8f0;padding-bottom:12px;">
+            <div>
+                <h3 style="margin:0;font-size:18px;font-weight:700;color:#1e293b;" id="new-inv-modal-title">
+                    <i class="fa-solid fa-file-invoice" style="color:#3182ce;margin-right:6px;"></i>Cargar Factura de Proveedor
+                </h3>
+                <p style="margin:4px 0 0 0;font-size:13px;color:#64748b;">Ingresa los datos y sube el archivo PDF o imagen de la factura</p>
+            </div>
+            <button type="button" onclick="closeNewInvoiceModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#94a3b8;">✕</button>
+        </div>
+
+        <form action="/compras/facturas/nueva" method="POST" enctype="multipart/form-data">
+            <!-- Guía vinculada opcional -->
+            <input type="hidden" name="inventory_entry_id" id="new-inv-entry-id" value="">
+            <input type="hidden" name="purchase_order_id" id="new-inv-po-id" value="">
+
+            <div id="guia-linked-banner" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:16px;">
+                <span style="font-size:13px;color:#166534;font-weight:600;">
+                    <i class="fa-solid fa-link" style="margin-right:4px;"></i> Vinculando a Guía de Recepción: <span id="guia-linked-text"></span>
+                </span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+                <div style="grid-column: span 2;">
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">Proveedor *</label>
+                    <select name="supplier_id" id="new-inv-supplier" required style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
+                        <option value="">Seleccionar Proveedor</option>
+                        {% for s in suppliers %}
+                        <option value="{{ s.id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">N° de Factura *</label>
+                    <input type="text" name="invoice_number" required placeholder="Ej. FAC-10523"
+                           style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
+                </div>
+
+                <div>
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">Monto Total Factura ($) *</label>
+                    <input type="number" name="invoice_amount" id="new-inv-amount" step="0.01" min="0" required placeholder="0.00"
+                           style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;font-weight:600;">
+                </div>
+
+                <div>
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">Fecha Emisión Factura</label>
+                    <input type="date" name="invoice_date" id="new-inv-date"
+                           style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
+                </div>
+
+                <div>
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">Fecha Vencimiento (Pago)</label>
+                    <input type="date" name="due_date" id="new-inv-due-date"
+                           style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
+                </div>
+            </div>
+
+            <!-- Subir Foto / PDF de la Factura -->
+            <div style="margin-bottom:16px;">
+                <label style="font-weight:600;font-size:13px;display:block;margin-bottom:6px;">
+                    <i class="fa-solid fa-file-pdf" style="color:#e53e3e;margin-right:4px;"></i>
+                    Archivo de la Factura (PDF o Imagen)
+                </label>
+                <div style="border:2px dashed #cbd5e1;border-radius:8px;padding:16px;text-align:center;cursor:pointer;background:#f8fafc;"
+                     onclick="document.getElementById('file-factura-input').click()">
+                    <input type="file" name="document_file" id="file-factura-input" accept="image/*,.pdf" style="display:none;" onchange="previewNewInvFile(this)">
+                    <div id="file-factura-ph">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size:24px;color:#94a3b8;margin-bottom:4px;"></i>
+                        <p style="margin:0;font-size:13px;color:#64748b;">Haz clic para seleccionar el PDF o foto de la factura</p>
+                    </div>
+                    <p id="file-factura-name" style="margin:0;font-size:13px;font-weight:600;color:#0284c7;display:none;"></p>
+                </div>
+            </div>
+
+            <!-- Estado de Pago al cargar -->
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:16px;">
+                <label style="font-weight:600;font-size:13px;display:block;margin-bottom:8px;color:#334155;">Estado inicial de esta factura:</label>
+                <div style="display:flex;gap:16px;">
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;">
+                        <input type="radio" name="payment_status" value="Pendiente" checked onchange="togglePaidSection(false)">
+                        <span>⏳ Por Pagar (Pendiente)</span>
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;">
+                        <input type="radio" name="payment_status" value="Pagada" onchange="togglePaidSection(true)">
+                        <span>✅ Ya está Pagada</span>
+                    </label>
+                </div>
+
+                <div id="new-inv-paid-fields" style="display:none;margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                        <div>
+                            <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Fecha de Pago</label>
+                            <input type="date" name="payment_date" id="new-inv-pay-date" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:4px;font-size:13px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Método de Pago</label>
+                            <select name="payment_method" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:4px;font-size:13px;">
+                                <option>Transferencia bancaria</option>
+                                <option>Efectivo</option>
+                                <option>Cheque</option>
+                                <option>Débito</option>
+                                <option>Crédito</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">
+                            <i class="fa-solid fa-building-columns" style="color:#3182ce;margin-right:4px;"></i>Cuenta Bancaria de Egreso <span style="color:#e53e3e;">*</span>
+                        </label>
+                        <select name="bank_account_id" id="new-inv-bank-account" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:4px;font-size:13px;">
+                            <option value="">Seleccionar Cuenta Bancaria de la Empresa</option>
+                            {% for b in bank_accounts %}
+                            <option value="{{ b.id }}">{{ b.bank_name }} - {{ b.account_type }} (N° {{ b.account_number }}) - {{ b.holder_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">
+                            <i class="fa-solid fa-receipt" style="color:#718096;margin-right:4px;"></i>Comprobante de Transferencia / Pago
+                        </label>
+                        <input type="file" name="payment_proof_file" accept="image/*,.pdf"
+                               style="width:100%;padding:5px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px;">
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-bottom:18px;">
+                <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">Notas / Observaciones</label>
+                <textarea name="notes" rows="2" placeholder="Detalles u observaciones..."
+                          style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;resize:vertical;"></textarea>
+            </div>
+
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button type="button" onclick="closeNewInvoiceModal()"
+                        style="padding:9px 18px;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;cursor:pointer;font-weight:500;">
+                    Cancelar
+                </button>
+                <button type="submit"
+                        style="padding:9px 24px;border-radius:6px;background:#3182ce;color:#fff;border:none;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px;">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Guardar Factura
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ─── MODAL 2: REGISTRAR PAGO A FACTURA EXISTENTE ──────────────────────── -->
+<div id="pay-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:20px;overflow-y:auto;">
+    <div style="background:#fff;border-radius:12px;padding:26px;width:520px;max-width:95%;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:1px solid #e2e8f0;padding-bottom:12px;">
+            <h3 style="margin:0;font-size:18px;font-weight:700;color:#1e293b;" id="modal-title">
+                <i class="fa-solid fa-money-bill-wave" style="color:#38a169;margin-right:6px;"></i>Registrar Pago de Factura
+            </h3>
+            <button onclick="closePayModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#94a3b8;">✕</button>
+        </div>
+        <p id="modal-supplier" style="margin:0 0 16px;color:#4a5568;font-size:14px;font-weight:500;"></p>
+
+        <form id="pay-form" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="invoice_id" id="modal-invoice-id">
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+                <div>
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">N° de Factura</label>
+                    <input type="text" name="invoice_number" id="modal-inv-number" placeholder="FAC-0001"
+                           style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
+                </div>
+                <div>
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">Monto a Pagar ($) <span style="color:#e53e3e;">*</span></label>
+                    <input type="number" name="payment_amount" id="modal-amount" step="0.01" min="0" required
+                           style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;font-weight:600;">
+                </div>
+                <div>
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">Fecha de Pago <span style="color:#e53e3e;">*</span></label>
+                    <input type="date" name="payment_date" id="modal-date" required
+                           style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
+                </div>
+                <div>
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">Método de Pago</label>
+                    <select name="payment_method" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
+                        <option>Transferencia bancaria</option>
+                        <option>Efectivo</option>
+                        <option>Cheque</option>
+                        <option>Débito</option>
+                        <option>Crédito</option>
+                    </select>
+                </div>
+
+                <!-- Selector de Cuenta Bancaria Obligatorio -->
+                <div style="grid-column: span 2;">
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">
+                        <i class="fa-solid fa-building-columns" style="color:#3182ce;margin-right:4px;"></i>
+                        Cuenta Bancaria de Egreso <span style="color:#e53e3e;">* (Requerida)</span>
+                    </label>
+                    <select name="bank_account_id" id="modal-bank-account" required style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">
+                        <option value="">Seleccionar Cuenta Bancaria con que se realizó el pago...</option>
+                        {% for b in bank_accounts %}
+                        <option value="{{ b.id }}">{{ b.bank_name }} - {{ b.account_type }} (N° {{ b.account_number }}) - {{ b.holder_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">
+                    <i class="fa-solid fa-camera" style="margin-right:4px;color:#718096;"></i>
+                    Foto / PDF del Comprobante de Pago <span style="color:#718096;font-weight:400;">(opcional)</span>
+                </label>
+                <input type="file" name="payment_proof_file" accept="image/*,.pdf"
+                       style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">Observaciones del Pago</label>
+                <textarea name="payment_notes" rows="2" placeholder="Opcional..."
+                          style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;resize:vertical;"></textarea>
+            </div>
+
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button type="button" onclick="closePayModal()"
+                        style="padding:9px 18px;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;cursor:pointer;font-weight:500;">
+                    Cancelar
+                </button>
+                <button type="submit"
+                        style="padding:9px 22px;border-radius:6px;background:#38a169;color:#fff;border:none;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px;">
+                    <i class="fa-solid fa-check"></i> Confirmar Pago
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const todayStr = new Date().toISOString().split('T')[0];
+document.getElementById('modal-date').value = todayStr;
+document.getElementById('new-inv-date').value = todayStr;
+document.getElementById('new-inv-pay-date').value = todayStr;
+
+// Modal Cargar Factura
+function openNewInvoiceModal() {
+    document.getElementById('new-inv-modal-title').innerHTML = '<i class="fa-solid fa-file-invoice" style="color:#3182ce;margin-right:6px;"></i>Cargar Factura de Proveedor';
+    document.getElementById('new-inv-entry-id').value = '';
+    document.getElementById('new-inv-po-id').value = '';
+    document.getElementById('new-inv-supplier').disabled = false;
+    document.getElementById('new-inv-supplier').value = '';
+    document.getElementById('new-inv-amount').value = '';
+    document.getElementById('guia-linked-banner').style.display = 'none';
+    document.getElementById('new-invoice-modal').style.display = 'flex';
+}
+
+function openInvoiceForGuia(entryId, supplierName, supplierId, orderNumber, amount, poId) {
+    document.getElementById('new-inv-modal-title').innerHTML = '<i class="fa-solid fa-file-invoice" style="color:#3182ce;margin-right:6px;"></i>Subir Factura para Guía N° ' + orderNumber;
+    document.getElementById('new-inv-entry-id').value = entryId;
+    document.getElementById('new-inv-po-id').value = poId || '';
+    if (supplierId) {
+        document.getElementById('new-inv-supplier').value = supplierId;
+    }
+    document.getElementById('new-inv-amount').value = amount || '';
+    document.getElementById('guia-linked-text').textContent = 'N° ' + orderNumber + ' (' + (supplierName || 'Sin proveedor') + ') — $' + Math.round(amount).toLocaleString('es-CL');
+    document.getElementById('guia-linked-banner').style.display = 'block';
+    document.getElementById('new-invoice-modal').style.display = 'flex';
+}
+
+function closeNewInvoiceModal() {
+    document.getElementById('new-invoice-modal').style.display = 'none';
+}
+
+function previewNewInvFile(input) {
+    const ph = document.getElementById('file-factura-ph');
+    const name = document.getElementById('file-factura-name');
+    if (input.files && input.files[0]) {
+        ph.style.display = 'none';
+        name.textContent = 'Archivo seleccionado: ' + input.files[0].name;
+        name.style.display = 'block';
+    }
+}
+
+function togglePaidSection(show) {
+    document.getElementById('new-inv-paid-fields').style.display = show ? 'block' : 'none';
+    const bankSelect = document.getElementById('new-inv-bank-account');
+    if (bankSelect) {
+        bankSelect.required = show;
+        if (!show) {
+            bankSelect.value = '';
+        }
+    }
+}
+
+// Modal Registrar Pago
+function openPayModal(id, supplier, amount, status) {
+    document.getElementById('modal-invoice-id').value = id;
+    document.getElementById('modal-amount').value = amount;
+    document.getElementById('modal-supplier').textContent = 'Proveedor: ' + (supplier || '-');
+    document.getElementById('pay-form').action = '/compras/facturas/' + id + '/registrar-pago';
+    document.getElementById('pay-modal').style.display = 'flex';
+}
+
+function closePayModal() {
+    document.getElementById('pay-modal').style.display = 'none';
+}
+
+// Cierre click fuera
+document.getElementById('new-invoice-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeNewInvoiceModal();
+});
+document.getElementById('pay-modal').addEventListener('click', function(e) {
+    if (e.target === this) closePayModal();
+});
+</script>
+{% endblock %}
+

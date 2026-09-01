@@ -13,17 +13,32 @@ dashboard_bp = Blueprint('dashboard', __name__)
 @dashboard_bp.route('/dashboard')
 def dashboard():
     """Página principal - Dashboard con gráficos y estadísticas"""
-    # Get recent sales from database (last 3)
-    sales_list = list_sales()
+    # Obtener solo ventas reales (prefijo VTA-), excluyendo cotizaciones (COT-)
+    sales_list = list_sales({"prefix": "VTA-", "exclude_status": "Cotización"})
     recent_sales = []
-    for sale in sales_list[:3]:
+    for sale in sales_list[:5]:
+        products_names = []
+        for p in sale.get("products", []):
+            if isinstance(p, dict):
+                p_name = p.get("product_name") or p.get("name") or p.get("sku", "")
+                if p_name:
+                    products_names.append(p_name)
+            elif isinstance(p, str):
+                p_name = p.split('(')[0].strip()
+                if p_name:
+                    products_names.append(p_name)
+        
+        prod_display = ", ".join(products_names[:2]) if products_names else "Varios"
+        if len(products_names) > 2:
+            prod_display += f" (+{len(products_names) - 2})"
+
         recent_sales.append({
             "id": sale["sale_number"],
-            "cliente": sale["customer_name"],
-            "producto": ", ".join([p.get("name", p.get("sku", "")) for p in sale["products"]][:2]),
-            "cantidad": len(sale["products"]),
-            "total": sale["total_amount"],
-            "estado": sale["status"],
+            "cliente": sale.get("customer_name") or "Sin cliente",
+            "producto": prod_display,
+            "cantidad": len(sale.get("products", [])),
+            "total": sale.get("total_amount", 0),
+            "estado": sale.get("status", "Pendiente"),
         })
     return render_template('dashboard.html', recent_sales=recent_sales)
 
@@ -46,7 +61,7 @@ def dashboard_data():
     metrics = get_sales_metrics()
     estadisticas = {
         "ventas_hoy": metrics['ventas_hoy'],
-        "productos_stock": 1250,  # This should come from inventory
+        "productos_stock": metrics.get('productos_stock', 0),
         "ordenes_pendientes": metrics['ventas_pendientes'],
         "clientes_activos": metrics['clientes_activos'],
     }

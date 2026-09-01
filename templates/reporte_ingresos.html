@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}Reporte de Ingresos ($) - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Reportería > Ingresos ($){% endblock %}
+
+{% block content %}
+<!-- Barra de acciones superior -->
+<div class="sf-action-bar" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+    <div class="sf-action-left">
+        <h3 style="margin: 0; font-size: 20px; font-weight: 700; color: #2d3748; display: flex; align-items: center; gap: 8px;">
+            <span>💵</span> Reporte de Ingresos y Compromisos ($)
+        </h3>
+        <p style="margin: 4px 0 0 0; color: #718096; font-size: 13px;">
+            Análisis de pagos históricos cobrados vs. compromisos de cobros futuros según fechas de vencimiento.
+        </p>
+    </div>
+    <div class="sf-action-right">
+        <button class="sf-btn-primary" onclick="window.print()" style="display: inline-flex; align-items: center; gap: 6px; background-color: #3182ce;">
+            <span>🖨️</span>
+            <span>Imprimir / Exportar</span>
+        </button>
+    </div>
+</div>
+
+<!-- Tarjetas de métricas KPI -->
+<div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    <div class="stat-card" style="background: #fff; padding: 18px; border-radius: 8px; border-left: 5px solid #38a169; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 15px;">
+        <div class="stat-icon green" style="background: #e6fffa; color: #38a169; width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            <i class="fa-solid fa-circle-dollar-to-slot"></i>
+        </div>
+        <div class="stat-info">
+            <div class="stat-value" style="font-size: 22px; font-weight: 700; color: #2d3748;">${{ "%.2f"|format(income_data.total_historico) }}</div>
+            <div class="stat-label" style="font-size: 12px; color: #718096; font-weight: 500;">Histórico Cobrado ($)</div>
+        </div>
+    </div>
+
+    <div class="stat-card" style="background: #fff; padding: 18px; border-radius: 8px; border-left: 5px solid #3182ce; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 15px;">
+        <div class="stat-icon blue" style="background: #ebf8ff; color: #3182ce; width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            <i class="fa-solid fa-calendar-check"></i>
+        </div>
+        <div class="stat-info">
+            <div class="stat-value" style="font-size: 22px; font-weight: 700; color: #2d3748;">${{ "%.2f"|format(income_data.total_futuro) }}</div>
+            <div class="stat-label" style="font-size: 12px; color: #718096; font-weight: 500;">Cobros Comprometidos ($)</div>
+        </div>
+    </div>
+
+    <div class="stat-card" style="background: #fff; padding: 18px; border-radius: 8px; border-left: 5px solid #805ad5; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 15px;">
+        <div class="stat-icon purple" style="background: #faf5ff; color: #805ad5; width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            <i class="fa-solid fa-chart-line"></i>
+        </div>
+        <div class="stat-info">
+            <div class="stat-value" style="font-size: 22px; font-weight: 700; color: #2d3748;">${{ "%.2f"|format(income_data.total_proyectado) }}</div>
+            <div class="stat-label" style="font-size: 12px; color: #718096; font-weight: 500;">Total Flujo Proyectado ($)</div>
+        </div>
+    </div>
+
+    <div class="stat-card" style="background: #fff; padding: 18px; border-radius: 8px; border-left: 5px solid #e53e3e; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 15px;">
+        <div class="stat-icon red" style="background: #fff5f5; color: #e53e3e; width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div class="stat-info">
+            <div class="stat-value" style="font-size: 22px; font-weight: 700; color: #e53e3e;">${{ "%.2f"|format(income_data.monto_retrasado) }}</div>
+            <div class="stat-label" style="font-size: 12px; color: #718096; font-weight: 500;">Cobros Vencidos ({{ income_data.count_retrasados }})</div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráfico de Ingresos Históricos vs Comprometidos -->
+<div class="settings-section" style="margin-bottom: 24px;">
+    <div class="settings-card" style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        <div class="card-header" style="margin-bottom: 16px;">
+            <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #2d3748;">Comparativa Mensual: Cobros Históricos ($) vs Compromisos Futuros ($)</h3>
+        </div>
+        <div style="height: 280px; position: relative;">
+            <canvas id="incomeComparisonChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Pestañas para Ver Tablas -->
+<div class="sf-tabs" style="display: flex; gap: 10px; margin-bottom: 16px; border-bottom: 2px solid #edf2f7;">
+    <button class="sf-tab active" id="tab_btn_resumen" onclick="switchIncomeTab('resumen')" style="padding: 10px 16px; font-weight: 600; background: none; border: none; border-bottom: 3px solid #3182ce; color: #3182ce; cursor: pointer;">
+        📊 Resumen Mensual
+    </button>
+    <button class="sf-tab" id="tab_btn_futuros" onclick="switchIncomeTab('futuros')" style="padding: 10px 16px; font-weight: 600; background: none; border: none; color: #718096; cursor: pointer;">
+        📅 Compromisos Futuros y Vencidos ({{ income_data.futuros_detalles|length }})
+    </button>
+    <button class="sf-tab" id="tab_btn_historicos" onclick="switchIncomeTab('historicos')" style="padding: 10px 16px; font-weight: 600; background: none; border: none; color: #718096; cursor: pointer;">
+        ✅ Historial de Pagos Realizados ({{ income_data.historicos_detalles|length }})
+    </button>
+</div>
+
+<!-- Secciones de Tablas -->
+
+<!-- 1. Tabla Resumen Mensual -->
+<div id="income_sec_resumen" class="settings-section">
+    <div class="settings-card" style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        <h4 style="margin-top: 0; color: #2d3748; font-size: 15px; font-weight: 600; margin-bottom: 12px;">Flujo de Caja por Mes</h4>
+        <div style="overflow-x: auto;">
+            <table class="sf-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f7fafc; text-align: left; font-size: 13px; color: #4a5568;">
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0;">Mes / Año</th>
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0; color: #2b6cb0;">Pagos Realizados ($)</th>
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0; color: #d69e2e;">Compromisos Futuros ($)</th>
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0; color: #2d3748;">Total Flujo ($)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in income_data.table_months %}
+                    <tr style="border-bottom: 1px solid #edf2f7; font-size: 14px;">
+                        <td style="padding: 12px 14px; font-weight: 600; color: #2d3748;">{{ item.label }}</td>
+                        <td style="padding: 12px 14px; color: #28a745; font-weight: 600;">${{ "%.2f"|format(item.realizado) }}</td>
+                        <td style="padding: 12px 14px; color: #d69e2e; font-weight: 600;">${{ "%.2f"|format(item.comprometido) }}</td>
+                        <td style="padding: 12px 14px; font-weight: 700; color: #2d3748;">${{ "%.2f"|format(item.realizado + item.comprometido) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 2. Tabla Compromisos Futuros y Vencidos -->
+<div id="income_sec_futuros" class="settings-section" style="display: none;">
+    <div class="settings-card" style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        <h4 style="margin-top: 0; color: #2d3748; font-size: 15px; font-weight: 600; margin-bottom: 12px;">Detalle de Ventas Pendientes por Cobrar segun Fecha Compromiso</h4>
+        <div style="overflow-x: auto;">
+            <table class="sf-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f7fafc; text-align: left; font-size: 13px; color: #4a5568;">
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0;">N° Venta</th>
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0;">Cliente</th>
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0;">Fecha Emisión</th>
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0;">Fecha Compromiso (Cobro)</th>
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0;">Estado Pago</th>
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0;">Monto ($)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in income_data.futuros_detalles %}
+                    <tr style="border-bottom: 1px solid #edf2f7; font-size: 14px;">
+                        <td style="padding: 12px 14px; font-weight: 600; color: #3182ce;">{{ item.sale_number }}</td>
+                        <td style="padding: 12px 14px; color: #2d3748;">{{ item.customer_name }}</td>
+                        <td style="padding: 12px 14px; color: #718096;">{{ item.sale_date }}</td>
+                        <td style="padding: 12px 14px; font-weight: 600; color: {% if item.is_overdue %}#e53e3e{% else %}#dd6b20{% endif %};">
+                            {{ item.due_date }} {% if item.is_overdue %}<span style="font-size: 11px; background: #fff5f5; color: #e53e3e; padding: 2px 6px; border-radius: 4px; border: 1px solid #feb2b2; margin-left: 4px;">Vencido</span>{% endif %}
+                        </td>
+                        <td style="padding: 12px 14px;">
+                            <span style="display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; background: {% if item.is_overdue %}#fff5f5; color: #e53e3e;{% else %}#feebc8; color: #c05621;{% endif %}">
+                                {{ item.status }}
+                            </span>
+                        </td>
+                        <td style="padding: 12px 14px; font-weight: 700; color: #2d3748;">${{ "%.2f"|format(item.monto) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 3. Tabla Historial de Pagos Realizados -->
+<div id="income_sec_historicos" class="settings-section" style="display: none;">
+    <div class="settings-card" style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        <h4 style="margin-top: 0; color: #2d3748; font-size: 15px; font-weight: 600; margin-bottom: 12px;">Historial de Cobros Efectivamente Pagados</h4>
+        <div style="overflow-x: auto;">
+            <table class="sf-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f7fafc; text-align: left; font-size: 13px; color: #4a5568;">
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0;">N° Venta</th>
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0;">Cliente</th>
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0;">Fecha Venta</th>
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0;">Fecha Cobrado</th>
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0;">Estado Pago</th>
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0;">Monto Cobrado ($)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in income_data.historicos_detalles %}
+                    <tr style="border-bottom: 1px solid #edf2f7; font-size: 14px;">
+                        <td style="padding: 12px 14px; font-weight: 600; color: #3182ce;">{{ item.sale_number }}</td>
+                        <td style="padding: 12px 14px; color: #2d3748;">{{ item.customer_name }}</td>
+                        <td style="padding: 12px 14px; color: #718096;">{{ item.sale_date }}</td>
+                        <td style="padding: 12px 14px; font-weight: 600; color: #38a169;">{{ item.payment_date }}</td>
+                        <td style="padding: 12px 14px;">
+                            <span style="display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; background: #c6f6d5; color: #22543d;">
+                                {{ item.status }}
+                            </span>
+                        </td>
+                        <td style="padding: 12px 14px; font-weight: 700; color: #28a745;">${{ "%.2f"|format(item.monto) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Conmutador de Pestañas
+    function switchIncomeTab(tabName) {
+        document.getElementById('income_sec_resumen').style.display = tabName === 'resumen' ? 'block' : 'none';
+        document.getElementById('income_sec_futuros').style.display = tabName === 'futuros' ? 'block' : 'none';
+        document.getElementById('income_sec_historicos').style.display = tabName === 'historicos' ? 'block' : 'none';
+
+        document.querySelectorAll('.sf-tab').forEach(btn => {
+            btn.style.borderBottom = 'none';
+            btn.style.color = '#718096';
+        });
+
+        const activeBtn = document.getElementById('tab_btn_' + tabName);
+        if (activeBtn) {
+            activeBtn.style.borderBottom = '3px solid #3182ce';
+            activeBtn.style.color = '#3182ce';
+        }
+    }
+
+    // Inicializar Gráfico Chart.js
+    document.addEventListener("DOMContentLoaded", function() {
+        const ctx = document.getElementById('incomeComparisonChart').getContext('2d');
+        const labels = {{ income_data.chart_labels | tojson }};
+        const realizadosData = {{ income_data.chart_realizados | tojson }};
+        const comprometidosData = {{ income_data.chart_comprometidos | tojson }};
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Pagos Realizados ($)',
+                        data: realizadosData,
+                        backgroundColor: '#38a169',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Compromisos Futuros ($)',
+                        data: comprometidosData,
+                        backgroundColor: '#3182ce',
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': $' + context.raw.toFixed(2);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

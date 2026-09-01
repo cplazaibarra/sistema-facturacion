@@ -65,8 +65,8 @@
                 <tr>
                     <td>{{ row.product }}</td>
                     <td>{{ row.current }}</td>
-                    <td>{{ row.projection }}</td>
-                    <td class="positive">{{ row.variation }}</td>
+                    <td><strong>{{ row.projection }}</strong></td>
+                    <td class="{% if '-' in row.variation %}negative{% elif '+' in row.variation %}positive{% endif %}">{{ row.variation }}</td>
                     <td><span class="confidence {{ row.level }}">{{ row.confidence }}</span></td>
                 </tr>
                 {% endfor %}

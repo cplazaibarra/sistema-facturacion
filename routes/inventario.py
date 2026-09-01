@@ -206,13 +206,15 @@ def inventario():
 
 @inventario_bp.route('/ingreso-mercaderia', methods=['GET', 'POST'])
 def ingreso_mercaderia():
-    """Módulo de Ingreso de Mercadería con validación de OC"""
+    """Módulo de Ingreso de Mercadería con validación de OC y registro de documento"""
     default_date = datetime.now().strftime('%Y-%m-%d')
+    import os
     from db import (
         list_suppliers,
         get_page_data,
         register_inventory_entry,
-        list_inventory_entries
+        list_inventory_entries,
+        create_purchase_invoice,
     )
 
     if request.method == 'POST':
@@ -221,9 +223,16 @@ def ingreso_mercaderia():
         po_id = request.form.get('purchase_order_id', type=int)
         warehouse = (request.form.get('warehouse') or '').strip()
         notes = (request.form.get('notes') or '').strip()
-        
+
+        # Campos de documento
+        document_type   = request.form.get('document_type', 'guia_despacho').strip()
+        document_number = (request.form.get('document_number') or '').strip()
+        invoice_amount  = request.form.get('invoice_amount', type=float) or 0.0
+        invoice_date    = (request.form.get('invoice_date') or ingreso_date).strip()
+        due_date        = (request.form.get('due_date') or '').strip()
+
         product_ids = request.form.getlist('product_id[]')
-        quantities = request.form.getlist('quantity[]')
+        quantities  = request.form.getlist('quantity[]')
         unit_prices = request.form.getlist('unit_price[]')
 
         items = []
@@ -231,33 +240,73 @@ def ingreso_mercaderia():
             if not pid:
                 continue
             try:
-                qty = int(qty_raw) if qty_raw else 0
+                qty   = int(qty_raw)   if qty_raw   else 0
                 price = float(price_raw) if price_raw else 0.0
             except ValueError:
                 continue
             if qty > 0:
-                items.append({
-                    "product_id": int(pid),
-                    "quantity": qty,
-                    "unit_price": price,
-                })
+                items.append({"product_id": int(pid), "quantity": qty, "unit_price": price})
 
         if not order_number or not po_id or not warehouse or not items:
             flash("Complete todos los campos obligatorios y agregue productos válidos.", "danger")
             return redirect(url_for('inventario.ingreso_mercaderia'))
 
+        # Manejo de upload de foto del documento
+        doc_file_path = None
+        doc_file = request.files.get('document_file')
+        if doc_file and doc_file.filename:
+            upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'documentos_compra')
+            os.makedirs(upload_dir, exist_ok=True)
+            from werkzeug.utils import secure_filename
+            ext = os.path.splitext(doc_file.filename)[1].lower()
+            filename = secure_filename(f"{document_type}_{document_number or order_number}{ext}")
+            save_path = os.path.join(upload_dir, filename)
+            doc_file.save(save_path)
+            doc_file_path = f"documentos_compra/{filename}"
+
         try:
-            register_inventory_entry(po_id, order_number, ingreso_date, warehouse, notes, items)
+            entry_id = register_inventory_entry(
+                po_id, order_number, ingreso_date, warehouse, notes, items,
+                document_type=document_type,
+                document_number=document_number,
+                document_file=doc_file_path,
+            )
+
+            # Si es factura → crear registro en purchase_invoices como "Pendiente"
+            # Si es guía de despacho → crear registro como "Sin Factura" (alerta activa)
+            if document_type == 'factura':
+                inv_status = 'Pendiente'
+            else:
+                inv_status = 'Sin Factura'   # guía: aún no llega la factura
+
+            # Obtener supplier_id de la OC
+            from db import get_purchase_order
+            po = get_purchase_order(po_id)
+            supplier_id = po['supplier_id'] if po else None
+
+            create_purchase_invoice({
+                'inventory_entry_id': entry_id,
+                'purchase_order_id':  po_id,
+                'supplier_id':        supplier_id,
+                'invoice_number':     document_number if document_type == 'factura' else '',
+                'invoice_amount':     invoice_amount or (po['total_amount'] if po else 0),
+                'invoice_date':       invoice_date,
+                'due_date':           due_date,
+                'document_file':      doc_file_path,
+                'payment_status':     inv_status,
+                'notes':              f"Doc. tipo: {document_type} N°{document_number}",
+            })
+
             flash(f"Ingreso de mercadería #{order_number} registrado con éxito y stock actualizado.", "success")
         except ValueError as e:
             flash(f"Error al registrar ingreso: {str(e)}", "danger")
-            
+
         return redirect(url_for('inventario.ingreso_mercaderia'))
 
-    suppliers = list_suppliers()
-    warehouses = get_page_data("ingreso_warehouses")
+    suppliers       = list_suppliers()
+    warehouses      = get_page_data("ingreso_warehouses")
     recent_ingresos = list_inventory_entries()
-    
+
     return render_template(
         'ingreso_mercaderia.html',
         default_date=default_date,

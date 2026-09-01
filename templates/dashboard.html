@@ -77,7 +77,7 @@
     <div class="recent-card">
         <div class="card-header">
             <h3>Últimas Ventas</h3>
-            <a href="#" class="view-all">Ver todas →</a>
+            <a href="{{ url_for('ventas.ventas') }}" class="view-all">Ver todas →</a>
         </div>
         <table class="data-table">
             <thead>
@@ -93,13 +93,13 @@
             <tbody>
                 {% for sale in recent_sales %}
                 <tr>
-                    <td>{{ sale.id }}</td>
+                    <td style="font-weight:600;color:#2b6cb0;">{{ sale.id }}</td>
                     <td>{{ sale.cliente }}</td>
                     <td>{{ sale.producto }}</td>
                     <td>{{ sale.cantidad }}</td>
-                    <td>${{ sale.total | round | int }}</td>
+                    <td style="font-weight:600;">${{ "%.0f"|format(sale.total) }}</td>
                     <td>
-                        {% if sale.estado == 'Completado' %}
+                        {% if sale.estado in ['Completada', 'Completado', 'Pagada', 'Pagado'] %}
                         <span class="badge success">{{ sale.estado }}</span>
                         {% elif sale.estado == 'Pendiente' %}
                         <span class="badge warning">{{ sale.estado }}</span>
@@ -120,14 +120,104 @@
     let ventasChart = null;
     let productosChart = null;
 
-    // Función para cargar SOLO el gráfico de Ventas Mensuales
+    function renderVentasChart(ventasData) {
+        const ventasCtx = document.getElementById('ventasChart').getContext('2d');
+        if (ventasChart) {
+            ventasChart.destroy();
+        }
+        ventasChart = new Chart(ventasCtx, {
+            type: 'bar',
+            data: {
+                labels: (ventasData && ventasData.labels) ? ventasData.labels : [],
+                datasets: [{
+                    label: 'Ventas ($)',
+                    data: (ventasData && ventasData.data) ? ventasData.data : [],
+                    backgroundColor: 'rgba(49, 130, 206, 0.85)',
+                    borderColor: '#2b6cb0',
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ' Ventas: $' + Math.round(context.raw || 0).toLocaleString('es-CL');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + Number(value).toLocaleString('es-CL');
+                            }
+                        }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderProductosChart(prodData) {
+        const productosCtx = document.getElementById('productosChart').getContext('2d');
+        if (productosChart) {
+            productosChart.destroy();
+        }
+        productosChart = new Chart(productosCtx, {
+            type: 'doughnut',
+            data: {
+                labels: (prodData && prodData.labels) ? prodData.labels : [],
+                datasets: [{
+                    data: (prodData && prodData.data) ? prodData.data : [],
+                    backgroundColor: [
+                        '#3182ce',
+                        '#38a169',
+                        '#dd6b20',
+                        '#805ad5',
+                        '#e53e3e'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 10,
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ` ${context.label}: ${context.raw} unidades`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     function loadSalesChart() {
         const salesPeriod = document.getElementById('sales-period-selector').value;
-        
-        // Construir URL con parámetros
         let params = new URLSearchParams();
-        
-        // Determinar parámetros para ventas
         if (salesPeriod === '6months' || salesPeriod === '12months') {
             params.append('sales_period', salesPeriod);
         } else {
@@ -136,64 +226,18 @@
         }
         
         fetch(`/api/dashboard-data?${params.toString()}`)
-            .then(response => response.json())
+            .then(res => res.json())
             .then(data => {
-                // Actualizar o crear gráfico de ventas mensuales
-                const ventasCtx = document.getElementById('ventasChart').getContext('2d');
-                
-                // Destruir gráfico anterior si existe
-                if (ventasChart) {
-                    ventasChart.destroy();
+                if (data.ventas_mensuales) {
+                    renderVentasChart(data.ventas_mensuales);
                 }
-                
-                // Crear nuevo gráfico
-                ventasChart = new Chart(ventasCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: data.ventas_mensuales.labels,
-                        datasets: [{
-                            label: 'Ventas ($)',
-                            data: data.ventas_mensuales.data,
-                            backgroundColor: 'rgba(0, 174, 239, 0.8)',
-                            borderColor: 'rgba(0, 174, 239, 1)',
-                            borderWidth: 1,
-                            borderRadius: 8
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                grid: {
-                                    color: 'rgba(0, 0, 0, 0.05)'
-                                }
-                            },
-                            x: {
-                                grid: {
-                                    display: false
-                                }
-                            }
-                        }
-                    }
-                });
-            });
+            })
+            .catch(err => console.error("Error loading sales chart:", err));
     }
 
-    // Función para cargar SOLO el gráfico de Productos Más Vendidos
     function loadProductsChart() {
         const productsPeriod = document.getElementById('products-period-selector').value;
-        
-        // Construir URL con parámetros
         let params = new URLSearchParams();
-        
-        // Determinar parámetros para productos
         if (productsPeriod === 'month' || productsPeriod === 'year') {
             params.append('products_period', productsPeriod);
         } else {
@@ -202,67 +246,37 @@
         }
         
         fetch(`/api/dashboard-data?${params.toString()}`)
-            .then(response => response.json())
+            .then(res => res.json())
             .then(data => {
-                // Actualizar o crear gráfico de productos más vendidos
-                const productosCtx = document.getElementById('productosChart').getContext('2d');
-                
-                // Destruir gráfico anterior si existe
-                if (productosChart) {
-                    productosChart.destroy();
+                if (data.productos_top) {
+                    renderProductosChart(data.productos_top);
                 }
-                
-                // Crear nuevo gráfico
-                productosChart = new Chart(productosCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: data.productos_top.labels,
-                        datasets: [{
-                            data: data.productos_top.data,
-                            backgroundColor: [
-                                'rgba(0, 174, 239, 0.8)',
-                                'rgba(0, 209, 178, 0.8)',
-                                'rgba(107, 91, 149, 0.8)',
-                                'rgba(255, 159, 64, 0.8)',
-                                'rgba(255, 99, 132, 0.8)'
-                            ],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'right'
-                            }
-                        }
-                    }
-                });
-            });
+            })
+            .catch(err => console.error("Error loading products chart:", err));
     }
 
-    // Función para cargar ambos gráficos con datos iniciales
     function loadInitialData() {
-        // Cargar estadísticas
         fetch('/api/dashboard-data')
-            .then(response => response.json())
+            .then(res => res.json())
             .then(data => {
-                document.getElementById('ventas-hoy').textContent = '$' + data.estadisticas.ventas_hoy.toLocaleString();
-                document.getElementById('productos-stock').textContent = data.estadisticas.productos_stock.toLocaleString();
-                document.getElementById('ordenes-pendientes').textContent = data.estadisticas.ordenes_pendientes;
-                document.getElementById('clientes-activos').textContent = data.estadisticas.clientes_activos;
-            });
-        
-        // Cargar gráficos
-        loadSalesChart();
-        loadProductsChart();
+                if (data.estadisticas) {
+                    document.getElementById('ventas-hoy').textContent = '$' + Math.round(data.estadisticas.ventas_hoy || 0).toLocaleString('es-CL');
+                    document.getElementById('productos-stock').textContent = Number(data.estadisticas.productos_stock || 0).toLocaleString('es-CL');
+                    document.getElementById('ordenes-pendientes').textContent = Number(data.estadisticas.ordenes_pendientes || 0).toLocaleString('es-CL');
+                    document.getElementById('clientes-activos').textContent = Number(data.estadisticas.clientes_activos || 0).toLocaleString('es-CL');
+                }
+                if (data.ventas_mensuales) {
+                    renderVentasChart(data.ventas_mensuales);
+                }
+                if (data.productos_top) {
+                    renderProductosChart(data.productos_top);
+                }
+            })
+            .catch(err => console.error("Error loading dashboard data:", err));
     }
 
-    // Cargar datos iniciales cuando carga la página
     loadInitialData();
 
-    // Event listeners INDEPENDIENTES para cada selector
     document.getElementById('sales-period-selector').addEventListener('change', loadSalesChart);
     document.getElementById('products-period-selector').addEventListener('change', loadProductsChart);
 </script>

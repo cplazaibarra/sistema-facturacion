@@ -29,3 +29,6 @@ ENV/
 .DS_Store
 data/*.db
 *.pyc
+.env
+cookies.txt
+/uploads/

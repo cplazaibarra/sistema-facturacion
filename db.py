@@ -168,6 +168,13 @@ DEFAULT_DATA: Dict[str, Any] = {
             "link": "/proveedores",
         },
         {
+            "icon": "🏦",
+            "title": "Cuentas Bancarias",
+            "desc": "Administrar cuentas bancarias para cobros de ventas y pagos a proveedores",
+            "action": "Administrar",
+            "link": "/administracion/cuentas-bancarias",
+        },
+        {
             "icon": "🏢",
             "title": "Empresa",
             "desc": "Configuración de datos de la empresa",
@@ -1624,6 +1631,12 @@ def list_sales(filters: dict = None) -> list[dict]:
                 if filters.get('status'):
                     query += " AND s.status = %s"
                     params.append(filters['status'])
+                if filters.get('exclude_status'):
+                    query += " AND s.status != %s"
+                    params.append(filters['exclude_status'])
+                if filters.get('prefix'):
+                    query += " AND s.sale_number LIKE %s"
+                    params.append(f"{filters['prefix']}%")
                 if filters.get('customer_name'):
                     query += " AND s.customer_name ILIKE %s"
                     params.append(f"%{filters['customer_name']}%")
@@ -2230,48 +2243,66 @@ def get_sale_payment_items_totals(sale_ids: list[int]) -> dict[int, float]:
 
 
 def get_sales_metrics() -> dict:
+    """Calcula las métricas principales del dashboard (ventas reales VTA- hoy, stock real, órdenes pendientes, clientes activos)."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             today = datetime.now().strftime('%Y-%m-%d')
             cur.execute(
-                "SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE sale_date = %s",
+                "SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE sale_date = %s AND status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'",
                 (today,)
             )
-            total_today = cur.fetchone()["total"]
+            row_today = cur.fetchone()
+            total_today = row_today["total"] if row_today else 0
             
             cur.execute(
-                "SELECT COUNT(*) as count FROM sales WHERE status = 'Completada'"
+                "SELECT COUNT(*) as count FROM sales WHERE status = 'Completada' AND sale_number LIKE 'VTA-%%'"
             )
-            total_completed = cur.fetchone()["count"]
+            row_comp = cur.fetchone()
+            total_completed = row_comp["count"] if row_comp else 0
             
             cur.execute(
-                "SELECT COUNT(*) as count FROM sales WHERE status = 'Pendiente'"
+                "SELECT COUNT(*) as count FROM sales WHERE status = 'Pendiente' AND sale_number LIKE 'VTA-%%'"
             )
-            total_pending = cur.fetchone()["count"]
+            row_pend = cur.fetchone()
+            total_pending = row_pend["count"] if row_pend else 0
             
             cur.execute(
-                "SELECT COUNT(DISTINCT customer_name) as count FROM sales"
+                "SELECT COUNT(*) as count FROM clients"
             )
-            total_customers = cur.fetchone()["count"]
+            row_cli = cur.fetchone()
+            total_customers = row_cli["count"] if row_cli else 0
+
+            # Stock total de productos en inventario
+            cur.execute("SELECT json FROM page_data WHERE key = 'inventory_items'")
+            row_inv = cur.fetchone()
+            total_stock = 0
+            if row_inv and row_inv["json"]:
+                try:
+                    items = json.loads(row_inv["json"])
+                    total_stock = sum(int(it.get("stock", 0)) for it in items)
+                except Exception:
+                    total_stock = 0
             
             return {
                 "ventas_hoy": round(float(total_today), 2),
                 "ventas_completadas": total_completed,
                 "ventas_pendientes": total_pending,
                 "clientes_activos": total_customers,
+                "productos_stock": total_stock,
             }
 
 
 def get_sales_chart_data(year: int = None, period: str = "6months") -> dict:
+    """Obtiene los datos mensuales de ventas para el gráfico de barras del Dashboard."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             if year:
                 cur.execute(
                     """
                     SELECT TO_CHAR(sale_date::date, 'YYYY-MM') as month,
-                           SUM(total_amount) as total
+                           COALESCE(SUM(total_amount), 0) as total
                     FROM sales
-                    WHERE TO_CHAR(sale_date::date, 'YYYY') = %s
+                    WHERE TO_CHAR(sale_date::date, 'YYYY') = %s AND status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'
                     GROUP BY month
                     ORDER BY month ASC
                     """,
@@ -2283,8 +2314,9 @@ def get_sales_chart_data(year: int = None, period: str = "6months") -> dict:
                 cur.execute(
                     """
                     SELECT TO_CHAR(sale_date::date, 'YYYY-MM') as month,
-                           SUM(total_amount) as total
+                           COALESCE(SUM(total_amount), 0) as total
                     FROM sales
+                    WHERE status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'
                     GROUP BY month
                     ORDER BY month DESC
                     LIMIT %s
@@ -2299,15 +2331,20 @@ def get_sales_chart_data(year: int = None, period: str = "6months") -> dict:
             month_names = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
             
             for row in rows:
-                if row['total']:
-                    month_num = int(row['month'].split('-')[1])
-                    months.append(month_names[month_num - 1])
-                    amounts.append(round(float(row['total']), 2))
+                if row.get('month'):
+                    try:
+                        parts = row['month'].split('-')
+                        month_num = int(parts[1])
+                        months.append(f"{month_names[month_num - 1]} {parts[0]}")
+                        amounts.append(round(float(row['total'] or 0), 2))
+                    except Exception:
+                        pass
             
             return {"labels": months, "data": amounts}
 
 
 def get_top_products(year: int = None, period: str = "year") -> dict:
+    """Calcula los 5 productos más vendidos agrupados por cantidad (soporta formato JSON dict y string)."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             if year:
@@ -2315,7 +2352,7 @@ def get_top_products(year: int = None, period: str = "year") -> dict:
                     """
                     SELECT products_json
                     FROM sales
-                    WHERE TO_CHAR(sale_date::date, 'YYYY') = %s AND status = 'Completada'
+                    WHERE TO_CHAR(sale_date::date, 'YYYY') = %s AND status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'
                     """,
                     (str(year),)
                 )
@@ -2326,7 +2363,7 @@ def get_top_products(year: int = None, period: str = "year") -> dict:
                     """
                     SELECT products_json
                     FROM sales
-                    WHERE TO_CHAR(sale_date::date, 'YYYY-MM') = %s AND status = 'Completada'
+                    WHERE TO_CHAR(sale_date::date, 'YYYY-MM') = %s AND status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'
                     """,
                     (current_month,)
                 )
@@ -2336,22 +2373,47 @@ def get_top_products(year: int = None, period: str = "year") -> dict:
                     """
                     SELECT products_json
                     FROM sales
-                    WHERE status = 'Completada'
+                    WHERE status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'
                     """
                 )
                 rows = cur.fetchall()
             
             product_counts = {}
             for row in rows:
-                products = json.loads(row['products_json'])
-                for product_str in products:
-                    product_name = product_str.split('(')[0].strip()
+                p_raw = row.get('products_json')
+                if not p_raw:
+                    continue
+                if isinstance(p_raw, str):
                     try:
-                        quantity = int(product_str.split('(')[1].split(')')[0])
-                    except:
-                        quantity = 1
+                        products = json.loads(p_raw)
+                    except Exception:
+                        products = []
+                elif isinstance(p_raw, list):
+                    products = p_raw
+                else:
+                    products = []
+
+                if isinstance(products, dict):
+                    products = [products]
+
+                for item in products:
+                    if isinstance(item, dict):
+                        name = item.get('product_name') or item.get('name') or item.get('sku') or 'Producto'
+                        try:
+                            qty = int(item.get('quantity', 1))
+                        except Exception:
+                            qty = 1
+                    elif isinstance(item, str):
+                        name = item.split('(')[0].strip()
+                        try:
+                            qty = int(item.split('(')[1].split(')')[0])
+                        except Exception:
+                            qty = 1
+                    else:
+                        continue
                     
-                    product_counts[product_name] = product_counts.get(product_name, 0) + quantity
+                    if name:
+                        product_counts[name] = product_counts.get(name, 0) + qty
             
             sorted_products = sorted(product_counts.items(), key=lambda x: x[1], reverse=True)[:5]
             
@@ -2705,7 +2767,7 @@ def update_purchase_order(po_id: int, supplier_id: int, order_date: str, notes: 
         conn.commit()
 
 def list_purchase_orders() -> list[dict]:
-    """Lista todas las Órdenes de Compra con creadores y aprobadores"""
+    """Lista todas las Órdenes de Compra con creadores, aprobadores y facturas asociadas"""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -2713,7 +2775,28 @@ def list_purchase_orders() -> list[dict]:
                 SELECT po.id, po.oc_number, po.order_date, po.status, po.total_amount, po.notes, po.supplier_id, po.payment_method,
                        s.name as supplier_name,
                        u1.full_name as creator_name,
-                       u2.full_name as approver_name
+                       u2.full_name as approver_name,
+                       COALESCE(
+                           (
+                               SELECT json_agg(json_build_object(
+                                   'id', pi.id,
+                                   'invoice_number', pi.invoice_number,
+                                   'payment_status', pi.payment_status,
+                                   'invoice_amount', pi.invoice_amount,
+                                   'due_date', pi.due_date,
+                                   'document_file', pi.document_file,
+                                   'payment_date', pi.payment_date,
+                                   'payment_amount', pi.payment_amount,
+                                   'payment_method', pi.payment_method,
+                                   'bank_name', ba.bank_name,
+                                   'account_number', ba.account_number
+                               ))
+                               FROM purchase_invoices pi
+                               LEFT JOIN bank_accounts ba ON ba.id = pi.bank_account_id
+                               WHERE pi.purchase_order_id = po.id
+                                  OR pi.inventory_entry_id IN (SELECT id FROM inventory_entries WHERE purchase_order_id = po.id)
+                           ), '[]'::json
+                       ) AS invoices
                 FROM purchase_orders po
                 JOIN suppliers s ON po.supplier_id = s.id
                 LEFT JOIN users u1 ON po.created_by = u1.id
@@ -2724,7 +2807,7 @@ def list_purchase_orders() -> list[dict]:
             return [dict(row) for row in cur.fetchall()]
 
 def get_purchase_order(po_id: int) -> dict | None:
-    """Obtiene la cabecera e información de una OC"""
+    """Obtiene la cabecera e información de una OC, incluyendo facturas asociadas"""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -2732,7 +2815,28 @@ def get_purchase_order(po_id: int) -> dict | None:
                 SELECT po.id, po.oc_number, po.order_date, po.status, po.total_amount, po.notes, po.supplier_id, po.payment_method,
                        s.name as supplier_name, s.description as supplier_description, s.website as supplier_website,
                        u1.full_name as creator_name,
-                       u2.full_name as approver_name
+                       u2.full_name as approver_name,
+                       COALESCE(
+                           (
+                               SELECT json_agg(json_build_object(
+                                   'id', pi.id,
+                                   'invoice_number', pi.invoice_number,
+                                   'payment_status', pi.payment_status,
+                                   'invoice_amount', pi.invoice_amount,
+                                   'due_date', pi.due_date,
+                                   'document_file', pi.document_file,
+                                   'payment_date', pi.payment_date,
+                                   'payment_amount', pi.payment_amount,
+                                   'payment_method', pi.payment_method,
+                                   'bank_name', ba.bank_name,
+                                   'account_number', ba.account_number
+                               ))
+                               FROM purchase_invoices pi
+                               LEFT JOIN bank_accounts ba ON ba.id = pi.bank_account_id
+                               WHERE pi.purchase_order_id = po.id
+                                  OR pi.inventory_entry_id IN (SELECT id FROM inventory_entries WHERE purchase_order_id = po.id)
+                           ), '[]'::json
+                       ) AS invoices
                 FROM purchase_orders po
                 JOIN suppliers s ON po.supplier_id = s.id
                 LEFT JOIN users u1 ON po.created_by = u1.id
@@ -2790,41 +2894,52 @@ def list_active_purchase_orders_by_supplier(supplier_id: int) -> list[dict]:
             )
             return [dict(row) for row in cur.fetchall()]
 
-def register_inventory_entry(po_id: int, order_number: str, entry_date: str, warehouse: str, notes: str, items: list[dict]) -> None:
-    """Registra el ingreso de mercadería cruzando cantidades contra la OC y actualizando stock"""
+def register_inventory_entry(
+    po_id: int, order_number: str, entry_date: str,
+    warehouse: str, notes: str, items: list,
+    document_type: str = 'guia_despacho',
+    document_number: str = '',
+    document_file: str = None,
+) -> int:
+    """Registra el ingreso de mercadería cruzando cantidades contra la OC y actualizando stock.
+    Retorna el id del registro creado."""
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # Obtener datos de la OC
             cur.execute("SELECT id, supplier_id FROM purchase_orders WHERE id = %s", (po_id,))
             po = cur.fetchone()
             if not po:
                 raise ValueError("Orden de Compra no encontrada.")
-                
-            supplier_id = po["supplier_id"]
+
+            supplier_id  = po["supplier_id"]
             total_amount = sum(item["quantity"] * item["unit_price"] for item in items)
-            
+
             # 1. Registrar cabecera del ingreso
             cur.execute(
                 """
-                INSERT INTO inventory_entries (entry_date, order_number, purchase_order_id, supplier_id, warehouse, notes, total_amount, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                INSERT INTO inventory_entries
+                    (entry_date, order_number, purchase_order_id, supplier_id,
+                     warehouse, notes, total_amount, created_at,
+                     document_type, document_number, document_file)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
                 """,
-                (entry_date, order_number, po_id, supplier_id, warehouse, notes, total_amount, datetime.utcnow().isoformat(timespec='seconds'))
+                (entry_date, order_number, po_id, supplier_id,
+                 warehouse, notes, total_amount, datetime.utcnow().isoformat(timespec='seconds'),
+                 document_type, document_number, document_file)
             )
             entry_id = cur.fetchone()["id"]
-            
+
             # 2. Guardar items del ingreso, validar límites y actualizar OC
             for item in items:
-                prod_id = item["product_id"]
-                qty = item["quantity"]
-                price = item["unit_price"]
+                prod_id    = item["product_id"]
+                qty        = item["quantity"]
+                price      = item["unit_price"]
                 line_total = qty * price
-                
-                # Validar contra la OC lo pendiente por recibir
+
                 cur.execute(
                     """
-                    SELECT id, quantity_ordered, quantity_received 
-                    FROM purchase_order_items 
+                    SELECT id, quantity_ordered, quantity_received
+                    FROM purchase_order_items
                     WHERE purchase_order_id = %s AND product_id = %s
                     """,
                     (po_id, prod_id)
@@ -2832,12 +2947,11 @@ def register_inventory_entry(po_id: int, order_number: str, entry_date: str, war
                 po_item = cur.fetchone()
                 if not po_item:
                     raise ValueError(f"El producto con ID {prod_id} no está en la Orden de Compra.")
-                    
+
                 pending = po_item["quantity_ordered"] - po_item["quantity_received"]
                 if qty > pending:
                     raise ValueError(f"No puedes ingresar {qty} unidades. El máximo pendiente en la OC es {pending}.")
-                
-                # Registrar item del ingreso
+
                 cur.execute(
                     """
                     INSERT INTO inventory_entry_items (inventory_entry_id, product_id, quantity, unit_price, total)
@@ -2845,52 +2959,39 @@ def register_inventory_entry(po_id: int, order_number: str, entry_date: str, war
                     """,
                     (entry_id, prod_id, qty, price, line_total)
                 )
-                
-                # Actualizar cantidad recibida en la OC
+
                 new_received = po_item["quantity_received"] + qty
                 cur.execute(
-                    """
-                    UPDATE purchase_order_items 
-                    SET quantity_received = %s 
-                    WHERE id = %s
-                    """,
+                    "UPDATE purchase_order_items SET quantity_received = %s WHERE id = %s",
                     (new_received, po_item["id"])
                 )
-                
-                # Recalcular Costo según regla: últimas compras 30 días, si no, última compra registrada
+
                 avg_cost = get_product_calculated_cost(prod_id)
                 if avg_cost and avg_cost > 0:
-                    cur.execute(
-                        """
-                        UPDATE products
-                        SET cost = %s
-                        WHERE id = %s
-                        """,
-                        (avg_cost, prod_id)
-                    )
-            
-            # 3. Validar el nuevo estado de la OC
+                    cur.execute("UPDATE products SET cost = %s WHERE id = %s", (avg_cost, prod_id))
+
+            # 3. Actualizar estado de la OC
             cur.execute(
                 """
                 SELECT SUM(quantity_ordered) as total_ord, SUM(quantity_received) as total_rec
-                FROM purchase_order_items
-                WHERE purchase_order_id = %s
+                FROM purchase_order_items WHERE purchase_order_id = %s
                 """,
                 (po_id,)
             )
-            summary = cur.fetchone()
+            summary       = cur.fetchone()
             total_ordered = summary["total_ord"] or 0
             total_received = summary["total_rec"] or 0
-            
+
             if total_received >= total_ordered:
                 new_status = "Recibida"
             elif total_received > 0:
                 new_status = "Parcialmente Recibida"
             else:
                 new_status = "Emitida"
-                
+
             cur.execute("UPDATE purchase_orders SET status = %s WHERE id = %s", (new_status, po_id))
         conn.commit()
+        return entry_id
 
 
 def get_product_calculated_cost(product_id: int) -> float | None:
@@ -3078,6 +3179,548 @@ def get_income_report_data() -> dict:
     }
 
 
+def get_cash_flow_data() -> dict:
+    """
+    Calcula el Flujo de Caja mensual real + proyección 6 meses futuros.
+    - Ingresos: pagos cobrados reales (sale_payments con payment_date confirmado).
+    - Gastos: recepciones de mercadería (inventory_entries).
+    - Impagas: facturas de ventas pendientes de cobro, agrupadas por fecha de vencimiento.
+    - Proyección: promedio de los últimos 3 meses con datos + compromisos ya registrados.
+    """
+    from datetime import date, timedelta
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+
+            # ── Ingresos cobrados reales por mes ─────────────────────────────
+            cur.execute("""
+                SELECT SUBSTRING(sp.payment_date, 1, 7) AS mes,
+                       SUM(sp.payment_amount) AS total
+                FROM sale_payments sp
+                WHERE sp.payment_date IS NOT NULL
+                  AND sp.payment_amount IS NOT NULL
+                  AND sp.payment_amount > 0
+                GROUP BY mes
+                ORDER BY mes
+            """)
+            ingresos_reales = {row['mes']: float(row['total'] or 0) for row in cur.fetchall()}
+
+            # ── Gastos reales por mes ─────────────────────────────────────────
+            cur.execute("""
+                SELECT SUBSTRING(COALESCE(payment_date, created_at), 1, 7) AS mes,
+                       SUM(COALESCE(payment_amount, invoice_amount, 0)) AS total
+                FROM purchase_invoices
+                WHERE payment_status = 'Pagada' AND payment_date IS NOT NULL
+                GROUP BY mes
+            """)
+            pagos_facturas = {row['mes']: float(row['total'] or 0) for row in cur.fetchall()}
+
+            cur.execute("""
+                SELECT SUBSTRING(entry_date, 1, 7) AS mes,
+                       SUM(total_amount) AS total
+                FROM inventory_entries
+                WHERE entry_date IS NOT NULL AND total_amount IS NOT NULL
+                  AND id NOT IN (SELECT inventory_entry_id FROM purchase_invoices WHERE inventory_entry_id IS NOT NULL)
+                GROUP BY mes
+            """)
+            gastos_entradas = {row['mes']: float(row['total'] or 0) for row in cur.fetchall()}
+
+            gastos_reales = {}
+            for mes, val in list(pagos_facturas.items()) + list(gastos_entradas.items()):
+                gastos_reales[mes] = gastos_reales.get(mes, 0.0) + val
+
+            # Facturas de proveedores por pagar (futuros compromisos)
+            cur.execute("""
+                SELECT SUBSTRING(COALESCE(due_date, invoice_date, created_at), 1, 7) AS mes_vence,
+                       SUM(invoice_amount) AS total
+                FROM purchase_invoices
+                WHERE payment_status IN ('Pendiente', 'Vencida')
+                GROUP BY mes_vence
+            """)
+            gastos_por_pagar_mes = {row['mes_vence']: float(row['total'] or 0) for row in cur.fetchall()}
+
+            # ── Facturas impagas por mes de vencimiento ──────────────────────
+            cur.execute("""
+                SELECT
+                    COALESCE(SUBSTRING(sp.invoice_due_date, 1, 7), SUBSTRING(s.sale_date, 1, 7)) AS mes_vence,
+                    SUM(s.total_amount) AS total
+                FROM sales s
+                LEFT JOIN sale_payments sp ON sp.sale_id = s.id
+                WHERE s.payment_status != 'Pagado'
+                  AND s.status NOT IN ('Cancelada', 'Cancelado', 'Cotización')
+                GROUP BY mes_vence
+                ORDER BY mes_vence
+            """)
+            impagas_por_mes = {row['mes_vence']: float(row['total'] or 0) for row in cur.fetchall()}
+
+    # ── KPIs del mes actual ───────────────────────────────────────────────
+    today = date.today()
+    cur_month = today.strftime('%Y-%m')
+
+    ingreso_mes    = ingresos_reales.get(cur_month, 0.0)
+    gasto_mes      = gastos_reales.get(cur_month, 0.0)
+    impagas_total  = sum(impagas_por_mes.values())
+    flujo_neto_mes = ingreso_mes - gasto_mes
+
+    # ── Helpers de fecha ──────────────────────────────────────────────────
+    def last_n_months(ref, n):
+        months = []
+        d = ref.replace(day=1)
+        for _ in range(n):
+            months.append(d.strftime('%Y-%m'))
+            d = (d - timedelta(days=1)).replace(day=1)
+        return list(reversed(months))
+
+    def next_n_months(ref, n):
+        months = []
+        d = ref.replace(day=1)
+        for _ in range(n):
+            d = (d.replace(day=28) + timedelta(days=4)).replace(day=1)
+            months.append(d.strftime('%Y-%m'))
+        return months
+
+    MONTHS_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+    def month_label(m):
+        try:
+            y, mo = m.split('-')
+            return MONTHS_ES[int(mo)-1] + f" '{y[2:]}"
+        except Exception:
+            return m
+
+    # ── Serie de 6 históricos + 6 proyectados ────────────────────────────
+    hist_months = last_n_months(today, 6)
+    fut_months  = next_n_months(today, 6)
+    all_months  = hist_months + fut_months
+
+    recent_ing = [ingresos_reales.get(m, 0) for m in hist_months[-3:] if ingresos_reales.get(m, 0) > 0]
+    recent_gas = [gastos_reales.get(m, 0)   for m in hist_months[-3:] if gastos_reales.get(m, 0) > 0]
+    avg_ing = sum(recent_ing) / len(recent_ing) if recent_ing else 0
+    avg_gas = sum(recent_gas) / len(recent_gas) if recent_gas else 0
+
+    rows = []
+    acumulado = 0.0
+    for m in all_months:
+        es_futuro = m > cur_month
+        if not es_futuro:
+            ing  = ingresos_reales.get(m, 0.0)
+            gas  = gastos_reales.get(m, 0.0)
+            imp  = impagas_por_mes.get(m, 0.0)
+            tipo = 'real'
+        else:
+            imp  = impagas_por_mes.get(m, 0.0)
+            gas_comp = gastos_por_pagar_mes.get(m, 0.0)
+            ing  = avg_ing + imp   # tendencia + facturas clientes por cobrar
+            gas  = avg_gas + gas_comp # tendencia + facturas proveedores por pagar
+            tipo = 'proyectado'
+
+        neto = ing - gas
+        acumulado += neto
+
+        rows.append({
+            'mes':       m,
+            'label':     month_label(m),
+            'ingresos':  round(ing, 2),
+            'gastos':    round(gas, 2),
+            'impagas':   round(imp, 2),
+            'neto':      round(neto, 2),
+            'acumulado': round(acumulado, 2),
+            'tipo':      tipo,
+        })
+
+    idx_proyeccion = next((i for i, r in enumerate(rows) if r['tipo'] == 'proyectado'), len(rows))
+
+    return {
+        'ingreso_mes':     round(ingreso_mes, 2),
+        'gasto_mes':       round(gasto_mes, 2),
+        'impagas_total':   round(impagas_total, 2),
+        'flujo_neto_mes':  round(flujo_neto_mes, 2),
+        'rows':            rows,
+        'chart_labels':    [r['label']     for r in rows],
+        'chart_ingresos':  [r['ingresos']  for r in rows],
+        'chart_gastos':    [r['gastos']    for r in rows],
+        'chart_impagas':   [r['impagas']   for r in rows],
+        'chart_neto':      [r['neto']      for r in rows],
+        'chart_acumulado': [r['acumulado'] for r in rows],
+        'idx_proyeccion':  idx_proyeccion,
+    }
+
+
+def get_cash_flow_data_weekly() -> dict:
+    """
+    Flujo de Caja SEMANAL: 8 semanas históricas + 6 semanas proyectadas.
+    Agrupa por semana ISO (lunes–domingo).
+    """
+    from datetime import date, timedelta
+
+    def week_key(d: date) -> str:
+        iso = d.isocalendar()
+        return f"{iso[0]}-W{iso[1]:02d}"
+
+    def week_label(wk: str) -> str:
+        try:
+            y, w = wk.split('-W')
+            monday = date.fromisocalendar(int(y), int(w), 1)
+            MONTHS_ES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+            return f"S{int(w)} ({monday.day} {MONTHS_ES[monday.month-1]})"
+        except Exception:
+            return wk
+
+    def weeks_range(ref: date, back: int, fwd: int):
+        monday_ref = ref - timedelta(days=ref.weekday())
+        start = monday_ref - timedelta(weeks=back - 1)
+        out = []
+        d = start
+        for _ in range(back + fwd):
+            out.append(week_key(d))
+            d += timedelta(weeks=1)
+        return out
+
+    today = date.today()
+    cur_week = week_key(today)
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+
+            cur.execute("""
+                SELECT payment_date, payment_amount FROM sale_payments
+                WHERE payment_date IS NOT NULL AND payment_amount IS NOT NULL AND payment_amount > 0
+            """)
+            ingresos_reales: dict = {}
+            for row in cur.fetchall():
+                try:
+                    d = date.fromisoformat(str(row['payment_date'])[:10])
+                    wk = week_key(d)
+                    ingresos_reales[wk] = ingresos_reales.get(wk, 0.0) + float(row['payment_amount'])
+                except Exception:
+                    pass
+
+            # Gastos pagados de facturas
+            cur.execute("""
+                SELECT COALESCE(payment_date, created_at) AS p_date,
+                       COALESCE(payment_amount, invoice_amount, 0) AS total
+                FROM purchase_invoices
+                WHERE payment_status = 'Pagada' AND payment_date IS NOT NULL
+            """)
+            gastos_reales: dict = {}
+            for row in cur.fetchall():
+                try:
+                    d = date.fromisoformat(str(row['p_date'])[:10])
+                    wk = week_key(d)
+                    gastos_reales[wk] = gastos_reales.get(wk, 0.0) + float(row['total'])
+                except Exception:
+                    pass
+
+            # Entradas sin factura vinculada
+            cur.execute("""
+                SELECT entry_date, total_amount FROM inventory_entries
+                WHERE entry_date IS NOT NULL AND total_amount IS NOT NULL
+                  AND id NOT IN (SELECT inventory_entry_id FROM purchase_invoices WHERE inventory_entry_id IS NOT NULL)
+            """)
+            for row in cur.fetchall():
+                try:
+                    d = date.fromisoformat(str(row['entry_date'])[:10])
+                    wk = week_key(d)
+                    gastos_reales[wk] = gastos_reales.get(wk, 0.0) + float(row['total_amount'])
+                except Exception:
+                    pass
+
+            # Facturas de proveedores por pagar (futuros compromisos)
+            cur.execute("""
+                SELECT COALESCE(due_date, invoice_date, created_at) AS due_d, invoice_amount
+                FROM purchase_invoices
+                WHERE payment_status IN ('Pendiente', 'Vencida')
+            """)
+            gastos_por_pagar_sem: dict = {}
+            for row in cur.fetchall():
+                try:
+                    d = date.fromisoformat(str(row['due_d'])[:10])
+                    wk = week_key(d)
+                    gastos_por_pagar_sem[wk] = gastos_por_pagar_sem.get(wk, 0.0) + float(row['invoice_amount'])
+                except Exception:
+                    pass
+
+            # Facturas clientes impagas
+            cur.execute("""
+                SELECT s.total_amount,
+                       COALESCE(sp.invoice_due_date, s.sale_date) AS fecha_vence
+                FROM sales s
+                LEFT JOIN sale_payments sp ON sp.sale_id = s.id
+                WHERE s.payment_status != 'Pagado'
+                  AND s.status NOT IN ('Cancelada', 'Cancelado', 'Cotización')
+            """)
+            impagas_por_semana: dict = {}
+            for row in cur.fetchall():
+                try:
+                    d = date.fromisoformat(str(row['fecha_vence'])[:10])
+                    wk = week_key(d)
+                    impagas_por_semana[wk] = impagas_por_semana.get(wk, 0.0) + float(row['total_amount'])
+                except Exception:
+                    pass
+
+    ingreso_sem    = ingresos_reales.get(cur_week, 0.0)
+    gasto_sem      = gastos_reales.get(cur_week, 0.0)
+    impagas_total  = sum(impagas_por_semana.values())
+    flujo_neto_sem = ingreso_sem - gasto_sem
+
+    all_weeks  = weeks_range(today, back=8, fwd=6)
+    hist_weeks = [w for w in all_weeks if w <= cur_week]
+    recent_ing = [ingresos_reales.get(w, 0) for w in hist_weeks[-4:] if ingresos_reales.get(w, 0) > 0]
+    recent_gas = [gastos_reales.get(w, 0)   for w in hist_weeks[-4:] if gastos_reales.get(w, 0) > 0]
+    avg_ing = sum(recent_ing) / len(recent_ing) if recent_ing else 0
+    avg_gas = sum(recent_gas) / len(recent_gas) if recent_gas else 0
+
+    rows = []
+    acumulado = 0.0
+    for wk in all_weeks:
+        es_futuro = wk > cur_week
+        if not es_futuro:
+            ing  = ingresos_reales.get(wk, 0.0)
+            gas  = gastos_reales.get(wk, 0.0)
+            imp  = impagas_por_semana.get(wk, 0.0)
+            tipo = 'real'
+        else:
+            imp      = impagas_por_semana.get(wk, 0.0)
+            gas_comp = gastos_por_pagar_sem.get(wk, 0.0)
+            ing      = avg_ing + imp
+            gas      = avg_gas + gas_comp
+            tipo     = 'proyectado'
+
+        neto = ing - gas
+        acumulado += neto
+        rows.append({
+            'mes':       wk,
+            'label':     week_label(wk),
+            'ingresos':  round(ing, 2),
+            'gastos':    round(gas, 2),
+            'impagas':   round(imp, 2),
+            'neto':      round(neto, 2),
+            'acumulado': round(acumulado, 2),
+            'tipo':      tipo,
+        })
+
+    idx_proyeccion = next((i for i, r in enumerate(rows) if r['tipo'] == 'proyectado'), len(rows))
+
+    return {
+        'ingreso_mes':     round(ingreso_sem, 2),
+        'gasto_mes':       round(gasto_sem, 2),
+        'impagas_total':   round(impagas_total, 2),
+        'flujo_neto_mes':  round(flujo_neto_sem, 2),
+        'rows':            rows,
+        'chart_labels':    [r['label']     for r in rows],
+        'chart_ingresos':  [r['ingresos']  for r in rows],
+        'chart_gastos':    [r['gastos']    for r in rows],
+        'chart_impagas':   [r['impagas']   for r in rows],
+        'chart_neto':      [r['neto']      for r in rows],
+        'chart_acumulado': [r['acumulado'] for r in rows],
+        'idx_proyeccion':  idx_proyeccion,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PURCHASE INVOICES — Facturas de Proveedores y Pagos
+# ─────────────────────────────────────────────────────────────────────────────
+
+def create_purchase_invoice(data: dict) -> int:
+    """Crea un registro de factura de proveedor. Retorna el id creado."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO purchase_invoices (
+                    inventory_entry_id, purchase_order_id, supplier_id,
+                    invoice_number, invoice_amount, invoice_date, due_date,
+                    document_file, payment_status, notes, bank_account_id, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW()::text)
+                RETURNING id
+            """, (
+                data.get('inventory_entry_id'),
+                data.get('purchase_order_id'),
+                data.get('supplier_id'),
+                data.get('invoice_number', ''),
+                data.get('invoice_amount', 0),
+                data.get('invoice_date', ''),
+                data.get('due_date', ''),
+                data.get('document_file'),
+                data.get('payment_status', 'Pendiente'),
+                data.get('notes', ''),
+                data.get('bank_account_id'),
+            ))
+            inv_id = cur.fetchone()['id']
+
+            # Si está vinculada a una entrada de bodega, actualizar tipo y archivo de la entrada
+            if data.get('inventory_entry_id'):
+                cur.execute("""
+                    UPDATE inventory_entries
+                    SET document_type = 'factura',
+                        document_number = CASE WHEN %s <> '' THEN %s ELSE document_number END,
+                        document_file = COALESCE(%s, document_file)
+                    WHERE id = %s
+                """, (
+                    data.get('invoice_number', ''),
+                    data.get('invoice_number', ''),
+                    data.get('document_file'),
+                    data.get('inventory_entry_id')
+                ))
+
+            conn.commit()
+            return inv_id
+
+
+def get_purchase_invoice(invoice_id: int) -> dict:
+    """Obtiene una factura de proveedor por id con datos de proveedor y cuenta bancaria."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT pi.*, s.name AS supplier_name,
+                       ie.order_number AS entry_number, ie.entry_date,
+                       po.oc_number,
+                       ba.bank_name, ba.account_number, ba.account_type
+                FROM purchase_invoices pi
+                LEFT JOIN suppliers s ON s.id = pi.supplier_id
+                LEFT JOIN inventory_entries ie ON ie.id = pi.inventory_entry_id
+                LEFT JOIN purchase_orders po ON po.id = pi.purchase_order_id
+                LEFT JOIN bank_accounts ba ON ba.id = pi.bank_account_id
+                WHERE pi.id = %s
+            """, (invoice_id,))
+            return cur.fetchone()
+
+
+def list_purchase_invoices(status_filter: str = None) -> list:
+    """Lista facturas de proveedor con datos del proveedor, entrada de bodega y cuenta bancaria."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            where = "WHERE pi.payment_status = %s" if status_filter else ""
+            params = (status_filter,) if status_filter else ()
+            cur.execute(f"""
+                SELECT pi.*, s.name AS supplier_name,
+                       ie.order_number AS entry_number, ie.entry_date,
+                       po.oc_number,
+                       ba.bank_name, ba.account_number, ba.account_type
+                FROM purchase_invoices pi
+                LEFT JOIN suppliers s ON s.id = pi.supplier_id
+                LEFT JOIN inventory_entries ie ON ie.id = pi.inventory_entry_id
+                LEFT JOIN purchase_orders po ON po.id = pi.purchase_order_id
+                LEFT JOIN bank_accounts ba ON ba.id = pi.bank_account_id
+                {where}
+                ORDER BY
+                    CASE pi.payment_status
+                        WHEN 'Vencida'   THEN 1
+                        WHEN 'Pendiente' THEN 2
+                        WHEN 'Pagada'    THEN 3
+                        ELSE 4
+                    END,
+                    COALESCE(pi.due_date, pi.created_at) ASC
+            """, params)
+            return cur.fetchall()
+
+
+def count_pending_invoices() -> int:
+    """Cuenta facturas de proveedor en estado Pendiente o Vencida."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT COUNT(*) AS n FROM purchase_invoices
+                WHERE payment_status IN ('Pendiente', 'Vencida')
+            """)
+            return cur.fetchone()['n']
+
+
+def update_invoice_payment_status() -> int:
+    """Marca como Vencidas las facturas cuyo due_date ya pasó. Retorna cuántas actualizó."""
+    from datetime import date
+    today = date.today().isoformat()
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE purchase_invoices
+                SET payment_status = 'Vencida'
+                WHERE payment_status = 'Pendiente'
+                  AND due_date <> '' AND due_date IS NOT NULL
+                  AND due_date < %s
+            """, (today,))
+            conn.commit()
+            return cur.rowcount
+
+
+def register_purchase_payment(invoice_id: int, data: dict) -> bool:
+    """Registra el pago de una factura de proveedor indicando cuenta bancaria de egreso."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE purchase_invoices SET
+                    payment_status     = 'Pagada',
+                    payment_date       = %s,
+                    payment_amount     = %s,
+                    payment_method     = %s,
+                    bank_account_id    = %s,
+                    payment_proof_file = %s,
+                    notes              = COALESCE(notes, '') || %s
+                WHERE id = %s
+            """, (
+                data.get('payment_date', ''),
+                data.get('payment_amount', 0),
+                data.get('payment_method', ''),
+                data.get('bank_account_id'),
+                data.get('payment_proof_file'),
+                ('\nPago: ' + data.get('payment_notes', '')) if data.get('payment_notes') else '',
+                invoice_id,
+            ))
+            conn.commit()
+            return cur.rowcount > 0
+
+
+def list_pending_invoice_alerts(days_ahead: int = 7) -> list:
+    """Retorna facturas vencidas o que vencen en los próximos N días, para alertas en dashboard."""
+    from datetime import date, timedelta
+    today = date.today().isoformat()
+    limit_date = (date.today() + timedelta(days=days_ahead)).isoformat()
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT pi.id, pi.invoice_number, pi.invoice_amount, pi.due_date,
+                       pi.payment_status, s.name AS supplier_name
+                FROM purchase_invoices pi
+                LEFT JOIN suppliers s ON s.id = pi.supplier_id
+                WHERE pi.payment_status IN ('Pendiente', 'Vencida')
+                  AND (pi.due_date IS NULL OR pi.due_date = '' OR pi.due_date <= %s)
+                ORDER BY pi.due_date ASC NULLS FIRST
+                LIMIT 10
+            """, (limit_date,))
+            return cur.fetchall()
+
+
+def list_entries_missing_invoice() -> list:
+    """Retorna recepciones con document_type='guia_despacho' que no tienen factura vinculada."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT ie.id, ie.entry_date, ie.order_number, ie.document_number,
+                       ie.total_amount, ie.supplier_id, ie.purchase_order_id,
+                       s.name AS supplier_name, po.oc_number
+                FROM inventory_entries ie
+                LEFT JOIN suppliers s ON s.id = ie.supplier_id
+                LEFT JOIN purchase_orders po ON po.id = ie.purchase_order_id
+                LEFT JOIN purchase_invoices pi ON pi.inventory_entry_id = ie.id
+                WHERE (ie.document_type = 'guia_despacho' OR ie.document_type IS NULL OR ie.document_type = '')
+                  AND pi.id IS NULL
+                ORDER BY ie.entry_date DESC
+            """)
+            return cur.fetchall()
+
+
+def link_invoice_to_entry(invoice_id: int, entry_id: int) -> bool:
+    """Vincula una factura existente a una entrada de bodega (guía de despacho)."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE purchase_invoices SET inventory_entry_id = %s WHERE id = %s
+            """, (entry_id, invoice_id))
+            cur.execute("""
+                UPDATE inventory_entries SET document_type = 'factura' WHERE id = %s
+            """, (entry_id,))
+            conn.commit()
+            return cur.rowcount > 0
+
+
 def list_clients() -> list:
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -3173,6 +3816,35 @@ def get_client_by_rut(rut: str) -> dict:
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM clients WHERE REPLACE(REPLACE(rut, '.', ''), '-', '') = %s LIMIT 1", (clean_rut,))
             return cur.fetchone()
+
+
+def search_clients(query: str, limit: int = 10) -> list[dict]:
+    """Busca clientes por razón social / nombre, contacto, email o RUT."""
+    if not query or not query.strip():
+        return []
+    q = query.strip()
+    pattern = f"%{q}%"
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, rut, dv, razon_social, tipo_compra, direccion, comuna, ciudad,
+                       giro, contacto, rut_solicita, dv_solicita, email, phone, category_id
+                FROM clients
+                WHERE razon_social ILIKE %s
+                   OR contacto ILIKE %s
+                   OR email ILIKE %s
+                   OR REPLACE(REPLACE(rut, '.', ''), '-', '') ILIKE %s
+                ORDER BY
+                    CASE
+                        WHEN razon_social ILIKE %s THEN 1
+                        WHEN razon_social ILIKE %s THEN 2
+                        ELSE 3
+                    END,
+                    razon_social ASC
+                LIMIT %s
+            """, (pattern, pattern, pattern, pattern, f"{q}", f"{q}%", limit))
+            return [dict(r) for r in cur.fetchall()]
+
 
 
 def upsert_client_by_rut(data: dict) -> int:

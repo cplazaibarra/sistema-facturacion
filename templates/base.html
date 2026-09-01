@@ -33,12 +33,12 @@
                     <span>Dashboard</span>
                 </a>
                 <div class="nav-section">
-                    <button class="nav-item nav-toggle {% if request.endpoint in ['ventas.ventas', 'ventas.cotizaciones', 'usuarios.listas_precios', 'ventas.clientes', 'usuarios.cuentas_bancarias'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['ventas.ventas', 'ventas.cotizaciones', 'usuarios.listas_precios', 'ventas.clientes'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
                         <span class="icon"><i class="fa-solid fa-hand-holding-dollar"></i></span>
                         <span>Ventas</span>
                         <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
-                    <div class="nav-submenu {% if request.endpoint in ['ventas.ventas', 'ventas.cotizaciones', 'usuarios.listas_precios', 'ventas.clientes', 'usuarios.cuentas_bancarias'] %}open{% endif %}">
+                    <div class="nav-submenu {% if request.endpoint in ['ventas.ventas', 'ventas.cotizaciones', 'usuarios.listas_precios', 'ventas.clientes'] %}open{% endif %}">
                         <a href="{{ url_for('ventas.ventas') }}" class="nav-item nav-subitem {% if request.endpoint == 'ventas.ventas' %}active{% endif %}">
                             <span>Ventas</span>
                         </a>
@@ -51,58 +51,84 @@
                         <a href="{{ url_for('ventas.clientes') }}" class="nav-item nav-subitem {% if request.endpoint == 'ventas.clientes' %}active{% endif %}">
                             <span>Clientes</span>
                         </a>
-                        <a href="{{ url_for('usuarios.cuentas_bancarias') }}" class="nav-item nav-subitem {% if request.endpoint == 'usuarios.cuentas_bancarias' %}active{% endif %}">
-                            <span>Cuentas Bancarias</span>
+                    </div>
+                </div>
+                <div class="nav-section">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['inventario.inventario', 'inventario.productos', 'inventario.nuevo_producto', 'inventario.editar_producto', 'produccion.list_ots', 'produccion.nueva_ot', 'inventario.ingreso_mercaderia'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                        <span class="icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+                        <span>Bodega</span>
+                        <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
+                    </button>
+                    <div class="nav-submenu {% if request.endpoint in ['inventario.inventario', 'inventario.productos', 'inventario.nuevo_producto', 'inventario.editar_producto', 'produccion.list_ots', 'produccion.nueva_ot', 'inventario.ingreso_mercaderia'] %}open{% endif %}">
+                        <a href="{{ url_for('inventario.inventario') }}" class="nav-item nav-subitem {% if request.endpoint == 'inventario.inventario' %}active{% endif %}">
+                            <span>Stock / Inventario</span>
+                        </a>
+                        <a href="{{ url_for('inventario.productos') }}" class="nav-item nav-subitem {% if request.endpoint in ['inventario.productos', 'inventario.nuevo_producto', 'inventario.editar_producto'] %}active{% endif %}">
+                            <span>Productos</span>
+                        </a>
+                        <a href="{{ url_for('produccion.list_ots') }}" class="nav-item nav-subitem {% if request.endpoint in ['produccion.list_ots', 'produccion.nueva_ot'] %}active{% endif %}">
+                            <span>Fabricación</span>
+                        </a>
+                        <a href="{{ url_for('inventario.ingreso_mercaderia') }}" class="nav-item nav-subitem {% if request.endpoint == 'inventario.ingreso_mercaderia' %}active{% endif %}">
+                            <span>Ingreso Mercadería</span>
                         </a>
                     </div>
                 </div>
-                <a href="{{ url_for('inventario.productos') }}" class="nav-item {% if request.endpoint == 'inventario.productos' %}active{% endif %}">
-                    <span class="icon"><i class="fa-solid fa-jar"></i></span>
-                    <span>Productos</span>
-                </a>
-                <a href="{{ url_for('usuarios.administracion') }}" class="nav-item {% if request.endpoint in ['usuarios.administracion', 'usuarios.usuarios', 'usuarios.roles'] %}active{% endif %}">
-                    <span class="icon"><i class="fa-solid fa-sliders"></i></span>
-                    <span>Administración</span>
-                </a>
-                <a href="{{ url_for('inventario.inventario') }}" class="nav-item {% if request.endpoint == 'inventario.inventario' %}active{% endif %}">
-                    <span class="icon"><i class="fa-solid fa-boxes-stacked"></i></span>
-                    <span>Bodega</span>
-                </a>
                 <div class="nav-section">
-                    <button class="nav-item nav-toggle {% if request.endpoint in ['compras.list_oc', 'compras.nueva_oc', 'compras.editar_oc', 'proveedores.proveedores', 'proveedores.ver_proveedor', 'proveedores.editar_proveedor', 'proveedores.agregar_contacto', 'proveedores.editar_contacto'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['compras.list_oc', 'compras.nueva_oc', 'compras.editar_oc', 'compras.cuentas_por_pagar', 'proveedores.proveedores', 'proveedores.ver_proveedor', 'proveedores.editar_proveedor', 'proveedores.agregar_contacto', 'proveedores.editar_contacto'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
                         <span class="icon"><i class="fa-solid fa-cart-shopping"></i></span>
                         <span>Compra</span>
+                        <span id="badge-facturas" style="display:none;background:#e53e3e;color:#fff;border-radius:12px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:4px;min-width:18px;text-align:center;"></span>
                         <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
-                    <div class="nav-submenu {% if request.endpoint in ['compras.list_oc', 'compras.nueva_oc', 'compras.editar_oc', 'proveedores.proveedores', 'proveedores.ver_proveedor', 'proveedores.editar_proveedor', 'proveedores.agregar_contacto', 'proveedores.editar_contacto'] %}open{% endif %}">
+                    <div class="nav-submenu {% if request.endpoint in ['compras.list_oc', 'compras.nueva_oc', 'compras.editar_oc', 'compras.cuentas_por_pagar', 'proveedores.proveedores', 'proveedores.ver_proveedor', 'proveedores.editar_proveedor', 'proveedores.agregar_contacto', 'proveedores.editar_contacto'] %}open{% endif %}">
                         <a href="{{ url_for('compras.list_oc') }}" class="nav-item nav-subitem {% if request.endpoint in ['compras.list_oc', 'compras.nueva_oc', 'compras.editar_oc'] %}active{% endif %}">
                             <span>Órdenes de Compra</span>
+                        </a>
+                        <a href="{{ url_for('compras.cuentas_por_pagar') }}" class="nav-item nav-subitem {% if request.endpoint == 'compras.cuentas_por_pagar' %}active{% endif %}" style="display:flex;align-items:center;justify-content:space-between;">
+                            <span>Cuentas por Pagar</span>
+                            <span id="badge-facturas-sub" style="display:none;background:#e53e3e;color:#fff;border-radius:12px;font-size:10px;font-weight:700;padding:1px 6px;min-width:18px;text-align:center;"></span>
                         </a>
                         <a href="{{ url_for('proveedores.proveedores') }}" class="nav-item nav-subitem {% if request.endpoint in ['proveedores.proveedores', 'proveedores.ver_proveedor', 'proveedores.editar_proveedor', 'proveedores.agregar_contacto', 'proveedores.editar_contacto'] %}active{% endif %}">
                             <span>Proveedores</span>
                         </a>
                     </div>
                 </div>
-                <a href="{{ url_for('inventario.ingreso_mercaderia') }}" class="nav-item {% if request.endpoint == 'inventario.ingreso_mercaderia' %}active{% endif %}">
-                    <span class="icon"><i class="fa-solid fa-dolly"></i></span>
-                    <span>Ingreso Mercadería</span>
-                </a>
-                <a href="{{ url_for('produccion.list_ots') }}" class="nav-item {% if request.endpoint in ['produccion.list_ots', 'produccion.nueva_ot'] %}active{% endif %}">
-                    <span class="icon"><i class="fa-solid fa-industry"></i></span>
-                    <span>Fabricación</span>
-                </a>
-                <a href="{{ url_for('ventas.proyeccion_ventas') }}" class="nav-item {% if request.endpoint == 'ventas.proyeccion_ventas' %}active{% endif %}">
-                    <span class="icon"><i class="fa-solid fa-chart-line"></i></span>
-                    <span>Proyección Ventas</span>
-                </a>
+                <div class="nav-section">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['usuarios.administracion', 'usuarios.cuentas_bancarias', 'usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                        <span class="icon"><i class="fa-solid fa-sliders"></i></span>
+                        <span>Administración</span>
+                        <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
+                    </button>
+                    <div class="nav-submenu {% if request.endpoint in ['usuarios.administracion', 'usuarios.cuentas_bancarias', 'usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol'] %}open{% endif %}">
+                        <a href="{{ url_for('usuarios.administracion') }}" class="nav-item nav-subitem {% if request.endpoint == 'usuarios.administracion' %}active{% endif %}">
+                            <span>Configuración</span>
+                        </a>
+                        <a href="{{ url_for('usuarios.cuentas_bancarias') }}" class="nav-item nav-subitem {% if request.endpoint == 'usuarios.cuentas_bancarias' %}active{% endif %}">
+                            <span>Cuentas Bancarias</span>
+                        </a>
+                        <a href="{{ url_for('usuarios.usuarios') }}" class="nav-item nav-subitem {% if request.endpoint in ['usuarios.usuarios', 'usuarios.crear_usuario', 'usuarios.editar_usuario'] %}active{% endif %}">
+                            <span>Usuarios</span>
+                        </a>
+                        <a href="{{ url_for('usuarios.roles') }}" class="nav-item nav-subitem {% if request.endpoint in ['usuarios.roles', 'usuarios.crear_rol', 'usuarios.editar_rol'] %}active{% endif %}">
+                            <span>Roles y Permisos</span>
+                        </a>
+                    </div>
+                </div>
                 
                 <div class="nav-section">
-                    <button class="nav-item nav-toggle {% if request.endpoint in ['reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['ventas.proyeccion_ventas', 'reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos', 'reportes.reportes_flujo_caja'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
                         <span class="icon"><i class="fa-solid fa-chart-column"></i></span>
                         <span>Reportería</span>
                         <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
-                    <div class="nav-submenu {% if request.endpoint in ['reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos'] %}open{% endif %}">
+                    <div class="nav-submenu {% if request.endpoint in ['ventas.proyeccion_ventas', 'reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos', 'reportes.reportes_flujo_caja'] %}open{% endif %}">
+                        <a href="{{ url_for('ventas.proyeccion_ventas') }}" class="nav-item nav-subitem {% if request.endpoint == 'ventas.proyeccion_ventas' %}active{% endif %}">
+                            <span>Proyección Ventas</span>
+                        </a>
+                        <a href="{{ url_for('reportes.reportes_flujo_caja') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_flujo_caja' %}active{% endif %}">
+                            <span>Flujo de Caja</span>
+                        </a>
                         <a href="{{ url_for('reportes.reportes_ingresos') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_ingresos' %}active{% endif %}">
                             <span>Ingresos ($)</span>
                         </a>
@@ -259,6 +285,24 @@
                 submenu.classList.toggle('open');
             }
         }
+
+        // Badge de facturas pendientes
+        async function refreshInvoiceBadge() {
+            try {
+                const r = await fetch('/api/compras/facturas/pendientes/count');
+                if (!r.ok) return;
+                const data = await r.json();
+                const n = data.count || 0;
+                ['badge-facturas', 'badge-facturas-sub'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    if (n > 0) { el.textContent = n; el.style.display = 'inline-block'; }
+                    else       { el.style.display = 'none'; }
+                });
+            } catch(e) {}
+        }
+        refreshInvoiceBadge();
+        setInterval(refreshInvoiceBadge, 60000);
     </script>
     {% block scripts %}{% endblock %}
 </body>

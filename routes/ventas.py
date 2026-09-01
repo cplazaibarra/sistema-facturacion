@@ -18,17 +18,15 @@ ventas_bp = Blueprint('ventas', __name__)
 
 @ventas_bp.route('/proyeccion-ventas')
 def proyeccion_ventas():
-    """Módulo de Proyección de Ventas"""
-    proyeccion_stats = get_page_data("proyeccion_stats")
-    proyeccion_table = get_page_data("proyeccion_table")
-    proyeccion_insights = get_page_data("proyeccion_insights")
-    proyeccion_chart = get_page_data("proyeccion_chart")
+    """Módulo de Proyección de Ventas - datos reales calculados desde la BD"""
+    from proyeccion_engine import compute_proyeccion
+    data = compute_proyeccion()
     return render_template(
         'proyeccion_ventas.html',
-        proyeccion_stats=proyeccion_stats,
-        proyeccion_table=proyeccion_table,
-        proyeccion_insights=proyeccion_insights,
-        proyeccion_chart=proyeccion_chart,
+        proyeccion_stats=data["proyeccion_stats"],
+        proyeccion_table=data["proyeccion_table"],
+        proyeccion_insights=data["proyeccion_insights"],
+        proyeccion_chart=data["proyeccion_chart"],
     )
 
 def _get_formatted_sales_data():
@@ -1387,5 +1385,29 @@ def api_buscar_cliente_por_rut(rut):
             }
         })
     return jsonify({"status": "not_found", "message": "Cliente no encontrado"}), 404
+
+
+@ventas_bp.route('/api/clientes/buscar')
+def api_buscar_clientes():
+    """Búsqueda dinámica de clientes por nombre, razón social, email o RUT."""
+    q = request.args.get('q', '').strip()
+    if not q or len(q) < 2:
+        return jsonify([])
+    from db import search_clients
+    clients = search_clients(q, limit=10)
+    return jsonify([{
+        "id": c["id"],
+        "rut": c.get("rut", ""),
+        "dv": c.get("dv", ""),
+        "razon_social": c.get("razon_social", ""),
+        "email": c.get("email", ""),
+        "phone": c.get("phone", ""),
+        "category_id": c.get("category_id", ""),
+        "direccion": c.get("direccion", ""),
+        "comuna": c.get("comuna", ""),
+        "ciudad": c.get("ciudad", ""),
+        "giro": c.get("giro", "")
+    } for c in clients])
+
 
 

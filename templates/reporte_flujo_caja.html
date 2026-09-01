@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+
+{% block title %}Flujo de Caja - Reportería{% endblock %}
+{% block page_title %}Reportería > Flujo de Caja{% endblock %}
+
+{% block content %}
+<!-- ─── Encabezado ──────────────────────────────────────────────────────── -->
+<div class="sf-action-bar" style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+    <div class="sf-action-left">
+        <h3 style="margin:0;font-size:20px;font-weight:700;color:#2d3748;display:flex;align-items:center;gap:8px;">
+            <i class="fa-solid fa-water"></i> Flujo de Caja
+        </h3>
+        <p style="margin:4px 0 0 0;color:#718096;font-size:13px;">
+            {% if vista == 'semanal' %}
+                8 semanas históricas + proyección 6 semanas — detalle semanal (lunes a domingo).
+            {% else %}
+                6 meses históricos + proyección 6 meses — ingresos, gastos y facturas impagas.
+            {% endif %}
+        </p>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <!-- Selector de vista -->
+        <div style="display:inline-flex;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;background:#f7fafc;">
+            <a href="{{ url_for('reportes.reportes_flujo_caja', vista='mensual') }}"
+               style="padding:7px 18px;font-size:13px;font-weight:600;text-decoration:none;
+                      background:{% if vista == 'mensual' %}#3182ce{% else %}transparent{% endif %};
+                      color:{% if vista == 'mensual' %}#fff{% else %}#4a5568{% endif %};">
+                <i class="fa-solid fa-calendar-days" style="margin-right:5px;"></i>Mensual
+            </a>
+            <a href="{{ url_for('reportes.reportes_flujo_caja', vista='semanal') }}"
+               style="padding:7px 18px;font-size:13px;font-weight:600;text-decoration:none;
+                      background:{% if vista == 'semanal' %}#3182ce{% else %}transparent{% endif %};
+                      color:{% if vista == 'semanal' %}#fff{% else %}#4a5568{% endif %};">
+                <i class="fa-solid fa-calendar-week" style="margin-right:5px;"></i>Semanal
+            </a>
+        </div>
+        <button class="sf-btn-primary" onclick="window.print()" style="display:inline-flex;align-items:center;gap:6px;background-color:#3182ce;">
+            <i class="fa-solid fa-print"></i> Imprimir / Exportar
+        </button>
+    </div>
+</div>
+
+<!-- ─── KPIs mes actual ────────────────────────────────────────────────── -->
+<div class="stats-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:24px;">
+
+    <div class="stat-card" style="background:#fff;padding:18px;border-radius:8px;border-left:5px solid #38a169;box-shadow:0 2px 5px rgba(0,0,0,.05);display:flex;align-items:center;gap:15px;">
+        <div style="background:#e6fffa;color:#38a169;width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;">
+            <i class="fa-solid fa-circle-arrow-down"></i>
+        </div>
+        <div>
+            <div style="font-size:22px;font-weight:700;color:#2d3748;">${{ "%.0f"|format(cf.ingreso_mes) }}</div>
+            <div style="font-size:12px;color:#718096;font-weight:500;">Ingresos cobrados ({% if vista == 'semanal' %}semana actual{% else %}mes actual{% endif %})</div>
+        </div>
+    </div>
+
+    <div class="stat-card" style="background:#fff;padding:18px;border-radius:8px;border-left:5px solid #e53e3e;box-shadow:0 2px 5px rgba(0,0,0,.05);display:flex;align-items:center;gap:15px;">
+        <div style="background:#fff5f5;color:#e53e3e;width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;">
+            <i class="fa-solid fa-circle-arrow-up"></i>
+        </div>
+        <div>
+            <div style="font-size:22px;font-weight:700;color:#2d3748;">${{ "%.0f"|format(cf.gasto_mes) }}</div>
+            <div style="font-size:12px;color:#718096;font-weight:500;">Gastos pagados ({% if vista == 'semanal' %}semana actual{% else %}mes actual{% endif %})</div>
+        </div>
+    </div>
+
+    <div class="stat-card" style="background:#fff;padding:18px;border-radius:8px;border-left:5px solid #d69e2e;box-shadow:0 2px 5px rgba(0,0,0,.05);display:flex;align-items:center;gap:15px;">
+        <div style="background:#fffff0;color:#d69e2e;width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;">
+            <i class="fa-solid fa-file-invoice-dollar"></i>
+        </div>
+        <div>
+            <div style="font-size:22px;font-weight:700;color:#2d3748;">${{ "%.0f"|format(cf.impagas_total) }}</div>
+            <div style="font-size:12px;color:#718096;font-weight:500;">Facturas impagas (total)</div>
+        </div>
+    </div>
+
+    <div class="stat-card" style="background:#fff;padding:18px;border-radius:8px;
+        border-left:5px solid {% if cf.flujo_neto_mes >= 0 %}#3182ce{% else %}#e53e3e{% endif %};
+        box-shadow:0 2px 5px rgba(0,0,0,.05);display:flex;align-items:center;gap:15px;">
+        <div style="background:{% if cf.flujo_neto_mes >= 0 %}#ebf8ff{% else %}#fff5f5{% endif %};
+            color:{% if cf.flujo_neto_mes >= 0 %}#3182ce{% else %}#e53e3e{% endif %};
+            width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;">
+            <i class="fa-solid fa-scale-balanced"></i>
+        </div>
+        <div>
+            <div style="font-size:22px;font-weight:700;color:{% if cf.flujo_neto_mes >= 0 %}#2d3748{% else %}#e53e3e{% endif %};">
+                {% if cf.flujo_neto_mes >= 0 %}+{% endif %}${{ "%.0f"|format(cf.flujo_neto_mes) }}
+            </div>
+            <div style="font-size:12px;color:#718096;font-weight:500;">Flujo neto ({% if vista == 'semanal' %}semana actual{% else %}mes actual{% endif %})</div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ─── Gráfico ────────────────────────────────────────────────────────── -->
+<div style="background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 5px rgba(0,0,0,.05);margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+        <div>
+            <h3 style="margin:0;font-size:16px;font-weight:600;color:#2d3748;">
+                {% if vista == 'semanal' %}
+                    Flujo de Caja semanal — 8 semanas históricas + 6 semanas proyectadas
+                {% else %}
+                    Flujo de Caja mensual — 6 meses históricos + 6 meses proyectados
+                {% endif %}
+            </h3>
+            <span style="font-size:12px;color:#718096;">
+                <span style="display:inline-block;width:10px;height:10px;background:#bee3f8;border-radius:2px;margin-right:4px;"></span>Zona sombreada = proyección
+            </span>
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#4a5568;">
+            <span><span style="display:inline-block;width:12px;height:12px;background:#38a169;border-radius:2px;margin-right:4px;"></span>Ingresos</span>
+            <span><span style="display:inline-block;width:12px;height:12px;background:#e53e3e;border-radius:2px;margin-right:4px;"></span>Gastos</span>
+            <span><span style="display:inline-block;width:12px;height:12px;background:#d69e2e;border-radius:2px;margin-right:4px;"></span>Impagas vencen</span>
+            <span><span style="display:inline-block;width:12px;height:3px;background:#3182ce;margin-right:4px;vertical-align:middle;"></span>Flujo neto</span>
+        </div>
+    </div>
+    <div style="position:relative;height:320px;">
+        <canvas id="cashFlowChart"></canvas>
+    </div>
+</div>
+
+<!-- ─── Tabla detalle ──────────────────────────────────────────────────── -->
+<div style="background:#fff;border-radius:8px;box-shadow:0 2px 5px rgba(0,0,0,.05);overflow:hidden;">
+    <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;font-size:16px;font-weight:600;color:#2d3748;">
+            {% if vista == 'semanal' %}Detalle Semanal{% else %}Detalle Mensual{% endif %}
+        </h3>
+        <span style="font-size:12px;color:#718096;">
+            <i class="fa-solid fa-circle" style="color:#e9ecef;font-size:10px;"></i> Histórico &nbsp;
+            <i class="fa-solid fa-circle" style="color:#bee3f8;font-size:10px;"></i> Proyectado
+        </span>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="data-table" style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr style="background:#f7fafc;">
+                    <th style="padding:10px 16px;text-align:left;font-size:12px;color:#718096;font-weight:600;border-bottom:1px solid #e2e8f0;">
+                        {% if vista == 'semanal' %}SEMANA{% else %}MES{% endif %}
+                    </th>
+                    <th style="padding:10px 16px;text-align:right;font-size:12px;color:#718096;font-weight:600;border-bottom:1px solid #e2e8f0;">INGRESOS COBRADOS</th>
+                    <th style="padding:10px 16px;text-align:right;font-size:12px;color:#718096;font-weight:600;border-bottom:1px solid #e2e8f0;">GASTOS PAGADOS</th>
+                    <th style="padding:10px 16px;text-align:right;font-size:12px;color:#718096;font-weight:600;border-bottom:1px solid #e2e8f0;">IMPAGAS (VENCEN)</th>
+                    <th style="padding:10px 16px;text-align:right;font-size:12px;color:#718096;font-weight:600;border-bottom:1px solid #e2e8f0;">FLUJO NETO</th>
+                    <th style="padding:10px 16px;text-align:right;font-size:12px;color:#718096;font-weight:600;border-bottom:1px solid #e2e8f0;">ACUMULADO</th>
+                    <th style="padding:10px 16px;text-align:center;font-size:12px;color:#718096;font-weight:600;border-bottom:1px solid #e2e8f0;">ESTADO</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in cf.rows %}
+                <tr style="background:{% if row.tipo == 'proyectado' %}#ebf8ff{% else %}#fff{% endif %};border-bottom:1px solid #f0f0f0;">
+                    <td style="padding:11px 16px;font-weight:600;color:#2d3748;font-size:14px;">
+                        {{ row.label }}
+                        {% if row.tipo == 'proyectado' %}
+                        <span style="font-size:10px;color:#3182ce;font-weight:400;margin-left:4px;background:#bee3f8;padding:1px 5px;border-radius:3px;">PROYEC.</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:11px 16px;text-align:right;color:#276749;font-weight:600;">
+                        ${{ "{:,.0f}".format(row.ingresos) }}
+                    </td>
+                    <td style="padding:11px 16px;text-align:right;color:#c53030;font-weight:600;">
+                        ${{ "{:,.0f}".format(row.gastos) }}
+                    </td>
+                    <td style="padding:11px 16px;text-align:right;color:{% if row.impagas > 0 %}#c05621{% else %}#a0aec0{% endif %};">
+                        {% if row.impagas > 0 %}${{ "{:,.0f}".format(row.impagas) }}{% else %}—{% endif %}
+                    </td>
+                    <td style="padding:11px 16px;text-align:right;font-weight:700;
+                        color:{% if row.neto >= 0 %}#276749{% else %}#c53030{% endif %};">
+                        {% if row.neto >= 0 %}+{% endif %}${{ "{:,.0f}".format(row.neto) }}
+                    </td>
+                    <td style="padding:11px 16px;text-align:right;
+                        color:{% if row.acumulado >= 0 %}#2b6cb0{% else %}#c53030{% endif %};">
+                        {% if row.acumulado >= 0 %}+{% endif %}${{ "{:,.0f}".format(row.acumulado) }}
+                    </td>
+                    <td style="padding:11px 16px;text-align:center;">
+                        {% if row.tipo == 'proyectado' %}
+                            <span style="font-size:18px;" title="Proyectado">🔮</span>
+                        {% elif row.neto > 0 %}
+                            <span style="font-size:18px;" title="Flujo positivo">✅</span>
+                        {% elif row.neto == 0 %}
+                            <span style="font-size:18px;" title="Neutro">➖</span>
+                        {% else %}
+                            <span style="font-size:18px;" title="Flujo negativo">⚠️</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    const labels    = {{ cf.chart_labels    | tojson }};
+    const ingresos  = {{ cf.chart_ingresos  | tojson }};
+    const gastos    = {{ cf.chart_gastos    | tojson }};
+    const impagas   = {{ cf.chart_impagas   | tojson }};
+    const neto      = {{ cf.chart_neto      | tojson }};
+    const idxProj   = {{ cf.idx_proyeccion  | tojson }};
+
+    // Plugin: zona sombreada para meses proyectados
+    const shadingPlugin = {
+        id: 'projectionShading',
+        beforeDraw(chart) {
+            if (idxProj >= labels.length) return;
+            const { ctx, chartArea, scales } = chart;
+            if (!chartArea) return;
+            const x0 = scales.x.getPixelForValue(idxProj - 0.5);
+            const x1 = chartArea.right;
+            ctx.save();
+            ctx.fillStyle = 'rgba(190, 227, 248, 0.18)';
+            ctx.fillRect(x0, chartArea.top, x1 - x0, chartArea.bottom - chartArea.top);
+            // Línea divisoria
+            ctx.strokeStyle = 'rgba(49,130,206,0.4)';
+            ctx.setLineDash([5, 4]);
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(x0, chartArea.top);
+            ctx.lineTo(x0, chartArea.bottom);
+            ctx.stroke();
+            ctx.restore();
+        }
+    };
+
+    const ctx = document.getElementById('cashFlowChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        plugins: [shadingPlugin],
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Ingresos cobrados',
+                    data: ingresos,
+                    backgroundColor: 'rgba(56,161,105,0.75)',
+                    borderColor: 'rgba(56,161,105,1)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    order: 2
+                },
+                {
+                    label: 'Gastos pagados',
+                    data: gastos.map(v => -v),   // negativo para graficar hacia abajo
+                    backgroundColor: 'rgba(229,62,62,0.65)',
+                    borderColor: 'rgba(229,62,62,1)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    order: 2
+                },
+                {
+                    label: 'Impagas (vencen)',
+                    data: impagas,
+                    backgroundColor: 'rgba(214,158,46,0.55)',
+                    borderColor: 'rgba(214,158,46,1)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    order: 2
+                },
+                {
+                    label: 'Flujo neto',
+                    data: neto,
+                    type: 'line',
+                    borderColor: 'rgba(49,130,206,1)',
+                    backgroundColor: 'rgba(49,130,206,0.07)',
+                    pointBackgroundColor: neto.map(v => v >= 0 ? '#38a169' : '#e53e3e'),
+                    pointRadius: 5,
+                    tension: 0.35,
+                    fill: false,
+                    borderWidth: 2.5,
+                    order: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label(ctx) {
+                            const val = Math.abs(ctx.parsed.y);
+                            return `${ctx.dataset.label}: $${val.toLocaleString('es-CL', {minimumFractionDigits:0})}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { display: false } },
+                y: {
+                    grid: { color: 'rgba(0,0,0,0.04)' },
+                    ticks: {
+                        callback(v) {
+                            return '$' + Math.abs(v).toLocaleString('es-CL', {notation:'compact', maximumFractionDigits:1});
+                        }
+                    }
+                }
+            }
+        }
+    });
+})();
+</script>
+{% endblock %}

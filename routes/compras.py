@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify, flash, send_file, session
-from datetime import datetime
-import io
+from datetime import datetime, date
+import io, os
 from db import (
     list_suppliers,
     list_products_by_supplier,
@@ -10,7 +10,16 @@ from db import (
     get_purchase_order,
     get_purchase_order_items,
     list_active_purchase_orders_by_supplier,
-    approve_purchase_order
+    approve_purchase_order,
+    # Cuentas por Pagar y Bancos
+    list_bank_accounts,
+    create_purchase_invoice,
+    list_purchase_invoices,
+    get_purchase_invoice,
+    register_purchase_payment,
+    count_pending_invoices,
+    update_invoice_payment_status,
+    list_entries_missing_invoice,
 )
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -304,3 +313,198 @@ def descargar_oc_pdf(po_id):
         download_name=f"Orden_Compra_{po['oc_number']}.pdf",
         mimetype="application/pdf"
     )
+
+
+# ─── CUENTAS POR PAGAR ────────────────────────────────────────────────────────
+
+@compras_bp.route('/compras/cuentas-por-pagar')
+def cuentas_por_pagar():
+    """Listado de facturas de proveedores: pendientes, vencidas, sin factura y pagadas."""
+    # Actualizar estados vencidos automáticamente
+    update_invoice_payment_status()
+
+    filtro = request.args.get('filtro', 'todas')
+    filtro_map = {
+        'pendiente':   'Pendiente',
+        'vencida':     'Vencida',
+        'sin_factura': 'Sin Factura',
+        'pagada':      'Pagada',
+    }
+    status_filter = filtro_map.get(filtro)  # None = todas
+
+    invoices          = list_purchase_invoices(status_filter)
+    guias_sin_factura = list_entries_missing_invoice()
+    all_invoices      = list_purchase_invoices()
+    suppliers         = list_suppliers()
+    pos               = list_purchase_orders()
+    bank_accounts     = list_bank_accounts()
+
+    n_vencidas       = sum(1 for i in all_invoices if i['payment_status'] == 'Vencida')
+    n_pendientes     = sum(1 for i in all_invoices if i['payment_status'] == 'Pendiente')
+    n_sin_factura    = len(guias_sin_factura)
+    total_pendiente  = sum(
+        (i['invoice_amount'] or 0) for i in all_invoices
+        if i['payment_status'] in ('Pendiente', 'Vencida', 'Sin Factura')
+    )
+
+    stats = {
+        'n_vencidas':    n_vencidas,
+        'n_pendientes':  n_pendientes,
+        'n_sin_factura': n_sin_factura,
+        'total_pendiente': total_pendiente,
+    }
+
+    return render_template(
+        'compras_cuentas_pagar.html',
+        invoices=invoices,
+        guias_sin_factura=guias_sin_factura,
+        suppliers=suppliers,
+        purchase_orders=pos,
+        bank_accounts=bank_accounts,
+        stats=stats,
+        filtro_activo=filtro,
+    )
+
+
+@compras_bp.route('/compras/facturas/nueva', methods=['POST'])
+def nueva_factura_proveedor():
+    """Registra y sube una factura de proveedor vinculada a una guía/recepción, OC o directa."""
+    supplier_id        = request.form.get('supplier_id', type=int)
+    inventory_entry_id = request.form.get('inventory_entry_id', type=int) or None
+    purchase_order_id  = request.form.get('purchase_order_id', type=int) or None
+    invoice_number     = (request.form.get('invoice_number') or '').strip()
+    invoice_amount     = request.form.get('invoice_amount', type=float) or 0.0
+    invoice_date       = request.form.get('invoice_date', date.today().isoformat())
+    due_date           = (request.form.get('due_date') or '').strip()
+    notes              = request.form.get('notes', '')
+    payment_status     = request.form.get('payment_status', 'Pendiente')  # 'Pendiente' o 'Pagada'
+    bank_account_id    = request.form.get('bank_account_id', type=int) or None
+
+    # Upload de factura
+    doc_file_path = None
+    doc_file = request.files.get('document_file')
+    if doc_file and doc_file.filename:
+        upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'documentos_compra')
+        os.makedirs(upload_dir, exist_ok=True)
+        from werkzeug.utils import secure_filename
+        ext = os.path.splitext(doc_file.filename)[1].lower()
+        filename = secure_filename(f"factura_{invoice_number or 'doc'}_{date.today().isoformat()}{ext}")
+        doc_file.save(os.path.join(upload_dir, filename))
+        doc_file_path = f"documentos_compra/{filename}"
+
+    # Si se marca como pagada al momento de cargar
+    payment_date       = None
+    payment_amount     = None
+    payment_method     = None
+    payment_proof_path = None
+    if payment_status == 'Pagada':
+        if not bank_account_id:
+            flash("Debes seleccionar la cuenta bancaria de la empresa con la que se pagó la factura para poder registrarla como pagada.", "danger")
+            return redirect(url_for('compras.cuentas_por_pagar'))
+        payment_date   = request.form.get('payment_date', date.today().isoformat())
+        payment_amount = invoice_amount
+        payment_method = request.form.get('payment_method', 'Transferencia bancaria')
+        proof_file     = request.files.get('payment_proof_file')
+        if proof_file and proof_file.filename:
+            upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'comprobantes_pago')
+            os.makedirs(upload_dir, exist_ok=True)
+            from werkzeug.utils import secure_filename
+            ext = os.path.splitext(proof_file.filename)[1].lower()
+            filename = secure_filename(f"comprobante_{invoice_number}_{payment_date}{ext}")
+            proof_file.save(os.path.join(upload_dir, filename))
+            payment_proof_path = f"comprobantes_pago/{filename}"
+
+    inv_id = create_purchase_invoice({
+        'inventory_entry_id': inventory_entry_id,
+        'purchase_order_id':  purchase_order_id,
+        'supplier_id':        supplier_id,
+        'invoice_number':     invoice_number,
+        'invoice_amount':     invoice_amount,
+        'invoice_date':       invoice_date,
+        'due_date':           due_date,
+        'document_file':      doc_file_path,
+        'payment_status':     payment_status,
+        'bank_account_id':    bank_account_id,
+        'notes':              notes,
+    })
+
+    if payment_status == 'Pagada':
+        register_purchase_payment(inv_id, {
+            'payment_date':       payment_date,
+            'payment_amount':     payment_amount,
+            'payment_method':     payment_method,
+            'bank_account_id':    bank_account_id,
+            'payment_proof_file': payment_proof_path,
+            'payment_notes':      'Registrado pagado al cargar factura',
+        })
+
+    flash(f"Factura #{invoice_number} cargada y registrada con éxito.", "success")
+    return redirect(url_for('compras.cuentas_por_pagar'))
+
+
+@compras_bp.route('/compras/facturas/<int:invoice_id>/registrar-pago', methods=['POST'])
+def registrar_pago_factura(invoice_id):
+    """Registra el pago de una factura de proveedor con cuenta bancaria y comprobante."""
+    inv = get_purchase_invoice(invoice_id)
+    if not inv:
+        flash("Factura no encontrada.", "danger")
+        return redirect(url_for('compras.cuentas_por_pagar'))
+
+    bank_account_id = request.form.get('bank_account_id', type=int) or None
+    if not bank_account_id:
+        flash("Debes seleccionar la cuenta bancaria de la empresa con la que se realizó el pago para poder cerrar la transacción.", "danger")
+        return redirect(url_for('compras.cuentas_por_pagar'))
+
+    payment_date    = request.form.get('payment_date', date.today().isoformat())
+    payment_amount  = request.form.get('payment_amount', type=float) or inv['invoice_amount'] or 0
+    payment_method  = request.form.get('payment_method', 'Transferencia bancaria')
+    payment_notes   = request.form.get('payment_notes', '')
+    invoice_number  = request.form.get('invoice_number', inv.get('invoice_number', ''))
+
+    # Upload del comprobante
+    proof_path = inv.get('payment_proof_file')
+    proof_file = request.files.get('payment_proof_file')
+    if proof_file and proof_file.filename:
+        upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'comprobantes_pago')
+        os.makedirs(upload_dir, exist_ok=True)
+        from werkzeug.utils import secure_filename
+        ext      = os.path.splitext(proof_file.filename)[1].lower()
+        filename = secure_filename(f"comprobante_{invoice_id}_{payment_date}{ext}")
+        proof_file.save(os.path.join(upload_dir, filename))
+        proof_path = f"comprobantes_pago/{filename}"
+
+    ok = register_purchase_payment(invoice_id, {
+        'payment_date':       payment_date,
+        'payment_amount':     payment_amount,
+        'payment_method':     payment_method,
+        'bank_account_id':    bank_account_id,
+        'payment_proof_file': proof_path,
+        'payment_notes':      payment_notes,
+    })
+
+    # Si el N° de factura cambió (era guía de despacho y ahora llega la factura), actualizarlo
+    if invoice_number and invoice_number != (inv.get('invoice_number') or ''):
+        from db import get_connection
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE purchase_invoices SET invoice_number = %s WHERE id = %s",
+                    (invoice_number, invoice_id)
+                )
+                conn.commit()
+
+    if ok:
+        flash(f"Pago registrado correctamente para la factura #{invoice_number or invoice_id}.", "success")
+    else:
+        flash("No se pudo registrar el pago. Intenta nuevamente.", "danger")
+
+    return redirect(url_for('compras.cuentas_por_pagar'))
+
+
+
+@compras_bp.route('/api/compras/facturas/pendientes/count')
+def api_pending_invoices_count():
+    """API: devuelve la cantidad de facturas pendientes/vencidas (para badge del menú)."""
+    n = count_pending_invoices()
+    return jsonify({'count': n})
+

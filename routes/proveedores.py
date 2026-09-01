@@ -106,6 +106,7 @@ def editar_proveedor(supplier_id):
 
         if supplier["name"]:
             update_supplier(supplier_id, supplier)
+            flash("Cambios guardados con éxito", "success")
 
         return redirect(url_for('proveedores.editar_proveedor', supplier_id=supplier_id))
 

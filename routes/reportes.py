@@ -1,5 +1,5 @@
-from flask import Blueprint, render_template, make_response
-from db import get_income_report_data
+from flask import Blueprint, render_template, make_response, request
+from db import get_income_report_data, get_cash_flow_data, get_cash_flow_data_weekly
 
 reportes_bp = Blueprint('reportes', __name__)
 
@@ -25,6 +25,25 @@ def reportes_ingresos():
     response = make_response(render_template(
         'reporte_ingresos.html',
         income_data=income_data
+    ))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    return response
+
+@reportes_bp.route('/reporteria/flujo-caja')
+def reportes_flujo_caja():
+    """Flujo de Caja: ingresos, gastos, impagas y proyección — semanal por defecto o mensual"""
+    vista = request.args.get('vista', 'semanal')
+    if vista == 'mensual':
+        cf = get_cash_flow_data()
+        vista = 'mensual'
+    else:
+        cf = get_cash_flow_data_weekly()
+        vista = 'semanal'
+    response = make_response(render_template(
+        'reporte_flujo_caja.html',
+        cf=cf,
+        vista=vista
     ))
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'

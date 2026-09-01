@@ -281,9 +281,12 @@
                     <input type="text" name="customer_dv" class="form-field-input" value="{{ cloned_quotation.customer_dv if cloned_quotation else '' }}" placeholder="K" style="width: 45px; text-align: center;">
                 </div>
             </div>
-            <div class="form-group-field">
+            <div class="form-group-field" style="position: relative;">
                 <label>Razón Social / Nombre Cliente *</label>
-                <input type="text" name="customer_name" value="{{ cloned_quotation.customer_name if cloned_quotation else '' }}" required class="form-field-input" placeholder="Ej: Distribuidora Miel SpA">
+                <div style="position: relative;">
+                    <input type="text" name="customer_name" id="customer-name-input" autocomplete="off" value="{{ cloned_quotation.customer_name if cloned_quotation else '' }}" required class="form-field-input" placeholder="Buscar por nombre o escribir nuevo...">
+                    <div id="customer-suggestions" style="display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 1050; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1); max-height: 240px; overflow-y: auto;"></div>
+                </div>
             </div>
         </div>
 
@@ -772,10 +775,156 @@ document.addEventListener('DOMContentLoaded', () => {
         calculateTotal();
     });
     
-    // Auto buscar datos de cliente si ingresa RUT conocido
+    // Auto buscar datos de cliente si ingresa RUT o Nombre conocido
     const rutInput = document.querySelector('input[name="customer_rut"]');
     const dvInput = document.querySelector('input[name="customer_dv"]');
-    const nameInput = document.querySelector('input[name="customer_name"]');
+    const nameInput = document.getElementById('customer-name-input') || document.querySelector('input[name="customer_name"]');
+    const suggestionsBox = document.getElementById('customer-suggestions');
+
+    function fillClientData(c) {
+        if (!c) return;
+        if (c.rut && rutInput) {
+            rutInput.value = c.rut;
+            rutInput.style.borderColor = '#38a169';
+        }
+        if (c.dv && dvInput) {
+            dvInput.value = c.dv;
+            dvInput.style.borderColor = '#38a169';
+        }
+        if (c.razon_social && nameInput) {
+            nameInput.value = c.razon_social;
+            nameInput.style.borderColor = '#38a169';
+        }
+        if (c.email && emailInput) {
+            emailInput.value = c.email;
+            emailInput.style.borderColor = '#38a169';
+        }
+        if (c.category_id && categorySelect) {
+            categorySelect.value = c.category_id;
+            categorySelect.dispatchEvent(new Event('change'));
+        }
+        if (suggestionsBox) {
+            suggestionsBox.style.display = 'none';
+        }
+    }
+
+    // Búsqueda por Nombre / Razón Social
+    let searchTimeout = null;
+    let currentFocusIndex = -1;
+
+    async function searchCustomersByName(q) {
+        if (!suggestionsBox) return;
+        if (!q || q.trim().length < 2) {
+            suggestionsBox.style.display = 'none';
+            suggestionsBox.innerHTML = '';
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/clientes/buscar?q=${encodeURIComponent(q.trim())}`);
+            if (!res.ok) {
+                suggestionsBox.style.display = 'none';
+                return;
+            }
+            const clients = await res.json();
+            if (!clients || clients.length === 0) {
+                suggestionsBox.innerHTML = `
+                    <div style="padding: 10px 14px; font-size: 13px; color: #94a3b8; font-style: italic;">
+                        No se encontraron clientes registrados con "${q}"
+                    </div>
+                `;
+                suggestionsBox.style.display = 'block';
+                return;
+            }
+
+            let html = '';
+            clients.forEach((c, idx) => {
+                const rutDisplay = c.rut ? `${c.rut}-${c.dv || ''}` : 'Sin RUT';
+                const emailDisplay = c.email ? ` · ✉️ ${c.email}` : '';
+                const contactDisplay = c.contacto ? ` · 👤 ${c.contacto}` : '';
+                html += `
+                    <div class="customer-suggestion-item" data-index="${idx}"
+                         style="padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;"
+                         onmouseover="this.style.background='#f0fdf4'"
+                         onmouseout="this.style.background='transparent'">
+                        <div style="font-size: 13px; font-weight: 700; color: #1e293b; display: flex; justify-content: space-between; align-items: center;">
+                            <span>🏢 ${c.razon_social}</span>
+                            <span style="font-size: 11px; font-weight: 600; color: #2563eb; background: #eff6ff; padding: 2px 6px; border-radius: 4px;">${rutDisplay}</span>
+                        </div>
+                        <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
+                            ${contactDisplay}${emailDisplay}
+                        </div>
+                    </div>
+                `;
+            });
+
+            suggestionsBox.innerHTML = html;
+            suggestionsBox.style.display = 'block';
+            currentFocusIndex = -1;
+
+            // Vincular evento clic a cada elemento de la sugerencia
+            const items = suggestionsBox.querySelectorAll('.customer-suggestion-item');
+            items.forEach((item, idx) => {
+                item.addEventListener('click', () => {
+                    fillClientData(clients[idx]);
+                });
+            });
+
+        } catch (e) {
+            console.error("Error buscando clientes:", e);
+        }
+    }
+
+    if (nameInput) {
+        nameInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const val = e.target.value;
+            searchTimeout = setTimeout(() => {
+                searchCustomersByName(val);
+            }, 250);
+        });
+
+        nameInput.addEventListener('keydown', (e) => {
+            if (!suggestionsBox || suggestionsBox.style.display === 'none') return;
+            const items = suggestionsBox.querySelectorAll('.customer-suggestion-item');
+            if (!items || items.length === 0) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                currentFocusIndex = (currentFocusIndex + 1) % items.length;
+                updateSuggestionHighlight(items);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                currentFocusIndex = (currentFocusIndex - 1 + items.length) % items.length;
+                updateSuggestionHighlight(items);
+            } else if (e.key === 'Enter') {
+                if (currentFocusIndex >= 0 && currentFocusIndex < items.length) {
+                    e.preventDefault();
+                    items[currentFocusIndex].click();
+                }
+            } else if (e.key === 'Escape') {
+                suggestionsBox.style.display = 'none';
+            }
+        });
+
+        function updateSuggestionHighlight(items) {
+            items.forEach((it, idx) => {
+                if (idx === currentFocusIndex) {
+                    it.style.background = '#dcfce7';
+                    it.scrollIntoView({ block: 'nearest' });
+                } else {
+                    it.style.background = 'transparent';
+                }
+            });
+        }
+    }
+
+    // Cerrar sugerencias al hacer clic fuera
+    document.addEventListener('click', (e) => {
+        if (suggestionsBox && !suggestionsBox.contains(e.target) && e.target !== nameInput) {
+            suggestionsBox.style.display = 'none';
+        }
+    });
 
     // Validar RUT de Chile (módulo 11)
     function validarRutChileno(rut, dv) {
@@ -829,17 +978,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 const data = await response.json();
                 if (data.status === 'ok' && data.client) {
-                    const c = data.client;
-                    if (c.dv && dvInput && !dvInput.value.trim()) dvInput.value = c.dv;
-                    if (c.razon_social && nameInput) nameInput.value = c.razon_social;
-                    if (c.email && emailInput) emailInput.value = c.email;
-                    if (c.category_id && categorySelect) {
-                        categorySelect.value = c.category_id;
-                        categorySelect.dispatchEvent(new Event('change'));
-                    }
-                    if (rutInput) rutInput.style.borderColor = '#38a169';
-                    if (dvInput) dvInput.style.borderColor = '#38a169';
-                    if (nameInput) nameInput.style.borderColor = '#38a169';
+                    fillClientData(data.client);
                 }
             } else {
                 if (rutInput && !dv) rutInput.style.borderColor = '#cbd5e0';
