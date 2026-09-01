@@ -4,7 +4,8 @@ from db import (
     get_sales_chart_data,
     get_top_products,
     get_sales_metrics,
-    get_page_data
+    get_page_data,
+    get_system_notifications
 )
 
 dashboard_bp = Blueprint('dashboard', __name__)
@@ -77,3 +78,13 @@ def dashboard_data():
             "estadisticas": estadisticas,
         }
     )
+
+
+@dashboard_bp.route('/api/notificaciones')
+def api_notificaciones():
+    """Retorna las notificaciones y alertas activas del sistema"""
+    notifs = get_system_notifications()
+    return jsonify({
+        "count": len(notifs),
+        "notifications": notifs
+    })

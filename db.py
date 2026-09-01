@@ -3965,5 +3965,87 @@ def upsert_client_by_rut(data: dict) -> int:
         return insert_client(new_client)
 
 
+def get_system_notifications() -> list[dict]:
+    """Genera las notificaciones y alertas activas del sistema (facturas vencidas/por vencer, stock bajo, ventas pendientes)."""
+    notifications = []
+    now = datetime.now()
+    today_str = now.strftime('%Y-%m-%d')
+    next_7d_str = (now + timedelta(days=7)).strftime('%Y-%m-%d')
+
+    # 1. Facturas de compra vencidas o por vencer (Cuentas por Pagar)
+    invoices = list_purchase_invoices()
+    for inv in invoices:
+        p_status = inv.get('payment_status', 'Pendiente')
+        due = inv.get('due_date') or ''
+        num = inv.get('invoice_number') or f"ID #{inv.get('id')}"
+        supp = inv.get('supplier_name') or 'Proveedor'
+        amt = float(inv.get('invoice_amount') or 0)
+        
+        if p_status != 'Pagada' and due:
+            if due < today_str:
+                notifications.append({
+                    'id': f"inv-{inv['id']}",
+                    'type': 'danger',
+                    'icon': 'fa-solid fa-file-circle-xmark',
+                    'title': f'Factura Vencida: {num}',
+                    'desc': f'{supp} · ${amt:,.0f} · Venció el {due}',
+                    'link': '/compras/cuentas-por-pagar',
+                    'time': 'Cuentas por Pagar'
+                })
+            elif due <= next_7d_str:
+                notifications.append({
+                    'id': f"inv-{inv['id']}",
+                    'type': 'warning',
+                    'icon': 'fa-solid fa-file-invoice-dollar',
+                    'title': f'Factura por Vencer: {num}',
+                    'desc': f'{supp} · ${amt:,.0f} · Vence el {due}',
+                    'link': '/compras/cuentas-por-pagar',
+                    'time': 'Cuentas por Pagar'
+                })
+
+    # 2. Stock crítico en Bodega
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT json FROM page_data WHERE key = 'inventory_items'")
+            row = cur.fetchone()
+            if row and row['json']:
+                try:
+                    items = json.loads(row['json'])
+                    for it in items:
+                        stk = int(it.get('stock', 0))
+                        min_stk = int(it.get('min_stock', 10))
+                        if stk <= min_stk:
+                            notifications.append({
+                                'id': f"stock-{it.get('code')}",
+                                'type': 'warning',
+                                'icon': 'fa-solid fa-boxes-stacked',
+                                'title': f"Stock Bajo: {it.get('name', 'Insumo')}",
+                                'desc': f"Quedan {stk} unidades (mínimo requerido: {min_stk})",
+                                'link': '/inventario',
+                                'time': 'Bodega'
+                            })
+                except Exception:
+                    pass
+
+    # 3. Ventas pendientes por gestionar
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) as count FROM sales WHERE status = 'Pendiente' AND sale_number LIKE 'VTA-%%'")
+            row_pend = cur.fetchone()
+            pend = int(row_pend['count']) if row_pend else 0
+            if pend > 0:
+                notifications.append({
+                    'id': 'sales-pending',
+                    'type': 'info',
+                    'icon': 'fa-solid fa-clock',
+                    'title': f'{pend} Ventas Pendientes',
+                    'desc': 'Pedidos pendientes de pago o despacho',
+                    'link': '/ventas',
+                    'time': 'Ventas'
+                })
+
+    return notifications
+
+
 
 
