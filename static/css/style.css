@@ -305,6 +305,16 @@ body {
     background: rgba(245, 101, 101, 0.1);
 }
 
+.stat-trend.warning {
+    color: #dd6b20;
+    background: rgba(221, 107, 32, 0.1);
+}
+
+.stat-trend.neutral {
+    color: #718096;
+    background: rgba(113, 128, 150, 0.1);
+}
+
 /* Charts Grid */
 .charts-grid {
     display: grid;

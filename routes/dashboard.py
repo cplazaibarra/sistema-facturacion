@@ -61,9 +61,13 @@ def dashboard_data():
     metrics = get_sales_metrics()
     estadisticas = {
         "ventas_hoy": metrics['ventas_hoy'],
+        "ventas_hoy_trend": metrics.get('ventas_hoy_trend', {'text': '0%', 'type': 'neutral'}),
         "productos_stock": metrics.get('productos_stock', 0),
-        "ordenes_pendientes": metrics['ventas_pendientes'],
+        "productos_stock_trend": metrics.get('productos_stock_trend', {'text': 'Óptimo', 'type': 'positive'}),
+        "ordenes_pendientes": metrics.get('ordenes_pendientes', 0),
+        "ordenes_pendientes_trend": metrics.get('ordenes_pendientes_trend', {'text': '0%', 'type': 'neutral'}),
         "clientes_activos": metrics['clientes_activos'],
+        "clientes_activos_trend": metrics.get('clientes_activos_trend', {'text': 'Activos', 'type': 'positive'}),
     }
 
     return jsonify(

@@ -12,7 +12,7 @@
             <div class="stat-value" id="ventas-hoy">$0</div>
             <div class="stat-label">Ventas Hoy</div>
         </div>
-        <div class="stat-trend positive">+12.5%</div>
+        <div class="stat-trend neutral" id="ventas-hoy-trend">0%</div>
     </div>
     
     <div class="stat-card">
@@ -21,7 +21,7 @@
             <div class="stat-value" id="productos-stock">0</div>
             <div class="stat-label">Productos en Stock</div>
         </div>
-        <div class="stat-trend positive">+5.2%</div>
+        <div class="stat-trend positive" id="productos-stock-trend">Óptimo</div>
     </div>
     
     <div class="stat-card">
@@ -30,7 +30,7 @@
             <div class="stat-value" id="ordenes-pendientes">0</div>
             <div class="stat-label">Órdenes Pendientes</div>
         </div>
-        <div class="stat-trend negative">-2.4%</div>
+        <div class="stat-trend warning" id="ordenes-pendientes-trend">0%</div>
     </div>
     
     <div class="stat-card">
@@ -39,7 +39,7 @@
             <div class="stat-value" id="clientes-activos">0</div>
             <div class="stat-label">Clientes Activos</div>
         </div>
-        <div class="stat-trend positive">+8.1%</div>
+        <div class="stat-trend positive" id="clientes-activos-trend">0</div>
     </div>
 </div>
 
@@ -255,6 +255,13 @@
             .catch(err => console.error("Error loading products chart:", err));
     }
 
+    function applyTrend(elId, trend) {
+        const el = document.getElementById(elId);
+        if (!el || !trend) return;
+        el.textContent = trend.text || '';
+        el.className = 'stat-trend ' + (trend.type || 'neutral');
+    }
+
     function loadInitialData() {
         fetch('/api/dashboard-data')
             .then(res => res.json())
@@ -264,6 +271,11 @@
                     document.getElementById('productos-stock').textContent = Number(data.estadisticas.productos_stock || 0).toLocaleString('es-CL');
                     document.getElementById('ordenes-pendientes').textContent = Number(data.estadisticas.ordenes_pendientes || 0).toLocaleString('es-CL');
                     document.getElementById('clientes-activos').textContent = Number(data.estadisticas.clientes_activos || 0).toLocaleString('es-CL');
+                    
+                    applyTrend('ventas-hoy-trend', data.estadisticas.ventas_hoy_trend);
+                    applyTrend('productos-stock-trend', data.estadisticas.productos_stock_trend);
+                    applyTrend('ordenes-pendientes-trend', data.estadisticas.ordenes_pendientes_trend);
+                    applyTrend('clientes-activos-trend', data.estadisticas.clientes_activos_trend);
                 }
                 if (data.ventas_mensuales) {
                     renderVentasChart(data.ventas_mensuales);

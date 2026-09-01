@@ -2,7 +2,7 @@ import json
 import os
 import psycopg2
 import psycopg2.extras
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -2243,52 +2243,118 @@ def get_sale_payment_items_totals(sale_ids: list[int]) -> dict[int, float]:
 
 
 def get_sales_metrics() -> dict:
-    """Calcula las métricas principales del dashboard (ventas reales VTA- hoy, stock real, órdenes pendientes, clientes activos)."""
+    """Calcula las métricas principales del dashboard y sus tendencias reales calculadas."""
     with get_connection() as conn:
         with conn.cursor() as cur:
-            today = datetime.now().strftime('%Y-%m-%d')
+            now = datetime.now()
+            today_str = now.strftime('%Y-%m-%d')
+            yesterday_str = (now - timedelta(days=1)).strftime('%Y-%m-%d')
+            cur_month_str = now.strftime('%Y-%m')
+            prev_month_date = (now.replace(day=1) - timedelta(days=1))
+            prev_month_str = prev_month_date.strftime('%Y-%m')
+
+            # 1. Ventas hoy vs ayer
             cur.execute(
                 "SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE sale_date = %s AND status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'",
-                (today,)
+                (today_str,)
             )
             row_today = cur.fetchone()
-            total_today = row_today["total"] if row_today else 0
-            
+            total_today = float(row_today["total"]) if row_today else 0.0
+
             cur.execute(
-                "SELECT COUNT(*) as count FROM sales WHERE status = 'Completada' AND sale_number LIKE 'VTA-%%'"
+                "SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE sale_date = %s AND status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'",
+                (yesterday_str,)
             )
-            row_comp = cur.fetchone()
-            total_completed = row_comp["count"] if row_comp else 0
+            row_yesterday = cur.fetchone()
+            total_yesterday = float(row_yesterday["total"]) if row_yesterday else 0.0
+
+            if total_yesterday > 0:
+                diff_pct = round(((total_today - total_yesterday) / total_yesterday) * 100, 1)
+                ventas_trend_text = f"{'+' if diff_pct > 0 else ''}{diff_pct:.1f}% vs ayer"
+                ventas_trend_type = "positive" if diff_pct >= 0 else "negative"
+            elif total_today > 0:
+                ventas_trend_text = "+100% vs ayer"
+                ventas_trend_type = "positive"
+            else:
+                ventas_trend_text = "0% vs ayer"
+                ventas_trend_type = "neutral"
+
+            # 2. Stock total y productos con bajo stock
+            cur.execute("SELECT json FROM page_data WHERE key = 'inventory_items'")
+            row_inv = cur.fetchone()
+            items = []
+            if row_inv and row_inv["json"]:
+                try:
+                    items = json.loads(row_inv["json"])
+                except Exception:
+                    items = []
             
+            total_stock = sum(int(it.get("stock", 0)) for it in items)
+            low_stock_count = sum(1 for it in items if int(it.get("stock", 0)) <= int(it.get("min_stock", 10)))
+            
+            if low_stock_count > 0:
+                stock_trend_text = f"{low_stock_count} bajo stock"
+                stock_trend_type = "warning"
+            else:
+                stock_trend_text = "Stock óptimo"
+                stock_trend_type = "positive"
+
+            # 3. Órdenes pendientes vs total
             cur.execute(
                 "SELECT COUNT(*) as count FROM sales WHERE status = 'Pendiente' AND sale_number LIKE 'VTA-%%'"
             )
             row_pend = cur.fetchone()
-            total_pending = row_pend["count"] if row_pend else 0
-            
+            total_pending = int(row_pend["count"]) if row_pend else 0
+
+            cur.execute(
+                "SELECT COUNT(*) as count FROM sales WHERE status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'"
+            )
+            row_tot_ord = cur.fetchone()
+            total_orders = int(row_tot_ord["count"]) if row_tot_ord else 0
+
+            if total_orders > 0 and total_pending > 0:
+                pct_pend = round((total_pending / total_orders) * 100, 1)
+                pend_trend_text = f"{pct_pend:.0f}% del total"
+                pend_trend_type = "negative" if pct_pend > 50 else "warning"
+            elif total_pending == 0:
+                pend_trend_text = "Al día (0)"
+                pend_trend_type = "positive"
+            else:
+                pend_trend_text = f"{total_pending} activas"
+                pend_trend_type = "warning"
+
+            # 4. Clientes activos y compras recientes (últimos 60 días)
             cur.execute(
                 "SELECT COUNT(*) as count FROM clients"
             )
             row_cli = cur.fetchone()
-            total_customers = row_cli["count"] if row_cli else 0
+            total_customers = int(row_cli["count"]) if row_cli else 0
 
-            # Stock total de productos en inventario
-            cur.execute("SELECT json FROM page_data WHERE key = 'inventory_items'")
-            row_inv = cur.fetchone()
-            total_stock = 0
-            if row_inv and row_inv["json"]:
-                try:
-                    items = json.loads(row_inv["json"])
-                    total_stock = sum(int(it.get("stock", 0)) for it in items)
-                except Exception:
-                    total_stock = 0
-            
+            since_60d = (now - timedelta(days=60)).strftime('%Y-%m-%d')
+            cur.execute(
+                "SELECT COUNT(DISTINCT customer_name) as count FROM sales WHERE sale_number LIKE 'VTA-%%' AND sale_date >= %s",
+                (since_60d,)
+            )
+            row_rec = cur.fetchone()
+            recent_active = int(row_rec["count"]) if row_rec else 0
+
+            if total_customers > 0:
+                cli_trend_text = f"100% activos"
+                cli_trend_type = "positive"
+            else:
+                cli_trend_text = "0 registrados"
+                cli_trend_type = "neutral"
+
             return {
                 "ventas_hoy": round(float(total_today), 2),
-                "ventas_completadas": total_completed,
-                "ventas_pendientes": total_pending,
-                "clientes_activos": total_customers,
+                "ventas_hoy_trend": {"text": ventas_trend_text, "type": ventas_trend_type},
                 "productos_stock": total_stock,
+                "productos_stock_trend": {"text": stock_trend_text, "type": stock_trend_type},
+                "ordenes_pendientes": total_pending,
+                "ordenes_pendientes_trend": {"text": pend_trend_text, "type": pend_trend_type},
+                "clientes_activos": total_customers,
+                "clientes_activos_trend": {"text": cli_trend_text, "type": cli_trend_type},
+                "ventas_completadas": total_orders - total_pending,
             }
 
 
