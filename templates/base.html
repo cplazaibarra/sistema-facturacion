@@ -95,15 +95,12 @@
                     </div>
                 </div>
                 <div class="nav-section">
-                    <button class="nav-item nav-toggle {% if request.endpoint in ['usuarios.administracion', 'usuarios.cuentas_bancarias', 'usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['usuarios.cuentas_bancarias', 'usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
                         <span class="icon"><i class="fa-solid fa-sliders"></i></span>
                         <span>Administración</span>
                         <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
-                    <div class="nav-submenu {% if request.endpoint in ['usuarios.administracion', 'usuarios.cuentas_bancarias', 'usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol'] %}open{% endif %}">
-                        <a href="{{ url_for('usuarios.administracion') }}" class="nav-item nav-subitem {% if request.endpoint == 'usuarios.administracion' %}active{% endif %}">
-                            <span>Configuración</span>
-                        </a>
+                    <div class="nav-submenu {% if request.endpoint in ['usuarios.cuentas_bancarias', 'usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol'] %}open{% endif %}">
                         <a href="{{ url_for('usuarios.cuentas_bancarias') }}" class="nav-item nav-subitem {% if request.endpoint == 'usuarios.cuentas_bancarias' %}active{% endif %}">
                             <span>Cuentas Bancarias</span>
                         </a>
