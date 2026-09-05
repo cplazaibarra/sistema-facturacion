@@ -20,8 +20,8 @@
 <!-- Tarjetas de métricas para Cotizaciones -->
 <div class="sf-metrics-grid">
     {% for metric in cotizaciones_metrics %}
-    <div class="sf-metric-card {% if active_filter == metric.filter_val or (not active_filter and not metric.filter_val) %}active-filter{% endif %}" 
-         onclick="window.location.href='{{ url_for('ventas.cotizaciones') }}{% if metric.filter_val %}?filter={{ metric.filter_val | urlencode }}{% endif %}'" 
+    <div class="sf-metric-card {% if active_filter == metric.filter_val or (metric.filter_val == '' and active_filter in ['', 'all', 'Todas']) %}active-filter{% endif %}" 
+         onclick="window.location.href='{{ url_for('ventas.cotizaciones') }}?filter={{ metric.filter_val | urlencode }}'" 
          style="cursor:pointer;" title="Filtrar por {{ metric.label }}">
         <span class="sf-metric-icon {{ metric.color }}">{{ metric.icon | safe }}</span>
         <div class="sf-metric-content">
@@ -32,10 +32,10 @@
     {% endfor %}
 </div>
 
-{% if active_filter %}
+{% if active_filter and active_filter not in ['', 'all', 'Todas'] %}
 <div style="display:flex; align-items:center; gap:10px; margin: 8px 0 0 0; padding: 6px 14px; background:#EBF8FF; border-radius:6px; border-left: 4px solid #3182ce; font-size:13px; color:#2b6cb0;">
     <span>🔍 Filtro activo por Estado: <strong>{{ active_filter }}</strong></span>
-    <a href="{{ url_for('ventas.cotizaciones') }}" style="margin-left:10px; color:#e53e3e; font-weight:600; text-decoration:none;">✕ Ver Todas</a>
+    <a href="{{ url_for('ventas.cotizaciones') }}?filter=" style="margin-left:10px; color:#e53e3e; font-weight:600; text-decoration:none;">✕ Ver Todas</a>
 </div>
 {% endif %}
 
@@ -51,10 +51,10 @@
         <div style="display: flex; align-items: center; gap: 6px;">
             <label style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">📊 Estado:</label>
             <select id="sf-status-filter-cot" onchange="filterCotizacionesTable()" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white;">
-                <option value="">-- Todos --</option>
-                <option value="Activa">Activa</option>
-                <option value="Ganada">Ganada</option>
-                <option value="Perdida">Perdida</option>
+                <option value="" {% if active_filter in ['', 'all', 'Todas'] %}selected{% endif %}>-- Todos --</option>
+                <option value="Activa" {% if active_filter == 'Activa' %}selected{% endif %}>Activa</option>
+                <option value="Ganada" {% if active_filter == 'Ganada' %}selected{% endif %}>Ganada</option>
+                <option value="Perdida" {% if active_filter == 'Perdida' %}selected{% endif %}>Perdida</option>
             </select>
         </div>
 

@@ -253,7 +253,10 @@ def ventas():
 @ventas_bp.route('/ventas/cotizaciones')
 def cotizaciones():
     """Módulo exclusivo de Cotizaciones"""
-    card_filter = request.args.get('filter', '')
+    if 'filter' in request.args:
+        card_filter = request.args.get('filter', '')
+    else:
+        card_filter = 'Activa'
     active_filter = card_filter
 
     ventas_records_all, today_str = _get_formatted_sales_data()
@@ -276,6 +279,8 @@ def cotizaciones():
         elif card_filter in ['Perdida', 'Cotizaciones Perdidas']:
             if q_status == 'Perdida':
                 cotizaciones_records.append(record)
+        elif card_filter in ['', 'all', 'Todas']:
+            cotizaciones_records.append(record)
         else:
             cotizaciones_records.append(record)
 
