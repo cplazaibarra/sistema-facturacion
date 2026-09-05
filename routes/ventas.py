@@ -1237,11 +1237,23 @@ def nueva_cotizacion():
             
         products_prices_map[str(p_id)] = prices
 
+    base_margin = float(config.get("base_margin", 0.0) or 0.0)
+    enriched_categories = []
+    for cat in config.get("categories", []):
+        cat_copy = dict(cat)
+        cat_margin = float(cat_copy.get("margin", 0.0) or 0.0)
+        total_margin = round(base_margin + cat_margin, 2)
+        # Formatear bonito: si es entero, mostrar sin decimales
+        cat_copy["total_margin"] = int(total_margin) if total_margin.is_integer() else total_margin
+        cat_copy["base_margin"] = int(base_margin) if base_margin.is_integer() else base_margin
+        enriched_categories.append(cat_copy)
+
     return render_template(
         'nueva_cotizacion.html',
         products=products,
         default_date=default_date,
-        categories=config["categories"],
+        categories=enriched_categories,
+        base_margin=base_margin,
         products_prices_map=products_prices_map,
         cloned_quotation=cloned_quotation,
         is_edit_mode=is_edit_mode
