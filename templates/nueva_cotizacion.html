@@ -438,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return '$' + Math.round(val).toLocaleString('es-CL');
     }
     
-    function createRow(selectedProdId = null, initialQty = 1, initialPrice = null, initialDiscount = 0) {
+    function createRow(selectedProdId = null, initialQty = 1, initialPrice = null, initialDiscount = 0, initialLot = null) {
         const tr = document.createElement('tr');
         tr.className = 'product-row-tr';
         
@@ -631,6 +631,69 @@ document.addEventListener('DOMContentLoaded', () => {
         customSelectContainer.appendChild(hiddenInput);
         customSelectContainer.appendChild(dropdownMenu);
         tdProd.appendChild(customSelectContainer);
+
+        // Sub-contenedor para selector de lote (aparece si el producto tiene lotes o requiere lote)
+        const lotBox = document.createElement('div');
+        lotBox.className = 'product-lot-box';
+        lotBox.style.marginTop = '6px';
+        lotBox.style.display = 'none';
+
+        const lotInput = document.createElement('input');
+        lotInput.type = 'hidden';
+        lotInput.name = 'lot_number[]';
+        lotInput.value = initialLot || '';
+        lotBox.appendChild(lotInput);
+
+        const lotSelect = document.createElement('select');
+        lotSelect.className = 'form-field-input';
+        lotSelect.style.fontSize = '12px';
+        lotSelect.style.padding = '4px 8px';
+        lotSelect.style.height = '30px';
+        lotSelect.style.borderColor = '#93c5fd';
+        lotSelect.style.background = '#eff6ff';
+        lotSelect.style.color = '#1e40af';
+        lotSelect.style.fontWeight = '500';
+        lotSelect.innerHTML = '<option value="">📦 Sin asignar lote (General)</option>';
+
+        lotSelect.addEventListener('change', () => {
+            lotInput.value = lotSelect.value;
+        });
+        lotBox.appendChild(lotSelect);
+        tdProd.appendChild(lotBox);
+
+        async function loadLotsForProduct(pId, preselectedLot = null) {
+            if (!pId) {
+                lotBox.style.display = 'none';
+                lotInput.value = '';
+                return;
+            }
+            try {
+                const res = await fetch(`/api/lotes/${pId}`);
+                if (res.ok) {
+                    const lots = await res.json();
+                    if (lots && lots.length > 0) {
+                        let opts = '<option value="">📦 Seleccionar Lote disponible...</option>';
+                        lots.forEach(l => {
+                            const isSel = (preselectedLot && l.lot_number === preselectedLot) ? 'selected' : '';
+                            opts += `<option value="${l.lot_number}" ${isSel}>Lote: ${l.lot_number} (Disp: ${l.available_qty} un.)</option>`;
+                        });
+                        lotSelect.innerHTML = opts;
+                        if (preselectedLot) {
+                            lotSelect.value = preselectedLot;
+                            lotInput.value = preselectedLot;
+                        }
+                        lotBox.style.display = 'block';
+                    } else {
+                        // No hay lotes registrados para este producto
+                        lotSelect.innerHTML = '<option value="">📦 Stock general (Sin lotes registrados)</option>';
+                        lotInput.value = preselectedLot || '';
+                        lotBox.style.display = preselectedLot ? 'block' : 'none';
+                    }
+                }
+            } catch (err) {
+                console.error("Error cargando lotes del producto:", err);
+            }
+        }
         
         // Columna Cantidad
         const tdQty = document.createElement('td');
@@ -720,9 +783,14 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 priceInput.value = '';
             }
+            loadLotsForProduct(productId);
             updateRowSubtotal();
             calculateTotal();
         });
+
+        if (selectedProdId) {
+            loadLotsForProduct(selectedProdId, initialLot);
+        }
         
         qtyInput.addEventListener('input', () => {
             updateRowSubtotal();
@@ -1073,7 +1141,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const pQty = p.quantity || 1;
             const pPrice = p.price || p.unit_price || 0;
             const pDisc = p.discount || 0;
-            createRow(pId, pQty, pPrice, pDisc);
+            const pLot = p.lot_number || null;
+            createRow(pId, pQty, pPrice, pDisc, pLot);
         });
     {% else %}
         createRow();

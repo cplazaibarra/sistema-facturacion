@@ -40,7 +40,18 @@
     </div>
 </div>
 
-<div class="table-container">
+<!-- Selector de Pestañas: Stock General vs Stock por Lote -->
+<div style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">
+    <button type="button" id="tab-btn-general" onclick="switchInventoryTab('general')" style="padding: 8px 18px; border-radius: 8px; border: none; font-weight: 700; font-size: 14px; cursor: pointer; background: #2563eb; color: #fff; display: flex; align-items: center; gap: 6px;">
+        <span>📊 Stock General</span>
+    </button>
+    <button type="button" id="tab-btn-lotes" onclick="switchInventoryTab('lotes')" style="padding: 8px 18px; border-radius: 8px; border: 1px solid #cbd5e1; font-weight: 600; font-size: 14px; cursor: pointer; background: #fff; color: #475569; display: flex; align-items: center; gap: 6px;">
+        <span>🏷️ Stock por Lote (Trazabilidad)</span>
+        <span style="background: #e0f2fe; color: #0369a1; font-size: 11px; padding: 2px 7px; border-radius: 9999px; font-weight: 700;">{{ lot_stock_list|length }}</span>
+    </button>
+</div>
+
+<div class="table-container" id="container-tab-general">
     <table class="data-table">
         <thead>
             <tr>
@@ -115,7 +126,111 @@
         </tbody>
     </table>
 </div>
+
+<!-- Contenedor Pestaña: Stock por Lote -->
+<div class="table-container" id="container-tab-lotes" style="display: none;">
+    <div style="padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 13px; color: #64748b;">
+            💡 Los lotes se registran automáticamente en el <strong>Ingreso de Mercadería</strong> y se descuentan al <strong>Emitir Ventas</strong>.
+        </span>
+        <input type="text" id="filter-lotes-input" placeholder="Buscar por Lote o Producto..." oninput="filterLotesTable()" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; width: 250px;">
+    </div>
+    <table class="data-table" id="tabla-lotes">
+        <thead>
+            <tr>
+                <th>SKU</th>
+                <th>Producto</th>
+                <th>Categoría</th>
+                <th>N° de Lote</th>
+                <th>Fecha Ingreso</th>
+                <th>Stock Inicial</th>
+                <th>Stock Disponible</th>
+                <th>Estado</th>
+                <th style="text-align: center;">Trazabilidad</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for lot in lot_stock_list %}
+            <tr class="lot-row" data-search="{{ (lot.sku ~ ' ' ~ lot.product_name ~ ' ' ~ lot.lot_number ~ ' ' ~ (lot.category or ''))|lower }}">
+                <td><strong style="color: #2563eb;">{{ lot.sku }}</strong></td>
+                <td><strong>{{ lot.product_name }}</strong></td>
+                <td><span class="badge" style="background: #f1f5f9; color: #475569;">{{ lot.category or '-' }}</span></td>
+                <td>
+                    <span style="font-family: monospace; font-weight: 700; background: #eff6ff; color: #1d4ed8; padding: 3px 8px; border-radius: 6px; border: 1px solid #bfdbfe;">
+                        🏷️ {{ lot.lot_number }}
+                    </span>
+                </td>
+                <td>{{ lot.entry_date or '-' }}</td>
+                <td style="color: #64748b;">{{ lot.initial_qty }} un.</td>
+                <td>
+                    <strong style="font-size: 14px; color: {% if lot.available_qty > 0 %}#16a34a{% else %}#dc2626{% endif %};">
+                        {{ lot.available_qty }} un.
+                    </strong>
+                </td>
+                <td>
+                    {% if lot.available_qty > 0 %}
+                    <span class="badge success">Disponible</span>
+                    {% else %}
+                    <span class="badge danger">Agotado</span>
+                    {% endif %}
+                </td>
+                <td style="text-align: center;">
+                    <button type="button" onclick="openLotTraceability('{{ lot.lot_number }}')" class="sf-btn-secondary" style="padding: 4px 10px; font-size: 12px; cursor: pointer; background: #ffffff; color: #334155; border-radius: 4px; border: 1px solid #cbd5e1; font-weight: 600;" title="Ver trazabilidad de entradas y salidas">
+                        🔍 Ver Trazabilidad
+                    </button>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="9" style="text-align: center; color: #64748b; padding: 30px;">
+                    No hay lotes registrados todavía. Comience registrando ingresos de mercadería con número de lote.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
 <script>
+    function switchInventoryTab(tab) {
+        const btnGen = document.getElementById('tab-btn-general');
+        const btnLot = document.getElementById('tab-btn-lotes');
+        const conGen = document.getElementById('container-tab-general');
+        const conLot = document.getElementById('container-tab-lotes');
+
+        if (tab === 'general') {
+            btnGen.style.background = '#2563eb';
+            btnGen.style.color = '#fff';
+            btnGen.style.border = 'none';
+
+            btnLot.style.background = '#fff';
+            btnLot.style.color = '#475569';
+            btnLot.style.border = '1px solid #cbd5e1';
+
+            conGen.style.display = 'block';
+            conLot.style.display = 'none';
+        } else {
+            btnLot.style.background = '#2563eb';
+            btnLot.style.color = '#fff';
+            btnLot.style.border = 'none';
+
+            btnGen.style.background = '#fff';
+            btnGen.style.color = '#475569';
+            btnGen.style.border = '1px solid #cbd5e1';
+
+            conGen.style.display = 'none';
+            conLot.style.display = 'block';
+        }
+    }
+
+    function filterLotesTable() {
+        const q = (document.getElementById('filter-lotes-input').value || '').toLowerCase().trim();
+        document.querySelectorAll('.lot-row').forEach(row => {
+            const txt = row.dataset.search || '';
+            row.style.display = (!q || txt.includes(q)) ? '' : 'none';
+        });
+    }
+
     function editMinStock(code, currentMin) {
         const newVal = prompt(`Ingrese el nuevo stock mínimo para el producto ${code}:`, currentMin);
         if (newVal !== null) {
@@ -288,5 +403,140 @@ async function loadProductHistory() {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #e53e3e; padding: 25px; font-weight: 500;">Error de red al conectar al servidor.</td></tr>';
     }
 }
+
+// === MODAL DE TRAZABILIDAD DE LOTE ===
+async function openLotTraceability(lotNumber) {
+    const modal = document.getElementById('lotTraceabilityModal');
+    document.getElementById('trace_modal_title').innerText = `Trazabilidad del Lote: ${lotNumber}`;
+    document.getElementById('trace_lot_number_badge').innerText = lotNumber;
+    
+    const entriesTbody = document.getElementById('trace_entries_tbody');
+    const salesTbody = document.getElementById('trace_sales_tbody');
+    entriesTbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #718096; padding: 16px;">Cargando entradas...</td></tr>';
+    salesTbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #718096; padding: 16px;">Cargando salidas/ventas...</td></tr>';
+    
+    modal.style.display = 'flex';
+
+    try {
+        const res = await fetch(`/api/lotes/trazabilidad/${encodeURIComponent(lotNumber)}`);
+        if (res.ok) {
+            const data = await res.json();
+            
+            // 1. Resumen de stock
+            if (data.stock && data.stock.length > 0) {
+                const st = data.stock[0];
+                document.getElementById('trace_prod_name').innerText = `${st.product_name} (${st.sku})`;
+                document.getElementById('trace_initial_qty').innerText = `${st.initial_qty} un.`;
+                document.getElementById('trace_avail_qty').innerText = `${st.available_qty} un.`;
+            }
+
+            // 2. Entradas
+            entriesTbody.innerHTML = '';
+            if (!data.entries || data.entries.length === 0) {
+                entriesTbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #a0aec0; padding: 16px;">Sin registros de entrada.</td></tr>';
+            } else {
+                data.entries.forEach(e => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td style="padding: 8px 10px; border-bottom: 1px solid #edf2f7;">${e.entry_date}</td>
+                        <td style="padding: 8px 10px; border-bottom: 1px solid #edf2f7;"><strong>${e.order_number}</strong></td>
+                        <td style="padding: 8px 10px; border-bottom: 1px solid #edf2f7;">${e.document_type || ''} ${e.document_number || ''}</td>
+                        <td style="padding: 8px 10px; border-bottom: 1px solid #edf2f7; font-weight: 700; color: #16a34a;">+${e.quantity} un.</td>
+                    `;
+                    entriesTbody.appendChild(row);
+                });
+            }
+
+            // 3. Salidas (Ventas)
+            salesTbody.innerHTML = '';
+            if (!data.sales || data.sales.length === 0) {
+                salesTbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #a0aec0; padding: 16px;">No se han emitido ventas que consuman este lote todavía.</td></tr>';
+            } else {
+                data.sales.forEach(s => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td style="padding: 8px 10px; border-bottom: 1px solid #edf2f7;">${s.sale_date || s.moved_at.substring(0, 10)}</td>
+                        <td style="padding: 8px 10px; border-bottom: 1px solid #edf2f7;"><strong style="color: #2563eb;">${s.sale_number}</strong></td>
+                        <td style="padding: 8px 10px; border-bottom: 1px solid #edf2f7;">${s.customer_name || '-'}</td>
+                        <td style="padding: 8px 10px; border-bottom: 1px solid #edf2f7; font-weight: 700; color: #dc2626;">-${s.quantity} un.</td>
+                    `;
+                    salesTbody.appendChild(row);
+                });
+            }
+        }
+    } catch (err) {
+        console.error("Error al cargar trazabilidad del lote:", err);
+    }
+}
+
+function closeLotTraceabilityModal() {
+    document.getElementById('lotTraceabilityModal').style.display = 'none';
+}
 </script>
+
+<!-- Modal para Trazabilidad de Lote -->
+<div id="lotTraceabilityModal" class="sf-modal" style="display: none; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1050;">
+    <div class="sf-modal-backdrop" onclick="closeLotTraceabilityModal()" style="position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.5);"></div>
+    <div class="sf-modal-content" style="position: relative; background: #fff; padding: 25px; border-radius: 12px; width: 750px; max-width: 95%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto;">
+        <div class="sf-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px;">
+            <div>
+                <h3 id="trace_modal_title" style="margin: 0; color: #1e293b; font-size: 18px;">Trazabilidad del Lote</h3>
+                <span id="trace_prod_name" style="font-size: 13px; color: #64748b; font-weight: 500;"></span>
+            </div>
+            <button class="sf-modal-close" onclick="closeLotTraceabilityModal()" style="background: none; border: none; font-size: 1.4rem; cursor: pointer; color: #64748b;">✕</button>
+        </div>
+        
+        <div class="sf-modal-body">
+            <!-- Resumen de Stock del Lote -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                <div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
+                    <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase;">N° Lote</div>
+                    <strong id="trace_lot_number_badge" style="font-size: 1.1rem; color: #1e40af; font-family: monospace;">-</strong>
+                </div>
+                <div style="background: #f0fdf4; padding: 12px; border-radius: 8px; border: 1px solid #bbf7d0; text-align: center;">
+                    <div style="font-size: 11px; color: #166534; font-weight: 600; text-transform: uppercase;">Ingresado Inicial</div>
+                    <strong id="trace_initial_qty" style="font-size: 1.1rem; color: #15803d;">0 un.</strong>
+                </div>
+                <div style="background: #eff6ff; padding: 12px; border-radius: 8px; border: 1px solid #bfdbfe; text-align: center;">
+                    <div style="font-size: 11px; color: #1e40af; font-weight: 600; text-transform: uppercase;">Stock Disponible Actual</div>
+                    <strong id="trace_avail_qty" style="font-size: 1.1rem; color: #1d4ed8;">0 un.</strong>
+                </div>
+            </div>
+
+            <!-- Tabla 1: ¿Cuándo entró? (Ingresos de Mercadería) -->
+            <h4 style="font-size: 14px; color: #1e293b; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;">
+                <span>📥 Entradas (Ingresos de Mercadería)</span>
+            </h4>
+            <table class="data-table" style="width: 100%; font-size: 12px; margin-bottom: 20px;">
+                <thead>
+                    <tr style="background: #f8fafc;">
+                        <th>Fecha</th>
+                        <th>N° Referencia</th>
+                        <th>Documento</th>
+                        <th>Cantidad Ingresada</th>
+                    </tr>
+                </thead>
+                <tbody id="trace_entries_tbody">
+                </tbody>
+            </table>
+
+            <!-- Tabla 2: ¿En qué venta se fue? (Salidas a Clientes) -->
+            <h4 style="font-size: 14px; color: #1e293b; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;">
+                <span>📤 Salidas (Ventas Emitidas a Clientes)</span>
+            </h4>
+            <table class="data-table" style="width: 100%; font-size: 12px;">
+                <thead>
+                    <tr style="background: #f8fafc;">
+                        <th>Fecha Venta</th>
+                        <th>Folio Venta</th>
+                        <th>Cliente</th>
+                        <th>Cantidad Descontada</th>
+                    </tr>
+                </thead>
+                <tbody id="trace_sales_tbody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 {% endblock %}

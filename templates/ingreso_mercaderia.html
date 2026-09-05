@@ -129,7 +129,8 @@
                         <th>Solicitado</th>
                         <th>Recibido Prev.</th>
                         <th>Pendiente</th>
-                        <th style="width: 150px;">Recibido Ahora</th>
+                        <th style="width: 130px;">Recibido Ahora</th>
+                        <th style="width: 180px;">N° Lote Físico</th>
                     </tr>
                 </thead>
                 <tbody id="recepcion-tbody">
@@ -278,11 +279,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     items.forEach(item => {
                         const pending = item.quantity_ordered - item.quantity_received;
                         if (pending <= 0) return;
+                        const requiresLot = Boolean(item.requires_lot);
                         const row = document.createElement('tr');
                         row.className = 'recepcion-row';
+                        row.dataset.requiresLot = requiresLot ? '1' : '0';
+                        row.dataset.productName = item.product_name;
                         row.innerHTML = `
                             <td>
-                                <strong>${item.product_name}</strong>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <strong>${item.product_name}</strong>
+                                    ${requiresLot ? '<span style="color: #b91c1c; font-size: 11px; font-weight: 700;">⚠️ Requiere Lote Obligatorio</span>' : '<span style="color: #94a3b8; font-size: 11px;">Lote Opcional</span>'}
+                                </div>
                                 <input type="hidden" name="product_id[]" value="${item.product_id}">
                                 <input type="hidden" name="unit_price[]" value="${item.unit_price}">
                             </td>
@@ -291,6 +298,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             <td class="pending-qty">${pending}</td>
                             <td>
                                 <input type="number" name="quantity[]" class="form-control input-qty" value="${pending}" min="0" max="${pending}" required style="width: 100px; padding: 6px; border: 1px solid #E2E8F0; border-radius: 4px;">
+                            </td>
+                            <td>
+                                <input type="text" name="lot_number[]" class="form-control input-lot" placeholder="${requiresLot ? 'LOTE Obligatorio *' : 'Opcional (Ej. A21)'}" ${requiresLot ? 'required' : ''} style="width: 100%; padding: 6px 10px; border: 1px solid ${requiresLot ? '#fca5a5' : '#E2E8F0'}; border-radius: 4px; background: ${requiresLot ? '#fff5f5' : '#fff'}; font-weight: 500;">
                             </td>
                         `;
                         tbody.appendChild(row);
@@ -303,16 +313,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     form.addEventListener('submit', (e) => {
         errorBox.style.display = 'none';
-        let hasError = false, activeItems = 0;
+        let hasError = false, activeItems = 0, lotError = '';
         document.querySelectorAll('.recepcion-row').forEach(row => {
             const pending = parseInt(row.querySelector('.pending-qty').textContent);
             const input   = row.querySelector('.input-qty');
             const val     = parseInt(input.value) || 0;
-            if (val > 0) activeItems++;
+            const lotInput = row.querySelector('.input-lot');
+            const lotVal   = (lotInput ? lotInput.value : '').trim();
+            const reqLot   = row.dataset.requiresLot === '1';
+
+            if (val > 0) {
+                activeItems++;
+                if (reqLot && !lotVal) {
+                    lotError = `El producto '${row.dataset.productName}' requiere obligatoriamente registrar su Número de Lote.`;
+                    lotInput.style.borderColor = '#b91c1c';
+                    hasError = true;
+                } else if (lotInput) {
+                    lotInput.style.borderColor = reqLot ? '#fca5a5' : '#E2E8F0';
+                }
+            }
             if (val > pending) { hasError = true; input.style.borderColor = '#F56565'; }
             else                { input.style.borderColor = '#E2E8F0'; }
         });
-        if (hasError) {
+        if (lotError) {
+            e.preventDefault();
+            errorBox.textContent = lotError;
+            errorBox.style.display = 'block';
+            errorBox.scrollIntoView({ behavior: 'smooth' });
+        } else if (hasError) {
             e.preventDefault();
             errorBox.textContent = 'No puedes ingresar una cantidad mayor a la pendiente en la Orden de Compra.';
             errorBox.style.display = 'block';

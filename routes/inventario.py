@@ -196,12 +196,16 @@ def inventario():
         
     inventory_stats["low_stock"] = low_stock_count
     
+    from db import get_all_lot_stock
+    lot_stock_list = get_all_lot_stock()
+
     return render_template(
         'inventario.html',
         inventory_stats=inventory_stats,
         inventory_items=inventory_items,
         inventory_categories=inventory_categories,
         inventory_stock_filters=inventory_stock_filters,
+        lot_stock_list=lot_stock_list,
     )
 
 @inventario_bp.route('/ingreso-mercaderia', methods=['GET', 'POST'])
@@ -234,9 +238,11 @@ def ingreso_mercaderia():
         product_ids = request.form.getlist('product_id[]')
         quantities  = request.form.getlist('quantity[]')
         unit_prices = request.form.getlist('unit_price[]')
+        lot_numbers = request.form.getlist('lot_number[]')
 
+        from db import get_product
         items = []
-        for pid, qty_raw, price_raw in zip(product_ids, quantities, unit_prices):
+        for i, (pid, qty_raw, price_raw) in enumerate(zip(product_ids, quantities, unit_prices)):
             if not pid:
                 continue
             try:
@@ -244,8 +250,21 @@ def ingreso_mercaderia():
                 price = float(price_raw) if price_raw else 0.0
             except ValueError:
                 continue
+            lot_num = (lot_numbers[i] if i < len(lot_numbers) else "").strip()
+
+            # Validación de lote obligatorio si el producto lo requiere
+            prod = get_product(int(pid))
+            if prod and prod.get('requires_lot') and not lot_num:
+                flash(f"El producto '{prod.get('name')}' requiere obligatoriamente registrar su Número de Lote.", "danger")
+                return redirect(url_for('inventario.ingreso_mercaderia'))
+
             if qty > 0:
-                items.append({"product_id": int(pid), "quantity": qty, "unit_price": price})
+                items.append({
+                    "product_id": int(pid),
+                    "quantity": qty,
+                    "unit_price": price,
+                    "lot_number": lot_num
+                })
 
         if not order_number or not po_id or not warehouse or not items:
             flash("Complete todos los campos obligatorios y agregue productos válidos.", "danger")
@@ -411,6 +430,7 @@ def productos():
             "weight_kg": request.form.get('weight_kg') or None,
             "product_type": request.form.get('product_type', 'Final').strip(),
             "cost": float(request.form.get('cost', 0.0) or 0.0),
+            "requires_lot": True if request.form.get('requires_lot') else False,
             "created_at": datetime.utcnow().isoformat(timespec='seconds'),
         }
 
@@ -461,6 +481,7 @@ def editar_producto(product_id):
             "weight_kg": request.form.get('weight_kg') or None,
             "product_type": request.form.get('product_type', 'Final').strip(),
             "cost": float(request.form.get('cost', 0.0) or 0.0),
+            "requires_lot": True if request.form.get('requires_lot') else False,
         }
 
         # Manejar subida de foto

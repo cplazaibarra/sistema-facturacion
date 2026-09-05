@@ -1018,6 +1018,43 @@ def init_db() -> None:
                 );
                 """
             )
+            # === LOTE / TRAZABILIDAD ===
+            cur.execute(
+                """
+                ALTER TABLE products ADD COLUMN IF NOT EXISTS requires_lot BOOLEAN DEFAULT FALSE;
+                """
+            )
+            cur.execute(
+                """
+                ALTER TABLE inventory_entry_items ADD COLUMN IF NOT EXISTS lot_number TEXT DEFAULT '';
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS lot_stock (
+                    id            SERIAL PRIMARY KEY,
+                    product_id    INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+                    lot_number    TEXT NOT NULL,
+                    entry_id      INTEGER REFERENCES inventory_entries(id) ON DELETE SET NULL,
+                    entry_date    TEXT NOT NULL DEFAULT '',
+                    initial_qty   INTEGER NOT NULL DEFAULT 0,
+                    available_qty INTEGER NOT NULL DEFAULT 0,
+                    UNIQUE(product_id, lot_number)
+                )
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS sale_lot_movements (
+                    id         SERIAL PRIMARY KEY,
+                    sale_id    INTEGER NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
+                    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+                    lot_number TEXT NOT NULL,
+                    quantity   INTEGER NOT NULL,
+                    moved_at   TEXT NOT NULL
+                )
+                """
+            )
         conn.commit()
 
     seed_data_if_empty()
@@ -1373,7 +1410,8 @@ def list_products() -> list[dict]:
             cur.execute(
                 """
                 SELECT id, sku, name, description, photo_url, barcode, internal_code,
-                       category, expiry_date, width_cm, height_cm, depth_cm, weight_kg, product_type, cost
+                       category, expiry_date, width_cm, height_cm, depth_cm, weight_kg, product_type, cost,
+                       COALESCE(requires_lot, FALSE) as requires_lot
                 FROM products
                 WHERE is_deleted = FALSE OR is_deleted IS NULL
                 ORDER BY id DESC
@@ -1390,8 +1428,8 @@ def insert_product(product: dict) -> int:
                 INSERT INTO products (
                     sku, name, description, photo_url, barcode, internal_code,
                     category, expiry_date, width_cm, height_cm, depth_cm,
-                    weight_kg, product_type, cost, created_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    weight_kg, product_type, cost, requires_lot, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
@@ -1409,6 +1447,7 @@ def insert_product(product: dict) -> int:
                     product.get("weight_kg"),
                     product.get("product_type", "Final"),
                     product.get("cost", 0.0),
+                    bool(product.get("requires_lot", False)),
                     product["created_at"],
                 ),
             )
@@ -1423,7 +1462,8 @@ def get_product(product_id: int) -> dict:
             cur.execute(
                 """
                 SELECT id, sku, name, description, photo_url, barcode, internal_code,
-                       category, expiry_date, width_cm, height_cm, depth_cm, weight_kg, product_type, cost
+                       category, expiry_date, width_cm, height_cm, depth_cm, weight_kg, product_type, cost,
+                       COALESCE(requires_lot, FALSE) as requires_lot
                 FROM products
                 WHERE id = %s
                 """,
@@ -1442,7 +1482,7 @@ def update_product(product_id: int, product: dict) -> None:
                     sku = %s, name = %s, description = %s, photo_url = %s,
                     barcode = %s, internal_code = %s, category = %s, expiry_date = %s,
                     width_cm = %s, height_cm = %s, depth_cm = %s, weight_kg = %s,
-                    product_type = %s, cost = %s
+                    product_type = %s, cost = %s, requires_lot = %s
                 WHERE id = %s
                 """,
                 (
@@ -1460,6 +1500,7 @@ def update_product(product_id: int, product: dict) -> None:
                     product.get("weight_kg"),
                     product.get("product_type", "Final"),
                     product.get("cost", 0.0),
+                    bool(product.get("requires_lot", False)),
                     product_id,
                 ),
             )
@@ -2964,7 +3005,7 @@ def get_purchase_order_items(po_id: int) -> list[dict]:
             cur.execute(
                 """
                 SELECT poi.id, poi.product_id, poi.quantity_ordered, poi.quantity_received, poi.unit_price, poi.total_price,
-                       p.name as product_name, p.sku as product_sku
+                       p.name as product_name, p.sku as product_sku, COALESCE(p.requires_lot, FALSE) as requires_lot
                 FROM purchase_order_items poi
                 JOIN products p ON poi.product_id = p.id
                 WHERE poi.purchase_order_id = %s
@@ -3029,6 +3070,7 @@ def register_inventory_entry(
                 prod_id    = item["product_id"]
                 qty        = item["quantity"]
                 price      = item["unit_price"]
+                lot_number = (item.get("lot_number") or "").strip()
                 line_total = qty * price
 
                 cur.execute(
@@ -3049,11 +3091,25 @@ def register_inventory_entry(
 
                 cur.execute(
                     """
-                    INSERT INTO inventory_entry_items (inventory_entry_id, product_id, quantity, unit_price, total)
-                    VALUES (%s, %s, %s, %s, %s)
+                    INSERT INTO inventory_entry_items (inventory_entry_id, product_id, quantity, unit_price, total, lot_number)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     """,
-                    (entry_id, prod_id, qty, price, line_total)
+                    (entry_id, prod_id, qty, price, line_total, lot_number)
                 )
+
+                # Si tiene número de lote, registrar o sumar en lot_stock
+                if lot_number:
+                    cur.execute(
+                        """
+                        INSERT INTO lot_stock (product_id, lot_number, entry_id, entry_date, initial_qty, available_qty)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (product_id, lot_number) DO UPDATE
+                        SET initial_qty = lot_stock.initial_qty + EXCLUDED.initial_qty,
+                            available_qty = lot_stock.available_qty + EXCLUDED.available_qty,
+                            entry_date = EXCLUDED.entry_date
+                        """,
+                        (prod_id, lot_number, entry_id, entry_date, qty, qty)
+                    )
 
                 new_received = po_item["quantity_received"] + qty
                 cur.execute(
@@ -3087,6 +3143,144 @@ def register_inventory_entry(
             cur.execute("UPDATE purchase_orders SET status = %s WHERE id = %s", (new_status, po_id))
         conn.commit()
         return entry_id
+
+
+def get_lot_stock_by_product(product_id: int) -> list[dict]:
+    """Retorna los lotes con stock disponible para un producto."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT ls.id, ls.product_id, ls.lot_number, ls.entry_id, ls.entry_date,
+                       ls.initial_qty, ls.available_qty, p.name as product_name, p.sku
+                FROM lot_stock ls
+                JOIN products p ON p.id = ls.product_id
+                WHERE ls.product_id = %s AND ls.available_qty > 0
+                ORDER BY ls.entry_date ASC, ls.id ASC
+                """,
+                (product_id,)
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+
+def get_all_lot_stock() -> list[dict]:
+    """Retorna todo el stock agrupado por lote para el inventario."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT ls.id, ls.product_id, ls.lot_number, ls.entry_id, ls.entry_date,
+                       ls.initial_qty, ls.available_qty, p.name as product_name, p.sku,
+                       p.category, p.cost
+                FROM lot_stock ls
+                JOIN products p ON p.id = ls.product_id
+                ORDER BY p.name ASC, ls.entry_date DESC
+                """
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+
+def consume_lots_for_sale(sale_id: int, lot_consumptions: list[dict]) -> None:
+    """
+    Descuenta unidades de los lotes utilizados en una venta y registra la trazabilidad.
+    lot_consumptions: lista de dicts con keys: product_id, lot_number, quantity
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            now_iso = datetime.utcnow().isoformat(timespec='seconds')
+            for item in lot_consumptions:
+                pid = item.get("product_id")
+                lot = (item.get("lot_number") or "").strip()
+                qty = int(item.get("quantity") or 0)
+                if not pid or not lot or qty <= 0:
+                    continue
+
+                # Descontar de lot_stock
+                cur.execute(
+                    """
+                    UPDATE lot_stock
+                    SET available_qty = GREATEST(0, available_qty - %s)
+                    WHERE product_id = %s AND lot_number = %s
+                    """,
+                    (qty, pid, lot)
+                )
+
+                # Registrar movimiento
+                cur.execute(
+                    """
+                    INSERT INTO sale_lot_movements (sale_id, product_id, lot_number, quantity, moved_at)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (sale_id, pid, lot, qty, now_iso)
+                )
+        conn.commit()
+
+
+def get_sale_lot_movements(sale_id: int) -> list[dict]:
+    """Retorna los lotes utilizados en una venta específica."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT slm.id, slm.sale_id, slm.product_id, slm.lot_number, slm.quantity, slm.moved_at,
+                       p.name as product_name, p.sku
+                FROM sale_lot_movements slm
+                JOIN products p ON p.id = slm.product_id
+                WHERE slm.sale_id = %s
+                ORDER BY slm.id ASC
+                """,
+                (sale_id,)
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+
+def get_lot_traceability(lot_number: str) -> dict:
+    """Retorna la historia de entradas y salidas de un lote específico."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT ls.*, p.name as product_name, p.sku
+                FROM lot_stock ls
+                JOIN products p ON p.id = ls.product_id
+                WHERE ls.lot_number = %s
+                """,
+                (lot_number,)
+            )
+            stock_info = cur.fetchall()
+
+            cur.execute(
+                """
+                SELECT iei.quantity, iei.unit_price, iei.total, ie.entry_date, ie.order_number,
+                       ie.warehouse, ie.document_type, ie.document_number, p.name as product_name
+                FROM inventory_entry_items iei
+                JOIN inventory_entries ie ON ie.id = iei.inventory_entry_id
+                JOIN products p ON p.id = iei.product_id
+                WHERE iei.lot_number = %s
+                ORDER BY ie.entry_date ASC
+                """,
+                (lot_number,)
+            )
+            entries = [dict(r) for r in cur.fetchall()]
+
+            cur.execute(
+                """
+                SELECT slm.quantity, slm.moved_at, s.sale_number, s.customer_name, s.sale_date, p.name as product_name
+                FROM sale_lot_movements slm
+                JOIN sales s ON s.id = slm.sale_id
+                JOIN products p ON p.id = slm.product_id
+                WHERE slm.lot_number = %s
+                ORDER BY slm.moved_at ASC
+                """,
+                (lot_number,)
+            )
+            sales = [dict(r) for r in cur.fetchall()]
+
+            return {
+                "stock": [dict(r) for r in stock_info],
+                "entries": entries,
+                "sales": sales
+            }
 
 
 def get_product_calculated_cost(product_id: int) -> float | None:

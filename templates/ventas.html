@@ -650,6 +650,16 @@
             </div>
         </div>
 
+        <!-- SECCIÓN 3: LOTES UTILIZADOS (TRAZABILIDAD) -->
+        <div id="modal-vta-lots-section" style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px; display: none;">
+            <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #1e40af; text-transform: uppercase; display: flex; align-items: center; gap: 6px;">
+                <span>🏷️ Lotes de Bodega Descontados (Trazabilidad)</span>
+            </h4>
+            <div id="modal-vta-lots-content" style="font-size: 13px; color: #1e3a8a;">
+                <!-- Cargado dinámicamente -->
+            </div>
+        </div>
+
         <!-- ACCIONES -->
         <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 16px;">
             <button type="button" onclick="window.print()" class="sf-btn-secondary" style="padding: 8px 14px; font-weight: 600; cursor: pointer; background: #edf2f7; border: none; border-radius: 6px; color: #2d3748;">
@@ -732,6 +742,30 @@
         document.getElementById('modal-vta-neto').textContent = '$' + neto.toLocaleString('es-CL');
         document.getElementById('modal-vta-iva').textContent = '$' + iva.toLocaleString('es-CL');
         document.getElementById('modal-vta-total').textContent = '$' + Math.round(totalRaw).toLocaleString('es-CL');
+
+        // Cargar lotes consumidos si existen para esta venta
+        const lotsSec = document.getElementById('modal-vta-lots-section');
+        const lotsContent = document.getElementById('modal-vta-lots-content');
+        if (sale.id) {
+            fetch(`/api/ventas/${sale.id}/lotes`)
+                .then(r => r.json())
+                .then(lotList => {
+                    if (lotList && lotList.length > 0) {
+                        let html = '<ul style="margin: 0; padding-left: 20px;">';
+                        lotList.forEach(m => {
+                            html += `<li style="margin-bottom: 4px;"><strong>${m.product_name}</strong>: Lote <span style="font-family: monospace; font-weight: bold; background: #dbeafe; padding: 2px 6px; border-radius: 4px;">${m.lot_number}</span> — <strong>${m.quantity} un.</strong></li>`;
+                        });
+                        html += '</ul>';
+                        lotsContent.innerHTML = html;
+                        lotsSec.style.display = 'block';
+                    } else {
+                        lotsSec.style.display = 'none';
+                    }
+                })
+                .catch(() => { lotsSec.style.display = 'none'; });
+        } else {
+            lotsSec.style.display = 'none';
+        }
 
         modal.style.display = 'flex';
     }

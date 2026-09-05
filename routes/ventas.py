@@ -962,6 +962,7 @@ def nueva_cotizacion():
         quantities = request.form.getlist('quantity[]')
         unit_prices = request.form.getlist('unit_price[]')
         discounts = request.form.getlist('discount[]')
+        lot_numbers = request.form.getlist('lot_number[]')
         
         # Guardar / Actualizar datos del cliente en la base de datos (con RUT como llave primaria)
         from db import upsert_client_by_rut
@@ -1000,6 +1001,7 @@ def nueva_cotizacion():
             qty_int = int(qty)
             price_float = float(price)
             discount_float = float(discounts[idx]) if idx < len(discounts) and discounts[idx] else 0.0
+            lot_num = (lot_numbers[idx] if idx < len(lot_numbers) else "").strip()
             
             subtotal = qty_int * price_float * (1.0 - (discount_float / 100.0))
             total_amount += subtotal
@@ -1011,7 +1013,8 @@ def nueva_cotizacion():
                 "quantity": qty_int,
                 "price": price_float,
                 "discount": discount_float,
-                "subtotal": round(subtotal, 2)
+                "subtotal": round(subtotal, 2),
+                "lot_number": lot_num
             })
             
         if not products_list:
@@ -1377,6 +1380,19 @@ def convertir_cotizacion(sale_id):
                 (updated_cot_notes, sale_id)
             )
         conn.commit()
+
+    # 4. Descontar stock por lote si los productos tenían lote seleccionado
+    from db import consume_lots_for_sale
+    lot_consumptions = []
+    for prod in quotation.get("products", []):
+        if isinstance(prod, dict) and prod.get("lot_number"):
+            lot_consumptions.append({
+                "product_id": prod.get("product_id"),
+                "lot_number": prod.get("lot_number"),
+                "quantity": prod.get("quantity", 0)
+            })
+    if lot_consumptions:
+        consume_lots_for_sale(new_sale_id, lot_consumptions)
         
     from markupsafe import Markup
     msg = Markup(f"Venta {new_sale_number} creada exitosamente a partir de la Cotización {quotation['sale_number']}. La cotización ha pasado a estado 'Ganada' (100%). <a href='{url_for('ventas.ventas')}?filter=Ventas+Pendientes' style='font-weight: bold; text-decoration: underline; color: #1A365D;'>Haz clic aquí para ver la nueva venta</a>.")
@@ -1549,8 +1565,32 @@ def api_buscar_clientes():
         "direccion": c.get("direccion", ""),
         "comuna": c.get("comuna", ""),
         "ciudad": c.get("ciudad", ""),
-        "giro": c.get("giro", "")
     } for c in clients])
+
+
+@ventas_bp.route('/api/lotes/<int:product_id>')
+def api_product_lots(product_id):
+    """Retorna los lotes con stock disponible para un producto."""
+    from db import get_lot_stock_by_product
+    lots = get_lot_stock_by_product(product_id)
+    return jsonify(lots)
+
+
+@ventas_bp.route('/api/lotes/trazabilidad/<path:lot_number>')
+def api_lot_traceability(lot_number):
+    """Retorna el historial completo de entradas y salidas de un lote."""
+    from db import get_lot_traceability
+    data = get_lot_traceability(lot_number)
+    return jsonify(data)
+
+
+@ventas_bp.route('/api/ventas/<int:sale_id>/lotes')
+def api_sale_lots(sale_id):
+    """Retorna los lotes consumidos en una venta específica."""
+    from db import get_sale_lot_movements
+    movs = get_sale_lot_movements(sale_id)
+    return jsonify(movs)
+
 
 
 
