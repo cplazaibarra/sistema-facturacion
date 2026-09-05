@@ -20,9 +20,9 @@
 <!-- Tarjetas de métricas para Cotizaciones -->
 <div class="sf-metrics-grid">
     {% for metric in cotizaciones_metrics %}
-    <div class="sf-metric-card {% if active_filter == metric.label %}active-filter{% endif %}" 
-         onclick="window.location.href='{{ url_for('ventas.cotizaciones') }}?filter={{ metric.label | urlencode }}'" 
-         style="cursor:pointer;">
+    <div class="sf-metric-card {% if active_filter == metric.filter_val or (not active_filter and not metric.filter_val) %}active-filter{% endif %}" 
+         onclick="window.location.href='{{ url_for('ventas.cotizaciones') }}{% if metric.filter_val %}?filter={{ metric.filter_val | urlencode }}{% endif %}'" 
+         style="cursor:pointer;" title="Filtrar por {{ metric.label }}">
         <span class="sf-metric-icon {{ metric.color }}">{{ metric.icon | safe }}</span>
         <div class="sf-metric-content">
             <div class="sf-metric-value">{{ metric.value }}</div>
@@ -34,23 +34,34 @@
 
 {% if active_filter %}
 <div style="display:flex; align-items:center; gap:10px; margin: 8px 0 0 0; padding: 6px 14px; background:#EBF8FF; border-radius:6px; border-left: 4px solid #3182ce; font-size:13px; color:#2b6cb0;">
-    <span>🔍 Filtro activo: <strong>{{ active_filter }}</strong></span>
-    <a href="{{ url_for('ventas.cotizaciones') }}" style="margin-left:10px; color:#e53e3e; font-weight:600; text-decoration:none;">✕ Limpiar filtro</a>
+    <span>🔍 Filtro activo por Estado: <strong>{{ active_filter }}</strong></span>
+    <a href="{{ url_for('ventas.cotizaciones') }}" style="margin-left:10px; color:#e53e3e; font-weight:600; text-decoration:none;">✕ Ver Todas</a>
 </div>
 {% endif %}
 
-<!-- Barra de herramientas de la tabla con Filtros de Cliente y Producto -->
+<!-- Barra de herramientas de la tabla con Filtros de Cliente, Producto y Estado -->
 <div class="sf-table-toolbar" style="flex-wrap: wrap; gap: 12px; padding: 12px 16px; margin-top: 16px;">
     <div class="sf-toolbar-left" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; flex: 1;">
-        <div class="sf-search-box" style="min-width: 220px;">
+        <div class="sf-search-box" style="min-width: 200px;">
             <span class="sf-search-icon">🔍</span>
             <input type="text" id="sf-search-input-cot" placeholder="Buscar cotizaciones..." class="sf-search-input" onkeyup="filterCotizacionesTable()">
+        </div>
+
+        <!-- Filtro por Estado -->
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <label style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">📊 Estado:</label>
+            <select id="sf-status-filter-cot" onchange="filterCotizacionesTable()" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white;">
+                <option value="">-- Todos --</option>
+                <option value="Activa">Activa</option>
+                <option value="Ganada">Ganada</option>
+                <option value="Perdida">Perdida</option>
+            </select>
         </div>
 
         <!-- Filtro por Cliente -->
         <div style="display: flex; align-items: center; gap: 6px;">
             <label style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">👤 Cliente:</label>
-            <select id="sf-client-filter-cot" onchange="filterCotizacionesTable()" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; max-width: 180px;">
+            <select id="sf-client-filter-cot" onchange="filterCotizacionesTable()" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; max-width: 170px;">
                 <option value="">-- Todos los Clientes --</option>
                 {% for client_name in all_clients %}
                 <option value="{{ client_name }}">{{ client_name }}</option>
@@ -61,7 +72,7 @@
         <!-- Filtro por Producto -->
         <div style="display: flex; align-items: center; gap: 6px;">
             <label style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">📦 Producto:</label>
-            <select id="sf-product-filter-cot" onchange="filterCotizacionesTable()" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; max-width: 200px;">
+            <select id="sf-product-filter-cot" onchange="filterCotizacionesTable()" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; max-width: 180px;">
                 <option value="">-- Todos los Productos --</option>
                 {% for prod_name in all_products %}
                 <option value="{{ prod_name }}">{{ prod_name }}</option>
@@ -124,6 +135,12 @@
                 </th>
                 <th class="sf-th-sortable">
                     <div class="sf-th-content">
+                        <span>Probabilidad</span>
+                        <span class="sf-sort-icon">⇅</span>
+                    </div>
+                </th>
+                <th class="sf-th-sortable">
+                    <div class="sf-th-content">
                         <span>Vendedor</span>
                         <span class="sf-sort-icon">⇅</span>
                     </div>
@@ -133,7 +150,7 @@
         </thead>
         <tbody>
             {% for sale in cotizaciones_records %}
-            <tr class="sf-table-row" data-customer="{{ sale.customer.name }} {{ sale.customer.email }}" data-products="{% for product in sale.products %}{% if product is mapping %}{{ product.product_name or product.name }} {% else %}{{ product }} {% endif %}{% endfor %}">
+            <tr class="sf-table-row" data-status="{{ sale.quotation_status }}" data-customer="{{ sale.customer.name }} {{ sale.customer.email }}" data-products="{% for product in sale.products %}{% if product is mapping %}{{ product.product_name or product.name }} {% else %}{{ product }} {% endif %}{% endfor %}">
                 <td>
                     <input type="checkbox" class="sf-checkbox">
                 </td>
@@ -172,17 +189,30 @@
                     <div class="sf-amount" style="font-weight: 700; color: #0f172a;">{{ sale.total }}</div>
                 </td>
                 <td>
-                    {% if sale.status.label == 'Borrador' %}
-                    <span class="sf-badge sf-badge-warning" style="background-color: #feebc8; color: #c05621; border: 1px solid #fbd38d;">
-                        <span class="sf-badge-dot" style="background-color: #dd6b20;"></span>
-                        Borrador
+                    {% if sale.quotation_status == 'Ganada' %}
+                    <span class="sf-badge sf-badge-success" style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; cursor: pointer;" onclick="openChangeStatusModal({{ sale.id }}, '{{ sale.sale_number }}', '{{ sale.quotation_status }}', {{ sale.win_probability }})" title="Clic para cambiar estado">
+                        <span class="sf-badge-dot" style="background-color: #16a34a;"></span>
+                        Ganada
+                    </span>
+                    {% elif sale.quotation_status == 'Perdida' %}
+                    <span class="sf-badge sf-badge-danger" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; cursor: pointer;" onclick="openChangeStatusModal({{ sale.id }}, '{{ sale.sale_number }}', '{{ sale.quotation_status }}', {{ sale.win_probability }})" title="Clic para cambiar estado">
+                        <span class="sf-badge-dot" style="background-color: #dc2626;"></span>
+                        Perdida
                     </span>
                     {% else %}
-                    <span class="sf-badge sf-badge-info">
-                        <span class="sf-badge-dot"></span>
-                        Cotización
+                    <span class="sf-badge sf-badge-info" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; cursor: pointer;" onclick="openChangeStatusModal({{ sale.id }}, '{{ sale.sale_number }}', '{{ sale.quotation_status }}', {{ sale.win_probability }})" title="Clic para cambiar estado">
+                        <span class="sf-badge-dot" style="background-color: #0284c7;"></span>
+                        Activa
                     </span>
                     {% endif %}
+                </td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 8px; min-width: 95px;" title="Probabilidad de ganar: {{ sale.win_probability }}%">
+                        <div style="flex: 1; height: 7px; background: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                            <div style="height: 100%; width: {{ sale.win_probability }}%; background: {% if sale.win_probability >= 70 %}#16a34a{% elif sale.win_probability >= 40 %}#d97706{% else %}#dc2626{% endif %}; border-radius: 4px;"></div>
+                        </div>
+                        <span style="font-size: 12px; font-weight: 700; color: #1e293b; min-width: 32px; text-align: right;">{{ sale.win_probability }}%</span>
+                    </div>
                 </td>
                 <td>
                     <div class="sf-cell-user">
@@ -192,6 +222,9 @@
                 </td>
                 <td style="text-align: center; white-space: nowrap;">
                     <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
+                        <button type="button" onclick="openChangeStatusModal({{ sale.id }}, '{{ sale.sale_number }}', '{{ sale.quotation_status }}', {{ sale.win_probability }})" class="sf-btn-secondary" style="padding: 6px 8px; font-size: 12px; cursor: pointer; background: #ffffff; color: #334155; border-radius: 4px; border: 1px solid #cbd5e1; font-weight: 600;" title="Actualizar Estado / Probabilidad">
+                            🎯 Estado
+                        </button>
                         <a href="{{ url_for('ventas.nueva_cotizacion') }}?clone_id={{ sale.id }}" class="sf-btn-secondary" style="padding: 6px 10px; font-size: 12px; text-decoration: none; font-weight: 600; background: #edf2f7; color: #2d3748; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;" title="Clonar y Modificar">
                             📋 Clonar
                         </a>
@@ -220,7 +253,7 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="9" style="text-align: center; padding: 36px; color: #64748b;">
+                <td colspan="10" style="text-align: center; padding: 36px; color: #64748b;">
                     No hay cotizaciones registradas en la plataforma.
                 </td>
             </tr>
@@ -250,6 +283,8 @@
                 <div><strong>Razón Social / Nombre:</strong> <span id="modal-cot-customer">-</span></div>
                 <div><strong>Correo Electrónico:</strong> <span id="modal-cot-email">-</span></div>
                 <div><strong>Forma / Condición de Pago:</strong> <span id="modal-cot-payment-method" style="font-weight: 600; color: #3182ce;">-</span></div>
+                <div><strong>Estado de Negociación:</strong> <span id="modal-cot-status">-</span></div>
+                <div><strong>Probabilidad de Cierre:</strong> <span id="modal-cot-probability">-</span></div>
             </div>
         </div>
 
@@ -329,10 +364,12 @@
 <script>
 function filterCotizacionesTable() {
     const searchInput = document.getElementById('sf-search-input-cot');
+    const statusSelect = document.getElementById('sf-status-filter-cot');
     const clientSelect = document.getElementById('sf-client-filter-cot');
     const productSelect = document.getElementById('sf-product-filter-cot');
 
     const searchVal = (searchInput ? searchInput.value : '').toLowerCase().trim();
+    const statusVal = (statusSelect ? statusSelect.value : '').toLowerCase().trim();
     const clientVal = (clientSelect ? clientSelect.value : '').toLowerCase().trim();
     const productVal = (productSelect ? productSelect.value : '').toLowerCase().trim();
 
@@ -340,15 +377,17 @@ function filterCotizacionesTable() {
     let visibleCount = 0;
 
     rows.forEach(row => {
+        const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
         const customerData = (row.getAttribute('data-customer') || '').toLowerCase();
         const productsData = (row.getAttribute('data-products') || '').toLowerCase();
         const fullText = (row.textContent || '').toLowerCase();
 
         const matchSearch = !searchVal || fullText.includes(searchVal);
+        const matchStatus = !statusVal || rowStatus === statusVal;
         const matchClient = !clientVal || customerData.includes(clientVal);
         const matchProduct = !productVal || productsData.includes(productVal);
 
-        if (matchSearch && matchClient && matchProduct) {
+        if (matchSearch && matchStatus && matchClient && matchProduct) {
             row.style.display = '';
             visibleCount++;
         } else {
@@ -364,6 +403,7 @@ function filterCotizacionesTable() {
 
 function clearCotizacionesFilters() {
     if (document.getElementById('sf-search-input-cot')) document.getElementById('sf-search-input-cot').value = '';
+    if (document.getElementById('sf-status-filter-cot')) document.getElementById('sf-status-filter-cot').value = '';
     if (document.getElementById('sf-client-filter-cot')) document.getElementById('sf-client-filter-cot').value = '';
     if (document.getElementById('sf-product-filter-cot')) document.getElementById('sf-product-filter-cot').value = '';
     filterCotizacionesTable();
@@ -403,6 +443,30 @@ function openCotizacionDetail(sale) {
     document.getElementById('modal-cot-rut').textContent = rutStr;
     document.getElementById('modal-cot-payment-method').textContent = sale.payment_method || sale.payment || 'Efectivo';
     document.getElementById('modal-cot-notes').textContent = cleanNotes || 'Sin observaciones adicionales';
+
+    // Renderizar Estado y Probabilidad
+    const cotStatus = sale.quotation_status || 'Activa';
+    const cotProb = (sale.win_probability !== undefined && sale.win_probability !== null) ? parseInt(sale.win_probability) : 50;
+
+    let statusBadgeHtml = '';
+    if (cotStatus === 'Ganada') {
+        statusBadgeHtml = '<span class="sf-badge sf-badge-success" style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;"><span class="sf-badge-dot" style="background-color: #16a34a;"></span> Ganada</span>';
+    } else if (cotStatus === 'Perdida') {
+        statusBadgeHtml = '<span class="sf-badge sf-badge-danger" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;"><span class="sf-badge-dot" style="background-color: #dc2626;"></span> Perdida</span>';
+    } else {
+        statusBadgeHtml = '<span class="sf-badge sf-badge-info" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;"><span class="sf-badge-dot" style="background-color: #0284c7;"></span> Activa</span>';
+    }
+    document.getElementById('modal-cot-status').innerHTML = statusBadgeHtml;
+
+    const probBarColor = cotProb >= 70 ? '#16a34a' : (cotProb >= 40 ? '#d97706' : '#dc2626');
+    document.getElementById('modal-cot-probability').innerHTML = `
+        <span style="display: inline-flex; align-items: center; gap: 8px;">
+            <span style="font-weight: 700; color: ${probBarColor};">${cotProb}%</span>
+            <span style="display: inline-block; width: 60px; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; vertical-align: middle;">
+                <span style="display: block; width: ${cotProb}%; height: 100%; background: ${probBarColor}; border-radius: 3px;"></span>
+            </span>
+        </span>
+    `;
 
     // Renderizar Productos
     const tbody = document.getElementById('modal-cot-products-body');
@@ -503,6 +567,59 @@ function openEditClientModal(customer) {
 function closeEditClientModal() {
     document.getElementById('modal-edit-client').style.display = 'none';
 }
+
+function openChangeStatusModal(saleId, saleNumber, currentStatus, currentProb) {
+    const modal = document.getElementById('modal-change-status');
+    const form = document.getElementById('form-change-status');
+    form.action = `/ventas/cotizacion/${saleId}/actualizar-estado`;
+
+    document.getElementById('modal-status-subtitle').textContent = `Cotización N° ${saleNumber}`;
+
+    const select = document.getElementById('change_status_select');
+    select.value = currentStatus || 'Activa';
+
+    const prob = (currentProb !== undefined && currentProb !== null && currentProb !== '') ? parseInt(currentProb) : 50;
+    updateChangeProbFromRange(prob);
+
+    modal.style.display = 'flex';
+}
+
+function closeChangeStatusModal() {
+    document.getElementById('modal-change-status').style.display = 'none';
+}
+
+function updateChangeProbFromRange(val) {
+    val = Math.max(0, Math.min(100, parseInt(val) || 0));
+    const rangeInput = document.getElementById('change_prob_range');
+    const numInput = document.getElementById('change_prob_input');
+    const badge = document.getElementById('change_prob_badge');
+    if (rangeInput) rangeInput.value = val;
+    if (numInput) numInput.value = val;
+    if (badge) {
+        badge.textContent = val + '%';
+        if (val >= 70) badge.style.background = '#16a34a';
+        else if (val >= 40) badge.style.background = '#d97706';
+        else badge.style.background = '#dc2626';
+    }
+}
+
+function updateChangeProbFromNumber(val) {
+    updateChangeProbFromRange(val);
+}
+
+function handleChangeStatusSelectChange() {
+    const status = document.getElementById('change_status_select').value;
+    if (status === 'Ganada') {
+        updateChangeProbFromRange(100);
+    } else if (status === 'Perdida') {
+        updateChangeProbFromRange(0);
+    } else if (status === 'Activa') {
+        const cur = parseInt(document.getElementById('change_prob_input').value) || 0;
+        if (cur === 0 || cur === 100) {
+            updateChangeProbFromRange(50);
+        }
+    }
+}
 </script>
 
 <!-- Modal Ver / Editar Cliente -->
@@ -581,6 +698,59 @@ function closeEditClientModal() {
             <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
                 <button type="button" onclick="closeEditClientModal()" style="padding: 8px 16px; background: #e2e8f0; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; color: #475569;">Cancelar</button>
                 <button type="submit" class="sf-btn-primary" style="padding: 8px 18px; border: none; background: #3182ce; color: white; border-radius: 6px; font-weight: 600; cursor: pointer;">💾 Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Actualizar Estado y Probabilidad -->
+<div id="modal-change-status" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999; justify-content: center; align-items: center; padding: 20px;">
+    <div style="background: white; border-radius: 12px; width: 480px; max-width: 95%; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px;">
+            <div>
+                <h3 id="modal-status-title" style="margin: 0; font-size: 18px; color: #1e293b;">Actualizar Estado Comercial</h3>
+                <p id="modal-status-subtitle" style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Cotización</p>
+            </div>
+            <button type="button" onclick="closeChangeStatusModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #94a3b8;">✕</button>
+        </div>
+
+        <form id="form-change-status" method="POST" action="">
+            <div style="margin-bottom: 18px;">
+                <label style="display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 6px;">
+                    📊 Estado de la Cotización
+                </label>
+                <select name="quotation_status" id="change_status_select" class="form-field-input" onchange="handleChangeStatusSelectChange()" style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; font-weight: 600; color: #1e293b;">
+                    <option value="Activa">🔵 Activa (En Negociación)</option>
+                    <option value="Ganada">🟢 Ganada (Cerrada con Éxito)</option>
+                    <option value="Perdida">🔴 Perdida (Descartada)</option>
+                </select>
+                <small style="color: #64748b; font-size: 11px; margin-top: 4px; display: block;">Etapa en el embudo comercial de ventas</small>
+            </div>
+
+            <div style="margin-bottom: 24px; background: #f8fafc; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label style="font-size: 13px; font-weight: 700; color: #334155;">
+                        🎯 Probabilidad de Ganarla
+                    </label>
+                    <span id="change_prob_badge" style="background: #3182ce; color: white; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 700;">50%</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <input type="range" id="change_prob_range" min="0" max="100" step="5" value="50" style="flex: 1; cursor: pointer;" oninput="updateChangeProbFromRange(this.value)">
+                    <div style="display: flex; align-items: center; width: 80px; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; background: white;">
+                        <input type="number" name="win_probability" id="change_prob_input" min="0" max="100" step="1" value="50" style="border: none; padding: 6px 8px; text-align: right; width: 50px; font-weight: 700; font-size: 13px;" oninput="updateChangeProbFromNumber(this.value)">
+                        <span style="padding-right: 8px; font-weight: 700; color: #64748b; font-size: 13px;">%</span>
+                    </div>
+                </div>
+                <small style="color: #64748b; font-size: 11px; margin-top: 6px; display: block;">Estimación porcentual de éxito (0% a 100%)</small>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                <button type="button" onclick="closeChangeStatusModal()" style="padding: 8px 16px; background: #e2e8f0; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; color: #475569;">
+                    Cancelar
+                </button>
+                <button type="submit" class="sf-btn-primary" style="padding: 8px 18px; border: none; background: #3182ce; color: white; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                    💾 Actualizar Estado
+                </button>
             </div>
         </form>
     </div>

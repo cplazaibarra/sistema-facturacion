@@ -347,6 +347,36 @@
             </div>
         </div>
 
+        <!-- Estado de Cotización y Probabilidad de Ganarla -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <div class="form-group-field" style="margin-bottom: 0;">
+                <label style="font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+                    <span>📊 Estado de Cotización</span>
+                </label>
+                <select name="quotation_status" id="quotation_status" class="form-field-input" onchange="handleQuotationStatusChange()" style="font-weight: 600;">
+                    <option value="Activa" {% if not cloned_quotation or cloned_quotation.quotation_status == 'Activa' %}selected{% endif %}>🔵 Activa (En Negociación)</option>
+                    <option value="Ganada" {% if cloned_quotation and cloned_quotation.quotation_status == 'Ganada' %}selected{% endif %}>🟢 Ganada (Cerrada con Éxito)</option>
+                    <option value="Perdida" {% if cloned_quotation and cloned_quotation.quotation_status == 'Perdida' %}selected{% endif %}>🔴 Perdida (Descartada)</option>
+                </select>
+                <small style="color: #64748b; font-size: 11px; margin-top: 4px; display: block;">Define la etapa del pipeline comercial</small>
+            </div>
+
+            <div class="form-group-field" style="margin-bottom: 0;">
+                <label style="font-weight: 700; color: #1e293b; display: flex; justify-content: space-between; align-items: center;">
+                    <span>🎯 Probabilidad de Ganarla</span>
+                    <span id="prob-badge-display" style="background: #3182ce; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 700;">{{ cloned_quotation.win_probability if cloned_quotation and cloned_quotation.win_probability is not none else 50 }}%</span>
+                </label>
+                <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+                    <input type="range" id="win_probability_range" min="0" max="100" step="5" value="{{ cloned_quotation.win_probability if cloned_quotation and cloned_quotation.win_probability is not none else 50 }}" style="flex: 1; cursor: pointer;" oninput="updateProbabilityFromRange(this.value)">
+                    <div style="display: flex; align-items: center; width: 85px; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; background: white;">
+                        <input type="number" name="win_probability" id="win_probability" min="0" max="100" step="1" value="{{ cloned_quotation.win_probability if cloned_quotation and cloned_quotation.win_probability is not none else 50 }}" class="form-field-input" style="border: none; padding: 6px 8px; text-align: right; width: 55px; font-weight: 700;" oninput="updateProbabilityFromNumber(this.value)">
+                        <span style="padding-right: 8px; font-weight: 700; color: #64748b; font-size: 13px;">%</span>
+                    </div>
+                </div>
+                <small style="color: #64748b; font-size: 11px; margin-top: 4px; display: block;">Estimación porcentual de cierre (0% a 100%)</small>
+            </div>
+        </div>
+
         <!-- Fila Método de pago -->
         <div class="form-group-field" style="margin-bottom: 16px;">
             <label>Método de pago</label>
@@ -1043,6 +1073,45 @@ document.addEventListener('DOMContentLoaded', () => {
     addBtn.addEventListener('click', () => {
         createRow();
     });
+
+    // Inicializar color del badge de probabilidad
+    const initProb = parseInt(document.getElementById('win_probability').value) || 50;
+    updateProbColor(initProb);
 });
+
+function updateProbabilityFromRange(val) {
+    document.getElementById('win_probability').value = val;
+    document.getElementById('prob-badge-display').textContent = val + '%';
+    updateProbColor(val);
+}
+
+function updateProbabilityFromNumber(val) {
+    val = Math.max(0, Math.min(100, parseInt(val) || 0));
+    document.getElementById('win_probability_range').value = val;
+    document.getElementById('prob-badge-display').textContent = val + '%';
+    updateProbColor(val);
+}
+
+function updateProbColor(val) {
+    const badge = document.getElementById('prob-badge-display');
+    if (!badge) return;
+    if (val >= 70) badge.style.background = '#16a34a';
+    else if (val >= 40) badge.style.background = '#d97706';
+    else badge.style.background = '#dc2626';
+}
+
+function handleQuotationStatusChange() {
+    const status = document.getElementById('quotation_status').value;
+    if (status === 'Ganada') {
+        updateProbabilityFromRange(100);
+    } else if (status === 'Perdida') {
+        updateProbabilityFromRange(0);
+    } else if (status === 'Activa') {
+        const cur = parseInt(document.getElementById('win_probability').value) || 0;
+        if (cur === 0 || cur === 100) {
+            updateProbabilityFromRange(50);
+        }
+    }
+}
 </script>
 {% endblock %}

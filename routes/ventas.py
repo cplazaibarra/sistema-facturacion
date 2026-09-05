@@ -131,6 +131,8 @@ def _get_formatted_sales_data():
                         "label": sale["status"],
                         "level": "success" if sale["status"] == "Completada" else "warning" if sale["status"] == "Pendiente" else "info" if sale["status"] == "Cotización" else "danger"
                     },
+                    "quotation_status": sale.get("quotation_status") or ("Ganada" if "Venta Generada:" in (sale.get("notes") or "") else "Activa"),
+                    "win_probability": int(sale.get("win_probability") if sale.get("win_probability") is not None else (100 if "Venta Generada:" in (sale.get("notes") or "") else 50)),
                     "seller": {
                         "name": sale["seller_name"],
                         "initials": sale.get("seller_initials", "")
@@ -256,8 +258,18 @@ def cotizaciones():
 
     cotizaciones_records = []
     for record in only_cotizaciones:
+        q_status = record.get('quotation_status', 'Activa')
         if card_filter == 'Cotizaciones Hoy':
             if record['date'] == today_str:
+                cotizaciones_records.append(record)
+        elif card_filter in ['Activa', 'Cotizaciones Activas']:
+            if q_status == 'Activa':
+                cotizaciones_records.append(record)
+        elif card_filter in ['Ganada', 'Cotizaciones Ganadas']:
+            if q_status == 'Ganada':
+                cotizaciones_records.append(record)
+        elif card_filter in ['Perdida', 'Cotizaciones Perdidas']:
+            if q_status == 'Perdida':
                 cotizaciones_records.append(record)
         else:
             cotizaciones_records.append(record)
@@ -272,8 +284,9 @@ def cotizaciones():
                 all_products_set.add(p_name)
     all_products = sorted(list(all_products_set))
 
-    total_amount_cotizaciones = sum(c['total_raw'] for c in only_cotizaciones)
-    unique_clients_count = len(set(c['customer']['name'] for c in only_cotizaciones if c['customer']['name']))
+    activas_count = sum(1 for c in only_cotizaciones if c.get('quotation_status') == 'Activa')
+    ganadas_count = sum(1 for c in only_cotizaciones if c.get('quotation_status') == 'Ganada')
+    perdidas_count = sum(1 for c in only_cotizaciones if c.get('quotation_status') == 'Perdida')
 
     cotizaciones_metrics = [
         {
@@ -282,27 +295,31 @@ def cotizaciones():
             "label": "Total Cotizaciones",
             "secondary": "emitidas en sistema",
             "color": "blue",
+            "filter_val": "",
         },
         {
-            "icon": "<i class=\"fa-solid fa-clock\"></i>",
-            "value": str(len(cotizaciones_records)),
+            "icon": "<i class=\"fa-solid fa-hourglass-half\"></i>",
+            "value": str(activas_count),
             "label": "Cotizaciones Activas",
-            "secondary": "pendientes a venta",
+            "secondary": "en negociación",
             "color": "orange",
+            "filter_val": "Activa",
         },
         {
-            "icon": "<i class=\"fa-solid fa-sack-dollar\"></i>",
-            "value": f"${total_amount_cotizaciones:.0f}",
-            "label": "Monto Cotizado",
-            "secondary": "monto total",
+            "icon": "<i class=\"fa-solid fa-circle-check\"></i>",
+            "value": str(ganadas_count),
+            "label": "Cotizaciones Ganadas",
+            "secondary": "cerradas con éxito",
             "color": "green",
+            "filter_val": "Ganada",
         },
         {
-            "icon": "<i class=\"fa-solid fa-users\"></i>",
-            "value": str(unique_clients_count),
-            "label": "Clientes Cotizados",
-            "secondary": "receptores únicos",
+            "icon": "<i class=\"fa-solid fa-circle-xmark\"></i>",
+            "value": str(perdidas_count),
+            "label": "Cotizaciones Perdidas",
+            "secondary": "descartadas",
             "color": "purple",
+            "filter_val": "Perdida",
         },
     ]
 
@@ -921,7 +938,7 @@ def nueva_cotizacion():
         customer_rut = request.form.get('customer_rut', '').strip()
         customer_dv = request.form.get('customer_dv', '').strip()
         doc_type = request.form.get('doc_type', 'Boleta').strip()
-        sale_date = request.form.get('sale_date', '').strip()
+        sale_date = request.form.get('sale_date', '').strip() or datetime.today().strftime('%Y-%m-%d')
         notes = request.form.get('notes', '').strip()
 
         if customer_email and not is_valid_email(customer_email):
@@ -1003,6 +1020,17 @@ def nueva_cotizacion():
                 
         # Estado seleccionado (Borrador vs Cotización)
         cot_status = request.form.get('status', 'Cotización').strip()
+
+        # Estado del Pipeline (Activa, Ganada, Perdida) y Probabilidad de Ganarla (0 - 100%)
+        quotation_status = request.form.get('quotation_status', 'Activa').strip()
+        if quotation_status not in ['Activa', 'Ganada', 'Perdida']:
+            quotation_status = 'Activa'
+
+        win_prob_raw = request.form.get('win_probability', '').strip()
+        if win_prob_raw.isdigit():
+            win_probability = max(0, min(100, int(win_prob_raw)))
+        else:
+            win_probability = 100 if quotation_status == 'Ganada' else (0 if quotation_status == 'Perdida' else 50)
         
         # Construir registro de cotización
         sale_data = {
@@ -1015,6 +1043,8 @@ def nueva_cotizacion():
             "products": products_list,
             "total_amount": round(total_amount, 2),
             "status": cot_status,
+            "quotation_status": quotation_status,
+            "win_probability": win_probability,
             "seller_name": session.get('user_name', 'Vendedor'),
             "seller_initials": session.get('user_initials', 'V'),
             "payment_method": request.form.get('payment_method', 'Efectivo').strip(),
@@ -1025,7 +1055,7 @@ def nueva_cotizacion():
         }
         
         insert_sale(sale_data)
-        flash(f"Cotización guardada como '{cot_status}' exitosamente.", "success")
+        flash(f"Cotización guardada exitosamente (Estado: {quotation_status} | Probabilidad: {win_probability}%).", "success")
         return redirect(url_for('ventas.cotizaciones'))
         
     products = [p for p in list_products() if p.get('product_type', 'Final') == 'Final']
@@ -1079,6 +1109,8 @@ def nueva_cotizacion():
                 "customer_name": cloned_sale.get("customer_name", ""),
                 "customer_email": cloned_sale.get("customer_email", ""),
                 "customer_category": cat_id,
+                "quotation_status": cloned_sale.get("quotation_status", "Activa"),
+                "win_probability": cloned_sale.get("win_probability", 50),
                 "notes": clean_notes,
                 "products": cloned_sale.get("products", [])
             }
@@ -1290,20 +1322,44 @@ def convertir_cotizacion(sale_id):
                     f"Venta creada a partir de Cotización {quotation['sale_number']}"
                 )
             )
-            # 3. Guardar en las notas de la cotización de origen qué venta fue creada a partir de ella
+            # 3. Guardar en las notas de la cotización de origen qué venta fue creada a partir de ella, y actualizar estado a 'Ganada' con 100% probabilidad
             new_cot_notes = quotation.get("notes") or ""
             reference_line = f"Venta Generada: {new_sale_number}"
             updated_cot_notes = f"{reference_line}\n{new_cot_notes}" if new_cot_notes else reference_line
             cur.execute(
-                "UPDATE sales SET notes = %s WHERE id = %s",
+                "UPDATE sales SET notes = %s, quotation_status = 'Ganada', win_probability = 100 WHERE id = %s",
                 (updated_cot_notes, sale_id)
             )
         conn.commit()
         
     from markupsafe import Markup
-    msg = Markup(f"Venta {new_sale_number} creada exitosamente a partir de la Cotización {quotation['sale_number']}. <a href='{url_for('ventas.ventas')}?filter=Ventas+Pendientes' style='font-weight: bold; text-decoration: underline; color: #1A365D;'>Haz clic aquí para ir a ver la nueva venta</a>.")
+    msg = Markup(f"Venta {new_sale_number} creada exitosamente a partir de la Cotización {quotation['sale_number']}. La cotización ha pasado a estado 'Ganada' (100%). <a href='{url_for('ventas.ventas')}?filter=Ventas+Pendientes' style='font-weight: bold; text-decoration: underline; color: #1A365D;'>Haz clic aquí para ver la nueva venta</a>.")
     flash(msg, "success")
     return redirect(url_for('ventas.cotizaciones'))
+
+
+@ventas_bp.route('/ventas/cotizacion/<int:sale_id>/actualizar-estado', methods=['POST'])
+def actualizar_estado_cotizacion(sale_id):
+    """Actualizar estado (Activa, Ganada, Perdida) y probabilidad de una cotización"""
+    from db import get_sale, update_quotation_status
+    quotation = get_sale(sale_id)
+    if not quotation:
+        flash("Cotización no encontrada.", "danger")
+        return redirect(url_for('ventas.cotizaciones'))
+        
+    new_status = request.form.get('quotation_status', 'Activa').strip()
+    if new_status not in ['Activa', 'Ganada', 'Perdida']:
+        new_status = 'Activa'
+        
+    prob_raw = request.form.get('win_probability', '').strip()
+    if prob_raw.isdigit():
+        prob_val = max(0, min(100, int(prob_raw)))
+    else:
+        prob_val = 100 if new_status == 'Ganada' else (0 if new_status == 'Perdida' else 50)
+        
+    update_quotation_status(sale_id, new_status, prob_val)
+    flash(f"Cotización {quotation['sale_number']} actualizada: Estado '{new_status}' con probabilidad del {prob_val}%.", "success")
+    return redirect(request.referrer or url_for('ventas.cotizaciones'))
 
 
 @ventas_bp.route('/ventas/clientes', methods=['GET', 'POST'])

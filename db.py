@@ -644,8 +644,12 @@ def init_db() -> None:
                     payment_status TEXT,
                     delivery_status TEXT,
                     notes TEXT,
+                    quotation_status VARCHAR(50) DEFAULT 'Activa',
+                    win_probability INTEGER DEFAULT 50,
                     created_at TEXT NOT NULL
-                )
+                );
+                ALTER TABLE sales ADD COLUMN IF NOT EXISTS quotation_status VARCHAR(50) DEFAULT 'Activa';
+                ALTER TABLE sales ADD COLUMN IF NOT EXISTS win_probability INTEGER DEFAULT 50;
                 """
             )
             cur.execute(
@@ -1620,7 +1624,7 @@ def list_sales(filters: dict = None) -> list[dict]:
                 SELECT s.id, s.sale_number, s.customer_name, s.customer_email, s.customer_initials,
                        s.sale_date, s.sale_time, s.products_json, s.total_amount, s.status,
                        s.seller_name, s.seller_initials, s.payment_method, s.payment_status,
-                       s.delivery_status, s.notes, s.created_at,
+                       s.delivery_status, s.notes, s.quotation_status, s.win_probability, s.created_at,
                        sp.invoice_due_date, sp.payment_date, sp.payment_proof_file, sp.invoice_file, sp.invoice_number
                 FROM sales s
                 LEFT JOIN sale_payments sp ON sp.sale_id = s.id
@@ -1648,7 +1652,7 @@ def list_sales(filters: dict = None) -> list[dict]:
                     query += " AND s.sale_date <= %s"
                     params.append(filters['date_to'])
             
-            query += " ORDER BY (s.sale_date || ' ' || s.sale_time)::timestamp DESC, s.id DESC"
+            query += " ORDER BY (COALESCE(NULLIF(s.sale_date, ''), '1970-01-01') || ' ' || COALESCE(NULLIF(s.sale_time, ''), '00:00:00'))::timestamp DESC, s.id DESC"
             
             cur.execute(query, tuple(params))
             rows = cur.fetchall()
@@ -1708,7 +1712,7 @@ def list_sales_page(limit: int, offset: int, filters: dict = None) -> list[dict]
                 if filters.get('date_to'):
                     query += " AND sale_date <= %s"
                     params.append(filters['date_to'])
-            query += " ORDER BY (sale_date || ' ' || sale_time)::timestamp DESC, id DESC"
+            query += " ORDER BY (COALESCE(NULLIF(sale_date, ''), '1970-01-01') || ' ' || COALESCE(NULLIF(sale_time, ''), '00:00:00'))::timestamp DESC, id DESC"
             query += " LIMIT %s OFFSET %s"
             params.extend([limit, offset])
             cur.execute(query, tuple(params))
@@ -1747,7 +1751,7 @@ def list_sales_page_light(limit: int, offset: int, filters: dict = None) -> list
                 if filters.get('date_to'):
                     query += " AND sale_date <= %s"
                     params.append(filters['date_to'])
-            query += " ORDER BY (sale_date || ' ' || sale_time)::timestamp DESC, id DESC"
+            query += " ORDER BY (COALESCE(NULLIF(sale_date, ''), '1970-01-01') || ' ' || COALESCE(NULLIF(sale_time, ''), '00:00:00'))::timestamp DESC, id DESC"
             query += " LIMIT %s OFFSET %s"
             params.extend([limit, offset])
             cur.execute(query, tuple(params))
@@ -1783,7 +1787,7 @@ def get_sale(sale_id: int) -> dict | None:
                 SELECT id, sale_number, customer_name, customer_email, customer_initials,
                        sale_date, sale_time, products_json, total_amount, status,
                        seller_name, seller_initials, payment_method, payment_status,
-                       delivery_status, notes, created_at
+                       delivery_status, notes, quotation_status, win_probability, created_at
                 FROM sales
                 WHERE id = %s
                 """,
@@ -1807,8 +1811,8 @@ def insert_sale(sale: dict) -> int:
                     sale_number, customer_name, customer_email, customer_initials,
                     sale_date, sale_time, products_json, total_amount, status,
                     seller_name, seller_initials, payment_method, payment_status,
-                    delivery_status, notes, created_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    delivery_status, notes, quotation_status, win_probability, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
@@ -1827,6 +1831,8 @@ def insert_sale(sale: dict) -> int:
                     sale.get("payment_status", "Pendiente"),
                     sale.get("delivery_status", "Pendiente"),
                     sale.get("notes", ""),
+                    sale.get("quotation_status", "Activa"),
+                    sale.get("win_probability", 50),
                     sale["created_at"],
                 ),
             )
@@ -1844,7 +1850,9 @@ def update_sale(sale_id: int, sale: dict) -> None:
                     customer_name = %s, customer_email = %s, customer_initials = %s,
                     sale_date = %s, sale_time = %s, products_json = %s, total_amount = %s,
                     status = %s, seller_name = %s, seller_initials = %s,
-                    payment_method = %s, payment_status = %s, delivery_status = %s, notes = %s
+                    payment_method = %s, payment_status = %s, delivery_status = %s, notes = %s,
+                    quotation_status = COALESCE(%s, quotation_status),
+                    win_probability = COALESCE(%s, win_probability)
                 WHERE id = %s
                 """,
                 (
@@ -1862,9 +1870,28 @@ def update_sale(sale_id: int, sale: dict) -> None:
                     sale.get("payment_status", ""),
                     sale.get("delivery_status", ""),
                     sale.get("notes", ""),
+                    sale.get("quotation_status"),
+                    sale.get("win_probability"),
                     sale_id,
                 ),
             )
+        conn.commit()
+
+
+def update_quotation_status(sale_id: int, status: str, probability: int = None) -> None:
+    """Actualiza el estado (Activa, Ganada, Perdida) y la probabilidad de una cotización."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            if probability is not None:
+                cur.execute(
+                    "UPDATE sales SET quotation_status = %s, win_probability = %s WHERE id = %s",
+                    (status, probability, sale_id)
+                )
+            else:
+                cur.execute(
+                    "UPDATE sales SET quotation_status = %s WHERE id = %s",
+                    (status, sale_id)
+                )
         conn.commit()
 
 
