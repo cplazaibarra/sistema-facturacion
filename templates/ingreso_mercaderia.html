@@ -5,148 +5,173 @@
 
 {% block content %}
 <div class="ingreso-container">
-    <div class="ingreso-form-card" style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-        <h3>Registrar Ingreso de Mercadería</h3>
-        <form class="ingreso-form" method="post" id="ingreso-form" enctype="multipart/form-data" style="margin-top: 20px;">
-            <div id="client-error" class="alert-error" style="margin-bottom: 16px; color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; padding: 10px 12px; border-radius: 8px; display: none;"></div>
+    <div class="ingreso-form-card" style="background: white; padding: 28px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <h3 style="margin: 0 0 20px 0; font-size: 20px; color: #1e293b; display: flex; align-items: center; gap: 10px;">
+            <i class="fa-solid fa-boxes-packing" style="color: #3b82f6;"></i>
+            Registrar Ingreso de Mercadería
+        </h3>
+        
+        <form class="ingreso-form" method="post" id="ingreso-form" enctype="multipart/form-data">
+            <div id="client-error" class="alert-error" style="margin-bottom: 20px; color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; padding: 12px 16px; border-radius: 8px; display: none; font-size: 14px; font-weight: 500;"></div>
 
-            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                <div class="form-group">
-                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Fecha de Ingreso</label>
-                    <input type="date" class="form-control" name="ingreso_date" value="{{ default_date }}" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
+            <!-- ─── 1. DATOS GENERALES DE RECEPCIÓN ───────────────────── -->
+            <div style="margin-bottom: 24px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #3b82f6; color: white; border-radius: 50%; font-size: 12px; font-weight: 700;">1</span>
+                    <h4 style="margin: 0; font-size: 15px; color: #334155; font-weight: 600;">Datos de Recepción y Origen</h4>
                 </div>
-                <div class="form-group">
-                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">N° de Referencia (Guía / Factura)</label>
-                    <input type="text" class="form-control" name="order_number" placeholder="Ej. GD-10254 o FAC-001" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
+
+                <div class="form-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+                    <div class="form-group">
+                        <label style="font-weight: 600; display: block; margin-bottom: 6px; font-size: 13px; color: #475569;">Fecha de Ingreso *</label>
+                        <input type="date" class="form-control" name="ingreso_date" id="ingreso_date" value="{{ default_date }}" required style="width: 100%; padding: 9px 12px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 14px;">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="font-weight: 600; display: block; margin-bottom: 6px; font-size: 13px; color: #475569;">Proveedor</label>
+                        <select class="form-control" id="ingreso-supplier" name="supplier_id" style="width: 100%; padding: 9px 12px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 14px;">
+                            <option value="">-- Todos los Proveedores --</option>
+                            {% for supplier in suppliers %}
+                            <option value="{{ supplier.id }}" {% if selected_supplier_id == supplier.id %}selected{% endif %}>{{ supplier.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="font-weight: 600; display: block; margin-bottom: 6px; font-size: 13px; color: #475569;">Orden de Compra Asociada *</label>
+                        <select class="form-control" id="ingreso-oc" name="purchase_order_id" required style="width: 100%; padding: 9px 12px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 14px;">
+                            <option value="">Seleccionar Orden de Compra...</option>
+                            {% for oc in active_ocs %}
+                            <option value="{{ oc.id }}" data-supplier-id="{{ oc.supplier_id }}" data-supplier-name="{{ oc.supplier_name }}" data-total="{{ oc.total_amount }}" {% if selected_po_id == oc.id %}selected{% endif %}>
+                                {{ oc.oc_number }} - {{ oc.supplier_name }} (${{ '{:,.0f}'.format(oc.total_amount) }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="font-weight: 600; display: block; margin-bottom: 6px; font-size: 13px; color: #475569;">Almacén de Destino *</label>
+                        <select class="form-control" name="warehouse" required style="width: 100%; padding: 9px 12px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 14px;">
+                            {% for w in warehouses %}
+                            <option>{{ w }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
             </div>
 
-            <!-- ─── TIPO DE DOCUMENTO ─────────────────────────────────── -->
-            <div style="background:#f7fafc;border:1px solid #e2e8f0;border-radius:10px;padding:18px;margin-bottom:16px;">
-                <label style="font-weight:600;display:block;margin-bottom:12px;color:#2d3748;">
-                    <i class="fa-solid fa-file-alt" style="margin-right:6px;color:#3182ce;"></i>
-                    Documento que acompaña la mercadería
-                </label>
-                <div style="display:flex;gap:20px;margin-bottom:14px;">
-                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500;padding:10px 16px;border:2px solid #e2e8f0;border-radius:8px;flex:1;transition:all .15s;" id="lbl-guia">
-                        <input type="radio" name="document_type" value="guia_despacho" id="opt-guia" checked style="width:16px;height:16px;">
-                        <span><i class="fa-solid fa-truck" style="color:#718096;margin-right:4px;"></i>Guía de Despacho</span>
+            <!-- ─── 2. DOCUMENTO QUE ACOMPAÑA LA MERCADERÍA ────────────── -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin-bottom: 24px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
+                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #3b82f6; color: white; border-radius: 50%; font-size: 12px; font-weight: 700;">2</span>
+                    <h4 style="margin: 0; font-size: 15px; color: #334155; font-weight: 600;">Documento que acompaña la mercadería</h4>
+                </div>
+
+                <!-- Selector de tipo de documento -->
+                <div style="display: flex; gap: 16px; margin-bottom: 18px;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600; padding: 12px 18px; border: 2px solid #3182ce; background: #ebf8ff; border-radius: 8px; flex: 1; transition: all .15s;" id="lbl-guia">
+                        <input type="radio" name="document_type" value="guia_despacho" id="opt-guia" checked style="width: 18px; height: 18px; cursor: pointer;">
+                        <span><i class="fa-solid fa-truck" style="color: #3182ce; margin-right: 6px;"></i>Guía de Despacho</span>
                     </label>
-                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500;padding:10px 16px;border:2px solid #e2e8f0;border-radius:8px;flex:1;transition:all .15s;" id="lbl-factura">
-                        <input type="radio" name="document_type" value="factura" id="opt-factura" style="width:16px;height:16px;">
-                        <span><i class="fa-solid fa-file-invoice" style="color:#718096;margin-right:4px;"></i>Factura de Compra</span>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 500; padding: 12px 18px; border: 2px solid #e2e8f0; border-radius: 8px; flex: 1; transition: all .15s;" id="lbl-factura">
+                        <input type="radio" name="document_type" value="factura" id="opt-factura" style="width: 18px; height: 18px; cursor: pointer;">
+                        <span><i class="fa-solid fa-file-invoice-dollar" style="color: #718096; margin-right: 6px;"></i>Factura de Compra</span>
                     </label>
                 </div>
 
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+                <!-- Campos específicos del documento -->
+                <div id="doc-fields-grid" style="display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px;">
                     <div>
-                        <label style="font-weight:500;display:block;margin-bottom:6px;font-size:13px;" id="lbl-doc-number">N° de Guía de Despacho</label>
-                        <input type="text" name="document_number" id="document_number" placeholder="Ej. GD-10254" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:6px;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 6px; font-size: 13px; color: #334155;" id="lbl-doc-number">N° de Guía de Despacho *</label>
+                        <input type="text" name="document_number" id="document_number" placeholder="Ej. GD-10254" required style="width: 100%; padding: 9px 12px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 14px;">
                     </div>
-                    <div id="row-due-date" style="display:none;">
-                        <label style="font-weight:500;display:block;margin-bottom:6px;font-size:13px;">Fecha Vencimiento Factura</label>
-                        <input type="date" name="due_date" id="due_date" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:6px;">
+                    <div id="row-due-date" style="display: none;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 6px; font-size: 13px; color: #334155;">Fecha Vencimiento Factura *</label>
+                        <input type="date" name="due_date" id="due_date" style="width: 100%; padding: 9px 12px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 14px;">
                     </div>
-                    <div id="row-invoice-amount" style="display:none;">
-                        <label style="font-weight:500;display:block;margin-bottom:6px;font-size:13px;">Monto Factura ($)</label>
-                        <input type="number" name="invoice_amount" id="invoice_amount" step="0.01" min="0" placeholder="0.00" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:6px;">
+                    <div id="row-invoice-amount" style="display: none;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 6px; font-size: 13px; color: #334155;">Monto Factura ($) *</label>
+                        <input type="number" name="invoice_amount" id="invoice_amount" step="0.01" min="0" placeholder="0.00" style="width: 100%; padding: 9px 12px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 14px;">
                     </div>
                 </div>
 
-                <!-- Upload foto -->
+                <!-- Upload de foto / archivo -->
                 <div>
-                    <label style="font-weight:500;display:block;margin-bottom:8px;font-size:13px;" id="lbl-doc-file">
-                        <i class="fa-solid fa-camera" style="margin-right:5px;color:#718096;"></i>
-                        Foto de la Guía de Despacho <span style="color:#718096;font-weight:400;">(opcional)</span>
+                    <label style="font-weight: 600; display: block; margin-bottom: 8px; font-size: 13px; color: #334155;" id="lbl-doc-file">
+                        <i class="fa-solid fa-camera" style="margin-right: 5px; color: #64748b;"></i>
+                        Foto de la Guía de Despacho <span style="color: #94a3b8; font-weight: 400;">(opcional)</span>
                     </label>
-                    <div id="upload-area" style="border:2px dashed #cbd5e0;border-radius:8px;padding:20px;text-align:center;cursor:pointer;position:relative;transition:border-color .2s;"
+                    <div id="upload-area" style="border: 2px dashed #cbd5e0; border-radius: 8px; padding: 18px; text-align: center; cursor: pointer; position: relative; transition: border-color .2s; background: white;"
                          onclick="document.getElementById('doc-file-input').click()">
                         <input type="file" name="document_file" id="doc-file-input" accept="image/*,.pdf"
-                               style="position:absolute;inset:0;opacity:0;cursor:pointer;"
+                               style="position: absolute; inset: 0; opacity: 0; cursor: pointer;"
                                onchange="previewFile(this)">
                         <div id="upload-placeholder">
-                            <i class="fa-solid fa-cloud-arrow-up" style="font-size:24px;color:#a0aec0;display:block;margin-bottom:6px;"></i>
-                            <span style="color:#718096;font-size:13px;">Haz clic o arrastra la imagen / PDF aquí</span>
+                            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 22px; color: #94a3b8; display: block; margin-bottom: 6px;"></i>
+                            <span style="color: #64748b; font-size: 13px;">Haz clic o arrastra la imagen o PDF aquí</span>
                         </div>
-                        <div id="upload-preview" style="display:none;">
-                            <img id="preview-img" style="max-height:80px;border-radius:6px;margin-bottom:4px;">
-                            <p id="preview-name" style="margin:0;font-size:12px;color:#4a5568;"></p>
+                        <div id="upload-preview" style="display: none;">
+                            <img id="preview-img" style="max-height: 80px; border-radius: 6px; margin-bottom: 4px;">
+                            <p id="preview-name" style="margin: 0; font-size: 12px; color: #334155; font-weight: 500;"></p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Alerta guía pendiente -->
-                <div id="alert-guia" style="margin-top:12px;background:#fffbeb;border:1px solid #f6e05e;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;">
-                    <i class="fa-solid fa-triangle-exclamation" style="color:#d69e2e;font-size:16px;"></i>
-                    <span style="font-size:13px;color:#744210;">
-                        <strong>Guía de Despacho:</strong> Recuerda que después deberás vincular la factura del proveedor en <strong>Cuentas por Pagar</strong>.
+                <!-- Alertas Guía vs Factura -->
+                <div id="alert-guia" style="margin-top: 14px; background: #fffbeb; border: 1px solid #fde047; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: #d97706; font-size: 16px;"></i>
+                    <span style="font-size: 13px; color: #92400e;">
+                        <strong>Guía de Despacho:</strong> La mercadería se agregará al inventario. Podrás vincular la factura del proveedor más adelante desde el módulo de <strong>Cuentas por Pagar</strong>.
                     </span>
                 </div>
-                <div id="alert-factura" style="margin-top:12px;background:#f0fff4;border:1px solid #9ae6b4;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;display:none;">
-                    <i class="fa-solid fa-circle-check" style="color:#38a169;font-size:16px;"></i>
-                    <span style="font-size:13px;color:#276749;">
-                        <strong>Factura:</strong> Se registrará en Cuentas por Pagar como pendiente de pago.
+                <div id="alert-factura" style="margin-top: 14px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 10px 14px; display: none; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-circle-check" style="color: #16a34a; font-size: 16px;"></i>
+                    <span style="font-size: 13px; color: #166534;">
+                        <strong>Factura de Compra:</strong> La mercadería se agregará al inventario y se registrará automáticamente en <strong>Cuentas por Pagar</strong> como pendiente de pago.
                     </span>
                 </div>
             </div>
-            <!-- ─────────────────────────────────────────────────────── -->
 
-            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                <div class="form-group">
-                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Proveedor</label>
-                    <select class="form-control" id="ingreso-supplier" name="supplier_id" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
-                        <option value="">Seleccionar proveedor</option>
-                        {% for supplier in suppliers %}
-                        <option value="{{ supplier.id }}">{{ supplier.name }}</option>
-                        {% endfor %}
-                    </select>
+            <!-- ─── 3. DETALLE DE RECEPCIÓN ───────────────────────────── -->
+            <div style="margin-bottom: 24px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #3b82f6; color: white; border-radius: 50%; font-size: 12px; font-weight: 700;">3</span>
+                    <h4 style="margin: 0; font-size: 15px; color: #334155; font-weight: 600;">Detalle de Recepción</h4>
                 </div>
-                <div class="form-group">
-                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Orden de Compra Asociada *</label>
-                    <select class="form-control" id="ingreso-oc" name="purchase_order_id" required disabled style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
-                        <option value="">Selecciona un proveedor primero</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Almacén</label>
-                    <select class="form-control" name="warehouse" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
-                        {% for w in warehouses %}
-                        <option>{{ w }}</option>
-                        {% endfor %}
-                    </select>
+                <p style="color: #64748b; font-size: 13px; margin: 0 0 16px 0;" id="oc-hint">
+                    Selecciona una Orden de Compra arriba para cargar automáticamente sus productos pendientes de recepción.
+                </p>
+
+                <div id="recepcion-table-wrapper" style="overflow-x: auto;">
+                    <table class="data-table" id="recepcion-table" style="width: 100%; display: none; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f1f5f9; text-align: left; border-bottom: 2px solid #cbd5e1;">
+                                <th style="padding: 10px 12px;">Producto</th>
+                                <th style="padding: 10px 12px; width: 100px;">Solicitado</th>
+                                <th style="padding: 10px 12px; width: 110px;">Recibido Prev.</th>
+                                <th style="padding: 10px 12px; width: 100px;">Pendiente</th>
+                                <th style="padding: 10px 12px; width: 130px;">Recibido Ahora</th>
+                                <th style="padding: 10px 12px; width: 200px;">N° Lote Físico</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recepcion-tbody">
+                            <!-- Filas dinámicas generadas por JavaScript -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
-            <div class="form-divider" style="height: 1px; background: #E2E8F0; margin: 24px 0;"></div>
-
-            <h4 style="margin-bottom: 12px;">Detalle de Recepción</h4>
-            <p style="color: #718096; font-size: 13px; margin-bottom: 16px;" id="oc-hint">Las cantidades a ingresar se validan estrictamente contra las cantidades pendientes de la OC seleccionada.</p>
-
-            <table class="data-table" id="recepcion-table" style="width: 100%; display: none;">
-                <thead>
-                    <tr>
-                        <th>Producto</th>
-                        <th>Solicitado</th>
-                        <th>Recibido Prev.</th>
-                        <th>Pendiente</th>
-                        <th style="width: 130px;">Recibido Ahora</th>
-                        <th style="width: 180px;">N° Lote Físico</th>
-                    </tr>
-                </thead>
-                <tbody id="recepcion-tbody">
-                    <!-- Filas cargadas por JS -->
-                </tbody>
-            </table>
-
-            <div class="form-group" style="margin-top: 24px;">
-                <label style="font-weight: 500; display: block; margin-bottom: 6px;">Observaciones</label>
-                <textarea class="form-control" rows="3" name="notes" placeholder="Detalles de la entrega o discrepancias..." style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;"></textarea>
+            <div class="form-group" style="margin-top: 20px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 6px; font-size: 13px; color: #475569;">Observaciones</label>
+                <textarea class="form-control" rows="3" name="notes" placeholder="Detalles adicionales de la entrega, discrepancias, o notas de transporte..." style="width: 100%; padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 14px;"></textarea>
             </div>
 
-            <div class="form-actions" style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
-                <button type="button" class="btn-secondary" style="padding: 10px 16px;">Cancelar</button>
-                <button type="submit" class="sf-btn-primary" style="padding: 10px 20px;">
-                    <i class="fa-solid fa-check" style="margin-right:6px;"></i>Registrar Ingreso
+            <div class="form-actions" style="margin-top: 28px; display: flex; justify-content: flex-end; gap: 12px;">
+                <a href="{{ url_for('inventario.inventario') }}" class="btn-secondary" style="padding: 10px 18px; text-decoration: none; border-radius: 6px; display: inline-flex; align-items: center; color: #475569;">
+                    Cancelar
+                </a>
+                <button type="submit" class="sf-btn-primary" style="padding: 10px 24px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-check"></i> Registrar Ingreso
                 </button>
             </div>
         </form>
@@ -158,7 +183,7 @@
             <thead>
                 <tr>
                     <th>Fecha</th>
-                    <th>Guía / Recepción</th>
+                    <th>Doc. Referencia (Guía / Factura)</th>
                     <th>OC Relacionada</th>
                     <th>Proveedor</th>
                     <th>Productos</th>
@@ -186,31 +211,74 @@
 </div>
 
 <script>
-// ─── Selector de tipo de documento ───────────────────────────────────────
+// ─── Selector dinámico de tipo de documento ───────────────────────────────
 function updateDocType() {
     const isFactura = document.getElementById('opt-factura').checked;
-    // Labels coloreados
-    document.getElementById('lbl-guia').style.borderColor    = isFactura ? '#e2e8f0' : '#3182ce';
-    document.getElementById('lbl-guia').style.background     = isFactura ? '' : '#ebf8ff';
-    document.getElementById('lbl-factura').style.borderColor = isFactura ? '#3182ce' : '#e2e8f0';
-    document.getElementById('lbl-factura').style.background  = isFactura ? '#f0fff4' : '';
-    // Campos condicionales
-    document.getElementById('row-due-date').style.display      = isFactura ? 'block' : 'none';
-    document.getElementById('row-invoice-amount').style.display = isFactura ? 'block' : 'none';
-    // Labels
-    document.getElementById('lbl-doc-number').textContent = isFactura ? 'N° de Factura' : 'N° de Guía de Despacho';
-    document.getElementById('lbl-doc-file').innerHTML = isFactura
-        ? '<i class="fa-solid fa-camera" style="margin-right:5px;color:#718096;"></i>Foto de la Factura <span style="color:#718096;font-weight:400;">(opcional)</span>'
-        : '<i class="fa-solid fa-camera" style="margin-right:5px;color:#718096;"></i>Foto de la Guía de Despacho <span style="color:#718096;font-weight:400;">(opcional)</span>';
-    // Alertas
-    document.getElementById('alert-guia').style.display    = isFactura ? 'none' : 'flex';
-    document.getElementById('alert-factura').style.display = isFactura ? 'flex' : 'none';
+    const lblGuia = document.getElementById('lbl-guia');
+    const lblFactura = document.getElementById('lbl-factura');
+    const rowDue = document.getElementById('row-due-date');
+    const rowAmount = document.getElementById('row-invoice-amount');
+    const docFieldsGrid = document.getElementById('doc-fields-grid');
+    const docNum = document.getElementById('document_number');
+    const dueDate = document.getElementById('due_date');
+    const invoiceAmount = document.getElementById('invoice_amount');
+
+    if (isFactura) {
+        lblGuia.style.borderColor = '#e2e8f0';
+        lblGuia.style.background = '';
+        lblGuia.querySelector('i').style.color = '#718096';
+
+        lblFactura.style.borderColor = '#16a34a';
+        lblFactura.style.background = '#f0fdf4';
+        lblFactura.querySelector('i').style.color = '#16a34a';
+
+        docFieldsGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(200px, 1fr))';
+        rowDue.style.display = 'block';
+        rowAmount.style.display = 'block';
+        dueDate.required = true;
+        invoiceAmount.required = true;
+
+        document.getElementById('lbl-doc-number').textContent = 'N° de Factura *';
+        docNum.placeholder = 'Ej. FAC-00145';
+
+        document.getElementById('lbl-doc-file').innerHTML = '<i class="fa-solid fa-camera" style="margin-right:5px;color:#64748b;"></i>Foto de la Factura <span style="color:#94a3b8;font-weight:400;">(opcional)</span>';
+        document.getElementById('alert-guia').style.display = 'none';
+        document.getElementById('alert-factura').style.display = 'flex';
+
+        // Auto-sugerir monto si está vacío y hay una OC seleccionada
+        const ocSelect = document.getElementById('ingreso-oc');
+        const selectedOption = ocSelect.options[ocSelect.selectedIndex];
+        if (selectedOption && selectedOption.dataset.total && (!invoiceAmount.value || invoiceAmount.value == '0')) {
+            invoiceAmount.value = selectedOption.dataset.total;
+        }
+    } else {
+        lblGuia.style.borderColor = '#3182ce';
+        lblGuia.style.background = '#ebf8ff';
+        lblGuia.querySelector('i').style.color = '#3182ce';
+
+        lblFactura.style.borderColor = '#e2e8f0';
+        lblFactura.style.background = '';
+        lblFactura.querySelector('i').style.color = '#718096';
+
+        docFieldsGrid.style.gridTemplateColumns = '1fr';
+        rowDue.style.display = 'none';
+        rowAmount.style.display = 'none';
+        dueDate.required = false;
+        invoiceAmount.required = false;
+
+        document.getElementById('lbl-doc-number').textContent = 'N° de Guía de Despacho *';
+        docNum.placeholder = 'Ej. GD-10254';
+
+        document.getElementById('lbl-doc-file').innerHTML = '<i class="fa-solid fa-camera" style="margin-right:5px;color:#64748b;"></i>Foto de la Guía de Despacho <span style="color:#94a3b8;font-weight:400;">(opcional)</span>';
+        document.getElementById('alert-guia').style.display = 'flex';
+        document.getElementById('alert-factura').style.display = 'none';
+    }
 }
 document.getElementById('opt-guia').addEventListener('change', updateDocType);
 document.getElementById('opt-factura').addEventListener('change', updateDocType);
-updateDocType(); // inicial
+updateDocType(); // Inicializar estado
 
-// ─── Preview de archivo ───────────────────────────────────────────────────
+// ─── Preview de archivo adjunto ───────────────────────────────────────────
 function previewFile(input) {
     const area = document.getElementById('upload-area');
     const placeholder = document.getElementById('upload-placeholder');
@@ -220,7 +288,7 @@ function previewFile(input) {
     if (input.files && input.files[0]) {
         const file = input.files[0];
         name.textContent = file.name;
-        area.style.borderColor = '#38a169';
+        area.style.borderColor = '#16a34a';
         if (file.type.startsWith('image/')) {
             const reader = new FileReader();
             reader.onload = e => { img.src = e.target.result; img.style.display = 'block'; };
@@ -233,89 +301,167 @@ function previewFile(input) {
     }
 }
 
+// ─── Interacción y Validaciones ───────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     const supplierSelect = document.getElementById('ingreso-supplier');
-    const ocSelect = document.getElementById('ingreso-oc');
-    const table = document.getElementById('recepcion-table');
-    const tbody = document.getElementById('recepcion-tbody');
-    const errorBox = document.getElementById('client-error');
-    const form = document.getElementById('ingreso-form');
+    const ocSelect       = document.getElementById('ingreso-oc');
+    const table          = document.getElementById('recepcion-table');
+    const tbody          = document.getElementById('recepcion-tbody');
+    const errorBox       = document.getElementById('client-error');
+    const form           = document.getElementById('ingreso-form');
+    const ocHint         = document.getElementById('oc-hint');
 
-    supplierSelect.addEventListener('change', async () => {
+    // 1. Filtrar OCs al seleccionar un proveedor
+    supplierSelect.addEventListener('change', () => {
         const supplierId = supplierSelect.value;
-        ocSelect.innerHTML = '<option value="">Cargando órdenes...</option>';
-        ocSelect.disabled = true;
-        table.style.display = 'none';
+        Array.from(ocSelect.options).forEach((opt, idx) => {
+            if (idx === 0) return; // Opción default
+            const matches = !supplierId || opt.dataset.supplierId === supplierId;
+            opt.style.display = matches ? '' : 'none';
+        });
 
-        if (!supplierId) {
-            ocSelect.innerHTML = '<option value="">Selecciona un proveedor primero</option>';
-            return;
+        // Si la OC actualmente seleccionada no coincide con el nuevo proveedor, resetear selección
+        const currentOpt = ocSelect.options[ocSelect.selectedIndex];
+        if (currentOpt && currentOpt.dataset.supplierId && supplierId && currentOpt.dataset.supplierId !== supplierId) {
+            ocSelect.value = '';
+            table.style.display = 'none';
+            tbody.innerHTML = '';
+            ocHint.textContent = 'Selecciona una Orden de Compra arriba para cargar automáticamente sus productos pendientes de recepción.';
         }
-        try {
-            const response = await fetch(`/api/compras/proveedores/${supplierId}/oc-activas`);
-            if (response.ok) {
-                const orders = await response.json();
-                if (orders.length > 0) {
-                    let options = '<option value="">Seleccionar Orden de Compra</option>';
-                    orders.forEach(o => { options += `<option value="${o.id}">${o.oc_number} (${o.order_date})</option>`; });
-                    ocSelect.innerHTML = options;
-                    ocSelect.disabled = false;
-                } else {
-                    ocSelect.innerHTML = '<option value="">No hay OCs activas para este proveedor</option>';
-                }
-            }
-        } catch(e) { ocSelect.innerHTML = '<option value="">Error al cargar OCs</option>'; }
     });
 
-    ocSelect.addEventListener('change', async () => {
-        const poId = ocSelect.value;
+    // 2. Cargar ítems pendientes de la OC seleccionada
+    async function loadOcItems(poId) {
         tbody.innerHTML = '';
-        if (!poId) { table.style.display = 'none'; return; }
+        if (!poId) {
+            table.style.display = 'none';
+            ocHint.textContent = 'Selecciona una Orden de Compra arriba para cargar automáticamente sus productos pendientes de recepción.';
+            return;
+        }
+
+        ocHint.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px;"></i> Cargando productos de la Orden de Compra...';
+
         try {
             const response = await fetch(`/api/compras/oc/${poId}/items`);
             if (response.ok) {
                 const items = await response.json();
-                if (items.length > 0) {
-                    items.forEach(item => {
-                        const pending = item.quantity_ordered - item.quantity_received;
-                        if (pending <= 0) return;
-                        const requiresLot = Boolean(item.requires_lot);
-                        const row = document.createElement('tr');
-                        row.className = 'recepcion-row';
-                        row.dataset.requiresLot = requiresLot ? '1' : '0';
-                        row.dataset.productName = item.product_name;
-                        row.innerHTML = `
-                            <td>
-                                <div style="display: flex; flex-direction: column; gap: 4px;">
-                                    <strong>${item.product_name}</strong>
-                                    ${requiresLot ? '<span style="color: #b91c1c; font-size: 11px; font-weight: 700;">⚠️ Requiere Lote Obligatorio</span>' : '<span style="color: #94a3b8; font-size: 11px;">Lote Opcional</span>'}
-                                </div>
-                                <input type="hidden" name="product_id[]" value="${item.product_id}">
-                                <input type="hidden" name="unit_price[]" value="${item.unit_price}">
-                            </td>
-                            <td>${item.quantity_ordered}</td>
-                            <td>${item.quantity_received}</td>
-                            <td class="pending-qty">${pending}</td>
-                            <td>
-                                <input type="number" name="quantity[]" class="form-control input-qty" value="${pending}" min="0" max="${pending}" required style="width: 100px; padding: 6px; border: 1px solid #E2E8F0; border-radius: 4px;">
-                            </td>
-                            <td>
-                                <input type="text" name="lot_number[]" class="form-control input-lot" placeholder="${requiresLot ? 'LOTE Obligatorio *' : 'Opcional (Ej. A21)'}" ${requiresLot ? 'required' : ''} style="width: 100%; padding: 6px 10px; border: 1px solid ${requiresLot ? '#fca5a5' : '#E2E8F0'}; border-radius: 4px; background: ${requiresLot ? '#fff5f5' : '#fff'}; font-weight: 500;">
-                            </td>
-                        `;
-                        tbody.appendChild(row);
-                    });
+                let pendingCount = 0;
+
+                items.forEach(item => {
+                    const pending = item.quantity_ordered - item.quantity_received;
+                    if (pending <= 0) return;
+                    pendingCount++;
+                    const requiresLot = Boolean(item.requires_lot);
+                    const row = document.createElement('tr');
+                    row.className = 'recepcion-row';
+                    row.dataset.requiresLot = requiresLot ? '1' : '0';
+                    row.dataset.productName = item.product_name;
+                    row.style.borderBottom = '1px solid #e2e8f0';
+                    row.innerHTML = `
+                        <td style="padding: 10px 12px;">
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <strong style="color: #1e293b;">${item.product_name}</strong>
+                                ${requiresLot ? '<span style="color: #b91c1c; font-size: 11px; font-weight: 700;"><i class="fa-solid fa-triangle-exclamation"></i> Requiere Lote Obligatorio</span>' : '<span style="color: #94a3b8; font-size: 11px;">Lote Opcional</span>'}
+                            </div>
+                            <input type="hidden" name="product_id[]" value="${item.product_id}">
+                            <input type="hidden" name="unit_price[]" value="${item.unit_price}">
+                        </td>
+                        <td style="padding: 10px 12px; font-weight: 500;">${item.quantity_ordered}</td>
+                        <td style="padding: 10px 12px; color: #64748b;">${item.quantity_received}</td>
+                        <td style="padding: 10px 12px; font-weight: 700; color: #2563eb;" class="pending-qty">${pending}</td>
+                        <td style="padding: 10px 12px;">
+                            <input type="number" name="quantity[]" class="form-control input-qty" value="${pending}" min="0" max="${pending}" required style="width: 100px; padding: 7px 10px; border: 1px solid #CBD5E1; border-radius: 6px; font-weight: 600; text-align: center;">
+                        </td>
+                        <td style="padding: 10px 12px;">
+                            <input type="text" name="lot_number[]" class="form-control input-lot" placeholder="${requiresLot ? 'LOTE Obligatorio *' : 'Opcional (Ej. A21)'}" ${requiresLot ? 'required' : ''} style="width: 100%; padding: 7px 10px; border: 1px solid ${requiresLot ? '#fca5a5' : '#CBD5E1'}; border-radius: 6px; background: ${requiresLot ? '#fff5f5' : '#fff'}; font-weight: 500;">
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                if (pendingCount > 0) {
                     table.style.display = 'table';
+                    ocHint.textContent = 'Valida las cantidades recibidas físicamente y asigna el N° de lote correspondiente a cada producto.';
+                } else {
+                    table.style.display = 'none';
+                    ocHint.textContent = 'Esta Orden de Compra ya tiene todas sus cantidades recibidas por completo.';
                 }
+            } else {
+                table.style.display = 'none';
+                ocHint.textContent = 'Error al obtener los ítems de la Orden de Compra.';
             }
-        } catch(e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            table.style.display = 'none';
+            ocHint.textContent = 'Error al comunicarse con el servidor.';
+        }
+    }
+
+    // 3. Al seleccionar una OC: autoseleccionar proveedor y cargar items
+    ocSelect.addEventListener('change', () => {
+        const poId = ocSelect.value;
+        const selectedOpt = ocSelect.options[ocSelect.selectedIndex];
+        if (selectedOpt && selectedOpt.dataset.supplierId) {
+            supplierSelect.value = selectedOpt.dataset.supplierId;
+            // Si Factura está activa y el monto está vacío, sugerir el total de la OC
+            const isFactura = document.getElementById('opt-factura').checked;
+            const amountInput = document.getElementById('invoice_amount');
+            if (isFactura && selectedOpt.dataset.total && (!amountInput.value || amountInput.value == '0')) {
+                amountInput.value = selectedOpt.dataset.total;
+            }
+        }
+        loadOcItems(poId);
     });
 
+    // Si viene una OC pre-seleccionada al cargar
+    if (ocSelect.value) {
+        ocSelect.dispatchEvent(new Event('change'));
+    }
+
+    // 4. Validación rigurosa al enviar el formulario
     form.addEventListener('submit', (e) => {
         errorBox.style.display = 'none';
         let hasError = false, activeItems = 0, lotError = '';
+
+        const isFactura = document.getElementById('opt-factura').checked;
+        const docNum = (document.getElementById('document_number').value || '').trim();
+        if (!docNum) {
+            e.preventDefault();
+            errorBox.textContent = isFactura ? 'Debe ingresar el N° de Factura.' : 'Debe ingresar el N° de Guía de Despacho.';
+            errorBox.style.display = 'block';
+            errorBox.scrollIntoView({ behavior: 'smooth' });
+            return;
+        }
+
+        if (isFactura) {
+            const dueDate = document.getElementById('due_date').value;
+            const invAmount = parseFloat(document.getElementById('invoice_amount').value) || 0;
+            if (!dueDate) {
+                e.preventDefault();
+                errorBox.textContent = 'Para registrar con Factura de Compra, debe ingresar la Fecha de Vencimiento.';
+                errorBox.style.display = 'block';
+                errorBox.scrollIntoView({ behavior: 'smooth' });
+                return;
+            }
+            if (invAmount <= 0) {
+                e.preventDefault();
+                errorBox.textContent = 'Para registrar con Factura de Compra, debe indicar el Monto total de la factura.';
+                errorBox.style.display = 'block';
+                errorBox.scrollIntoView({ behavior: 'smooth' });
+                return;
+            }
+        }
+
+        if (!ocSelect.value) {
+            e.preventDefault();
+            errorBox.textContent = 'Debe seleccionar una Orden de Compra Asociada.';
+            errorBox.style.display = 'block';
+            errorBox.scrollIntoView({ behavior: 'smooth' });
+            return;
+        }
+
         document.querySelectorAll('.recepcion-row').forEach(row => {
-            const pending = parseInt(row.querySelector('.pending-qty').textContent);
+            const pending = parseInt(row.querySelector('.pending-qty').textContent) || 0;
             const input   = row.querySelector('.input-qty');
             const val     = parseInt(input.value) || 0;
             const lotInput = row.querySelector('.input-lot');
@@ -329,12 +475,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     lotInput.style.borderColor = '#b91c1c';
                     hasError = true;
                 } else if (lotInput) {
-                    lotInput.style.borderColor = reqLot ? '#fca5a5' : '#E2E8F0';
+                    lotInput.style.borderColor = reqLot ? '#fca5a5' : '#CBD5E1';
                 }
             }
-            if (val > pending) { hasError = true; input.style.borderColor = '#F56565'; }
-            else                { input.style.borderColor = '#E2E8F0'; }
+            if (val > pending) {
+                hasError = true;
+                input.style.borderColor = '#F56565';
+            } else {
+                input.style.borderColor = '#CBD5E1';
+            }
         });
+
         if (lotError) {
             e.preventDefault();
             errorBox.textContent = lotError;
@@ -342,7 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
             errorBox.scrollIntoView({ behavior: 'smooth' });
         } else if (hasError) {
             e.preventDefault();
-            errorBox.textContent = 'No puedes ingresar una cantidad mayor a la pendiente en la Orden de Compra.';
+            errorBox.textContent = 'No puedes ingresar una cantidad mayor a la cantidad pendiente de la Orden de Compra.';
             errorBox.style.display = 'block';
             errorBox.scrollIntoView({ behavior: 'smooth' });
         } else if (activeItems === 0) {

@@ -133,7 +133,12 @@
                             </button>
                         </form>
                         {% endif %}
-                        {% if order.status not in ['Borrador', 'Pendiente Aprobación'] or (order.status == 'Pendiente Aprobación' and session.get('role_name') not in ['Aprobador', 'Gerente', 'Administrativo']) %}
+                        {% if order.status in ['Emitida', 'Parcialmente Recibida'] %}
+                        <a href="{{ url_for('inventario.ingreso_mercaderia', po_id=order.id) }}" class="badge" style="background-color: #3182ce; text-decoration: none; color: white; display: inline-flex; align-items: center; gap: 6px; margin-right: 6px;">
+                            <i class="fa-solid fa-boxes-packing"></i> Recepcionar
+                        </a>
+                        {% endif %}
+                        {% if order.status not in ['Borrador', 'Pendiente Aprobación', 'Emitida', 'Parcialmente Recibida'] or (order.status == 'Pendiente Aprobación' and session.get('role_name') not in ['Aprobador', 'Gerente', 'Administrativo']) %}
                         <span style="color: #a0aec0; font-size: 13px;">-</span>
                         {% endif %}
                     </td>

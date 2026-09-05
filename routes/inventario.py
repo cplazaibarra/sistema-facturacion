@@ -222,18 +222,27 @@ def ingreso_mercaderia():
     )
 
     if request.method == 'POST':
-        ingreso_date = (request.form.get('ingreso_date') or default_date).strip()
-        order_number = (request.form.get('order_number') or '').strip()
-        po_id = request.form.get('purchase_order_id', type=int)
-        warehouse = (request.form.get('warehouse') or '').strip()
-        notes = (request.form.get('notes') or '').strip()
+        ingreso_date    = (request.form.get('ingreso_date') or default_date).strip()
+        document_number = (request.form.get('document_number') or '').strip()
+        order_number    = (request.form.get('order_number') or document_number).strip()
+        po_id           = request.form.get('purchase_order_id', type=int)
+        warehouse       = (request.form.get('warehouse') or '').strip()
+        notes           = (request.form.get('notes') or '').strip()
 
         # Campos de documento
         document_type   = request.form.get('document_type', 'guia_despacho').strip()
-        document_number = (request.form.get('document_number') or '').strip()
         invoice_amount  = request.form.get('invoice_amount', type=float) or 0.0
         invoice_date    = (request.form.get('invoice_date') or ingreso_date).strip()
         due_date        = (request.form.get('due_date') or '').strip()
+
+        if not document_number:
+            doc_label = "Factura" if document_type == 'factura' else "Guía de Despacho"
+            flash(f"Debe ingresar el N° de {doc_label}.", "danger")
+            return redirect(url_for('inventario.ingreso_mercaderia'))
+
+        if document_type == 'factura' and not due_date:
+            flash("Para ingresos con Factura, debe ingresar la Fecha de Vencimiento.", "danger")
+            return redirect(url_for('inventario.ingreso_mercaderia'))
 
         product_ids = request.form.getlist('product_id[]')
         quantities  = request.form.getlist('quantity[]')
@@ -325,6 +334,30 @@ def ingreso_mercaderia():
     suppliers       = list_suppliers()
     warehouses      = get_page_data("ingreso_warehouses")
     recent_ingresos = list_inventory_entries()
+    selected_po_id  = request.args.get('po_id', type=int)
+
+    # Cargar OCs activas disponibles para recepcionar
+    from db import get_connection
+    active_ocs = []
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT po.id, po.oc_number, po.order_date, po.total_amount, po.supplier_id, s.name as supplier_name
+                FROM purchase_orders po
+                JOIN suppliers s ON po.supplier_id = s.id
+                WHERE po.status IN ('Emitida', 'Parcialmente Recibida')
+                ORDER BY po.id DESC
+                """
+            )
+            active_ocs = [dict(r) for r in cur.fetchall()]
+
+    selected_supplier_id = request.args.get('supplier_id', type=int)
+    if selected_po_id and not selected_supplier_id:
+        for oc in active_ocs:
+            if oc['id'] == selected_po_id:
+                selected_supplier_id = oc['supplier_id']
+                break
 
     return render_template(
         'ingreso_mercaderia.html',
@@ -336,7 +369,9 @@ def ingreso_mercaderia():
         suppliers=suppliers,
         warehouses=warehouses,
         recent_ingresos=recent_ingresos,
-        selected_supplier_id=None,
+        active_ocs=active_ocs,
+        selected_po_id=selected_po_id,
+        selected_supplier_id=selected_supplier_id,
         selected_product_id=None,
     )
 
