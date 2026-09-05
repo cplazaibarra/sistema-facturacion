@@ -308,7 +308,7 @@
                 <select name="customer_category" id="customer-category-select" required class="form-field-input">
                     <option value="">-- Selección --</option>
                     {% for cat in categories %}
-                    <option value="{{ cat.id }}" {% if cloned_quotation and cloned_quotation.customer_category == cat.id %}selected{% endif %}>{{ cat.name }} ({{ cat.total_margin if cat.total_margin is defined else (base_margin + cat.margin) }}% margen)</option>
+                    <option value="{{ cat.id }}" {% if cloned_quotation and cloned_quotation.customer_category == cat.id %}selected{% endif %}>{{ cat.name }} ({{ cat.margin }}% margen)</option>
                     {% endfor %}
                 </select>
             </div>

@@ -1216,44 +1216,34 @@ def nueva_cotizacion():
         m = prod_margins_map.get(sku)
         product_cat_margins = {}
         if m:
-            base_margin = m["base_margin"]
-            product_cat_margins = m["category_margins"] or {}
-        else:
-            base_margin = config["base_margin"]
-            
-        price_base = vpp * (1 + base_margin / 100)
-        
+            product_cat_margins = m.get("category_margins") or {}
+
         prices = {
-            "default": round(price_base, 2)  # fallback si no se selecciona categoría
+            "default": round(vpp, 2)  # fallback si no se selecciona categoría
         }
-        for cat in config["categories"]:
+        for cat in config.get("categories", []):
             cat_id = cat["id"]
             margin = product_cat_margins.get(cat_id)
             if margin is None:
                 margin = cat["margin"]
                 
-            price_final = price_base * (1 + margin / 100)
+            price_final = vpp * (1 + float(margin or 0.0) / 100.0)
             prices[cat_id] = round(price_final, 2)
             
         products_prices_map[str(p_id)] = prices
 
-    base_margin = float(config.get("base_margin", 0.0) or 0.0)
-    enriched_categories = []
+    formatted_categories = []
     for cat in config.get("categories", []):
         cat_copy = dict(cat)
-        cat_margin = float(cat_copy.get("margin", 0.0) or 0.0)
-        total_margin = round(base_margin + cat_margin, 2)
-        # Formatear bonito: si es entero, mostrar sin decimales
-        cat_copy["total_margin"] = int(total_margin) if total_margin.is_integer() else total_margin
-        cat_copy["base_margin"] = int(base_margin) if base_margin.is_integer() else base_margin
-        enriched_categories.append(cat_copy)
+        m_val = float(cat_copy.get("margin", 0.0) or 0.0)
+        cat_copy["margin"] = int(m_val) if m_val.is_integer() else m_val
+        formatted_categories.append(cat_copy)
 
     return render_template(
         'nueva_cotizacion.html',
         products=products,
         default_date=default_date,
-        categories=enriched_categories,
-        base_margin=base_margin,
+        categories=formatted_categories,
         products_prices_map=products_prices_map,
         cloned_quotation=cloned_quotation,
         is_edit_mode=is_edit_mode

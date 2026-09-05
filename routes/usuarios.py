@@ -46,8 +46,6 @@ def listas_precios():
     if request.method == 'POST':
         action = request.form.get('action')
         if action == 'save_config':
-            config["base_margin"] = float(request.form.get('base_margin', 20.0))
-            
             cat_names = request.form.getlist('cat_name[]')
             cat_margins = request.form.getlist('cat_margin[]')
             
@@ -67,7 +65,6 @@ def listas_precios():
             
         elif action == 'save_product_margins':
             sku = request.form.get('sku')
-            base_margin = float(request.form.get('base_margin', 20.0))
             
             category_margins = {}
             for key, value in request.form.items():
@@ -80,12 +77,11 @@ def listas_precios():
                     cur.execute(
                         """
                         INSERT INTO product_margins (product_sku, base_margin, category_margins)
-                        VALUES (%s, %s, %s::jsonb)
+                        VALUES (%s, 0, %s::jsonb)
                         ON CONFLICT (product_sku) DO UPDATE
-                        SET base_margin = EXCLUDED.base_margin,
-                            category_margins = EXCLUDED.category_margins
+                        SET category_margins = EXCLUDED.category_margins
                         """,
-                        (sku, base_margin, json.dumps(category_margins))
+                        (sku, json.dumps(category_margins))
                     )
                 conn.commit()
             return jsonify({"status": "ok", "message": f"Márgenes de {sku} actualizados."})
@@ -134,28 +130,17 @@ def listas_precios():
         m = prod_margins_map.get(sku)
         product_cat_margins = {}
         if m:
-            base_margin = m["base_margin"]
-            product_cat_margins = m["category_margins"] or {}
-        else:
-            base_margin = config["base_margin"]
+            product_cat_margins = m.get("category_margins") or {}
             
-        # Fórmula solicitada: costo / (1 - Margen_Total / 100)
-        # Margen Base: base_margin
-        # Precio Base: vpp / (1 - base_margin / 100)
-        denom_base = 1.0 - (base_margin / 100.0)
-        price_base = vpp / denom_base if denom_base > 0 else vpp
-        
         categories_display = []
-        for cat in config["categories"]:
+        for cat in config.get("categories", []):
             cat_id = cat["id"]
             margin = product_cat_margins.get(cat_id)
             if margin is None:
                 margin = cat["margin"]
             
-            # Margen Total = Margen Base + Margen Adicional
-            total_margin = base_margin + margin
-            denom_final = 1.0 - (total_margin / 100.0)
-            price_final = vpp / denom_final if denom_final > 0 else vpp
+            # Margen directo de la categoría aplicado al costo
+            price_final = vpp * (1 + margin / 100.0)
             
             categories_display.append({
                 "id": cat_id,
@@ -169,8 +154,6 @@ def listas_precios():
             "sku": sku,
             "name": p["name"],
             "vpp": vpp,
-            "base_margin": base_margin,
-            "price_base": round(price_base, 2),
             "categories": categories_display
         })
 

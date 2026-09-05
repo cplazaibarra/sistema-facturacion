@@ -24,15 +24,9 @@
     <h3 style="margin-top: 0; margin-bottom: 15px; color: #2d3748; font-size: 1.1rem; border-bottom: 1px solid #edf2f7; padding-bottom: 8px;">Configuración de Categorías de Clientes y Márgenes Estándar</h3>
     <form method="POST" action="/administracion/listas-precios">
         <input type="hidden" name="action" value="save_config">
-        
-        <!-- Margen Base -->
-        <div class="form-group" style="margin-bottom: 20px; max-width: 250px;">
-            <label style="display: block; font-size: 12px; color: #718096; font-weight: 600; margin-bottom: 6px;">Margen Base Empresa (%)</label>
-            <input type="number" step="0.1" name="base_margin" class="form-control" value="{{ config.base_margin }}" style="width: 100%;" required>
-        </div>
 
         <!-- Contenedor Dinámico de Categorías -->
-        <label style="display: block; font-size: 12px; color: #718096; font-weight: 600; margin-bottom: 10px;">Categorías de Clientes</label>
+        <label style="display: block; font-size: 12px; color: #718096; font-weight: 600; margin-bottom: 10px;">Categorías de Clientes (Margen aplicado directamente sobre el costo)</label>
         <div id="categories-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-bottom: 20px;">
             {% for cat in config.categories %}
             <div class="category-item" style="display: flex; gap: 8px; align-items: center; background: #f7fafc; padding: 10px; border-radius: 6px; border: 1px solid #edf2f7;">
@@ -66,14 +60,12 @@
         <thead>
             <tr style="font-size: 11px; background-color: #f7fafc; border-bottom: 2px solid #e2e8f0;">
                 <th style="width: 80px; padding: 10px;">SKU</th>
-                <th style="width: 150px; padding: 10px; text-align: left;">Producto</th>
-                <th style="width: 85px; padding: 10px; text-align: right;">Costo ($)</th>
-                <th style="width: 90px; padding: 10px; text-align: center;">Margen Base</th>
-                <th style="width: 100px; padding: 10px; text-align: right;">Precio Base ($)</th>
+                <th style="width: 180px; padding: 10px; text-align: left;">Producto</th>
+                <th style="width: 100px; padding: 10px; text-align: right;">Costo ($)</th>
                 
                 <!-- Columnas Dinámicas para Categorías -->
                 {% for cat in config.categories %}
-                <th style="min-width: 120px; padding: 10px; text-align: left;">{{ cat.name }}</th>
+                <th style="min-width: 130px; padding: 10px; text-align: left;">{{ cat.name }}</th>
                 {% endfor %}
                 
                 <th style="width: 70px; padding: 10px; text-align: center;">Acción</th>
@@ -88,12 +80,6 @@
                 </td>
                 <td style="text-align: right; font-weight: bold; color: #2d3748; padding: 10px;">
                     $<span class="vpp-val">{{ p.vpp | round | int }}</span>
-                </td>
-                <td style="padding: 10px; text-align: center;">
-                    <input type="number" step="0.1" class="base-margin-input" value="{{ p.base_margin }}" style="width: 55px; padding: 4px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 11px; text-align: center;" oninput="recalcRow('{{ p.sku }}')">%
-                </td>
-                <td style="text-align: right; font-weight: bold; color: #4a5568; padding: 10px; background-color: #f7fafc;">
-                    $<span class="price-base-span">{{ p.price_base | round | int }}</span>
                 </td>
                 
                 <!-- Celdas Dinámicas de Margen por Categoría -->
@@ -156,13 +142,6 @@ function recalcRow(sku) {
     if (!row) return;
 
     const vpp = parseFloat(row.querySelector('.vpp-val').innerText) || 0.0;
-    const baseMargin = parseFloat(row.querySelector('.base-margin-input').value) || 0.0;
-    
-    // Precio Base = vpp / (1 - baseMargin/100)
-    const denomBase = 1.0 - (baseMargin / 100);
-    const priceBase = denomBase > 0 ? (vpp / denomBase) : vpp;
-
-    row.querySelector('.price-base-span').innerText = Math.round(priceBase);
 
     // Iterar sobre todos los inputs de margen de categoría dinámicos en la fila
     const marginInputs = row.querySelectorAll('.margin-input');
@@ -170,10 +149,8 @@ function recalcRow(sku) {
         const catId = input.getAttribute('data-cat-id');
         const marginVal = parseFloat(input.value) || 0.0;
         
-        // Precio Final = vpp / (1 - (baseMargin + marginVal)/100)
-        const totalMargin = baseMargin + marginVal;
-        const denomFinal = 1.0 - (totalMargin / 100);
-        const priceFinal = denomFinal > 0 ? (vpp / denomFinal) : vpp;
+        // Precio Final = Costo * (1 + Margen_Categoría / 100)
+        const priceFinal = vpp * (1 + marginVal / 100.0);
         
         const priceSpan = row.querySelector(`.price-span[data-cat-id="${catId}"]`);
         if (priceSpan) {
@@ -186,12 +163,9 @@ async function saveProductMargins(sku) {
     const row = document.getElementById(`row-${sku}`);
     if (!row) return;
 
-    const baseMargin = parseFloat(row.querySelector('.base-margin-input').value) || 0.0;
-
     const formData = new FormData();
     formData.append('action', 'save_product_margins');
     formData.append('sku', sku);
-    formData.append('base_margin', baseMargin);
 
     // Agregar dinámicamente cada margen de categoría al FormData
     const marginInputs = row.querySelectorAll('.margin-input');
