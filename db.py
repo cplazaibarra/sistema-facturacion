@@ -3803,7 +3803,33 @@ def get_client_by_id(client_id: int) -> dict:
             cur.execute("SELECT * FROM clients WHERE id = %s", (client_id,))
             return cur.fetchone()
 
+def normalize_rut_str(rut_str: str, dv_str: str = None) -> tuple[str, str]:
+    """Normaliza y separa el cuerpo y el dígito verificador del RUT chileno."""
+    if not rut_str:
+        return "", ""
+    clean = str(rut_str).strip().replace(".", "").upper()
+    if "-" in clean:
+        parts = clean.split("-", 1)
+        r_body = parts[0].strip()
+        r_dv = parts[1].strip()
+    else:
+        r_body = clean
+        r_dv = str(dv_str or "").strip().upper()
+    return r_body, r_dv
+
+
 def insert_client(data: dict) -> int:
+    """Inserta un nuevo cliente o actualiza el existente si el RUT ya está registrado (evita duplicados)."""
+    rut_raw = data.get("rut", "").strip()
+    dv_raw = data.get("dv", "").strip()
+    r_body, r_dv = normalize_rut_str(rut_raw, dv_raw)
+
+    if r_body:
+        existing = get_client_by_rut(r_body, r_dv)
+        if existing:
+            update_client(existing["id"], data)
+            return existing["id"]
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -3815,8 +3841,8 @@ def insert_client(data: dict) -> int:
                 RETURNING id
                 """,
                 (
-                    data.get("rut", "").strip(),
-                    data.get("dv", "").strip(),
+                    r_body or rut_raw,
+                    r_dv or dv_raw,
                     data.get("razon_social", "").strip(),
                     data.get("tipo_compra", "Del Giro").strip(),
                     data.get("direccion", "").strip(),
@@ -3836,6 +3862,10 @@ def insert_client(data: dict) -> int:
         return client_id
 
 def update_client(client_id: int, data: dict) -> None:
+    rut_raw = data.get("rut", "").strip()
+    dv_raw = data.get("dv", "").strip()
+    r_body, r_dv = normalize_rut_str(rut_raw, dv_raw)
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -3848,8 +3878,8 @@ def update_client(client_id: int, data: dict) -> None:
                 WHERE id = %s
                 """,
                 (
-                    data.get("rut", "").strip(),
-                    data.get("dv", "").strip(),
+                    r_body or rut_raw,
+                    r_dv or dv_raw,
                     data.get("razon_social", "").strip(),
                     data.get("tipo_compra", "Del Giro").strip(),
                     data.get("direccion", "").strip(),
@@ -3874,14 +3904,32 @@ def delete_client(client_id: int) -> None:
         conn.commit()
 
 
-def get_client_by_rut(rut: str) -> dict:
+def get_client_by_rut(rut: str, dv: str = None) -> dict:
+    """Busca un cliente por RUT normalizado (con o sin puntos, guiones y DV)."""
     if not rut:
         return None
-    clean_rut = rut.strip().replace(".", "").replace("-", "")
+    r_body, r_dv = normalize_rut_str(rut, dv)
+    if not r_body:
+        return None
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM clients WHERE REPLACE(REPLACE(rut, '.', ''), '-', '') = %s LIMIT 1", (clean_rut,))
-            return cur.fetchone()
+            if r_dv:
+                cur.execute("""
+                    SELECT * FROM clients 
+                    WHERE (REPLACE(REPLACE(rut, '.', ''), '-', '') = %s AND (UPPER(COALESCE(dv, '')) = %s OR COALESCE(dv, '') = ''))
+                       OR (REPLACE(REPLACE(rut, '.', ''), '-', '') || UPPER(COALESCE(dv, ''))) = (%s || %s)
+                       OR REPLACE(REPLACE(rut, '.', ''), '-', '') = %s
+                    ORDER BY id ASC LIMIT 1
+                """, (r_body, r_dv, r_body, r_dv, r_body))
+            else:
+                cur.execute("""
+                    SELECT * FROM clients 
+                    WHERE REPLACE(REPLACE(rut, '.', ''), '-', '') = %s
+                       OR (REPLACE(REPLACE(rut, '.', ''), '-', '') || UPPER(COALESCE(dv, ''))) = %s
+                    ORDER BY id ASC LIMIT 1
+                """, (r_body, r_body))
+            row = cur.fetchone()
+            return dict(row) if row else None
 
 
 def search_clients(query: str, limit: int = 10) -> list[dict]:
@@ -3912,15 +3960,15 @@ def search_clients(query: str, limit: int = 10) -> list[dict]:
             return [dict(r) for r in cur.fetchall()]
 
 
-
 def upsert_client_by_rut(data: dict) -> int:
+    """Inserta o actualiza un cliente asegurando unicidad estricta por RUT."""
     rut_raw = data.get("rut", "").strip()
+    dv_raw = data.get("dv", "").strip()
     if not rut_raw:
         return None
-    clean_rut = rut_raw.replace(".", "").replace("-", "")
-    existing = get_client_by_rut(clean_rut)
+    r_body, r_dv = normalize_rut_str(rut_raw, dv_raw)
+    existing = get_client_by_rut(r_body, r_dv)
     
-    dv = data.get("dv", "").strip()
     razon_social = data.get("razon_social", "").strip()
     email = data.get("email", "").strip()
     category_id = str(data["category_id"]).strip() if data.get("category_id") else None
@@ -3928,8 +3976,8 @@ def upsert_client_by_rut(data: dict) -> int:
     if existing:
         client_id = existing["id"]
         update_data = {
-            "rut": rut_raw,
-            "dv": dv or existing.get("dv", ""),
+            "rut": r_body,
+            "dv": r_dv or existing.get("dv", ""),
             "razon_social": razon_social or existing.get("razon_social", ""),
             "tipo_compra": data.get("tipo_compra") or existing.get("tipo_compra") or "Del Giro",
             "direccion": data.get("direccion") or existing.get("direccion") or "",
@@ -3947,8 +3995,8 @@ def upsert_client_by_rut(data: dict) -> int:
         return client_id
     else:
         new_client = {
-            "rut": rut_raw,
-            "dv": dv,
+            "rut": r_body,
+            "dv": r_dv,
             "razon_social": razon_social,
             "tipo_compra": data.get("tipo_compra", "Del Giro"),
             "direccion": data.get("direccion", ""),

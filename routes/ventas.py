@@ -1299,12 +1299,20 @@ def convertir_cotizacion(sale_id):
 
 @ventas_bp.route('/ventas/clientes', methods=['GET', 'POST'])
 def clientes():
-    from db import list_clients, insert_client, get_page_data
+    from db import list_clients, insert_client, update_client, get_client_by_rut, get_page_data
     if request.method == 'POST':
+        rut_val = request.form.get('rut', '').strip()
+        dv_val = request.form.get('dv', '').strip()
+        razon_social_val = request.form.get('razon_social', '').strip()
+
+        if not razon_social_val:
+            flash("La Razón Social es requerida.", "warning")
+            return redirect(url_for('ventas.clientes'))
+
         client_data = {
-            "rut": request.form.get('rut', '').strip(),
-            "dv": request.form.get('dv', '').strip(),
-            "razon_social": request.form.get('razon_social', '').strip(),
+            "rut": rut_val,
+            "dv": dv_val,
+            "razon_social": razon_social_val,
             "tipo_compra": request.form.get('tipo_compra', 'Del Giro').strip(),
             "direccion": request.form.get('direccion', '').strip(),
             "comuna": request.form.get('comuna', '').strip(),
@@ -1317,11 +1325,16 @@ def clientes():
             "phone": request.form.get('phone', '').strip(),
             "category_id": request.form.get('category_id', '').strip()
         }
-        if client_data['razon_social']:
+
+        # Validar si ya existe un cliente con este RUT
+        existing = get_client_by_rut(rut_val, dv_val)
+        if existing:
+            update_client(existing['id'], client_data)
+            flash(f"El RUT {rut_val}-{dv_val} ya estaba registrado. Los datos del cliente '{razon_social_val}' han sido actualizados exitosamente.", "info")
+        else:
             insert_client(client_data)
             flash("Cliente registrado exitosamente.", "success")
-        else:
-            flash("La Razón Social es requerida.", "warning")
+            
         return redirect(url_for('ventas.clientes'))
 
     clients_list = list_clients()
@@ -1337,10 +1350,19 @@ def clientes():
 
 @ventas_bp.route('/ventas/clientes/<int:client_id>/editar', methods=['POST'])
 def editar_cliente(client_id):
-    from db import update_client
+    from db import update_client, get_client_by_rut
+    rut_val = request.form.get('rut', '').strip()
+    dv_val = request.form.get('dv', '').strip()
+
+    # Validar que el RUT editado no pertenezca a otro cliente existente
+    existing = get_client_by_rut(rut_val, dv_val)
+    if existing and existing['id'] != client_id:
+        flash(f"Error: El RUT {rut_val}-{dv_val} ya pertenece a otro cliente registrado ('{existing['razon_social']}'). El RUT debe ser único.", "danger")
+        return redirect(url_for('ventas.clientes'))
+
     client_data = {
-        "rut": request.form.get('rut', '').strip(),
-        "dv": request.form.get('dv', '').strip(),
+        "rut": rut_val,
+        "dv": dv_val,
         "razon_social": request.form.get('razon_social', '').strip(),
         "tipo_compra": request.form.get('tipo_compra', 'Del Giro').strip(),
         "direccion": request.form.get('direccion', '').strip(),
