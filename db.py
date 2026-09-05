@@ -2380,6 +2380,7 @@ def get_sales_metrics() -> dict:
                 "productos_stock_trend": {"text": stock_trend_text, "type": stock_trend_type},
                 "ordenes_pendientes": total_pending,
                 "ordenes_pendientes_trend": {"text": pend_trend_text, "type": pend_trend_type},
+                "ventas_pendientes": total_pending,
                 "clientes_activos": total_customers,
                 "clientes_activos_trend": {"text": cli_trend_text, "type": cli_trend_type},
                 "ventas_completadas": total_orders - total_pending,

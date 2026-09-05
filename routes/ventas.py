@@ -184,24 +184,29 @@ def ventas():
     all_products = sorted(list(all_products_set))
 
     metrics = get_sales_metrics()
+    ventas_hoy_val = metrics.get('ventas_hoy', 0.0)
+    ventas_comp_val = metrics.get('ventas_completadas', 0)
+    ventas_pend_val = metrics.get('ventas_pendientes', metrics.get('ordenes_pendientes', 0))
+    clientes_activos_val = metrics.get('clientes_activos', 0)
+
     ventas_metrics = [
         {
             "icon": "<i class=\"fa-solid fa-money-bill-trend-up\"></i>",
-            "value": f"${metrics['ventas_hoy']:.0f}",
+            "value": f"${ventas_hoy_val:.0f}",
             "label": "Ventas Hoy",
-            "secondary": f"{metrics['ventas_completadas']} ventas totales",
+            "secondary": f"{ventas_comp_val} ventas totales",
             "color": "blue",
         },
         {
             "icon": "<i class=\"fa-solid fa-circle-check\"></i>",
-            "value": str(metrics['ventas_completadas']),
+            "value": str(ventas_comp_val),
             "label": "Ventas Completadas",
-            "secondary": f"{metrics['ventas_pendientes']} pendientes",
+            "secondary": f"{ventas_pend_val} pendientes",
             "color": "purple",
         },
         {
             "icon": "<i class=\"fa-solid fa-clock\"></i>",
-            "value": str(metrics['ventas_pendientes']),
+            "value": str(ventas_pend_val),
             "label": "Ventas Pendientes",
             "secondary": "por procesar",
             "color": "orange",
@@ -215,7 +220,7 @@ def ventas():
         },
         {
             "icon": "<i class=\"fa-solid fa-users\"></i>",
-            "value": str(metrics['clientes_activos']),
+            "value": str(clientes_activos_val),
             "label": "Clientes Activos",
             "secondary": "clientes únicos",
             "color": "green",
