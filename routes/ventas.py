@@ -328,7 +328,7 @@ def cotizaciones():
 @ventas_bp.route('/ventas/clientes/guardar_modal', methods=['POST'])
 def guardar_cliente_modal():
     """Guardar o actualizar datos de un cliente desde el modal flotante"""
-    from db import upsert_client_by_rut, get_connection
+    from db import upsert_client_by_rut, get_connection, is_valid_email
     rut = request.form.get('rut', '').strip()
     dv = request.form.get('dv', '').strip()
     razon_social = request.form.get('razon_social', '').strip()
@@ -341,6 +341,10 @@ def guardar_cliente_modal():
 
     if not razon_social:
         flash("La Razón Social es requerida.", "warning")
+        return redirect(request.referrer or url_for('ventas.ventas'))
+
+    if email and not is_valid_email(email):
+        flash(f"Error: El correo '{email}' no es válido. Debe tener el formato nombre@dominio.com o .cl", "danger")
         return redirect(request.referrer or url_for('ventas.ventas'))
 
     if rut:
@@ -910,6 +914,7 @@ def nueva_cotizacion():
     """Crear una nueva cotización"""
     from db import get_connection
     if request.method == 'POST':
+        from db import is_valid_email
         customer_name = request.form.get('customer_name', '').strip()
         customer_email = request.form.get('customer_email', '').strip()
         customer_category = request.form.get('customer_category', '').strip()
@@ -918,6 +923,10 @@ def nueva_cotizacion():
         doc_type = request.form.get('doc_type', 'Boleta').strip()
         sale_date = request.form.get('sale_date', '').strip()
         notes = request.form.get('notes', '').strip()
+
+        if customer_email and not is_valid_email(customer_email):
+            flash(f"Error: El correo electrónico '{customer_email}' no es válido. Debe tener el formato nombre@dominio.com o .cl", "danger")
+            return redirect(request.url)
         
         if customer_rut:
             rut_str = f"RUT: {customer_rut}-{customer_dv}" if customer_dv else f"RUT: {customer_rut}"
@@ -1299,14 +1308,19 @@ def convertir_cotizacion(sale_id):
 
 @ventas_bp.route('/ventas/clientes', methods=['GET', 'POST'])
 def clientes():
-    from db import list_clients, insert_client, update_client, get_client_by_rut, get_page_data
+    from db import list_clients, insert_client, update_client, get_client_by_rut, get_page_data, is_valid_email
     if request.method == 'POST':
         rut_val = request.form.get('rut', '').strip()
         dv_val = request.form.get('dv', '').strip()
         razon_social_val = request.form.get('razon_social', '').strip()
+        email_val = request.form.get('email', '').strip()
 
         if not razon_social_val:
             flash("La Razón Social es requerida.", "warning")
+            return redirect(url_for('ventas.clientes'))
+
+        if email_val and not is_valid_email(email_val):
+            flash(f"Error: El correo electrónico '{email_val}' no tiene un formato válido (debe tener la estructura nombre@dominio.com o .cl).", "danger")
             return redirect(url_for('ventas.clientes'))
 
         client_data = {
@@ -1321,7 +1335,7 @@ def clientes():
             "contacto": request.form.get('contacto', '').strip(),
             "rut_solicita": request.form.get('rut_solicita', '').strip(),
             "dv_solicita": request.form.get('dv_solicita', '').strip(),
-            "email": request.form.get('email', '').strip(),
+            "email": email_val,
             "phone": request.form.get('phone', '').strip(),
             "category_id": request.form.get('category_id', '').strip()
         }
@@ -1350,9 +1364,14 @@ def clientes():
 
 @ventas_bp.route('/ventas/clientes/<int:client_id>/editar', methods=['POST'])
 def editar_cliente(client_id):
-    from db import update_client, get_client_by_rut
+    from db import update_client, get_client_by_rut, is_valid_email
     rut_val = request.form.get('rut', '').strip()
     dv_val = request.form.get('dv', '').strip()
+    email_val = request.form.get('email', '').strip()
+
+    if email_val and not is_valid_email(email_val):
+        flash(f"Error: El correo electrónico '{email_val}' no tiene un formato válido (debe tener la estructura nombre@dominio.com o .cl).", "danger")
+        return redirect(url_for('ventas.clientes'))
 
     # Validar que el RUT editado no pertenezca a otro cliente existente
     existing = get_client_by_rut(rut_val, dv_val)
@@ -1372,7 +1391,7 @@ def editar_cliente(client_id):
         "contacto": request.form.get('contacto', '').strip(),
         "rut_solicita": request.form.get('rut_solicita', '').strip(),
         "dv_solicita": request.form.get('dv_solicita', '').strip(),
-        "email": request.form.get('email', '').strip(),
+        "email": email_val,
         "phone": request.form.get('phone', '').strip(),
         "category_id": request.form.get('category_id', '').strip()
     }

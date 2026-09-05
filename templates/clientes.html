@@ -250,7 +250,7 @@
                     <label class="form-label-tag">Correo Electrónico</label>
                     <div class="input-addon-group">
                         <span class="input-addon-label">Email</span>
-                        <input type="email" name="email" class="input-addon-field" placeholder="cliente@ejemplo.com">
+                        <input type="email" name="email" id="client_email" class="input-addon-field" placeholder="cliente@ejemplo.com" pattern="[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}" title="Debe ser un correo válido (ej: contacto@empresa.cl o .com)">
                     </div>
                 </div>
                 <div>
@@ -384,5 +384,19 @@ function editClient(c) {
     
     card.scrollIntoView({ behavior: 'smooth' });
 }
+
+document.getElementById('client-form').addEventListener('submit', function(e) {
+    const emailInput = document.getElementById('client_email');
+    if (emailInput && emailInput.value.trim() !== '') {
+        const email = emailInput.value.trim();
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (!emailRegex.test(email)) {
+            e.preventDefault();
+            alert("Por favor ingresa un correo electrónico válido (debe contener '@' y una extensión de dominio como .cl, .com, etc.).");
+            emailInput.focus();
+            return false;
+        }
+    }
+});
 </script>
 {% endblock %}
