@@ -936,7 +936,7 @@ def nueva_cotizacion():
     """Crear una nueva cotización"""
     from db import get_connection
     if request.method == 'POST':
-        from db import is_valid_email
+        from db import is_valid_email, update_sale, get_sale as _get_sale
         customer_name = request.form.get('customer_name', '').strip()
         customer_email = request.form.get('customer_email', '').strip()
         customer_category = request.form.get('customer_category', '').strip()
@@ -945,6 +945,8 @@ def nueva_cotizacion():
         doc_type = request.form.get('doc_type', 'Boleta').strip()
         sale_date = request.form.get('sale_date', '').strip() or datetime.today().strftime('%Y-%m-%d')
         notes = request.form.get('notes', '').strip()
+        edit_id = request.form.get('edit_id', '').strip()
+        edit_id = int(edit_id) if edit_id.isdigit() else None
 
         if customer_email and not is_valid_email(customer_email):
             flash(f"Error: El correo electrónico '{customer_email}' no es válido. Debe tener el formato nombre@dominio.com o .cl", "danger")
@@ -1015,14 +1017,7 @@ def nueva_cotizacion():
         if not products_list:
             flash("Debe agregar al menos un producto a la cotización.", "warning")
             return redirect(url_for('ventas.nueva_cotizacion'))
-            
-        # Generar número de cotización
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM sales")
-                next_id = cur.fetchone()["next_id"]
-                sale_number = f"COT-{next_id:05d}"
-                
+
         # Estado seleccionado (Borrador vs Cotización)
         cot_status = request.form.get('status', 'Cotización').strip()
 
@@ -1036,53 +1031,93 @@ def nueva_cotizacion():
             win_probability = max(0, min(100, int(win_prob_raw)))
         else:
             win_probability = 100 if quotation_status == 'Ganada' else (0 if quotation_status == 'Perdida' else 50)
-        
-        # Construir registro de cotización
-        sale_data = {
-            "sale_number": sale_number,
-            "customer_name": customer_name,
-            "customer_email": customer_email,
-            "customer_initials": "".join([part[0].upper() for part in customer_name.split() if part])[:3],
-            "sale_date": sale_date,
-            "sale_time": datetime.now().strftime("%H:%M:%S"),
-            "products": products_list,
-            "total_amount": round(total_amount, 2),
-            "status": cot_status,
-            "quotation_status": quotation_status,
-            "win_probability": win_probability,
-            "seller_name": session.get('user_name', 'Vendedor'),
-            "seller_initials": session.get('user_initials', 'V'),
-            "payment_method": request.form.get('payment_method', 'Efectivo').strip(),
-            "payment_status": cot_status,
-            "delivery_status": cot_status,
-            "notes": notes,
-            "created_at": datetime.utcnow().isoformat(timespec='seconds')
-        }
-        
-        insert_sale(sale_data)
-        flash(f"Cotización guardada exitosamente (Estado: {quotation_status} | Probabilidad: {win_probability}%).", "success")
+
+        if edit_id:
+            # ── MODO EDICIÓN: Actualizar cotización en Borrador existente ──
+            existing = _get_sale(edit_id)
+            if not existing or existing['status'] not in ('Borrador', 'Cotización'):
+                flash("No se puede editar esta cotización (no existe o ya fue emitida).", "danger")
+                return redirect(url_for('ventas.cotizaciones'))
+
+            sale_data = {
+                "sale_number": existing['sale_number'],  # mantener número original
+                "customer_name": customer_name,
+                "customer_email": customer_email,
+                "customer_initials": "".join([part[0].upper() for part in customer_name.split() if part])[:3],
+                "sale_date": sale_date,
+                "sale_time": datetime.now().strftime("%H:%M:%S"),
+                "products": products_list,
+                "total_amount": round(total_amount, 2),
+                "status": cot_status,
+                "quotation_status": quotation_status,
+                "win_probability": win_probability,
+                "seller_name": session.get('user_name', existing.get("seller_name", "Vendedor")),
+                "seller_initials": session.get('user_initials', existing.get("seller_initials", "V")),
+                "payment_method": request.form.get('payment_method', 'Efectivo').strip(),
+                "payment_status": cot_status,
+                "delivery_status": cot_status,
+                "notes": notes,
+            }
+            update_sale(edit_id, sale_data)
+            flash(f"Cotización {existing['sale_number']} actualizada correctamente (Estado: {quotation_status} | Probabilidad: {win_probability}%).", "success")
+        else:
+            # ── MODO CREACIÓN: Generar número e insertar nueva cotización ──
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM sales")
+                    next_id = cur.fetchone()["next_id"]
+                    sale_number = f"COT-{next_id:05d}"
+
+            sale_data = {
+                "sale_number": sale_number,
+                "customer_name": customer_name,
+                "customer_email": customer_email,
+                "customer_initials": "".join([part[0].upper() for part in customer_name.split() if part])[:3],
+                "sale_date": sale_date,
+                "sale_time": datetime.now().strftime("%H:%M:%S"),
+                "products": products_list,
+                "total_amount": round(total_amount, 2),
+                "status": cot_status,
+                "quotation_status": quotation_status,
+                "win_probability": win_probability,
+                "seller_name": session.get('user_name', 'Vendedor'),
+                "seller_initials": session.get('user_initials', 'V'),
+                "payment_method": request.form.get('payment_method', 'Efectivo').strip(),
+                "payment_status": cot_status,
+                "delivery_status": cot_status,
+                "notes": notes,
+                "created_at": datetime.utcnow().isoformat(timespec='seconds')
+            }
+            insert_sale(sale_data)
+            flash(f"Cotización guardada exitosamente (Estado: {quotation_status} | Probabilidad: {win_probability}%).", "success")
+
         return redirect(url_for('ventas.cotizaciones'))
         
     products = [p for p in list_products() if p.get('product_type', 'Final') == 'Final']
     default_date = datetime.today().strftime('%Y-%m-%d')
-    
-    # Clonar cotización existente si se pasa clone_id
+
+    # ── Detectar modo EDICIÓN (edit_id) o modo CLONACIÓN (clone_id) ──
+    edit_id = request.args.get('edit_id', type=int)
     clone_id = request.args.get('clone_id', type=int)
     cloned_quotation = None
-    if clone_id:
-        from db import get_sale
-        cloned_sale = get_sale(clone_id)
-        if cloned_sale:
-            notes_str = cloned_sale.get("notes") or ""
+    is_edit_mode = False
+
+    source_id = edit_id or clone_id
+    if source_id:
+        from db import get_sale, get_client_by_rut
+        source_sale = get_sale(source_id)
+        if source_sale:
+            is_edit_mode = (edit_id is not None)
+            notes_str = source_sale.get("notes") or ""
             doc_type = "Boleta"
             rut_val = ""
             dv_val = ""
-            
+
             if "Doc: Factura" in notes_str:
                 doc_type = "Factura"
             elif "Doc: Boleta" in notes_str:
                 doc_type = "Boleta"
-                
+
             if "RUT:" in notes_str:
                 try:
                     rut_part = notes_str.split("RUT:")[1].split("|")[0].strip()
@@ -1092,8 +1127,7 @@ def nueva_cotizacion():
                         rut_val = rut_part
                 except Exception:
                     pass
-            
-            from db import get_client_by_rut
+
             cat_id = ""
             if rut_val:
                 c_data = get_client_by_rut(rut_val)
@@ -1107,18 +1141,24 @@ def nueva_cotizacion():
                 clean_notes = ""
 
             cloned_quotation = {
-                "id": cloned_sale["id"],
+                "id": source_sale["id"],
+                "edit_id": source_sale["id"] if is_edit_mode else None,
                 "doc_type": doc_type,
                 "customer_rut": rut_val,
                 "customer_dv": dv_val,
-                "customer_name": cloned_sale.get("customer_name", ""),
-                "customer_email": cloned_sale.get("customer_email", ""),
+                "customer_name": source_sale.get("customer_name", ""),
+                "customer_email": source_sale.get("customer_email", ""),
                 "customer_category": cat_id,
-                "quotation_status": cloned_sale.get("quotation_status", "Activa"),
-                "win_probability": cloned_sale.get("win_probability", 50),
+                "quotation_status": source_sale.get("quotation_status", "Activa"),
+                "win_probability": source_sale.get("win_probability", 50),
+                "sale_date": source_sale.get("sale_date", default_date) if is_edit_mode else default_date,
+                "payment_method": source_sale.get("payment_method", "Efectivo") if is_edit_mode else "Efectivo",
                 "notes": clean_notes,
-                "products": cloned_sale.get("products", [])
+                "products": source_sale.get("products", [])
             }
+            if is_edit_mode:
+                # In edit mode, use the saved date as default
+                default_date = cloned_quotation["sale_date"] or default_date
     
     # Lógica de construcción de precios por categorías de clientes para la cotización
     config = get_page_data("price_list_config")
@@ -1200,7 +1240,8 @@ def nueva_cotizacion():
         default_date=default_date,
         categories=config["categories"],
         products_prices_map=products_prices_map,
-        cloned_quotation=cloned_quotation
+        cloned_quotation=cloned_quotation,
+        is_edit_mode=is_edit_mode
     )
 
 @ventas_bp.route('/api/clientes/<string:email>/categoria')

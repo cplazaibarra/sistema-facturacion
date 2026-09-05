@@ -249,13 +249,21 @@
     <!-- Encabezado de la tarjeta -->
     <div class="cotizacion-header">
         <div class="cotizacion-title-box">
+            {% if is_edit_mode %}
+            <h2>✏️ Editar Cotización <span style="color:#3182ce; font-size:17px;">{{ cloned_quotation.id }}</span></h2>
+            <p style="color: #d97706; font-weight: 600;">Modo edición — El número de cotización se conservará al guardar.</p>
+            {% else %}
             <h2>Nueva Cotización</h2>
             <p>El documento se emite directo al cliente al confirmar.</p>
+            {% endif %}
         </div>
-        <a href="{{ url_for('ventas.ventas') }}" class="cotizacion-close-btn" title="Cerrar">✕</a>
+        <a href="{{ url_for('ventas.cotizaciones') }}" class="cotizacion-close-btn" title="Cerrar">✕</a>
     </div>
 
     <form method="post" id="cotizacion-form">
+        {% if is_edit_mode and cloned_quotation %}
+        <input type="hidden" name="edit_id" value="{{ cloned_quotation.id }}">
+        {% endif %}
         <!-- Fila 1: Tipo de documento y Fecha -->
         <div class="form-grid-2">
             <div class="form-group-field">
@@ -381,10 +389,11 @@
         <div class="form-group-field" style="margin-bottom: 16px;">
             <label>Método de pago</label>
             <select name="payment_method" class="form-field-input">
-                <option value="Efectivo" selected>Efectivo</option>
-                <option value="Transferencia">Transferencia bancaria</option>
-                <option value="Tarjeta de Crédito/Débito">Tarjeta de Crédito / Débito</option>
-                <option value="Crédito 30 días">Crédito 30 días</option>
+                {% set pm = cloned_quotation.payment_method if cloned_quotation else 'Efectivo' %}
+                <option value="Efectivo" {% if pm == 'Efectivo' %}selected{% endif %}>Efectivo</option>
+                <option value="Transferencia" {% if pm == 'Transferencia' %}selected{% endif %}>Transferencia bancaria</option>
+                <option value="Tarjeta de Crédito/Débito" {% if pm == 'Tarjeta de Crédito/Débito' %}selected{% endif %}>Tarjeta de Crédito / Débito</option>
+                <option value="Crédito 30 días" {% if pm == 'Crédito 30 días' %}selected{% endif %}>Crédito 30 días</option>
             </select>
             <input type="hidden" name="payment_status" value="Cotización">
         </div>

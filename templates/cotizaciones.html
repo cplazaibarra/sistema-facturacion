@@ -229,6 +229,9 @@
                             📋 Clonar
                         </a>
                         {% if sale.status.label == 'Borrador' %}
+                        <a href="{{ url_for('ventas.nueva_cotizacion') }}?edit_id={{ sale.id }}" class="sf-btn-secondary" style="padding: 6px 10px; font-size: 12px; text-decoration: none; font-weight: 600; background: #fffbeb; color: #92400e; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #fcd34d;" title="Editar Borrador">
+                            ✏️ Editar
+                        </a>
                         <form method="POST" action="{{ url_for('ventas.emitir_cotizacion', sale_id=sale.id) }}" onsubmit="return confirm('¿Emitir esta cotización oficialmente?');" style="display: inline;">
                             <button type="submit" class="sf-btn-primary" style="padding: 6px 12px; font-size: 12px; background-color: #3182CE; border: none; font-weight: 600;" title="Hacer Cotización">
                                 🚀 Hacer Cotización
