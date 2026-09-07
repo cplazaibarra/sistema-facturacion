@@ -979,6 +979,7 @@ def init_db() -> None:
                 ALTER TABLE product_recipe_items ADD COLUMN IF NOT EXISTS unit TEXT;
                 ALTER TABLE product_recipe_items ADD COLUMN IF NOT EXISTS notes TEXT;
                 UPDATE product_recipes SET recipe_code = 'REC-PRD-' || LPAD(id::text, 3, '0') WHERE recipe_code IS NULL;
+                UPDATE sales SET seller_name = 'Administrador', seller_initials = 'AD' WHERE seller_name = 'Vendedor';
                 """
             )
             cur.execute(

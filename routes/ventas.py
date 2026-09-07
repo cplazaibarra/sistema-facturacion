@@ -16,6 +16,32 @@ from db import (
 
 ventas_bp = Blueprint('ventas', __name__)
 
+def get_logged_in_user_info():
+    """Obtiene el nombre completo y las iniciales del usuario logeado en la sesión"""
+    name = session.get('full_name') or session.get('user_name')
+    if not name and session.get('user_id'):
+        from db import get_connection
+        try:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT full_name, username FROM users WHERE id = %s", (session['user_id'],))
+                    u = cur.fetchone()
+                    if u:
+                        name = u['full_name'] or u['username']
+                        session['full_name'] = name
+                        session['user_name'] = name
+        except Exception:
+            pass
+    name = (name or session.get('username') or 'Administrador').strip()
+    parts = [p for p in name.split() if p]
+    if len(parts) >= 2:
+        initials = (parts[0][0] + parts[1][0]).upper()
+    elif len(parts) == 1:
+        initials = parts[0][:2].upper()
+    else:
+        initials = "AD"
+    return name, initials
+
 @ventas_bp.route('/proyeccion-ventas')
 def proyeccion_ventas():
     """Módulo de Proyección de Ventas - datos reales calculados desde la BD"""
@@ -917,7 +943,7 @@ def ingreso_ventas():
             "delivery_status": request.form.get('delivery_status', '').strip(),
             "payment_method": request.form.get('payment_method', '').strip(),
             "customer_name": request.form.get('customer_name', '').strip(),
-            "seller_name": request.form.get('seller_name', '').strip(),
+            "seller_name": request.form.get('seller_name', '').strip() or get_logged_in_user_info()[0],
             "notes": request.form.get('notes', '').strip(),
             "created_at": datetime.utcnow().isoformat(timespec='seconds'),
         }
@@ -1059,8 +1085,8 @@ def nueva_cotizacion():
                 "status": cot_status,
                 "quotation_status": quotation_status,
                 "win_probability": win_probability,
-                "seller_name": session.get('user_name', existing.get("seller_name", "Vendedor")),
-                "seller_initials": session.get('user_initials', existing.get("seller_initials", "V")),
+                "seller_name": existing.get("seller_name") if existing.get("seller_name") and existing.get("seller_name") != "Vendedor" else get_logged_in_user_info()[0],
+                "seller_initials": existing.get("seller_initials") if existing.get("seller_initials") and existing.get("seller_initials") != "V" else get_logged_in_user_info()[1],
                 "payment_method": request.form.get('payment_method', 'Efectivo').strip(),
                 "payment_status": cot_status,
                 "delivery_status": cot_status,
@@ -1076,6 +1102,7 @@ def nueva_cotizacion():
                     next_id = cur.fetchone()["next_id"]
                     sale_number = f"COT-{next_id:05d}"
 
+            seller_name, seller_initials = get_logged_in_user_info()
             sale_data = {
                 "sale_number": sale_number,
                 "customer_name": customer_name,
@@ -1088,8 +1115,8 @@ def nueva_cotizacion():
                 "status": cot_status,
                 "quotation_status": quotation_status,
                 "win_probability": win_probability,
-                "seller_name": session.get('user_name', 'Vendedor'),
-                "seller_initials": session.get('user_initials', 'V'),
+                "seller_name": seller_name,
+                "seller_initials": seller_initials,
                 "payment_method": request.form.get('payment_method', 'Efectivo').strip(),
                 "payment_status": cot_status,
                 "delivery_status": cot_status,
@@ -1342,8 +1369,8 @@ def convertir_cotizacion(sale_id):
         "products": quotation["products"],
         "total_amount": quotation["total_amount"],
         "status": "Pendiente",
-        "seller_name": session.get('user_name', quotation.get("seller_name", "Vendedor")),
-        "seller_initials": session.get('user_initials', quotation.get("seller_initials", "V")),
+        "seller_name": quotation.get("seller_name") if quotation.get("seller_name") and quotation.get("seller_name") != "Vendedor" else get_logged_in_user_info()[0],
+        "seller_initials": quotation.get("seller_initials") if quotation.get("seller_initials") and quotation.get("seller_initials") != "V" else get_logged_in_user_info()[1],
         "payment_method": pay_method,
         "payment_status": "Pendiente",
         "delivery_status": "Pendiente",
@@ -1354,6 +1381,7 @@ def convertir_cotizacion(sale_id):
     new_sale_id = insert_sale(new_sale_data)
 
     now_str = datetime.utcnow().isoformat(timespec='seconds')
+    logged_user, _ = get_logged_in_user_info()
     with get_connection() as conn:
         with conn.cursor() as cur:
             # 1. Crear registro inicial de pagos con la fecha de cobro/vencimiento automática
@@ -1373,7 +1401,7 @@ def convertir_cotizacion(sale_id):
                 (
                     new_sale_id,
                     "Pendiente",
-                    session.get('user_name', 'Sistema'),
+                    logged_user,
                     now_str,
                     f"Venta creada a partir de Cotización {quotation['sale_number']}"
                 )

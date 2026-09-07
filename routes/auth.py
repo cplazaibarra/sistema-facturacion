@@ -26,7 +26,15 @@ def login():
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['full_name'] = user['full_name']
+            session['user_name'] = user['full_name']
             session['role_name'] = user['role_name']
+            parts = [p for p in (user['full_name'] or '').strip().split() if p]
+            if len(parts) >= 2:
+                session['user_initials'] = (parts[0][0] + parts[1][0]).upper()
+            elif len(parts) == 1:
+                session['user_initials'] = parts[0][:2].upper()
+            else:
+                session['user_initials'] = user['username'][:2].upper()
             flash(f'¡Bienvenido {user["full_name"]}!', 'success')
             return redirect(url_for('dashboard.dashboard'))
         else:
