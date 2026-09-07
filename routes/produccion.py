@@ -143,7 +143,7 @@ def nueva_ot():
                 SELECT p.id, p.sku, p.name
                 FROM products p
                 JOIN product_recipes pr ON p.id = pr.final_product_id
-                WHERE p.product_type = 'Final'
+                WHERE p.product_type IN ('Final', 'Producto Terminado')
                 """
             )
             final_products = [dict(row) for row in cur.fetchall()]
@@ -524,7 +524,7 @@ def nueva_receta():
                 """
                 SELECT id, sku, name
                 FROM products
-                WHERE product_type = 'Final' AND id NOT IN (SELECT final_product_id FROM product_recipes)
+                WHERE product_type IN ('Final', 'Producto Terminado') AND id NOT IN (SELECT final_product_id FROM product_recipes)
                 """
             )
             final_products = [dict(row) for row in cur.fetchall()]

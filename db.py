@@ -603,6 +603,10 @@ def init_db() -> None:
                 "status": "TEXT DEFAULT 'Activo'",
                 "notes": "TEXT",
                 "attachment_url": "TEXT",
+                "line": "TEXT",
+                "variety": "TEXT",
+                "bom_recipe": "TEXT",
+                "labeling": "TEXT",
             }
             for column_name, column_type in missing_columns.items():
                 if column_name not in existing_columns:
@@ -1424,7 +1428,7 @@ def list_products() -> list[dict]:
                        COALESCE(requires_lot, FALSE) as requires_lot,
                        subcategory_material, line_variety, format_capacity, associated_kg,
                        unit_of_measure, min_stock, COALESCE(status, 'Activo') as status,
-                       notes, attachment_url
+                       notes, attachment_url, line, variety, bom_recipe, labeling
                 FROM products
                 WHERE is_deleted = FALSE OR is_deleted IS NULL
                 ORDER BY id DESC
@@ -1450,13 +1454,15 @@ def insert_product(product: dict) -> int:
                     category, expiry_date, width_cm, height_cm, depth_cm,
                     weight_kg, product_type, cost, requires_lot, created_at,
                     subcategory_material, line_variety, format_capacity, associated_kg,
-                    unit_of_measure, min_stock, status, notes, attachment_url
+                    unit_of_measure, min_stock, status, notes, attachment_url,
+                    line, variety, bom_recipe, labeling
                 ) VALUES (
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s,
                     %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s
                 )
                 RETURNING id
                 """,
@@ -1486,6 +1492,10 @@ def insert_product(product: dict) -> int:
                     product.get("status", "Activo") or "Activo",
                     product.get("notes"),
                     product.get("attachment_url"),
+                    product.get("line"),
+                    product.get("variety"),
+                    product.get("bom_recipe"),
+                    product.get("labeling"),
                 ),
             )
             inserted_id = cur.fetchone()["id"]
@@ -1503,7 +1513,7 @@ def get_product(product_id: int) -> dict:
                        COALESCE(requires_lot, FALSE) as requires_lot,
                        subcategory_material, line_variety, format_capacity, associated_kg,
                        unit_of_measure, min_stock, COALESCE(status, 'Activo') as status,
-                       notes, attachment_url
+                       notes, attachment_url, line, variety, bom_recipe, labeling
                 FROM products
                 WHERE id = %s
                 """,
@@ -1532,7 +1542,8 @@ def update_product(product_id: int, product: dict) -> None:
                     product_type = %s, cost = %s, requires_lot = %s,
                     subcategory_material = %s, line_variety = %s, format_capacity = %s,
                     associated_kg = %s, unit_of_measure = %s, min_stock = %s,
-                    status = %s, notes = %s, attachment_url = %s
+                    status = %s, notes = %s, attachment_url = %s,
+                    line = %s, variety = %s, bom_recipe = %s, labeling = %s
                 WHERE id = %s
                 """,
                 (
@@ -1560,6 +1571,10 @@ def update_product(product_id: int, product: dict) -> None:
                     product.get("status", "Activo") or "Activo",
                     product.get("notes"),
                     product.get("attachment_url"),
+                    product.get("line"),
+                    product.get("variety"),
+                    product.get("bom_recipe"),
+                    product.get("labeling"),
                     product_id,
                 ),
             )

@@ -1101,7 +1101,7 @@ def nueva_cotizacion():
 
         return redirect(url_for('ventas.cotizaciones'))
         
-    products = [p for p in list_products() if p.get('product_type', 'Final') == 'Final']
+    products = [p for p in list_products() if p.get('product_type', 'Final') != 'Insumo']
     default_date = datetime.today().strftime('%Y-%m-%d')
 
     # ── Detectar modo EDICIÓN (edit_id) o modo CLONACIÓN (clone_id) ──

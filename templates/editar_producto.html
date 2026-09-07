@@ -41,8 +41,9 @@
                 <div class="form-group">
                     <label style="font-weight: bold; color: #2b6cb0;">Tipo de Producto *</label>
                     <select name="product_type" class="form-control" required style="font-weight: bold;">
-                        <option value="Final" {% if (product.product_type or 'Final') == 'Final' %}selected{% endif %}>Final (Vendible)</option>
+                        <option value="Producto Terminado" {% if product.product_type in ['Producto Terminado', 'Final'] %}selected{% endif %}>Producto Terminado (Vendible)</option>
                         <option value="Insumo" {% if product.product_type == 'Insumo' %}selected{% endif %}>Insumo (Materia Prima / Envase)</option>
+                        <option value="Servicio" {% if product.product_type == 'Servicio' %}selected{% endif %}>Servicio</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -65,23 +66,27 @@
                     <input type="text" name="subcategory_material" class="form-control" value="{{ product.subcategory_material or '' }}" placeholder="Ej. Vidrio, PET - Tineta, Miel Cruda">
                 </div>
                 <div class="form-group">
-                    <label>Línea / Variedad</label>
-                    <input type="text" name="line_variety" class="form-control" value="{{ product.line_variety or '' }}" placeholder="Ej. Ulmo, Tiaca, Multiflora, N/A">
+                    <label>Formato o Capacidad</label>
+                    <input type="text" name="format_capacity" class="form-control" value="{{ product.format_capacity or '' }}" placeholder="Ej. 500 g, 1 Kg, Grande, A granel">
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label>Formato o Capacidad</label>
-                    <input type="text" name="format_capacity" class="form-control" value="{{ product.format_capacity or '' }}" placeholder="Ej. 500 g, 1 Kg, Grande, A granel">
+                    <label>Línea</label>
+                    <input type="text" name="line" class="form-control" value="{{ product.line or '' }}" placeholder="Ej. Clásica, Selva Valdiviana, Granel">
                 </div>
+                <div class="form-group">
+                    <label>Variedad</label>
+                    <input type="text" name="variety" class="form-control" value="{{ product.variety or '' }}" placeholder="Ej. Ulmo, Multiflora, Tiaca, Tineo">
+                </div>
+            </div>
+
+            <div class="form-row">
                 <div class="form-group">
                     <label>Kilos Asociados (Kg)</label>
                     <input type="number" name="associated_kg" class="form-control" step="0.001" min="0" value="{{ '{:g}'.format(product.associated_kg) if product.associated_kg is not none else (product.weight_kg or '') }}" placeholder="Ej. 0.5, 1.0">
                 </div>
-            </div>
-
-            <div class="form-row">
                 <div class="form-group">
                     <label>Unidad de Medida</label>
                     <select name="unit_of_measure" class="form-control">
@@ -89,25 +94,51 @@
                         <option value="KG" {% if product.unit_of_measure == 'KG' %}selected{% endif %}>KG (Kilogramo)</option>
                         <option value="LT" {% if product.unit_of_measure == 'LT' %}selected{% endif %}>LT (Litro)</option>
                         <option value="MT" {% if product.unit_of_measure == 'MT' %}selected{% endif %}>MT (Metro)</option>
+                        <option value="Viaje" {% if product.unit_of_measure == 'Viaje' %}selected{% endif %}>Viaje</option>
                     </select>
-                </div>
-                <div class="form-group">
-                    <label>Stock Mínimo</label>
-                    <input type="number" name="min_stock" class="form-control" step="1" min="0" value="{{ '{:g}'.format(product.min_stock) if product.min_stock is not none else '0' }}">
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
+                    <label>Receta BOM</label>
+                    <input type="text" name="bom_recipe" class="form-control" value="{{ product.bom_recipe or '' }}" placeholder="Ej. REC-CLA-001">
+                </div>
+                <div class="form-group">
+                    <label>Etiquetado</label>
+                    <select name="labeling" class="form-control">
+                        <option value="" {% if not product.labeling %}selected{% endif %}>Seleccionar etiquetado</option>
+                        <option value="Nuevo" {% if product.labeling == 'Nuevo' %}selected{% endif %}>Nuevo</option>
+                        <option value="Antiguo" {% if product.labeling == 'Antiguo' %}selected{% endif %}>Antiguo</option>
+                        <option value="N/A" {% if product.labeling == 'N/A' %}selected{% endif %}>N/A</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Stock Mínimo</label>
+                    <input type="number" name="min_stock" class="form-control" step="1" min="0" value="{{ '{:g}'.format(product.min_stock) if product.min_stock is not none else '0' }}">
+                </div>
+                <div class="form-group">
                     <label>Estado</label>
                     <select name="status" class="form-control">
                         <option value="Activo" {% if (product.status or 'Activo') == 'Activo' %}selected{% endif %}>Activo</option>
                         <option value="Inactivo" {% if product.status == 'Inactivo' %}selected{% endif %}>Inactivo</option>
+                        <option value="No producido 2026" {% if product.status == 'No producido 2026' %}selected{% endif %}>No producido 2026</option>
+                        <option value="No confirmado" {% if product.status == 'No confirmado' %}selected{% endif %}>No confirmado</option>
                     </select>
                 </div>
+            </div>
+
+            <div class="form-row">
                 <div class="form-group">
                     <label>Costo Unitario ($)</label>
                     <input type="number" name="cost" class="form-control" step="0.01" min="0" value="{{ product.cost if product.cost is not none else '0' }}">
+                </div>
+                <div class="form-group">
+                    <label>Línea / Variedad (Legacy)</label>
+                    <input type="text" name="line_variety" class="form-control" value="{{ product.line_variety or '' }}" placeholder="Ej. Ulmo, Tiaca, Multiflora, N/A">
                 </div>
             </div>
 

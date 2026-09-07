@@ -50,8 +50,9 @@
                 <div class="form-group">
                     <label style="font-weight: bold; color: #2b6cb0;">Tipo de Producto *</label>
                     <select name="product_type" class="form-control" required style="font-weight: bold;">
-                        <option value="Final">Final (Vendible)</option>
+                        <option value="Producto Terminado">Producto Terminado (Vendible)</option>
                         <option value="Insumo" selected>Insumo (Materia Prima / Envase)</option>
+                        <option value="Servicio">Servicio</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -71,23 +72,27 @@
                     <input type="text" name="subcategory_material" class="form-control" placeholder="Ej. Vidrio, PET - Tineta, Miel Cruda">
                 </div>
                 <div class="form-group">
-                    <label>Línea / Variedad</label>
-                    <input type="text" name="line_variety" class="form-control" placeholder="Ej. Ulmo, Tiaca, Multiflora, N/A">
+                    <label>Formato o Capacidad</label>
+                    <input type="text" name="format_capacity" class="form-control" placeholder="Ej. 500 g, 1 Kg, Grande, A granel">
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label>Formato o Capacidad</label>
-                    <input type="text" name="format_capacity" class="form-control" placeholder="Ej. 500 g, 1 Kg, Grande, A granel">
+                    <label>Línea</label>
+                    <input type="text" name="line" class="form-control" placeholder="Ej. Clásica, Selva Valdiviana, Granel">
                 </div>
+                <div class="form-group">
+                    <label>Variedad</label>
+                    <input type="text" name="variety" class="form-control" placeholder="Ej. Ulmo, Multiflora, Tiaca, Tineo">
+                </div>
+            </div>
+
+            <div class="form-row">
                 <div class="form-group">
                     <label>Kilos Asociados (Kg)</label>
                     <input type="number" name="associated_kg" class="form-control" step="0.001" min="0" placeholder="Ej. 0.5, 1.0">
                 </div>
-            </div>
-
-            <div class="form-row">
                 <div class="form-group">
                     <label>Unidad de Medida</label>
                     <select name="unit_of_measure" class="form-control">
@@ -95,36 +100,62 @@
                         <option value="KG">KG (Kilogramo)</option>
                         <option value="LT">LT (Litro)</option>
                         <option value="MT">MT (Metro)</option>
+                        <option value="Viaje">Viaje</option>
                     </select>
-                </div>
-                <div class="form-group">
-                    <label>Stock Mínimo</label>
-                    <input type="number" name="min_stock" class="form-control" step="1" min="0" value="0">
                 </div>
             </div>
 
             <div class="form-row">
+                <div class="form-group">
+                    <label>Receta BOM</label>
+                    <input type="text" name="bom_recipe" class="form-control" placeholder="Ej. REC-CLA-001">
+                </div>
+                <div class="form-group">
+                    <label>Etiquetado</label>
+                    <select name="labeling" class="form-control">
+                        <option value="">Seleccionar etiquetado</option>
+                        <option value="Nuevo">Nuevo</option>
+                        <option value="Antiguo">Antiguo</option>
+                        <option value="N/A">N/A</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Stock Mínimo</label>
+                    <input type="number" name="min_stock" class="form-control" step="1" min="0" value="0">
+                </div>
                 <div class="form-group">
                     <label>Estado</label>
                     <select name="status" class="form-control">
                         <option value="Activo" selected>Activo</option>
                         <option value="Inactivo">Inactivo</option>
+                        <option value="No producido 2026">No producido 2026</option>
+                        <option value="No confirmado">No confirmado</option>
                     </select>
-                </div>
-                <div class="form-group">
-                    <label>Costo Unitario ($)</label>
-                    <input type="number" name="cost" class="form-control" step="0.01" min="0" value="0">
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
+                    <label>Costo Unitario ($)</label>
+                    <input type="number" name="cost" class="form-control" step="0.01" min="0" value="0">
+                </div>
+                <div class="form-group">
                     <label>Código Interno</label>
                     <input type="text" name="internal_code" class="form-control" placeholder="Ej. MIEL-001">
                 </div>
+            </div>
+
+            <div class="form-row">
                 <div class="form-group">
                     <label>Código de Barra</label>
                     <input type="text" name="barcode" class="form-control" placeholder="1234567890">
+                </div>
+                <div class="form-group">
+                    <label>Línea / Variedad (Legacy)</label>
+                    <input type="text" name="line_variety" class="form-control" placeholder="Ej. Ulmo, Tiaca, Multiflora, N/A">
                 </div>
             </div>
 
@@ -192,7 +223,7 @@
             <h3>Productos Registrados</h3>
         </div>
         <div style="overflow-x: auto;">
-        <table class="data-table" id="tabla-productos" style="width: 100%; border-collapse: collapse; min-width: 1200px;">
+        <table class="data-table" id="tabla-productos" style="width: 100%; border-collapse: collapse; min-width: 1400px;">
             <thead>
                 <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; font-size: 13px; text-align: left;">
                     <th style="padding: 10px 12px;">SKU</th>
@@ -200,10 +231,13 @@
                     <th style="padding: 10px 12px;">Tipo</th>
                     <th style="padding: 10px 12px;">Categoría</th>
                     <th style="padding: 10px 12px;">Subcategoría / Material</th>
-                    <th style="padding: 10px 12px;">Línea / Variedad</th>
-                    <th style="padding: 10px 12px;">Formato / Capacidad</th>
-                    <th style="padding: 10px 12px; text-align: right;">Kilos Asoc. (Kg)</th>
+                    <th style="padding: 10px 12px;">Línea</th>
+                    <th style="padding: 10px 12px;">Variedad</th>
+                    <th style="padding: 10px 12px;">Formato</th>
+                    <th style="padding: 10px 12px; text-align: right;">Kilos Asoc.</th>
                     <th style="padding: 10px 12px; text-align: center;">U. Medida</th>
+                    <th style="padding: 10px 12px; text-align: center;">Receta BOM</th>
+                    <th style="padding: 10px 12px; text-align: center;">Etiquetado</th>
                     <th style="padding: 10px 12px; text-align: center;">Manejo Lote</th>
                     <th style="padding: 10px 12px; text-align: right;">Stock Mín.</th>
                     <th style="padding: 10px 12px; text-align: center;">Estado</th>
@@ -218,12 +252,13 @@
                     <td class="product-name" style="padding: 10px 12px; font-weight: 500;">
                         <a href="/productos/{{ product.id }}/editar" style="color: #2563eb; text-decoration: none; font-weight: 600;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">{{ product.name }}</a>
                     </td>
-                    <td class="product-type" style="padding: 10px 12px; font-weight: 600; color: {% if product.product_type == 'Insumo' %}#d97706{% else %}#2563eb{% endif %}; white-space: nowrap;">
-                        {{ product.product_type or 'Final' }}
+                    <td class="product-type" style="padding: 10px 12px; font-weight: 600; color: {% if product.product_type == 'Insumo' %}#d97706{% elif product.product_type == 'Servicio' %}#7c3aed{% else %}#2563eb{% endif %}; white-space: nowrap;">
+                        {{ 'Producto Terminado' if product.product_type == 'Final' else (product.product_type or 'Producto Terminado') }}
                     </td>
                     <td class="product-category" style="padding: 10px 12px; color: #475569; white-space: nowrap;">{{ product.category or '-' }}</td>
                     <td class="product-subcat" style="padding: 10px 12px; color: #475569;">{{ product.subcategory_material or '-' }}</td>
-                    <td class="product-line" style="padding: 10px 12px; color: #475569;">{{ product.line_variety or '-' }}</td>
+                    <td class="product-line" style="padding: 10px 12px; color: #475569; white-space: nowrap;">{{ product.line or '-' }}</td>
+                    <td class="product-variety" style="padding: 10px 12px; color: #475569; white-space: nowrap;">{{ product.variety or (product.line_variety if not product.line else '-') }}</td>
                     <td class="product-format" style="padding: 10px 12px; color: #334155; font-weight: 500; white-space: nowrap;">{{ product.format_capacity or '-' }}</td>
                     <td class="product-kg" style="padding: 10px 12px; text-align: right; font-weight: 600; color: #1e293b;">
                         {% if product.associated_kg is not none %}
@@ -237,6 +272,24 @@
                     <td class="product-unit" style="padding: 10px 12px; text-align: center; font-weight: 600; color: #475569;">
                         {{ product.unit_of_measure or 'UN' }}
                     </td>
+                    <td class="product-bom" style="padding: 10px 12px; text-align: center; white-space: nowrap;">
+                        {% if product.bom_recipe %}
+                            <span style="background: #fdf2f8; color: #9d174d; border: 1px solid #fbcfe8; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 6px; font-family: monospace;">{{ product.bom_recipe }}</span>
+                        {% else %}
+                            <span style="color: #cbd5e1;">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="product-labeling" style="padding: 10px 12px; text-align: center; white-space: nowrap;">
+                        {% if product.labeling == 'Nuevo' %}
+                            <span style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 6px;">Nuevo</span>
+                        {% elif product.labeling == 'Antiguo' %}
+                            <span style="background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 6px;">Antiguo</span>
+                        {% elif product.labeling and product.labeling != 'N/A' %}
+                            <span style="color: #475569; font-size: 11px;">{{ product.labeling }}</span>
+                        {% else %}
+                            <span style="color: #cbd5e1;">-</span>
+                        {% endif %}
+                    </td>
                     <td style="padding: 10px 12px; text-align: center; white-space: nowrap;">
                         {% if product.requires_lot %}
                             <span style="background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px;">🏷️ SÍ (Oblig.)</span>
@@ -247,9 +300,13 @@
                     <td class="product-min-stock" style="padding: 10px 12px; text-align: right; color: #64748b;">
                         {{ '{:g}'.format(product.min_stock) if product.min_stock else '0' }}
                     </td>
-                    <td class="product-status" style="padding: 10px 12px; text-align: center;">
+                    <td class="product-status" style="padding: 10px 12px; text-align: center; white-space: nowrap;">
                         {% if (product.status or 'Activo') == 'Activo' %}
                             <span style="background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px;">Activo</span>
+                        {% elif product.status == 'No producido 2026' %}
+                            <span style="background: #fffbeb; color: #b45309; border: 1px solid #fde68a; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 6px;">No producido 2026</span>
+                        {% elif product.status == 'No confirmado' %}
+                            <span style="background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 6px;">No confirmado</span>
                         {% else %}
                             <span style="background: #f1f5f9; color: #64748b; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 6px;">{{ product.status }}</span>
                         {% endif %}
