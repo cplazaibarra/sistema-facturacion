@@ -448,10 +448,11 @@ def list_recetas():
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT pr.id, pr.created_at, p.sku as final_sku, p.name as final_name
+                SELECT pr.id, pr.created_at, pr.recipe_code, p.sku as final_sku, p.name as final_name,
+                       p.line, p.variety, p.format_capacity
                 FROM product_recipes pr
                 JOIN products p ON pr.final_product_id = p.id
-                ORDER BY pr.id DESC
+                ORDER BY pr.id ASC
                 """
             )
             rows = cur.fetchall()
@@ -459,10 +460,11 @@ def list_recetas():
                 recipe_id = r["id"]
                 cur.execute(
                     """
-                    SELECT pri.quantity_required, p.sku as input_sku, p.name as input_name
+                    SELECT pri.quantity_required, pri.unit, pri.notes, p.sku as input_sku, p.name as input_name
                     FROM product_recipe_items pri
                     JOIN products p ON pri.input_product_id = p.id
                     WHERE pri.recipe_id = %s
+                    ORDER BY pri.id ASC
                     """,
                     (recipe_id,)
                 )
@@ -555,11 +557,12 @@ def get_product_recipe(product_id):
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT pri.quantity_required, p.sku as input_sku, p.name as input_name
+                SELECT pri.quantity_required, pri.unit, pri.notes, p.sku as input_sku, p.name as input_name
                 FROM product_recipe_items pri
                 JOIN product_recipes pr ON pri.recipe_id = pr.id
                 JOIN products p ON pri.input_product_id = p.id
                 WHERE pr.final_product_id = %s
+                ORDER BY pri.id ASC
                 """,
                 (product_id,)
             )

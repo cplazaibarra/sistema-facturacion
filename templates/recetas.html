@@ -4,47 +4,80 @@
 {% block page_title %}Recetas de Fabricación (BOM){% endblock %}
 
 {% block content %}
-<div class="header-section" style="margin-bottom: 20px; display: flex; gap: 10px;">
-    <a href="/produccion" class="btn-secondary" style="text-decoration: none; padding: 10px 18px; border-radius: 6px; font-weight: bold; display: inline-flex; align-items: center; gap: 6px;">
-        ⬅️ Volver a Fabricación
-    </a>
-    <a href="/produccion/recetas/nueva" class="btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 6px; font-weight: bold;">
-        📝 Crear Nueva Receta
-    </a>
+<div class="header-section" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div style="display: flex; gap: 10px;">
+        <a href="/produccion" class="btn-secondary" style="text-decoration: none; padding: 10px 18px; border-radius: 6px; font-weight: bold; display: inline-flex; align-items: center; gap: 6px;">
+            ⬅️ Volver a Fabricación
+        </a>
+        <a href="/produccion/recetas/nueva" class="btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 6px; font-weight: bold;">
+            📝 Crear Nueva Receta
+        </a>
+    </div>
+    <div class="search-box">
+        <input type="text" id="buscar-receta" onkeyup="filtrarRecetas()" placeholder="Buscar receta, SKU o componente..." style="padding: 9px 16px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; width: 300px;">
+    </div>
 </div>
 
 <div class="recent-section">
     <div class="recent-card" style="background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px;">
-        <div class="card-header" style="border-bottom: 1px solid #edf2f7; padding-bottom: 12px; margin-bottom: 20px;">
-            <h3 style="margin: 0; color: #2d3748;">Fórmulas y Recetas Registradas</h3>
+        <div class="card-header" style="border-bottom: 1px solid #edf2f7; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; color: #2d3748;">Fórmulas y Recetas Registradas (BOM)</h3>
+            <span style="font-size: 12px; font-weight: 600; color: #64748b; background: #f1f5f9; padding: 4px 10px; border-radius: 12px;">{{ recipes|length }} Recetas</span>
         </div>
         
-        <table class="data-table" style="width: 100%; border-collapse: collapse;">
+        <div class="table-responsive">
+        <table class="data-table" id="tabla-recetas" style="width: 100%; border-collapse: collapse; min-width: 900px;">
             <thead>
-                <tr style="background: #f7fafc; text-align: left; font-size: 11px; text-transform: uppercase; color: #718096; border-bottom: 2px solid #edf2f7;">
-                    <th style="padding: 12px;">Producto Final (1 Unidad)</th>
-                    <th style="padding: 12px;">Insumos / Ingredientes Unitarios</th>
-                    <th style="padding: 12px;">Fecha de Creación</th>
-                    <th style="padding: 12px; text-align: center; width: 100px;">Acciones</th>
+                <tr style="background: #f8fafc; text-align: left; font-size: 11px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #e2e8f0;">
+                    <th style="padding: 12px; width: 140px;">Receta (BOM)</th>
+                    <th style="padding: 12px; width: 280px;">Producto Final (1 UN)</th>
+                    <th style="padding: 12px;">Componentes / Insumos Requeridos</th>
+                    <th style="padding: 12px; text-align: center; width: 90px;">Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 {% if recipes %}
                     {% for r in recipes %}
-                    <tr style="border-bottom: 1px solid #edf2f7; font-size: 13px;">
-                        <td style="padding: 12px; font-weight: bold; color: #2d3748;">
-                            <span style="font-size: 14px;">{{ r.final_name }}</span>
-                            <div style="font-size: 11px; color: #718096; font-weight: normal; margin-top: 2px;">SKU: {{ r.final_sku }}</div>
+                    <tr class="receta-row" style="border-bottom: 1px solid #edf2f7; font-size: 13px;">
+                        <td style="padding: 12px; vertical-align: top; white-space: nowrap;">
+                            {% if r.recipe_code %}
+                                <span style="background: #fdf2f8; color: #9d174d; border: 1px solid #fbcfe8; font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-family: monospace;">{{ r.recipe_code }}</span>
+                            {% else %}
+                                <span style="color: #94a3b8; font-size: 12px;">REC-#{{ r.id }}</span>
+                            {% endif %}
                         </td>
-                        <td style="padding: 12px;">
-                            <ul style="margin: 0; padding-left: 16px; font-size: 12px; color: #4a5568;">
+                        <td style="padding: 12px; vertical-align: top;">
+                            <div style="font-weight: 600; color: #1e293b; font-size: 14px;">{{ r.final_name }}</div>
+                            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                                <span style="font-weight: 600; color: #2563eb;">SKU: {{ r.final_sku }}</span>
+                                {% if r.format_capacity %} • {{ r.format_capacity }}{% endif %}
+                                {% if r.variety and r.variety != 'N/A' %} • {{ r.variety }}{% endif %}
+                            </div>
+                        </td>
+                        <td style="padding: 12px; vertical-align: top;">
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
                                 {% for item in r['items'] %}
-                                <li>{{ item.input_name }} (SKU: {{ item.input_sku }}): <strong>{{ item.quantity_required }}</strong></li>
+                                <div style="display: flex; align-items: baseline; justify-content: space-between; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px; font-size: 12px;">
+                                    <div>
+                                        <span style="font-weight: 600; color: #334155;">{{ item.input_name }}</span>
+                                        <span style="color: #94a3b8; font-size: 11px; font-family: monospace; margin-left: 4px;">({{ item.input_sku }})</span>
+                                        {% if item.notes %}
+                                            <span style="color: #d97706; font-size: 11px; margin-left: 6px;" title="{{ item.notes }}">⚠️ {{ item.notes }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <div style="white-space: nowrap; margin-left: 12px;">
+                                        {% if item.quantity_required > 0 %}
+                                            <span style="font-weight: 700; color: #0f172a;">{{ '{:g}'.format(item.quantity_required) }}</span>
+                                            <span style="font-size: 11px; color: #64748b; font-weight: 600;">{{ item.unit or 'UN' }}</span>
+                                        {% else %}
+                                            <span style="background: #fffbeb; color: #b45309; border: 1px solid #fde68a; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px;">Por definir</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
                                 {% endfor %}
-                            </ul>
+                            </div>
                         </td>
-                        <td style="padding: 12px; color: #718096;">{{ r.created_at }}</td>
-                        <td style="padding: 12px; text-align: center;">
+                        <td style="padding: 12px; text-align: center; vertical-align: middle;">
                             <form method="POST" action="/produccion/recetas/{{ r.id }}/eliminar" onsubmit="return confirm('¿Está seguro de que desea eliminar esta receta de fabricación?');" style="margin: 0;">
                                 <button type="submit" class="btn-icon" style="color: #e53e3e; background: none; border: none; cursor: pointer; font-size: 1.1rem;" title="Eliminar Receta">
                                     🗑️
@@ -62,6 +95,18 @@
                 {% endif %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
+
+<script>
+function filtrarRecetas() {
+    const filter = document.getElementById('buscar-receta').value.toLowerCase();
+    const rows = document.querySelectorAll('.receta-row');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.indexOf(filter) > -1 ? '' : 'none';
+    });
+}
+</script>
 {% endblock %}

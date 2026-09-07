@@ -975,6 +975,13 @@ def init_db() -> None:
             )
             cur.execute(
                 """
+                ALTER TABLE product_recipes ADD COLUMN IF NOT EXISTS recipe_code TEXT;
+                ALTER TABLE product_recipe_items ADD COLUMN IF NOT EXISTS unit TEXT;
+                ALTER TABLE product_recipe_items ADD COLUMN IF NOT EXISTS notes TEXT;
+                """
+            )
+            cur.execute(
+                """
                 CREATE TABLE IF NOT EXISTS production_order_additional_items (
                     id SERIAL PRIMARY KEY,
                     production_order_id INTEGER NOT NULL,
