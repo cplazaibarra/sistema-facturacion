@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Receta - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Editar Receta de Fabricación (BOM){% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px;">
+    <a href="/produccion/recetas" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 4px; border: 1px solid #cbd5e0; background: #fff; color: #4a5568; font-weight: 500;">
+        ⬅️ Volver a Recetas
+    </a>
+</div>
+
+<div class="ingreso-container">
+    <div class="ingreso-form-card" style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); max-width: 1050px; margin: 0 auto;">
+        
+        <!-- Cabecera del Producto Final -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">Producto Final Terminado</span>
+                    <h2 style="margin: 4px 0 6px 0; color: #0f172a; font-size: 1.25rem;">{{ recipe.final_name }}</h2>
+                    <div style="font-size: 12px; color: #64748b; display: flex; gap: 12px; flex-wrap: wrap;">
+                        <span><strong style="color: #334155;">SKU:</strong> <span style="color: #2563eb; font-weight: 600;">{{ recipe.final_sku }}</span></span>
+                        {% if recipe.line %}
+                        <span>• <strong style="color: #334155;">Línea:</strong> {{ recipe.line }}</span>
+                        {% endif %}
+                        {% if recipe.variety and recipe.variety != 'N/A' %}
+                        <span>• <strong style="color: #334155;">Variedad:</strong> {{ recipe.variety }}</span>
+                        {% endif %}
+                        {% if recipe.format_capacity %}
+                        <span>• <strong style="color: #334155;">Formato:</strong> {{ recipe.format_capacity }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div>
+                    <span style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-family: monospace;">
+                        ID: REC-#{{ recipe.id }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <form class="ingreso-form" method="POST" id="editar-receta-form">
+            <!-- Código de Receta (BOM) -->
+            <div class="form-group" style="margin-bottom: 24px; max-width: 360px;">
+                <label style="display: block; font-weight: 600; color: #334155; margin-bottom: 6px; font-size: 13px;">
+                    Código de Receta (BOM)
+                </label>
+                <input type="text" name="recipe_code" value="{{ recipe.recipe_code or '' }}" class="form-control" style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; font-weight: 600; font-family: monospace;" placeholder="Ej: REC-CLA-001">
+                <small style="color: #64748b; font-size: 11px; margin-top: 4px; display: block;">Identificador estándar de la receta de fabricación.</small>
+            </div>
+
+            <div class="form-divider" style="height: 1px; background: #e2e8f0; margin: 20px 0;"></div>
+
+            <!-- Insumos y Componentes -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div>
+                    <h4 style="margin: 0; color: #1e293b; font-size: 1.05rem;">Insumos / Componentes Requeridos (por 1 Unidad)</h4>
+                    <p style="font-size: 12px; color: #64748b; margin: 2px 0 0 0;">Indica los ingredientes, envases, tapas o etiquetas necesarios para 1 unidad terminada.</p>
+                </div>
+                <button type="button" class="btn-secondary" id="add-insumo-btn" style="padding: 7px 14px; background-color: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
+                    ➕ Agregar Insumo
+                </button>
+            </div>
+
+            <div class="table-responsive" style="margin-top: 10px; border: 1px solid #e2e8f0; border-radius: 8px; overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; min-width: 750px; font-size: 13px;">
+                    <thead>
+                        <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #64748b;">
+                            <th style="padding: 10px 12px; width: 38%;">Insumo / Componente *</th>
+                            <th style="padding: 10px 12px; width: 18%;">Cantidad Unitaria *</th>
+                            <th style="padding: 10px 12px; width: 14%;">Unidad *</th>
+                            <th style="padding: 10px 12px; width: 24%;">Observación / Nota</th>
+                            <th style="padding: 10px 12px; width: 6%; text-align: center;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="insumos-container">
+                        <!-- Filas agregadas dinámicamente con JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="margin-top: 30px; display: flex; justify-content: flex-end; gap: 12px; align-items: center;">
+                <a href="/produccion/recetas" class="btn-secondary" style="text-decoration: none; padding: 9px 18px; border-radius: 6px; font-size: 13px;">Cancelar</a>
+                <button type="submit" class="btn-primary" style="padding: 9px 24px; border-radius: 6px; font-weight: 600; font-size: 13px; background: #2563eb; color: white; border: none; cursor: pointer;">
+                    💾 Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const container = document.getElementById('insumos-container');
+    const addBtn = document.getElementById('add-insumo-btn');
+    
+    // Lista de productos insumos disponibles
+    const inputProducts = {{ input_products|tojson|safe }};
+    // Items actuales de la receta
+    const existingItems = {{ items|tojson|safe }};
+
+    function createRow(initialData = null) {
+        const tr = document.createElement('tr');
+        tr.className = 'insumo-row';
+        tr.style.borderBottom = '1px solid #f1f5f9';
+
+        // 1. Columna Insumo
+        const tdInsumo = document.createElement('td');
+        tdInsumo.style.padding = '8px 12px';
+        const select = document.createElement('select');
+        select.name = 'input_product_id[]';
+        select.required = true;
+        select.style.width = '100%';
+        select.style.padding = '7px 10px';
+        select.style.border = '1px solid #cbd5e1';
+        select.style.borderRadius = '6px';
+        select.style.fontSize = '12px';
+
+        const defOpt = document.createElement('option');
+        defOpt.value = '';
+        defOpt.textContent = '-- Seleccionar Insumo --';
+        select.appendChild(defOpt);
+
+        inputProducts.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = `${p.name} (${p.sku})`;
+            if (initialData && initialData.input_product_id === p.id) {
+                opt.selected = true;
+            }
+            select.appendChild(opt);
+        });
+        tdInsumo.appendChild(select);
+
+        // 2. Columna Cantidad
+        const tdQty = document.createElement('td');
+        tdQty.style.padding = '8px 12px';
+        const qtyInput = document.createElement('input');
+        qtyInput.type = 'number';
+        qtyInput.name = 'quantity_required[]';
+        qtyInput.step = '0.0001';
+        qtyInput.min = '0';
+        qtyInput.required = true;
+        qtyInput.style.width = '100%';
+        qtyInput.style.padding = '7px 10px';
+        qtyInput.style.border = '1px solid #cbd5e1';
+        qtyInput.style.borderRadius = '6px';
+        qtyInput.style.fontSize = '12px';
+        qtyInput.placeholder = '0.0';
+        if (initialData) {
+            qtyInput.value = initialData.quantity_required !== undefined ? initialData.quantity_required : 0;
+        }
+        tdQty.appendChild(qtyInput);
+
+        // 3. Columna Unidad
+        const tdUnit = document.createElement('td');
+        tdUnit.style.padding = '8px 12px';
+        const unitSelect = document.createElement('select');
+        unitSelect.name = 'unit[]';
+        unitSelect.style.width = '100%';
+        unitSelect.style.padding = '7px 10px';
+        unitSelect.style.border = '1px solid #cbd5e1';
+        unitSelect.style.borderRadius = '6px';
+        unitSelect.style.fontSize = '12px';
+
+        const units = ['UN', 'KG', 'LT', 'GR'];
+        const currentUnit = (initialData && initialData.unit) ? initialData.unit.toUpperCase() : 'UN';
+        units.forEach(u => {
+            const uOpt = document.createElement('option');
+            uOpt.value = u;
+            uOpt.textContent = u;
+            if (u === currentUnit) {
+                uOpt.selected = true;
+            }
+            unitSelect.appendChild(uOpt);
+        });
+        tdUnit.appendChild(unitSelect);
+
+        // 4. Columna Observaciones / Notas
+        const tdNotes = document.createElement('td');
+        tdNotes.style.padding = '8px 12px';
+        const notesInput = document.createElement('input');
+        notesInput.type = 'text';
+        notesInput.name = 'notes[]';
+        notesInput.style.width = '100%';
+        notesInput.style.padding = '7px 10px';
+        notesInput.style.border = '1px solid #cbd5e1';
+        notesInput.style.borderRadius = '6px';
+        notesInput.style.fontSize = '12px';
+        notesInput.placeholder = 'Opcional (Ej: Por definir)';
+        if (initialData && initialData.notes) {
+            notesInput.value = initialData.notes;
+        }
+        tdNotes.appendChild(notesInput);
+
+        // 5. Columna Eliminar
+        const tdAction = document.createElement('td');
+        tdAction.style.padding = '8px 12px';
+        tdAction.style.textAlign = 'center';
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.textContent = '✕';
+        removeBtn.title = 'Quitar insumo';
+        removeBtn.style.color = '#ef4444';
+        removeBtn.style.background = 'none';
+        removeBtn.style.border = 'none';
+        removeBtn.style.fontSize = '1.1rem';
+        removeBtn.style.cursor = 'pointer';
+        removeBtn.style.fontWeight = 'bold';
+        removeBtn.addEventListener('click', () => {
+            if (container.children.length > 1) {
+                tr.remove();
+            } else {
+                alert('La receta debe tener al menos un componente o insumo.');
+            }
+        });
+        tdAction.appendChild(removeBtn);
+
+        tr.appendChild(tdInsumo);
+        tr.appendChild(tdQty);
+        tr.appendChild(tdUnit);
+        tr.appendChild(tdNotes);
+        tr.appendChild(tdAction);
+
+        container.appendChild(tr);
+    }
+
+    // Cargar los items existentes
+    if (existingItems && existingItems.length > 0) {
+        existingItems.forEach(item => createRow(item));
+    } else {
+        createRow();
+    }
+
+    // Evento para agregar nueva fila
+    addBtn.addEventListener('click', () => {
+        createRow();
+    });
+});
+</script>
+{% endblock %}

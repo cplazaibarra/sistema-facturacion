@@ -481,9 +481,12 @@ def nueva_receta():
     from db import get_connection
     if request.method == 'POST':
         final_product_id = int(request.form.get('final_product_id'))
+        recipe_code = request.form.get('recipe_code', '').strip() or None
         
         input_ids = request.form.getlist('input_product_id[]')
         quantities = request.form.getlist('quantity_required[]')
+        units = request.form.getlist('unit[]')
+        notes_list = request.form.getlist('notes[]')
         
         if not final_product_id:
             flash("Debe seleccionar un producto final.", "danger")
@@ -494,24 +497,36 @@ def nueva_receta():
                 # Insertar receta
                 cur.execute(
                     """
-                    INSERT INTO product_recipes (final_product_id, created_at)
-                    VALUES (%s, %s)
+                    INSERT INTO product_recipes (final_product_id, recipe_code, created_at)
+                    VALUES (%s, %s, %s)
                     RETURNING id
                     """,
-                    (final_product_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                    (final_product_id, recipe_code, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 )
                 recipe_id = cur.fetchone()["id"]
                 
+                # Sincronizar bom_recipe en tabla products
+                if recipe_code:
+                    cur.execute("UPDATE products SET bom_recipe = %s WHERE id = %s", (recipe_code, final_product_id))
+
                 # Insertar componentes unitarios
-                for inp_id, qty in zip(input_ids, quantities):
-                    if not inp_id or not qty:
+                for i in range(len(input_ids)):
+                    inp_id = input_ids[i]
+                    if not inp_id:
                         continue
+                    qty_str = quantities[i] if i < len(quantities) else '0'
+                    try:
+                        qty_val = float(qty_str) if qty_str else 0.0
+                    except ValueError:
+                        qty_val = 0.0
+                    unit_val = units[i].strip().upper() if i < len(units) and units[i] else 'UN'
+                    note_val = notes_list[i].strip() if i < len(notes_list) and notes_list[i] else None
                     cur.execute(
                         """
-                        INSERT INTO product_recipe_items (recipe_id, input_product_id, quantity_required)
-                        VALUES (%s, %s, %s)
+                        INSERT INTO product_recipe_items (recipe_id, input_product_id, quantity_required, unit, notes)
+                        VALUES (%s, %s, %s, %s, %s)
                         """,
-                        (recipe_id, int(inp_id), float(qty))
+                        (recipe_id, int(inp_id), qty_val, unit_val, note_val)
                     )
             conn.commit()
             
@@ -537,12 +552,113 @@ def nueva_receta():
     
     return render_template('nueva_receta.html', final_products=final_products, input_products=input_products, categories=categories)
 
+@produccion_bp.route('/produccion/recetas/<int:recipe_id>/editar', methods=['GET', 'POST'])
+def editar_receta(recipe_id):
+    """Editar una receta existente y sus componentes"""
+    from db import get_connection
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT pr.id, pr.recipe_code, pr.final_product_id, pr.created_at,
+                       p.name as final_name, p.sku as final_sku, p.line, p.variety, p.format_capacity
+                FROM product_recipes pr
+                JOIN products p ON pr.final_product_id = p.id
+                WHERE pr.id = %s
+                """,
+                (recipe_id,)
+            )
+            recipe = cur.fetchone()
+            
+    if not recipe:
+        flash("Receta no encontrada.", "danger")
+        return redirect(url_for('produccion.list_recetas'))
+
+    if request.method == 'POST':
+        recipe_code = request.form.get('recipe_code', '').strip() or None
+        input_ids = request.form.getlist('input_product_id[]')
+        quantities = request.form.getlist('quantity_required[]')
+        units = request.form.getlist('unit[]')
+        notes_list = request.form.getlist('notes[]')
+        
+        valid_items = []
+        for i in range(len(input_ids)):
+            inp_id = input_ids[i]
+            if not inp_id:
+                continue
+            qty_str = quantities[i] if i < len(quantities) else '0'
+            try:
+                qty_val = float(qty_str) if qty_str else 0.0
+            except ValueError:
+                qty_val = 0.0
+            unit_val = units[i].strip().upper() if i < len(units) and units[i] else 'UN'
+            note_val = notes_list[i].strip() if i < len(notes_list) and notes_list[i] else None
+            valid_items.append((int(inp_id), qty_val, unit_val, note_val))
+            
+        if not valid_items:
+            flash("Debe incluir al menos un componente o insumo en la receta.", "danger")
+            return redirect(url_for('produccion.editar_receta', recipe_id=recipe_id))
+            
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                # Actualizar código de receta
+                cur.execute(
+                    "UPDATE product_recipes SET recipe_code = %s WHERE id = %s",
+                    (recipe_code, recipe_id)
+                )
+                if recipe_code:
+                    cur.execute(
+                        "UPDATE products SET bom_recipe = %s WHERE id = %s",
+                        (recipe_code, recipe["final_product_id"])
+                    )
+                    
+                # Reemplazar componentes
+                cur.execute("DELETE FROM product_recipe_items WHERE recipe_id = %s", (recipe_id,))
+                for inp_id, qty_val, unit_val, note_val in valid_items:
+                    cur.execute(
+                        """
+                        INSERT INTO product_recipe_items (recipe_id, input_product_id, quantity_required, unit, notes)
+                        VALUES (%s, %s, %s, %s, %s)
+                        """,
+                        (recipe_id, inp_id, qty_val, unit_val, note_val)
+                    )
+            conn.commit()
+            
+        flash("Receta de fabricación actualizada correctamente.", "success")
+        return redirect(url_for('produccion.list_recetas'))
+
+    # Cargar insumos actuales de la receta
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT pri.id, pri.input_product_id, pri.quantity_required, pri.unit, pri.notes,
+                       p.name as input_name, p.sku as input_sku
+                FROM product_recipe_items pri
+                JOIN products p ON pri.input_product_id = p.id
+                WHERE pri.recipe_id = %s
+                ORDER BY pri.id ASC
+                """,
+                (recipe_id,)
+            )
+            items = [dict(row) for row in cur.fetchall()]
+
+    products = list_products()
+    input_products = [p for p in products if p.get('id') != recipe['final_product_id']]
+    input_products = sorted(input_products, key=lambda x: (x.get('product_type') != 'Insumo', x.get('name') or ''))
+
+    return render_template('editar_receta.html', recipe=dict(recipe), items=items, input_products=input_products)
+
 @produccion_bp.route('/produccion/recetas/<int:recipe_id>/eliminar', methods=['POST'])
 def eliminar_receta(recipe_id):
     """Eliminar una receta"""
     from db import get_connection
     with get_connection() as conn:
         with conn.cursor() as cur:
+            cur.execute("SELECT final_product_id FROM product_recipes WHERE id = %s", (recipe_id,))
+            rec = cur.fetchone()
+            if rec:
+                cur.execute("UPDATE products SET bom_recipe = NULL WHERE id = %s", (rec["final_product_id"],))
             cur.execute("DELETE FROM product_recipes WHERE id = %s", (recipe_id,))
         conn.commit()
     flash("Receta de fabricación eliminada.", "success")

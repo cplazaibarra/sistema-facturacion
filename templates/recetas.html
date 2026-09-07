@@ -78,11 +78,16 @@
                             </div>
                         </td>
                         <td style="padding: 12px; text-align: center; vertical-align: middle;">
-                            <form method="POST" action="/produccion/recetas/{{ r.id }}/eliminar" onsubmit="return confirm('¿Está seguro de que desea eliminar esta receta de fabricación?');" style="margin: 0;">
-                                <button type="submit" class="btn-icon" style="color: #e53e3e; background: none; border: none; cursor: pointer; font-size: 1.1rem;" title="Eliminar Receta">
-                                    🗑️
-                                </button>
-                            </form>
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                                <a href="/produccion/recetas/{{ r.id }}/editar" class="btn-icon" style="color: #2563eb; text-decoration: none; font-size: 1.15rem; display: inline-flex; align-items: center;" title="Editar Receta">
+                                    ✏️
+                                </a>
+                                <form method="POST" action="/produccion/recetas/{{ r.id }}/eliminar" onsubmit="return confirm('¿Está seguro de que desea eliminar esta receta de fabricación?');" style="margin: 0; display: inline-flex;">
+                                    <button type="submit" class="btn-icon" style="color: #e53e3e; background: none; border: none; cursor: pointer; font-size: 1.15rem; padding: 0;" title="Eliminar Receta">
+                                        🗑️
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
