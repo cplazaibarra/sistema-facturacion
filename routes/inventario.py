@@ -451,6 +451,12 @@ def productos():
             categories.append(category_value)
             set_page_data("inventory_categories", categories)
             
+        assoc_kg_val = request.form.get('associated_kg') or request.form.get('weight_kg')
+        assoc_kg = float(assoc_kg_val.replace(',', '.')) if assoc_kg_val and assoc_kg_val.strip() else None
+
+        min_stk_val = request.form.get('min_stock')
+        min_stk = float(min_stk_val.replace(',', '.')) if min_stk_val and min_stk_val.strip() else 0.0
+
         product = {
             "sku": request.form.get('sku', '').strip(),
             "name": request.form.get('name', '').strip(),
@@ -462,10 +468,19 @@ def productos():
             "width_cm": request.form.get('width_cm') or None,
             "height_cm": request.form.get('height_cm') or None,
             "depth_cm": request.form.get('depth_cm') or None,
-            "weight_kg": request.form.get('weight_kg') or None,
+            "weight_kg": assoc_kg,
+            "associated_kg": assoc_kg,
             "product_type": request.form.get('product_type', 'Final').strip(),
             "cost": float(request.form.get('cost', 0.0) or 0.0),
             "requires_lot": True if request.form.get('requires_lot') else False,
+            "subcategory_material": request.form.get('subcategory_material', '').strip(),
+            "line_variety": request.form.get('line_variety', '').strip(),
+            "format_capacity": request.form.get('format_capacity', '').strip(),
+            "unit_of_measure": request.form.get('unit_of_measure', 'UN').strip() or 'UN',
+            "min_stock": min_stk,
+            "status": request.form.get('status', 'Activo').strip() or 'Activo',
+            "notes": request.form.get('notes', '').strip(),
+            "attachment_url": request.form.get('attachment_url', '').strip(),
             "created_at": datetime.utcnow().isoformat(timespec='seconds'),
         }
 
@@ -502,6 +517,13 @@ def editar_producto(product_id):
         if category_value and category_value not in categories:
             categories.append(category_value)
             set_page_data("inventory_categories", categories)
+
+        assoc_kg_val = request.form.get('associated_kg') or request.form.get('weight_kg')
+        assoc_kg = float(assoc_kg_val.replace(',', '.')) if assoc_kg_val and assoc_kg_val.strip() else None
+
+        min_stk_val = request.form.get('min_stock')
+        min_stk = float(min_stk_val.replace(',', '.')) if min_stk_val and min_stk_val.strip() else 0.0
+
         product = {
             "sku": request.form.get('sku', '').strip(),
             "name": request.form.get('name', '').strip(),
@@ -513,10 +535,19 @@ def editar_producto(product_id):
             "width_cm": request.form.get('width_cm') or None,
             "height_cm": request.form.get('height_cm') or None,
             "depth_cm": request.form.get('depth_cm') or None,
-            "weight_kg": request.form.get('weight_kg') or None,
+            "weight_kg": assoc_kg,
+            "associated_kg": assoc_kg,
             "product_type": request.form.get('product_type', 'Final').strip(),
             "cost": float(request.form.get('cost', 0.0) or 0.0),
             "requires_lot": True if request.form.get('requires_lot') else False,
+            "subcategory_material": request.form.get('subcategory_material', '').strip(),
+            "line_variety": request.form.get('line_variety', '').strip(),
+            "format_capacity": request.form.get('format_capacity', '').strip(),
+            "unit_of_measure": request.form.get('unit_of_measure', 'UN').strip() or 'UN',
+            "min_stock": min_stk,
+            "status": request.form.get('status', 'Activo').strip() or 'Activo',
+            "notes": request.form.get('notes', '').strip(),
+            "attachment_url": request.form.get('attachment_url', '').strip(),
         }
 
         # Manejar subida de foto

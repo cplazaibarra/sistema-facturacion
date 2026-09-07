@@ -37,26 +37,23 @@
             {% endif %}
             <div class="form-row">
                 <div class="form-group">
-                    <label>Nombre *</label>
-                    <input type="text" name="name" class="form-control" placeholder="Miel 1kg" required>
+                    <label>Nombre del Producto *</label>
+                    <input type="text" name="name" class="form-control" placeholder="Ej. Envase 500 g" required>
                 </div>
                 <div class="form-group">
                     <label>SKU *</label>
-                    <input type="text" name="sku" class="form-control" placeholder="SKU-001" required>
+                    <input type="text" name="sku" class="form-control" placeholder="Ej. INS-ENV-003" required>
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label>Código Interno</label>
-                    <input type="text" name="internal_code" class="form-control" placeholder="MIEL-001">
+                    <label style="font-weight: bold; color: #2b6cb0;">Tipo de Producto *</label>
+                    <select name="product_type" class="form-control" required style="font-weight: bold;">
+                        <option value="Final">Final (Vendible)</option>
+                        <option value="Insumo" selected>Insumo (Materia Prima / Envase)</option>
+                    </select>
                 </div>
-                <div class="form-group">
-                    <label>Código de Barra</label>
-                    <input type="text" name="barcode" class="form-control" placeholder="1234567890">
-                </div>
-            </div>
-            <div class="form-row">
                 <div class="form-group">
                     <label>Categoría</label>
                     <select name="category" class="form-control">
@@ -66,63 +63,79 @@
                         {% endfor %}
                     </select>
                 </div>
+            </div>
+
+            <div class="form-row">
                 <div class="form-group">
-                    <label style="font-weight: bold; color: #2b6cb0;">Tipo de Producto *</label>
-                    <select name="product_type" class="form-control" required style="font-weight: bold;">
-                        <option value="Final" selected>Final (Vendible)</option>
-                        <option value="Insumo">Insumo (Materia Prima)</option>
-                    </select>
+                    <label>Subcategoría / Material</label>
+                    <input type="text" name="subcategory_material" class="form-control" placeholder="Ej. Vidrio, PET - Tineta, Miel Cruda">
+                </div>
+                <div class="form-group">
+                    <label>Línea / Variedad</label>
+                    <input type="text" name="line_variety" class="form-control" placeholder="Ej. Ulmo, Tiaca, Multiflora, N/A">
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label>Costo Unitario ($)</label>
-                    <input type="number" name="cost" class="form-control" step="1" min="0" value="0">
+                    <label>Formato o Capacidad</label>
+                    <input type="text" name="format_capacity" class="form-control" placeholder="Ej. 500 g, 1 Kg, Grande, A granel">
                 </div>
                 <div class="form-group">
+                    <label>Kilos Asociados (Kg)</label>
+                    <input type="number" name="associated_kg" class="form-control" step="0.001" min="0" placeholder="Ej. 0.5, 1.0">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Unidad de Medida</label>
+                    <select name="unit_of_measure" class="form-control">
+                        <option value="UN" selected>UN (Unidad)</option>
+                        <option value="KG">KG (Kilogramo)</option>
+                        <option value="LT">LT (Litro)</option>
+                        <option value="MT">MT (Metro)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Stock Mínimo</label>
+                    <input type="number" name="min_stock" class="form-control" step="1" min="0" value="0">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Estado</label>
+                    <select name="status" class="form-control">
+                        <option value="Activo" selected>Activo</option>
+                        <option value="Inactivo">Inactivo</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Costo Unitario ($)</label>
+                    <input type="number" name="cost" class="form-control" step="0.01" min="0" value="0">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Código Interno</label>
+                    <input type="text" name="internal_code" class="form-control" placeholder="Ej. MIEL-001">
+                </div>
+                <div class="form-group">
+                    <label>Código de Barra</label>
+                    <input type="text" name="barcode" class="form-control" placeholder="1234567890">
                 </div>
             </div>
 
             <div class="form-group">
                 <label>Descripción</label>
-                <textarea name="description" class="form-control" rows="3" placeholder="Descripción del producto"></textarea>
+                <textarea name="description" class="form-control" rows="2" placeholder="Descripción del producto"></textarea>
             </div>
 
             <div class="form-group">
-                <label>Foto</label>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Subir archivo</label>
-                        <input type="file" name="photo_file" class="form-control" accept="image/*">
-                    </div>
-                    <div class="form-group">
-                        <label>O URL de imagen</label>
-                        <input type="url" name="photo_url" class="form-control" placeholder="https://...">
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Ancho (cm)</label>
-                    <input type="number" name="width_cm" class="form-control" step="0.01" min="0">
-                </div>
-                <div class="form-group">
-                    <label>Alto (cm)</label>
-                    <input type="number" name="height_cm" class="form-control" step="0.01" min="0">
-                </div>
-            </div>
-
-            <div class="form-row" style="margin-bottom: 16px;">
-                <div class="form-group">
-                    <label>Profundidad (cm)</label>
-                    <input type="number" name="depth_cm" class="form-control" step="0.01" min="0">
-                </div>
-                <div class="form-group">
-                    <label>Peso (kg)</label>
-                    <input type="number" name="weight_kg" class="form-control" step="0.01" min="0">
-                </div>
+                <label>Observaciones</label>
+                <textarea name="notes" class="form-control" rows="2" placeholder="Notas de trazabilidad, compras, empaque..."></textarea>
             </div>
 
             <div class="form-group" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;">
@@ -131,8 +144,37 @@
                     <span>🏷️ ¿Requiere número de lote obligatorio al ingresar mercadería?</span>
                 </label>
                 <small style="color: #64748b; display: block; margin-top: 4px; margin-left: 28px;">
-                    Si se activa, el personal de bodega estará obligado a especificar el LOTE físico al recibir este producto.
+                    Si se marca Sí, el personal de bodega estará obligado a ingresar el LOTE físico al recibir este producto. Si es No, es opcional.
                 </small>
+            </div>
+
+            <div class="form-group">
+                <label>Foto o Archivo Adjunto</label>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Subir archivo</label>
+                        <input type="file" name="photo_file" class="form-control" accept="image/*,.pdf">
+                    </div>
+                    <div class="form-group">
+                        <label>O URL de imagen/archivo</label>
+                        <input type="url" name="photo_url" class="form-control" placeholder="https://...">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-row" style="margin-bottom: 16px;">
+                <div class="form-group">
+                    <label>Ancho (cm)</label>
+                    <input type="number" name="width_cm" class="form-control" step="0.01" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Alto (cm)</label>
+                    <input type="number" name="height_cm" class="form-control" step="0.01" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Profundidad (cm)</label>
+                    <input type="number" name="depth_cm" class="form-control" step="0.01" min="0">
+                </div>
             </div>
 
             <div class="form-actions">
@@ -149,53 +191,78 @@
         <div class="card-header">
             <h3>Productos Registrados</h3>
         </div>
-        <table class="data-table" id="tabla-productos">
+        <div style="overflow-x: auto;">
+        <table class="data-table" id="tabla-productos" style="width: 100%; border-collapse: collapse; min-width: 1200px;">
             <thead>
-                <tr>
-                    <th>SKU</th>
-                    <th>Código Interno</th>
-                    <th>Nombre</th>
-                    <th>Descripción</th>
-                    <th>Tipo</th>
-                    <th>Requiere Lote</th>
-                    <th>Costo Unitario</th>
-                    <th>Dimensiones (An x Al x Pr)</th>
-                    <th>Peso (kg)</th>
-                    <th style="text-align: center;">Acciones</th>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; font-size: 13px; text-align: left;">
+                    <th style="padding: 10px 12px;">SKU</th>
+                    <th style="padding: 10px 12px;">Nombre del Producto</th>
+                    <th style="padding: 10px 12px;">Tipo</th>
+                    <th style="padding: 10px 12px;">Categoría</th>
+                    <th style="padding: 10px 12px;">Subcategoría / Material</th>
+                    <th style="padding: 10px 12px;">Línea / Variedad</th>
+                    <th style="padding: 10px 12px;">Formato / Capacidad</th>
+                    <th style="padding: 10px 12px; text-align: right;">Kilos Asoc. (Kg)</th>
+                    <th style="padding: 10px 12px; text-align: center;">U. Medida</th>
+                    <th style="padding: 10px 12px; text-align: center;">Manejo Lote</th>
+                    <th style="padding: 10px 12px; text-align: right;">Stock Mín.</th>
+                    <th style="padding: 10px 12px; text-align: center;">Estado</th>
+                    <th style="padding: 10px 12px;">Observaciones</th>
+                    <th style="padding: 10px 12px; text-align: center;">Acciones</th>
                 </tr>
             </thead>
             <tbody id="productos-tbody">
                 {% for product in products %}
-                <tr class="product-table-row" style="border-bottom: 1px solid var(--border-color); height: 50px;">
-                    <td class="product-sku" style="padding: 10px;">{{ product.sku }}</td>
-                    <td class="product-internal-code" style="padding: 10px;">{{ product.internal_code or '-' }}</td>
-                    <td class="product-name" style="padding: 10px; font-weight: 500;">
-                        <a href="/productos/{{ product.id }}/editar" style="color: #3182ce; text-decoration: none; font-weight: 600;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">{{ product.name }}</a>
+                <tr class="product-table-row" style="border-bottom: 1px solid #edf2f7; font-size: 13px;">
+                    <td class="product-sku" style="padding: 10px 12px; font-weight: 600; color: #1e293b; white-space: nowrap;">{{ product.sku }}</td>
+                    <td class="product-name" style="padding: 10px 12px; font-weight: 500;">
+                        <a href="/productos/{{ product.id }}/editar" style="color: #2563eb; text-decoration: none; font-weight: 600;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">{{ product.name }}</a>
                     </td>
-                    <td class="product-description" style="padding: 10px; color: var(--text-light);">{{ product.description or '-' }}</td>
-                    <td class="product-type" style="padding: 10px; font-weight: bold; color: {% if product.product_type == 'Insumo' %}#dd6b20{% else %}#3182ce{% endif %};">
+                    <td class="product-type" style="padding: 10px 12px; font-weight: 600; color: {% if product.product_type == 'Insumo' %}#d97706{% else %}#2563eb{% endif %}; white-space: nowrap;">
                         {{ product.product_type or 'Final' }}
                     </td>
-                    <td style="padding: 10px; text-align: center;">
-                        {% if product.requires_lot %}
-                            <span style="background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px;">🏷️ SÍ (Oblig.)</span>
-                        {% else %}
-                            <span style="color: #94a3b8; font-size: 12px;">No (Opc.)</span>
-                        {% endif %}
-                    </td>
-                    <td class="product-cost" style="padding: 10px; font-weight: 500;">
-                        ${{ product.cost | round | int if product.cost is not none else '0' }}
-                    </td>
-                    <td class="product-dimensions" style="padding: 10px;">
-                        {% if product.width_cm or product.height_cm or product.depth_cm %}
-                            {{ product.width_cm or '-' }} x {{ product.height_cm or '-' }} x {{ product.depth_cm or '-' }} cm
+                    <td class="product-category" style="padding: 10px 12px; color: #475569; white-space: nowrap;">{{ product.category or '-' }}</td>
+                    <td class="product-subcat" style="padding: 10px 12px; color: #475569;">{{ product.subcategory_material or '-' }}</td>
+                    <td class="product-line" style="padding: 10px 12px; color: #475569;">{{ product.line_variety or '-' }}</td>
+                    <td class="product-format" style="padding: 10px 12px; color: #334155; font-weight: 500; white-space: nowrap;">{{ product.format_capacity or '-' }}</td>
+                    <td class="product-kg" style="padding: 10px 12px; text-align: right; font-weight: 600; color: #1e293b;">
+                        {% if product.associated_kg is not none %}
+                            {{ '{:g}'.format(product.associated_kg) }}
+                        {% elif product.weight_kg is not none %}
+                            {{ '{:g}'.format(product.weight_kg) }}
                         {% else %}
                             -
                         {% endif %}
                     </td>
-                    <td class="product-weight" style="padding: 10px;">{{ product.weight_kg or '-' }}</td>
-                    <td style="text-align: center; padding: 10px;">
-                        <div class="action-buttons" style="display: flex; gap: 8px; justify-content: center;">
+                    <td class="product-unit" style="padding: 10px 12px; text-align: center; font-weight: 600; color: #475569;">
+                        {{ product.unit_of_measure or 'UN' }}
+                    </td>
+                    <td style="padding: 10px 12px; text-align: center; white-space: nowrap;">
+                        {% if product.requires_lot %}
+                            <span style="background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px;">🏷️ SÍ (Oblig.)</span>
+                        {% else %}
+                            <span style="color: #94a3b8; font-size: 11px;">No (Opc.)</span>
+                        {% endif %}
+                    </td>
+                    <td class="product-min-stock" style="padding: 10px 12px; text-align: right; color: #64748b;">
+                        {{ '{:g}'.format(product.min_stock) if product.min_stock else '0' }}
+                    </td>
+                    <td class="product-status" style="padding: 10px 12px; text-align: center;">
+                        {% if (product.status or 'Activo') == 'Activo' %}
+                            <span style="background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px;">Activo</span>
+                        {% else %}
+                            <span style="background: #f1f5f9; color: #64748b; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 6px;">{{ product.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="product-notes" style="padding: 10px 12px; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ product.notes or '' }}">
+                        {% if product.notes %}
+                            <span style="color: #475569; font-size: 12px; cursor: help;">📝 {{ product.notes }}</span>
+                        {% else %}
+                            <span style="color: #cbd5e1;">-</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: center; padding: 10px 12px; white-space: nowrap;">
+                        <div class="action-buttons" style="display: flex; gap: 6px; justify-content: center;">
                             <button class="btn-icon edit-btn" title="Editar" onclick="editarProducto({{ product.id }})">✏️</button>
                             <button class="btn-icon delete-btn" title="Eliminar" onclick="eliminarProducto({{ product.id }})">🗑️</button>
                         </div>
@@ -204,6 +271,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 
@@ -224,7 +292,6 @@ function editarProducto(productId) {
 
 function eliminarProducto(productId) {
     if (confirm('¿Estás seguro de que deseas eliminar este producto?')) {
-        // Crear un formulario temporal para enviar la solicitud POST
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = '/productos/' + productId + '/eliminar';
@@ -241,18 +308,8 @@ function filtrarProductos() {
     
     for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
-        const sku = row.querySelector('.product-sku').textContent.toLowerCase();
-        const internalCode = row.querySelector('.product-internal-code').textContent.toLowerCase();
-        const name = row.querySelector('.product-name').textContent.toLowerCase();
-        const description = row.querySelector('.product-description').textContent.toLowerCase();
-        
-        const searchText = sku + ' ' + internalCode + ' ' + name + ' ' + description;
-        
-        if (searchText.indexOf(filter) > -1) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.indexOf(filter) > -1 ? '' : 'none';
     }
 }
 
@@ -260,7 +317,7 @@ function filtrarProductos() {
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.querySelector('.search-box input');
     if (searchInput) {
-        searchInput.placeholder = 'Buscar productos...';
+        searchInput.placeholder = 'Buscar productos por SKU, nombre, categoría, variedad, formato...';
         searchInput.addEventListener('keyup', filtrarProductos);
     }
 });

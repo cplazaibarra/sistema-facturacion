@@ -32,23 +32,19 @@
                     <input type="text" name="sku" class="form-control" value="{{ product.sku }}" required>
                 </div>
                 <div class="form-group">
-                    <label>Código de Barra</label>
-                    <input type="text" name="barcode" class="form-control" value="{{ product.barcode or '' }}">
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Nombre *</label>
+                    <label>Nombre del Producto *</label>
                     <input type="text" name="name" class="form-control" value="{{ product.name }}" required>
                 </div>
-                <div class="form-group">
-                    <label>Código Interno</label>
-                    <input type="text" name="internal_code" class="form-control" value="{{ product.internal_code or '' }}">
-                </div>
             </div>
 
             <div class="form-row">
+                <div class="form-group">
+                    <label style="font-weight: bold; color: #2b6cb0;">Tipo de Producto *</label>
+                    <select name="product_type" class="form-control" required style="font-weight: bold;">
+                        <option value="Final" {% if (product.product_type or 'Final') == 'Final' %}selected{% endif %}>Final (Vendible)</option>
+                        <option value="Insumo" {% if product.product_type == 'Insumo' %}selected{% endif %}>Insumo (Materia Prima / Envase)</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label>Categoría</label>
                     <select name="category" class="form-control" id="editar-producto-categoria-select">
@@ -61,73 +57,79 @@
                         {% endif %}
                     </select>
                 </div>
+            </div>
+
+            <div class="form-row">
                 <div class="form-group">
-                    <label style="font-weight: bold; color: #2b6cb0;">Tipo de Producto *</label>
-                    <select name="product_type" class="form-control" required style="font-weight: bold;">
-                        <option value="Final" {% if (product.product_type or 'Final') == 'Final' %}selected{% endif %}>Final (Vendible)</option>
-                        <option value="Insumo" {% if product.product_type == 'Insumo' %}selected{% endif %}>Insumo (Materia Prima)</option>
-                    </select>
+                    <label>Subcategoría / Material</label>
+                    <input type="text" name="subcategory_material" class="form-control" value="{{ product.subcategory_material or '' }}" placeholder="Ej. Vidrio, PET - Tineta, Miel Cruda">
+                </div>
+                <div class="form-group">
+                    <label>Línea / Variedad</label>
+                    <input type="text" name="line_variety" class="form-control" value="{{ product.line_variety or '' }}" placeholder="Ej. Ulmo, Tiaca, Multiflora, N/A">
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label>Costo Unitario ($)</label>
-                    <input type="number" name="cost" class="form-control" step="1" min="0" value="{{ product.cost | round | int if product.cost is not none else '0' }}">
+                    <label>Formato o Capacidad</label>
+                    <input type="text" name="format_capacity" class="form-control" value="{{ product.format_capacity or '' }}" placeholder="Ej. 500 g, 1 Kg, Grande, A granel">
                 </div>
                 <div class="form-group">
+                    <label>Kilos Asociados (Kg)</label>
+                    <input type="number" name="associated_kg" class="form-control" step="0.001" min="0" value="{{ '{:g}'.format(product.associated_kg) if product.associated_kg is not none else (product.weight_kg or '') }}" placeholder="Ej. 0.5, 1.0">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Unidad de Medida</label>
+                    <select name="unit_of_measure" class="form-control">
+                        <option value="UN" {% if (product.unit_of_measure or 'UN') == 'UN' %}selected{% endif %}>UN (Unidad)</option>
+                        <option value="KG" {% if product.unit_of_measure == 'KG' %}selected{% endif %}>KG (Kilogramo)</option>
+                        <option value="LT" {% if product.unit_of_measure == 'LT' %}selected{% endif %}>LT (Litro)</option>
+                        <option value="MT" {% if product.unit_of_measure == 'MT' %}selected{% endif %}>MT (Metro)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Stock Mínimo</label>
+                    <input type="number" name="min_stock" class="form-control" step="1" min="0" value="{{ '{:g}'.format(product.min_stock) if product.min_stock is not none else '0' }}">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Estado</label>
+                    <select name="status" class="form-control">
+                        <option value="Activo" {% if (product.status or 'Activo') == 'Activo' %}selected{% endif %}>Activo</option>
+                        <option value="Inactivo" {% if product.status == 'Inactivo' %}selected{% endif %}>Inactivo</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Costo Unitario ($)</label>
+                    <input type="number" name="cost" class="form-control" step="0.01" min="0" value="{{ product.cost if product.cost is not none else '0' }}">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Código Interno</label>
+                    <input type="text" name="internal_code" class="form-control" value="{{ product.internal_code or '' }}" placeholder="Ej. MIEL-001">
+                </div>
+                <div class="form-group">
+                    <label>Código de Barra</label>
+                    <input type="text" name="barcode" class="form-control" value="{{ product.barcode or '' }}" placeholder="1234567890">
                 </div>
             </div>
 
             <div class="form-group">
                 <label>Descripción</label>
-                <textarea name="description" class="form-control" rows="3">{{ product.description or '' }}</textarea>
+                <textarea name="description" class="form-control" rows="2">{{ product.description or '' }}</textarea>
             </div>
 
             <div class="form-group">
-                <label>Foto</label>
-                {% if product.photo_url and product.photo_url.startswith('/uploads/') %}
-                    <div class="current-photo">
-                        <img src="{{ product.photo_url }}" alt="Foto actual" style="max-width: 150px; margin-bottom: 10px;">
-                        <p><small>Foto actual</small></p>
-                    </div>
-                {% elif product.photo_url %}
-                    <div class="current-photo">
-                        <p><small>URL: {{ product.photo_url }}</small></p>
-                    </div>
-                {% endif %}
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Subir archivo</label>
-                        <input type="file" name="photo_file" class="form-control" accept="image/*">
-                    </div>
-                    <div class="form-group">
-                        <label>O URL de imagen</label>
-                        <input type="text" name="photo_url" class="form-control" value="{{ product.photo_url or '' }}" placeholder="https://ejemplo.com/imagen.jpg">
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Ancho (cm)</label>
-                    <input type="number" name="width_cm" class="form-control" step="0.01" min="0" value="{{ product.width_cm or '' }}">
-                </div>
-                <div class="form-group">
-                    <label>Alto (cm)</label>
-                    <input type="number" name="height_cm" class="form-control" step="0.01" min="0" value="{{ product.height_cm or '' }}">
-                </div>
-            </div>
-
-            <div class="form-row" style="margin-bottom: 16px;">
-                <div class="form-group">
-                    <label>Profundidad (cm)</label>
-                    <input type="number" name="depth_cm" class="form-control" step="0.01" min="0" value="{{ product.depth_cm or '' }}">
-                </div>
-                <div class="form-group">
-                    <label>Peso (kg)</label>
-                    <input type="number" name="weight_kg" class="form-control" step="0.01" min="0" value="{{ product.weight_kg or '' }}">
-                </div>
+                <label>Observaciones</label>
+                <textarea name="notes" class="form-control" rows="2" placeholder="Notas de trazabilidad, compras, empaque...">{{ product.notes or '' }}</textarea>
             </div>
 
             <div class="form-group" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;">
@@ -136,8 +138,47 @@
                     <span>🏷️ ¿Requiere número de lote obligatorio al ingresar mercadería?</span>
                 </label>
                 <small style="color: #64748b; display: block; margin-top: 4px; margin-left: 28px;">
-                    Si se activa, el personal de bodega estará obligado a ingresar el LOTE físico al recibir este producto.
+                    Si se activa, el personal de bodega estará obligado a ingresar el LOTE físico al recibir este producto. Si es No, es opcional.
                 </small>
+            </div>
+
+            <div class="form-group">
+                <label>Foto o Archivo Adjunto</label>
+                {% if product.photo_url and product.photo_url.startswith('/uploads/') %}
+                    <div class="current-photo">
+                        <img src="{{ product.photo_url }}" alt="Foto actual" style="max-width: 150px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                        <p><small>Foto actual</small></p>
+                    </div>
+                {% elif product.photo_url %}
+                    <div class="current-photo">
+                        <p><small>URL: <a href="{{ product.photo_url }}" target="_blank">{{ product.photo_url }}</a></small></p>
+                    </div>
+                {% endif %}
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Subir archivo</label>
+                        <input type="file" name="photo_file" class="form-control" accept="image/*,.pdf">
+                    </div>
+                    <div class="form-group">
+                        <label>O URL de imagen / archivo</label>
+                        <input type="text" name="photo_url" class="form-control" value="{{ product.photo_url or '' }}" placeholder="https://ejemplo.com/archivo.pdf">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-row" style="margin-bottom: 16px;">
+                <div class="form-group">
+                    <label>Ancho (cm)</label>
+                    <input type="number" name="width_cm" class="form-control" step="0.01" min="0" value="{{ product.width_cm or '' }}">
+                </div>
+                <div class="form-group">
+                    <label>Alto (cm)</label>
+                    <input type="number" name="height_cm" class="form-control" step="0.01" min="0" value="{{ product.height_cm or '' }}">
+                </div>
+                <div class="form-group">
+                    <label>Profundidad (cm)</label>
+                    <input type="number" name="depth_cm" class="form-control" step="0.01" min="0" value="{{ product.depth_cm or '' }}">
+                </div>
             </div>
 
             <div class="form-actions" style="display: flex; gap: 12px; margin-top: 20px;">
@@ -147,7 +188,7 @@
                 </a>
                 <button type="submit" class="btn-primary" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 6px; background: #0070d2; color: #fff; border: none; font-weight: 600; cursor: pointer;">
                     <i class="fa-solid fa-floppy-disk"></i>
-                    <span>Guardar y Volver a Productos</span>
+                    <span>Guardar Cambios</span>
                 </button>
             </div>
         </form>

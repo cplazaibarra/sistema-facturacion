@@ -593,6 +593,16 @@ def init_db() -> None:
                 "product_type": "TEXT DEFAULT 'Final'",
                 "cost": "DOUBLE PRECISION DEFAULT 0.0",
                 "is_deleted": "BOOLEAN DEFAULT FALSE",
+                "requires_lot": "BOOLEAN DEFAULT FALSE",
+                "subcategory_material": "TEXT",
+                "line_variety": "TEXT",
+                "format_capacity": "TEXT",
+                "associated_kg": "DOUBLE PRECISION",
+                "unit_of_measure": "TEXT",
+                "min_stock": "DOUBLE PRECISION DEFAULT 0",
+                "status": "TEXT DEFAULT 'Activo'",
+                "notes": "TEXT",
+                "attachment_url": "TEXT",
             }
             for column_name, column_type in missing_columns.items():
                 if column_name not in existing_columns:
@@ -1411,7 +1421,10 @@ def list_products() -> list[dict]:
                 """
                 SELECT id, sku, name, description, photo_url, barcode, internal_code,
                        category, expiry_date, width_cm, height_cm, depth_cm, weight_kg, product_type, cost,
-                       COALESCE(requires_lot, FALSE) as requires_lot
+                       COALESCE(requires_lot, FALSE) as requires_lot,
+                       subcategory_material, line_variety, format_capacity, associated_kg,
+                       unit_of_measure, min_stock, COALESCE(status, 'Activo') as status,
+                       notes, attachment_url
                 FROM products
                 WHERE is_deleted = FALSE OR is_deleted IS NULL
                 ORDER BY id DESC
@@ -1423,13 +1436,28 @@ def list_products() -> list[dict]:
 def insert_product(product: dict) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
+            assoc_kg = product.get("associated_kg")
+            if assoc_kg is None and product.get("weight_kg") is not None:
+                assoc_kg = product.get("weight_kg")
+            weight = product.get("weight_kg")
+            if weight is None and assoc_kg is not None:
+                weight = assoc_kg
+
             cur.execute(
                 """
                 INSERT INTO products (
                     sku, name, description, photo_url, barcode, internal_code,
                     category, expiry_date, width_cm, height_cm, depth_cm,
-                    weight_kg, product_type, cost, requires_lot, created_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    weight_kg, product_type, cost, requires_lot, created_at,
+                    subcategory_material, line_variety, format_capacity, associated_kg,
+                    unit_of_measure, min_stock, status, notes, attachment_url
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s
+                )
                 RETURNING id
                 """,
                 (
@@ -1444,11 +1472,20 @@ def insert_product(product: dict) -> int:
                     product.get("width_cm"),
                     product.get("height_cm"),
                     product.get("depth_cm"),
-                    product.get("weight_kg"),
+                    weight,
                     product.get("product_type", "Final"),
                     product.get("cost", 0.0),
                     bool(product.get("requires_lot", False)),
                     product["created_at"],
+                    product.get("subcategory_material"),
+                    product.get("line_variety"),
+                    product.get("format_capacity"),
+                    assoc_kg,
+                    product.get("unit_of_measure"),
+                    product.get("min_stock", 0.0) or 0.0,
+                    product.get("status", "Activo") or "Activo",
+                    product.get("notes"),
+                    product.get("attachment_url"),
                 ),
             )
             inserted_id = cur.fetchone()["id"]
@@ -1463,7 +1500,10 @@ def get_product(product_id: int) -> dict:
                 """
                 SELECT id, sku, name, description, photo_url, barcode, internal_code,
                        category, expiry_date, width_cm, height_cm, depth_cm, weight_kg, product_type, cost,
-                       COALESCE(requires_lot, FALSE) as requires_lot
+                       COALESCE(requires_lot, FALSE) as requires_lot,
+                       subcategory_material, line_variety, format_capacity, associated_kg,
+                       unit_of_measure, min_stock, COALESCE(status, 'Activo') as status,
+                       notes, attachment_url
                 FROM products
                 WHERE id = %s
                 """,
@@ -1476,13 +1516,23 @@ def get_product(product_id: int) -> dict:
 def update_product(product_id: int, product: dict) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
+            assoc_kg = product.get("associated_kg")
+            if assoc_kg is None and product.get("weight_kg") is not None:
+                assoc_kg = product.get("weight_kg")
+            weight = product.get("weight_kg")
+            if weight is None and assoc_kg is not None:
+                weight = assoc_kg
+
             cur.execute(
                 """
                 UPDATE products SET
                     sku = %s, name = %s, description = %s, photo_url = %s,
                     barcode = %s, internal_code = %s, category = %s, expiry_date = %s,
                     width_cm = %s, height_cm = %s, depth_cm = %s, weight_kg = %s,
-                    product_type = %s, cost = %s, requires_lot = %s
+                    product_type = %s, cost = %s, requires_lot = %s,
+                    subcategory_material = %s, line_variety = %s, format_capacity = %s,
+                    associated_kg = %s, unit_of_measure = %s, min_stock = %s,
+                    status = %s, notes = %s, attachment_url = %s
                 WHERE id = %s
                 """,
                 (
@@ -1497,10 +1547,19 @@ def update_product(product_id: int, product: dict) -> None:
                     product.get("width_cm"),
                     product.get("height_cm"),
                     product.get("depth_cm"),
-                    product.get("weight_kg"),
+                    weight,
                     product.get("product_type", "Final"),
                     product.get("cost", 0.0),
                     bool(product.get("requires_lot", False)),
+                    product.get("subcategory_material"),
+                    product.get("line_variety"),
+                    product.get("format_capacity"),
+                    assoc_kg,
+                    product.get("unit_of_measure"),
+                    product.get("min_stock", 0.0) or 0.0,
+                    product.get("status", "Activo") or "Activo",
+                    product.get("notes"),
+                    product.get("attachment_url"),
                     product_id,
                 ),
             )
