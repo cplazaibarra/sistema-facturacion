@@ -48,3 +48,32 @@ def reportes_flujo_caja():
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'
     return response
+
+@reportes_bp.route('/reporteria/inventario-lotes')
+def reportes_inventario_lotes():
+    """Reporte oficial de Inventario y Existencias por Lote y Bodega"""
+    from db import get_all_lot_stock, get_page_data
+    lot_stock_list = get_all_lot_stock()
+    
+    total_lotes = len(lot_stock_list)
+    lotes_activos = sum(1 for l in lot_stock_list if l.get('available_qty', 0) > 0)
+    lotes_agotados = total_lotes - lotes_activos
+    unidades_disponibles = sum(l.get('available_qty', 0) for l in lot_stock_list)
+    valor_total_lotes = sum(l.get('available_qty', 0) * float(l.get('cost') or 0.0) for l in lot_stock_list)
+    
+    warehouses_set = set(get_page_data("ingreso_warehouses") or ["Almacén Principal", "Almacén Secundario"])
+    for lot in lot_stock_list:
+        if lot.get("warehouse"):
+            warehouses_set.add(lot["warehouse"])
+    warehouses_list = sorted(list(warehouses_set))
+
+    return render_template(
+        'reporte_inventario_lotes.html',
+        lot_stock_list=lot_stock_list,
+        warehouses_list=warehouses_list,
+        total_lotes=total_lotes,
+        lotes_activos=lotes_activos,
+        lotes_agotados=lotes_agotados,
+        unidades_disponibles=unidades_disponibles,
+        valor_total_lotes=valor_total_lotes
+    )

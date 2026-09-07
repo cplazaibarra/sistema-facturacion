@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}Reporte de Inventario por Lotes - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Reportes > Inventario por Lotes y Bodega{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div>
+        <a href="/inventario" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fff; color: #4a5568; font-weight: 500;">
+            ⬅️ Volver a Bodega / Inventario
+        </a>
+    </div>
+    <div style="display: flex; gap: 10px;">
+        <button type="button" class="btn-primary" onclick="exportarReporteLotes()" style="padding: 8px 18px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+            📥 Exportar a CSV / Excel
+        </button>
+    </div>
+</div>
+
+<!-- Métricas Resumen -->
+<div class="inventory-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    <div class="inventory-stat-card" style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-left: 4px solid #3b82f6;">
+        <div class="stat-label" style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase;">Total Lotes Registrados</div>
+        <div class="stat-value" style="font-size: 26px; font-weight: 700; color: #0f172a; margin-top: 4px;">{{ total_lotes }}</div>
+    </div>
+    <div class="inventory-stat-card" style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-left: 4px solid #10b981;">
+        <div class="stat-label" style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase;">Lotes con Stock Activo</div>
+        <div class="stat-value" style="font-size: 26px; font-weight: 700; color: #059669; margin-top: 4px;">{{ lotes_activos }}</div>
+    </div>
+    <div class="inventory-stat-card" style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-left: 4px solid #6366f1;">
+        <div class="stat-label" style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase;">Unidades Disponibles</div>
+        <div class="stat-value" style="font-size: 26px; font-weight: 700; color: #4338ca; margin-top: 4px;">{{ "{:,.0f}".format(unidades_disponibles) }}</div>
+    </div>
+    <div class="inventory-stat-card" style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-left: 4px solid #f59e0b;">
+        <div class="stat-label" style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase;">Valorización en Lotes</div>
+        <div class="stat-value" style="font-size: 26px; font-weight: 700; color: #b45309; margin-top: 4px;">${{ "{:,.0f}".format(valor_total_lotes) }}</div>
+    </div>
+</div>
+
+<!-- Filtros y Tabla -->
+<div style="background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <input type="text" id="reporte-search" oninput="aplicarFiltrosReporte()" placeholder="Buscar SKU, producto o lote..." style="padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; width: 260px;">
+            <select id="reporte-bodega" onchange="aplicarFiltrosReporte()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white;">
+                <option value="">Todas las bodegas</option>
+                {% for wh in warehouses_list %}
+                <option value="{{ wh }}">{{ wh }}</option>
+                {% endfor %}
+            </select>
+            <select id="reporte-estado" onchange="aplicarFiltrosReporte()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white;">
+                <option value="">Todos los estados</option>
+                <option value="disponible">Solo Disponibles</option>
+                <option value="agotado">Solo Agotados</option>
+            </select>
+        </div>
+        <div style="font-size: 13px; color: #64748b; font-weight: 500;">
+            Mostrando <span id="contador-filas" style="font-weight: 700; color: #0f172a;">{{ lot_stock_list|length }}</span> registros
+        </div>
+    </div>
+
+    <div class="table-responsive" style="overflow-x: auto;">
+        <table class="data-table" id="tabla-reporte-lotes" style="width: 100%; border-collapse: collapse; min-width: 950px; font-size: 13px;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #64748b;">
+                    <th style="padding: 12px 14px;">SKU</th>
+                    <th style="padding: 12px 14px;">Producto</th>
+                    <th style="padding: 12px 14px;">Categoría</th>
+                    <th style="padding: 12px 14px;">Bodega / Ubicación</th>
+                    <th style="padding: 12px 14px;">N° de Lote</th>
+                    <th style="padding: 12px 14px;">Fecha Ingreso</th>
+                    <th style="padding: 12px 14px; text-align: right;">Stock Inicial</th>
+                    <th style="padding: 12px 14px; text-align: right;">Stock Disponible</th>
+                    <th style="padding: 12px 14px; text-align: right;">Costo Unitario</th>
+                    <th style="padding: 12px 14px; text-align: right;">Valor Total</th>
+                    <th style="padding: 12px 14px; text-align: center;">Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lot in lot_stock_list %}
+                {% set valor_lote = lot.available_qty * (lot.cost or 0) %}
+                <tr class="reporte-lote-row" 
+                    data-search="{{ (lot.sku ~ ' ' ~ lot.product_name ~ ' ' ~ lot.lot_number ~ ' ' ~ (lot.category or ''))|lower }}"
+                    data-warehouse="{{ (lot.warehouse or 'Principal')|lower }}"
+                    data-estado="{{ 'disponible' if lot.available_qty > 0 else 'agotado' }}"
+                    style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 12px 14px;"><strong style="color: #2563eb; font-family: monospace;">{{ lot.sku }}</strong></td>
+                    <td style="padding: 12px 14px; font-weight: 600; color: #1e293b;">{{ lot.product_name }}</td>
+                    <td style="padding: 12px 14px;"><span class="badge" style="background: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 4px; font-size: 11px;">{{ lot.category or '-' }}</span></td>
+                    <td style="padding: 12px 14px;">
+                        <span style="background-color: #f8fafc; color: #1e293b; border: 1px solid #cbd5e1; font-weight: 600; padding: 3px 8px; border-radius: 6px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
+                            🏢 {{ lot.warehouse or 'Principal' }}
+                        </span>
+                    </td>
+                    <td style="padding: 12px 14px;">
+                        <span style="font-family: monospace; font-weight: 700; background: #eff6ff; color: #1d4ed8; padding: 3px 8px; border-radius: 6px; border: 1px solid #bfdbfe;">
+                            🏷️ {{ lot.lot_number }}
+                        </span>
+                    </td>
+                    <td style="padding: 12px 14px; color: #64748b;">{{ lot.entry_date or '-' }}</td>
+                    <td style="padding: 12px 14px; text-align: right; color: #64748b;">{{ "{:,.0f}".format(lot.initial_qty) }} un.</td>
+                    <td style="padding: 12px 14px; text-align: right;">
+                        <strong style="font-size: 14px; color: {% if lot.available_qty > 0 %}#16a34a{% else %}#dc2626{% endif %};">
+                            {{ "{:,.0f}".format(lot.available_qty) }} un.
+                        </strong>
+                    </td>
+                    <td style="padding: 12px 14px; text-align: right; color: #64748b;">${{ "{:,.0f}".format(lot.cost or 0) }}</td>
+                    <td style="padding: 12px 14px; text-align: right; font-weight: 600; color: #0f172a;">${{ "{:,.0f}".format(valor_lote) }}</td>
+                    <td style="padding: 12px 14px; text-align: center;">
+                        {% if lot.available_qty > 0 %}
+                        <span class="badge success" style="background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">Disponible</span>
+                        {% else %}
+                        <span class="badge danger" style="background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">Agotado</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="11" style="text-align: center; color: #64748b; padding: 40px;">
+                        No hay lotes registrados actualmente en el inventario.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function aplicarFiltrosReporte() {
+    const q = (document.getElementById('reporte-search').value || '').toLowerCase().trim();
+    const bodega = (document.getElementById('reporte-bodega').value || '').toLowerCase().trim();
+    const estado = (document.getElementById('reporte-estado').value || '').toLowerCase().trim();
+
+    const rows = document.querySelectorAll('.reporte-lote-row');
+    let visibleCount = 0;
+
+    rows.forEach(r => {
+        const txt = r.getAttribute('data-search') || '';
+        const wh = r.getAttribute('data-warehouse') || '';
+        const est = r.getAttribute('data-estado') || '';
+
+        const matchQ = !q || txt.includes(q);
+        const matchWh = !bodega || wh.includes(bodega);
+        const matchEst = !estado || est === estado;
+
+        if (matchQ && matchWh && matchEst) {
+            r.style.display = '';
+            visibleCount++;
+        } else {
+            r.style.display = 'none';
+        }
+    });
+
+    document.getElementById('contador-filas').textContent = visibleCount;
+}
+
+function exportarReporteLotes() {
+    let csv = [];
+    const filename = `reporte_inventario_lotes_${new Date().toISOString().slice(0,10)}.csv`;
+    csv.push(['SKU', 'Producto', 'Categoria', 'Bodega', 'Nro Lote', 'Fecha Ingreso', 'Stock Inicial', 'Stock Disponible', 'Costo Unitario', 'Valor Total Lote', 'Estado'].join(';'));
+    
+    const rows = document.querySelectorAll('#tabla-reporte-lotes tbody tr.reporte-lote-row');
+    rows.forEach(r => {
+        if (r.style.display === 'none') return;
+        const cols = r.querySelectorAll('td');
+        if (cols.length >= 11) {
+            const sku = cols[0].textContent.trim();
+            const name = cols[1].textContent.trim();
+            const cat = cols[2].textContent.trim();
+            const wh = cols[3].textContent.trim().replace('🏢', '').trim();
+            const lote = cols[4].textContent.trim().replace('🏷️', '').trim();
+            const date = cols[5].textContent.trim();
+            const initQty = cols[6].textContent.replace(/[^0-9.]/g, '');
+            const availQty = cols[7].textContent.replace(/[^0-9.]/g, '');
+            const unitCost = cols[8].textContent.replace(/[^0-9.]/g, '');
+            const totalVal = cols[9].textContent.replace(/[^0-9.]/g, '');
+            const status = cols[10].textContent.trim();
+            csv.push([`"${sku}"`, `"${name}"`, `"${cat}"`, `"${wh}"`, `"${lote}"`, `"${date}"`, initQty, availQty, unitCost, totalVal, `"${status}"`].join(';'));
+        }
+    });
+
+    const blob = new Blob(["\ufeff" + csv.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+</script>
+{% endblock %}

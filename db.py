@@ -980,6 +980,8 @@ def init_db() -> None:
                 ALTER TABLE product_recipe_items ADD COLUMN IF NOT EXISTS notes TEXT;
                 UPDATE product_recipes SET recipe_code = 'REC-PRD-' || LPAD(id::text, 3, '0') WHERE recipe_code IS NULL;
                 UPDATE sales SET seller_name = 'Administrador', seller_initials = 'AD' WHERE seller_name = 'Vendedor';
+                ALTER TABLE lot_stock ADD COLUMN IF NOT EXISTS warehouse TEXT DEFAULT 'Principal';
+                UPDATE lot_stock ls SET warehouse = COALESCE(ie.warehouse, 'Principal') FROM inventory_entries ie WHERE ls.entry_id = ie.id AND (ls.warehouse IS NULL OR ls.warehouse = 'Principal');
                 """
             )
             cur.execute(
@@ -3184,14 +3186,15 @@ def register_inventory_entry(
                 if lot_number:
                     cur.execute(
                         """
-                        INSERT INTO lot_stock (product_id, lot_number, entry_id, entry_date, initial_qty, available_qty)
-                        VALUES (%s, %s, %s, %s, %s, %s)
+                        INSERT INTO lot_stock (product_id, lot_number, entry_id, entry_date, initial_qty, available_qty, warehouse)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (product_id, lot_number) DO UPDATE
                         SET initial_qty = lot_stock.initial_qty + EXCLUDED.initial_qty,
                             available_qty = lot_stock.available_qty + EXCLUDED.available_qty,
-                            entry_date = EXCLUDED.entry_date
+                            entry_date = EXCLUDED.entry_date,
+                            warehouse = EXCLUDED.warehouse
                         """,
-                        (prod_id, lot_number, entry_id, entry_date, qty, qty)
+                        (prod_id, lot_number, entry_id, entry_date, qty, qty, warehouse)
                     )
 
                 new_received = po_item["quantity_received"] + qty
@@ -3254,9 +3257,11 @@ def get_all_lot_stock() -> list[dict]:
                 """
                 SELECT ls.id, ls.product_id, ls.lot_number, ls.entry_id, ls.entry_date,
                        ls.initial_qty, ls.available_qty, p.name as product_name, p.sku,
-                       p.category, p.cost
+                       p.category, p.cost,
+                       COALESCE(ls.warehouse, ie.warehouse, 'Principal') as warehouse
                 FROM lot_stock ls
                 JOIN products p ON p.id = ls.product_id
+                LEFT JOIN inventory_entries ie ON ie.id = ls.entry_id
                 ORDER BY p.name ASC, ls.entry_date DESC
                 """
             )

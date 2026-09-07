@@ -199,6 +199,12 @@ def inventario():
     from db import get_all_lot_stock
     lot_stock_list = get_all_lot_stock()
 
+    warehouses_set = set(get_page_data("ingreso_warehouses") or ["Almacén Principal", "Almacén Secundario"])
+    for lot in lot_stock_list:
+        if lot.get("warehouse"):
+            warehouses_set.add(lot["warehouse"])
+    warehouses_list = sorted(list(warehouses_set))
+
     return render_template(
         'inventario.html',
         inventory_stats=inventory_stats,
@@ -206,6 +212,7 @@ def inventario():
         inventory_categories=inventory_categories,
         inventory_stock_filters=inventory_stock_filters,
         lot_stock_list=lot_stock_list,
+        warehouses_list=warehouses_list,
     )
 
 @inventario_bp.route('/ingreso-mercaderia', methods=['GET', 'POST'])

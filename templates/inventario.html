@@ -7,9 +7,15 @@
 <div class="inventory-header">
     <div class="header-actions">
         <button class="btn-primary">+ Nuevo Producto</button>
-        <button class="btn-secondary">Exportar</button>
+        <button class="btn-secondary" onclick="exportInventory()">Exportar</button>
     </div>
     <div class="filter-group">
+        <select id="inventory-warehouse-filter" class="form-control" style="min-width: 160px;">
+            <option value="">Todas las bodegas</option>
+            {% for wh in warehouses_list %}
+            <option value="{{ wh }}">{{ wh }}</option>
+            {% endfor %}
+        </select>
         <select id="inventory-category-filter" class="form-control">
             <option value="">Todas las categorías</option>
             {% for category in inventory_categories %}
@@ -68,7 +74,7 @@
         </thead>
         <tbody>
             {% for item in inventory_items %}
-            <tr data-code="{{ item.code }}" data-name="{{ item.name }}" data-desc="{{ item.desc }}" data-category="{{ item.category }}" data-status="{{ item.status }}">
+            <tr data-code="{{ item.code }}" data-name="{{ item.name }}" data-desc="{{ item.desc }}" data-category="{{ item.category }}" data-status="{{ item.status }}" data-warehouse="{{ item.warehouse_display }}">
                 <td>{{ item.code }}</td>
                 <td>
                     <div class="product-info">
@@ -141,6 +147,7 @@
                 <th>SKU</th>
                 <th>Producto</th>
                 <th>Categoría</th>
+                <th>Bodega</th>
                 <th>N° de Lote</th>
                 <th>Fecha Ingreso</th>
                 <th>Stock Inicial</th>
@@ -151,10 +158,15 @@
         </thead>
         <tbody>
             {% for lot in lot_stock_list %}
-            <tr class="lot-row" data-search="{{ (lot.sku ~ ' ' ~ lot.product_name ~ ' ' ~ lot.lot_number ~ ' ' ~ (lot.category or ''))|lower }}">
+            <tr class="lot-row" data-search="{{ (lot.sku ~ ' ' ~ lot.product_name ~ ' ' ~ lot.lot_number ~ ' ' ~ (lot.category or '') ~ ' ' ~ (lot.warehouse or ''))|lower }}" data-warehouse="{{ lot.warehouse or 'Principal' }}">
                 <td><strong style="color: #2563eb;">{{ lot.sku }}</strong></td>
                 <td><strong>{{ lot.product_name }}</strong></td>
                 <td><span class="badge" style="background: #f1f5f9; color: #475569;">{{ lot.category or '-' }}</span></td>
+                <td>
+                    <span class="sf-badge" style="background-color: #f8fafc; color: #1e293b; border: 1px solid #cbd5e1; font-weight: 600; padding: 2px 8px; border-radius: 4px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
+                        🏢 {{ lot.warehouse or 'Principal' }}
+                    </span>
+                </td>
                 <td>
                     <span style="font-family: monospace; font-weight: 700; background: #eff6ff; color: #1d4ed8; padding: 3px 8px; border-radius: 6px; border: 1px solid #bfdbfe;">
                         🏷️ {{ lot.lot_number }}
@@ -182,7 +194,7 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="9" style="text-align: center; color: #64748b; padding: 30px;">
+                <td colspan="10" style="text-align: center; color: #64748b; padding: 30px;">
                     No hay lotes registrados todavía. Comience registrando ingresos de mercadería con número de lote.
                 </td>
             </tr>
@@ -224,11 +236,77 @@
     }
 
     function filterLotesTable() {
-        const q = (document.getElementById('filter-lotes-input').value || '').toLowerCase().trim();
+        const q = (document.getElementById('filter-lotes-input') ? document.getElementById('filter-lotes-input').value : '').toLowerCase().trim();
+        const whFilter = document.getElementById('inventory-warehouse-filter');
+        const selectedWh = (whFilter ? whFilter.value : '').toLowerCase().trim();
+
         document.querySelectorAll('.lot-row').forEach(row => {
-            const txt = row.dataset.search || '';
-            row.style.display = (!q || txt.includes(q)) ? '' : 'none';
+            const txt = (row.dataset.search || '').toLowerCase();
+            const rowWh = (row.dataset.warehouse || '').toLowerCase();
+            const matchesText = !q || txt.includes(q);
+            const matchesWh = !selectedWh || rowWh.includes(selectedWh);
+            row.style.display = (matchesText && matchesWh) ? '' : 'none';
         });
+    }
+
+    function exportInventory() {
+        const isGeneral = document.getElementById('container-tab-general').style.display !== 'none';
+        let csv = [];
+        let filename = '';
+
+        if (isGeneral) {
+            filename = `inventario_general_${new Date().toISOString().slice(0,10)}.csv`;
+            csv.push(['Codigo', 'Producto', 'Categoria', 'Bodega', 'Disponible', 'Reservado', 'Fisico', 'Stock Minimo', 'Precio', 'Estado'].join(';'));
+            const rows = document.querySelectorAll('#container-tab-general tbody tr');
+            rows.forEach(r => {
+                if (r.style.display === 'none') return;
+                const cols = r.querySelectorAll('td');
+                if (cols.length >= 8) {
+                    const code = cols[0].textContent.trim();
+                    const name = cols[1].querySelector('.product-name')?.textContent.trim() || '';
+                    const cat = cols[2].textContent.trim();
+                    const wh = cols[3].textContent.trim().replace(/\s+/g, ' ');
+                    const stockBoxes = cols[4].querySelectorAll('strong');
+                    const disp = stockBoxes[0]?.textContent.replace(/[^0-9.]/g, '') || '0';
+                    const res = stockBoxes[1]?.textContent.replace(/[^0-9.]/g, '') || '0';
+                    const fis = cols[4].textContent.match(/F[íi]sico:\s*([0-9.]+)/i)?.[1] || disp;
+                    const min = cols[5].textContent.trim();
+                    const price = cols[6].textContent.trim().replace('$', '');
+                    const status = cols[7].textContent.trim();
+                    csv.push([`"${code}"`, `"${name}"`, `"${cat}"`, `"${wh}"`, disp, res, fis, min, price, `"${status}"`].join(';'));
+                }
+            });
+        } else {
+            filename = `inventario_lotes_${new Date().toISOString().slice(0,10)}.csv`;
+            csv.push(['SKU', 'Producto', 'Categoria', 'Bodega', 'Lote', 'Fecha Ingreso', 'Stock Inicial', 'Stock Disponible', 'Estado'].join(';'));
+            const rows = document.querySelectorAll('#tabla-lotes tbody tr.lot-row');
+            rows.forEach(r => {
+                if (r.style.display === 'none') return;
+                const cols = r.querySelectorAll('td');
+                if (cols.length >= 9) {
+                    const sku = cols[0].textContent.trim();
+                    const name = cols[1].textContent.trim();
+                    const cat = cols[2].textContent.trim();
+                    const wh = cols[3].textContent.trim().replace('🏢', '').trim();
+                    const lote = cols[4].textContent.trim().replace('🏷️', '').trim();
+                    const date = cols[5].textContent.trim();
+                    const initQty = cols[6].textContent.replace(/[^0-9.]/g, '');
+                    const availQty = cols[7].textContent.replace(/[^0-9.]/g, '');
+                    const status = cols[8].textContent.trim();
+                    csv.push([`"${sku}"`, `"${name}"`, `"${cat}"`, `"${wh}"`, `"${lote}"`, `"${date}"`, initQty, availQty, `"${status}"`].join(';'));
+                }
+            });
+        }
+
+        const blob = new Blob(["\ufeff" + csv.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 
     function editMinStock(code, currentMin) {
@@ -257,33 +335,40 @@
     (function () {
         const categoryFilter = document.getElementById('inventory-category-filter');
         const stockFilter = document.getElementById('inventory-stock-filter');
+        const warehouseFilter = document.getElementById('inventory-warehouse-filter');
         const searchInput = document.querySelector('.header .search-box input');
-        const rows = Array.from(document.querySelectorAll('.data-table tbody tr'));
+        const rows = Array.from(document.querySelectorAll('#container-tab-general .data-table tbody tr'));
 
         function normalize(value) {
             return (value || '').trim().toLowerCase();
         }
 
         function applyFilters() {
-            const selectedCategory = normalize(categoryFilter.value);
-            const selectedStatus = normalize(stockFilter.value);
+            const selectedCategory = normalize(categoryFilter ? categoryFilter.value : '');
+            const selectedStatus = normalize(stockFilter ? stockFilter.value : '');
+            const selectedWarehouse = normalize(warehouseFilter ? warehouseFilter.value : '');
             const searchTerm = normalize(searchInput ? searchInput.value : '');
 
             rows.forEach((row) => {
                 const rowCategory = normalize(row.getAttribute('data-category'));
                 const rowStatus = normalize(row.getAttribute('data-status'));
+                const rowWarehouse = normalize(row.getAttribute('data-warehouse'));
                 const rowCode = normalize(row.getAttribute('data-code'));
                 const rowName = normalize(row.getAttribute('data-name'));
                 const rowDesc = normalize(row.getAttribute('data-desc'));
                 const matchesCategory = !selectedCategory || rowCategory === selectedCategory;
                 const matchesStatus = !selectedStatus || rowStatus === selectedStatus;
+                const matchesWarehouse = !selectedWarehouse || rowWarehouse.includes(selectedWarehouse);
                 const matchesSearch = !searchTerm || rowCode.includes(searchTerm) || rowName.includes(searchTerm) || rowDesc.includes(searchTerm) || rowCategory.includes(searchTerm);
-                row.style.display = matchesCategory && matchesStatus && matchesSearch ? '' : 'none';
+                row.style.display = matchesCategory && matchesStatus && matchesWarehouse && matchesSearch ? '' : 'none';
             });
+
+            filterLotesTable();
         }
 
-        categoryFilter.addEventListener('change', applyFilters);
-        stockFilter.addEventListener('change', applyFilters);
+        if (categoryFilter) categoryFilter.addEventListener('change', applyFilters);
+        if (stockFilter) stockFilter.addEventListener('change', applyFilters);
+        if (warehouseFilter) warehouseFilter.addEventListener('change', applyFilters);
         if (searchInput) {
             searchInput.addEventListener('input', applyFilters);
         }
