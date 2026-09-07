@@ -4,6 +4,18 @@
 {% block page_title %}Recetas de Fabricación (BOM){% endblock %}
 
 {% block content %}
+<style>
+.recipe-badge {
+    transition: all 0.15s ease-in-out;
+}
+.recipe-badge:hover {
+    background: #fce7f3 !important;
+    border-color: #f472b6 !important;
+    color: #831843 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(157, 23, 77, 0.15);
+}
+</style>
 <div class="header-section" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
     <div style="display: flex; gap: 10px;">
         <a href="/produccion" class="btn-secondary" style="text-decoration: none; padding: 10px 18px; border-radius: 6px; font-weight: bold; display: inline-flex; align-items: center; gap: 6px;">
@@ -40,11 +52,11 @@
                     {% for r in recipes %}
                     <tr class="receta-row" style="border-bottom: 1px solid #edf2f7; font-size: 13px;">
                         <td style="padding: 12px; vertical-align: top; white-space: nowrap;">
-                            {% if r.recipe_code %}
-                                <span style="background: #fdf2f8; color: #9d174d; border: 1px solid #fbcfe8; font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-family: monospace;">{{ r.recipe_code }}</span>
-                            {% else %}
-                                <span style="color: #94a3b8; font-size: 12px;">REC-#{{ r.id }}</span>
-                            {% endif %}
+                            <a href="/produccion/recetas/{{ r.id }}/editar" style="text-decoration: none;" title="Haz clic para editar la receta {{ r.recipe_code or ('REC-PRD-00' ~ r.id) }}">
+                                <span class="recipe-badge" style="background: #fdf2f8; color: #9d174d; border: 1px solid #fbcfe8; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-family: monospace; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s ease-in-out; cursor: pointer;">
+                                    {{ r.recipe_code if r.recipe_code else ('REC-PRD-00' ~ r.id) }}
+                                </span>
+                            </a>
                         </td>
                         <td style="padding: 12px; vertical-align: top;">
                             <div style="font-weight: 600; color: #1e293b; font-size: 14px;">{{ r.final_name }}</div>
