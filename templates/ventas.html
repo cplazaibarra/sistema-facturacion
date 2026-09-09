@@ -104,6 +104,17 @@
             </select>
         </div>
 
+        <!-- Filtro por Estado de Venta -->
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <label style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">📊 Estado Venta:</label>
+            <select id="sf-status-filter" onchange="filterVentasTable()" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; max-width: 170px;">
+                <option value="">-- Todos los Estados --</option>
+                {% for st in all_statuses %}
+                <option value="{{ st }}">{{ st }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
         <button type="button" onclick="clearVentasFilters()" title="Limpiar Filtros" style="padding: 6px 12px; background: #e2e8f0; border: none; border-radius: 6px; font-size: 13px; color: #475569; font-weight: 600; cursor: pointer;">
             ✕ Limpiar
         </button>
@@ -1102,10 +1113,12 @@
         const searchInput = document.getElementById('sf-search-input');
         const clientSelect = document.getElementById('sf-client-filter');
         const productSelect = document.getElementById('sf-product-filter');
+        const statusSelect = document.getElementById('sf-status-filter');
 
         const searchVal = (searchInput ? searchInput.value : '').toLowerCase().trim();
         const clientVal = (clientSelect ? clientSelect.value : '').toLowerCase().trim();
         const productVal = (productSelect ? productSelect.value : '').toLowerCase().trim();
+        const statusVal = (statusSelect ? statusSelect.value : '').toLowerCase().trim();
 
         const rows = document.querySelectorAll('.sf-table tbody tr.sf-table-row');
         let visibleCount = 0;
@@ -1113,13 +1126,15 @@
         rows.forEach(row => {
             const customerData = (row.getAttribute('data-customer') || '').toLowerCase();
             const productsData = (row.getAttribute('data-products') || '').toLowerCase();
+            const statusData = (row.getAttribute('data-status') || '').toLowerCase().trim();
             const fullText = (row.textContent || '').toLowerCase();
 
             const matchSearch = !searchVal || fullText.includes(searchVal);
             const matchClient = !clientVal || customerData.includes(clientVal);
             const matchProduct = !productVal || productsData.includes(productVal);
+            const matchStatus = !statusVal || statusData === statusVal;
 
-            if (matchSearch && matchClient && matchProduct) {
+            if (matchSearch && matchClient && matchProduct && matchStatus) {
                 row.style.display = '';
                 visibleCount++;
             } else {
@@ -1137,6 +1152,7 @@
         if (document.getElementById('sf-search-input')) document.getElementById('sf-search-input').value = '';
         if (document.getElementById('sf-client-filter')) document.getElementById('sf-client-filter').value = '';
         if (document.getElementById('sf-product-filter')) document.getElementById('sf-product-filter').value = '';
+        if (document.getElementById('sf-status-filter')) document.getElementById('sf-status-filter').value = '';
         filterVentasTable();
     }
 

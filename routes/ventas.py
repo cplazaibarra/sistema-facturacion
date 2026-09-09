@@ -199,7 +199,7 @@ def ventas():
         else:
             ventas_records.append(record)
 
-    # Extraer clientes y productos únicos para filtros
+    # Extraer clientes, productos y estados de venta únicos para filtros
     all_clients = sorted(list(set(v['customer']['name'] for v in only_ventas if v['customer']['name'])))
     all_products_set = set()
     for v in only_ventas:
@@ -208,6 +208,13 @@ def ventas():
             if p_name:
                 all_products_set.add(p_name)
     all_products = sorted(list(all_products_set))
+
+    known_statuses = ['Pendiente', 'En Preparación', 'Para Despacho', 'Completada', 'Cancelada']
+    all_statuses = list(known_statuses)
+    for v in only_ventas:
+        st_label = v.get('status', {}).get('label')
+        if st_label and st_label not in all_statuses:
+            all_statuses.append(st_label)
 
     metrics = get_sales_metrics()
     ventas_hoy_val = metrics.get('ventas_hoy', 0.0)
@@ -266,6 +273,7 @@ def ventas():
         ventas_records=ventas_records,
         all_clients=all_clients,
         all_products=all_products,
+        all_statuses=all_statuses,
         roles=roles,
         categories=categories,
         active_filter=active_filter,
