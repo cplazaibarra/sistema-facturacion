@@ -77,14 +77,21 @@
                                     <span class="badge" style="background-color: #38a169; color: white; display: inline-block; margin-bottom: 2px;">
                                         <i class="fa-solid fa-circle-check" style="margin-right: 4px;"></i>Pagada
                                     </span>
-                                {% elif inv.payment_status == 'Vencida' %}
-                                    <a href="{{ url_for('compras.cuentas_por_pagar', filtro='vencida') }}" class="badge" style="background-color: #e53e3e; color: white; text-decoration: none; display: inline-block; margin-bottom: 2px;" title="Ir a Cuentas por Pagar">
-                                        <i class="fa-solid fa-triangle-exclamation" style="margin-right: 4px;"></i>Vencida
-                                    </a>
-                                {% elif inv.payment_status == 'Pendiente' %}
-                                    <a href="{{ url_for('compras.cuentas_por_pagar', filtro='pendiente') }}" class="badge" style="background-color: #d69e2e; color: white; text-decoration: none; display: inline-block; margin-bottom: 2px;" title="Ir a Cuentas por Pagar">
-                                        <i class="fa-solid fa-clock" style="margin-right: 4px;"></i>Por Pagar
-                                    </a>
+                                {% elif inv.payment_status in ['Vencida', 'Pendiente'] %}
+                                    <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start; margin-bottom: 4px;">
+                                        {% if inv.payment_status == 'Vencida' %}
+                                        <a href="{{ url_for('compras.cuentas_por_pagar', filtro='vencida') }}" class="badge" style="background-color: #e53e3e; color: white; text-decoration: none; display: inline-block;" title="Factura Vencida - Ver en Cuentas por Pagar">
+                                            <i class="fa-solid fa-triangle-exclamation" style="margin-right: 4px;"></i>Vencida
+                                        </a>
+                                        {% else %}
+                                        <a href="{{ url_for('compras.cuentas_por_pagar', filtro='pendiente') }}" class="badge" style="background-color: #d69e2e; color: white; text-decoration: none; display: inline-block;" title="Factura Por Pagar - Ver en Cuentas por Pagar">
+                                            <i class="fa-solid fa-clock" style="margin-right: 4px;"></i>Por Pagar
+                                        </a>
+                                        {% endif %}
+                                        <a href="{{ url_for('compras.cuentas_por_pagar', open_pay=inv.id) }}" class="badge" style="background-color: #38a169; color: white; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 3px 8px; border-radius: 4px;" title="Registrar pago y subir comprobante">
+                                            <i class="fa-solid fa-money-bill-wave"></i> Subir Pago
+                                        </a>
+                                    </div>
                                 {% elif inv.payment_status == 'Sin Factura' %}
                                     <a href="{{ url_for('compras.cuentas_por_pagar', filtro='sin_factura') }}" class="badge" style="background-color: #dd6b20; color: white; text-decoration: none; display: inline-block; margin-bottom: 2px;" title="Ir a Cuentas por Pagar">
                                         <i class="fa-solid fa-file-circle-question" style="margin-right: 4px;"></i>Sin Factura
@@ -270,6 +277,7 @@
                             <th style="padding: 6px 8px; text-align: center;">Vencimiento</th>
                             <th style="padding: 6px 8px; text-align: center;">Estado</th>
                             <th style="padding: 6px 8px; text-align: center;">Documento</th>
+                            <th style="padding: 6px 8px; text-align: center;">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -291,6 +299,15 @@
                         ? `<a href="/uploads/${inv.document_file}" target="_blank" style="color:#2563eb;text-decoration:underline;"><i class="fa-solid fa-file-pdf"></i> Ver archivo</a>` 
                         : '<span style="color:#94a3b8;">Sin archivo</span>';
 
+                    let actionBtn = '';
+                    if (inv.payment_status === 'Pendiente' || inv.payment_status === 'Vencida') {
+                        actionBtn = `<a href="/compras/cuentas-por-pagar?open_pay=${inv.id}" style="padding:4px 8px;background:#38a169;color:#fff;border-radius:4px;font-size:11px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:4px;"><i class="fa-solid fa-money-bill-wave"></i> Subir Pago</a>`;
+                    } else if (inv.payment_status === 'Pagada' && inv.payment_proof_file) {
+                        actionBtn = `<a href="/uploads/${inv.payment_proof_file}" target="_blank" style="color:#276749;font-size:11px;font-weight:600;text-decoration:underline;"><i class="fa-solid fa-receipt"></i> Comprobante</a>`;
+                    } else {
+                        actionBtn = '<span style="color:#a0aec0;">-</span>';
+                    }
+
                     invHtml += `
                         <tr style="border-bottom: 1px solid #f1f5f9;">
                             <td style="padding: 6px 8px; font-weight: 600;">${inv.invoice_number || 'Sin N°'}</td>
@@ -298,6 +315,7 @@
                             <td style="padding: 6px 8px; text-align: center;">${inv.due_date || '-'}</td>
                             <td style="padding: 6px 8px; text-align: center;">${statusBadge}</td>
                             <td style="padding: 6px 8px; text-align: center;">${docLink}</td>
+                            <td style="padding: 6px 8px; text-align: center;">${actionBtn}</td>
                         </tr>
                     `;
                 });

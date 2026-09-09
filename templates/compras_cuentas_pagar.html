@@ -38,7 +38,7 @@
         </div>
         <div>
             <div style="font-size:22px;font-weight:700;color:#2d3748;">{{ stats.n_pendientes }}</div>
-            <div style="font-size:12px;color:#718096;font-weight:500;">Facturas Pendientes</div>
+            <div style="font-size:12px;color:#718096;font-weight:500;">Facturas Por Pagar</div>
         </div>
     </div>
     <div class="stat-card" style="background:#fff;padding:18px;border-radius:8px;border-left:5px solid #3182ce;box-shadow:0 2px 5px rgba(0,0,0,.05);display:flex;align-items:center;gap:15px;">
@@ -112,7 +112,7 @@
 
 <!-- Tabs de filtro -->
 <div style="display:flex;gap:4px;margin-bottom:0;border-bottom:2px solid #e2e8f0;">
-    {% for tab_id, tab_label in [('todas','Todas'),('pendiente','Pendientes'),('vencida','Vencidas'),('sin_factura','Sin Factura'),('pagada','Pagadas')] %}
+    {% for tab_id, tab_label in [('todas','Todas'),('pendiente','Por Pagar'),('vencida','Vencidas'),('sin_factura','Sin Factura'),('pagada','Pagadas')] %}
     <a href="?filtro={{ tab_id }}"
        style="padding:8px 18px;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px 6px 0 0;
               background:{% if filtro_activo == tab_id %}#fff{% else %}transparent{% endif %};
@@ -125,6 +125,18 @@
 
 <!-- Tabla de facturas -->
 <div style="background:#fff;border-radius:0 8px 8px 8px;box-shadow:0 2px 5px rgba(0,0,0,.05);overflow:hidden;">
+    <!-- Barra de búsqueda en vivo -->
+    <div style="padding: 12px 16px; background: #fff; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="position: relative; width: 320px; max-width: 100%;">
+            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #a0aec0; font-size: 13px;">🔍</span>
+            <input type="text" id="search-invoices-input" onkeyup="filterInvoicesTable()" placeholder="Buscar por proveedor, factura o N° OC..."
+                   style="width: 100%; padding: 7px 10px 7px 32px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+        </div>
+        <div style="font-size: 13px; color: #718096;">
+            Mostrando <strong id="invoices-count" style="color: #2d3748;">{{ invoices|length }}</strong> documento(s)
+        </div>
+    </div>
+
     <div style="overflow-x:auto;">
         <table class="data-table" style="width:100%;border-collapse:collapse;">
             <thead>
@@ -138,7 +150,7 @@
                     <th style="padding:10px 14px;text-align:center;font-size:12px;color:#718096;font-weight:600;border-bottom:1px solid #e2e8f0;">ACCIONES</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="invoices-table-body">
                 {% for inv in invoices %}
                 <tr style="border-bottom:1px solid #f0f0f0;">
                     <td style="padding:11px 14px;font-weight:600;color:#2d3748;">{{ inv.supplier_name or '—' }}</td>
@@ -185,7 +197,7 @@
                                 </a>
                                 {% endif %}
                                 {% if inv.payment_status in ('Pendiente', 'Vencida', 'Sin Factura') %}
-                                <button onclick="openPayModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', {{ inv.invoice_amount or 0 }}, '{{ inv.payment_status }}')"
+                                <button onclick="openPayModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', {{ inv.invoice_amount or 0 }}, '{{ inv.payment_status }}', '{{ inv.invoice_number or '' }}')"
                                         style="padding:5px 12px;border-radius:6px;background:#38a169;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:600;">
                                     <i class="fa-solid fa-money-bill-wave"></i> Registrar Pago
                                 </button>
@@ -403,25 +415,25 @@
                 </div>
                 <div>
                     <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">Método de Pago</label>
-                    <select name="payment_method" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
-                        <option>Transferencia bancaria</option>
-                        <option>Efectivo</option>
-                        <option>Cheque</option>
-                        <option>Débito</option>
-                        <option>Crédito</option>
+                    <select name="payment_method" id="modal-pay-method" onchange="handleModalPayMethodChange(this.value)" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
+                        <option value="Transferencia bancaria">Transferencia bancaria</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Cheque">Cheque</option>
+                        <option value="Débito">Débito</option>
+                        <option value="Crédito">Crédito</option>
                     </select>
                 </div>
 
                 <!-- Selector de Cuenta Bancaria Obligatorio -->
-                <div style="grid-column: span 2;">
+                <div style="grid-column: span 2;" id="modal-bank-container">
                     <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">
                         <i class="fa-solid fa-building-columns" style="color:#3182ce;margin-right:4px;"></i>
-                        Cuenta Bancaria de Egreso <span style="color:#e53e3e;">* (Requerida)</span>
+                        Cuenta Bancaria de Egreso <span style="color:#e53e3e;" id="modal-bank-req-star">* (Requerida)</span>
                     </label>
                     <select name="bank_account_id" id="modal-bank-account" required style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">
                         <option value="">Seleccionar Cuenta Bancaria con que se realizó el pago...</option>
                         {% for b in bank_accounts %}
-                        <option value="{{ b.id }}">{{ b.bank_name }} - {{ b.account_type }} (N° {{ b.account_number }}) - {{ b.holder_name }}</option>
+                        <option value="{{ b.id }}" {% if bank_accounts|length == 1 %}selected{% endif %}>{{ b.bank_name }} - {{ b.account_type }} (N° {{ b.account_number }}) - {{ b.holder_name }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -515,12 +527,44 @@ function togglePaidSection(show) {
 }
 
 // Modal Registrar Pago
-function openPayModal(id, supplier, amount, status) {
+function openPayModal(id, supplier, amount, status, invoiceNumber) {
     document.getElementById('modal-invoice-id').value = id;
     document.getElementById('modal-amount').value = amount;
+    if (document.getElementById('modal-inv-number')) {
+        document.getElementById('modal-inv-number').value = invoiceNumber || '';
+    }
     document.getElementById('modal-supplier').textContent = 'Proveedor: ' + (supplier || '-');
     document.getElementById('pay-form').action = '/compras/facturas/' + id + '/registrar-pago';
     document.getElementById('pay-modal').style.display = 'flex';
+}
+
+function handleModalPayMethodChange(method) {
+    const bankSelect = document.getElementById('modal-bank-account');
+    const star = document.getElementById('modal-bank-req-star');
+    if (method === 'Efectivo') {
+        bankSelect.required = false;
+        if (star) star.style.display = 'none';
+    } else {
+        bankSelect.required = true;
+        if (star) star.style.display = 'inline';
+    }
+}
+
+function filterInvoicesTable() {
+    const query = (document.getElementById('search-invoices-input').value || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('#invoices-table-body tr');
+    let count = 0;
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (!query || text.includes(query)) {
+            row.style.display = '';
+            count++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    const counter = document.getElementById('invoices-count');
+    if (counter) counter.textContent = count;
 }
 
 function closePayModal() {
@@ -534,6 +578,18 @@ document.getElementById('new-invoice-modal').addEventListener('click', function(
 document.getElementById('pay-modal').addEventListener('click', function(e) {
     if (e.target === this) closePayModal();
 });
+
+{% if auto_open_pay_inv %}
+document.addEventListener('DOMContentLoaded', () => {
+    openPayModal(
+        {{ auto_open_pay_inv.id }},
+        "{{ auto_open_pay_inv.supplier_name or '' }}",
+        {{ auto_open_pay_inv.invoice_amount or 0 }},
+        "{{ auto_open_pay_inv.payment_status }}",
+        "{{ auto_open_pay_inv.invoice_number or '' }}"
+    );
+});
+{% endif %}
 </script>
 {% endblock %}
 

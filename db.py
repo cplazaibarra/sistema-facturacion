@@ -4108,12 +4108,19 @@ def get_purchase_invoice(invoice_id: int) -> dict:
             return cur.fetchone()
 
 
-def list_purchase_invoices(status_filter: str = None) -> list:
+def list_purchase_invoices(status_filter: str | list | tuple = None) -> list:
     """Lista facturas de proveedor con datos del proveedor, entrada de bodega y cuenta bancaria."""
     with get_connection() as conn:
         with conn.cursor() as cur:
-            where = "WHERE pi.payment_status = %s" if status_filter else ""
-            params = (status_filter,) if status_filter else ()
+            if isinstance(status_filter, (list, tuple, set)):
+                where = "WHERE pi.payment_status = ANY(%s)"
+                params = (list(status_filter),)
+            elif status_filter:
+                where = "WHERE pi.payment_status = %s"
+                params = (status_filter,)
+            else:
+                where = ""
+                params = ()
             cur.execute(f"""
                 SELECT pi.*, s.name AS supplier_name,
                        ie.order_number AS entry_number, ie.entry_date,

@@ -325,14 +325,17 @@ def cuentas_por_pagar():
     # Actualizar estados vencidos automáticamente
     update_invoice_payment_status()
 
-    filtro = request.args.get('filtro', 'todas')
+    filtro = request.args.get('filtro', 'pendiente')
     filtro_map = {
-        'pendiente':   'Pendiente',
-        'vencida':     'Vencida',
-        'sin_factura': 'Sin Factura',
-        'pagada':      'Pagada',
+        'pendiente':   ('Pendiente', 'Vencida'),  # Todas las facturas por pagar (vigentes y vencidas)
+        'vencida':     ('Vencida',),
+        'sin_factura': ('Sin Factura',),
+        'pagada':      ('Pagada',),
+        'todas':       None,
     }
-    status_filter = filtro_map.get(filtro)  # None = todas
+    status_filter = filtro_map.get(filtro, ('Pendiente', 'Vencida'))
+    if filtro == 'todas':
+        status_filter = None
 
     invoices          = list_purchase_invoices(status_filter)
     guias_sin_factura = list_entries_missing_invoice()
@@ -342,7 +345,7 @@ def cuentas_por_pagar():
     bank_accounts     = list_bank_accounts()
 
     n_vencidas       = sum(1 for i in all_invoices if i['payment_status'] == 'Vencida')
-    n_pendientes     = sum(1 for i in all_invoices if i['payment_status'] == 'Pendiente')
+    n_pendientes     = sum(1 for i in all_invoices if i['payment_status'] in ('Pendiente', 'Vencida'))
     n_sin_factura    = len(guias_sin_factura)
     total_pendiente  = sum(
         (i['invoice_amount'] or 0) for i in all_invoices
@@ -356,6 +359,9 @@ def cuentas_por_pagar():
         'total_pendiente': total_pendiente,
     }
 
+    open_pay_id = request.args.get('open_pay', type=int)
+    auto_open_pay_inv = get_purchase_invoice(open_pay_id) if open_pay_id else None
+
     return render_template(
         'compras_cuentas_pagar.html',
         invoices=invoices,
@@ -365,6 +371,7 @@ def cuentas_por_pagar():
         bank_accounts=bank_accounts,
         stats=stats,
         filtro_activo=filtro,
+        auto_open_pay_inv=auto_open_pay_inv,
     )
 
 
@@ -452,14 +459,14 @@ def registrar_pago_factura(invoice_id):
         flash("Factura no encontrada.", "danger")
         return redirect(url_for('compras.cuentas_por_pagar'))
 
+    payment_method  = request.form.get('payment_method', 'Transferencia bancaria')
     bank_account_id = request.form.get('bank_account_id', type=int) or None
-    if not bank_account_id:
+    if not bank_account_id and payment_method != 'Efectivo':
         flash("Debes seleccionar la cuenta bancaria de la empresa con la que se realizó el pago para poder cerrar la transacción.", "danger")
         return redirect(url_for('compras.cuentas_por_pagar'))
 
     payment_date    = request.form.get('payment_date', date.today().isoformat())
     payment_amount  = request.form.get('payment_amount', type=float) or inv['invoice_amount'] or 0
-    payment_method  = request.form.get('payment_method', 'Transferencia bancaria')
     payment_notes   = request.form.get('payment_notes', '')
     invoice_number  = request.form.get('invoice_number', inv.get('invoice_number', ''))
 
