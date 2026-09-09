@@ -393,6 +393,14 @@ def nueva_factura_proveedor():
     payment_status     = request.form.get('payment_status', 'Pendiente')  # 'Pendiente' o 'Pagada'
     bank_account_id    = request.form.get('bank_account_id', type=int) or None
 
+    if not invoice_number:
+        flash("Debes ingresar el número de factura.", "danger")
+        return redirect(url_for('compras.cuentas_por_pagar'))
+
+    if not due_date:
+        flash("La fecha de vencimiento es obligatoria.", "danger")
+        return redirect(url_for('compras.cuentas_por_pagar'))
+
     # Upload de factura
     doc_file_path = None
     doc_file = request.files.get('document_file')
@@ -464,13 +472,18 @@ def vincular_documento_factura(invoice_id):
         return redirect(url_for('compras.cuentas_por_pagar'))
 
     invoice_number = (request.form.get('invoice_number') or '').strip()
+    due_date       = (request.form.get('due_date') or '').strip()
+
     if not invoice_number:
         flash("Debes ingresar el número de factura.", "danger")
         return redirect(url_for('compras.cuentas_por_pagar'))
 
+    if not due_date:
+        flash("La fecha de vencimiento es obligatoria.", "danger")
+        return redirect(url_for('compras.cuentas_por_pagar'))
+
     invoice_amount = request.form.get('invoice_amount', type=float) or inv.get('invoice_amount') or 0.0
     invoice_date   = (request.form.get('invoice_date') or date.today().isoformat()).strip()
-    due_date       = (request.form.get('due_date') or '').strip()
     notes          = (request.form.get('notes') or '').strip()
 
     # Upload de archivo de factura
