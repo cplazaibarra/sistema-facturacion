@@ -3017,7 +3017,23 @@ def list_purchase_orders() -> list[dict]:
                                WHERE pi.purchase_order_id = po.id
                                   OR pi.inventory_entry_id IN (SELECT id FROM inventory_entries WHERE purchase_order_id = po.id)
                            ), '[]'::json
-                       ) AS invoices
+                       ) AS invoices,
+                       COALESCE(
+                           (
+                               SELECT json_agg(json_build_object(
+                                   'id', ie.id,
+                                   'order_number', ie.order_number,
+                                   'entry_date', ie.entry_date,
+                                   'warehouse', ie.warehouse,
+                                   'document_type', ie.document_type,
+                                   'document_number', ie.document_number,
+                                   'document_file', ie.document_file,
+                                   'items_count', (SELECT COUNT(*) FROM inventory_entry_items WHERE inventory_entry_id = ie.id)
+                               ) ORDER BY ie.id ASC)
+                               FROM inventory_entries ie
+                               WHERE ie.purchase_order_id = po.id
+                           ), '[]'::json
+                       ) AS entries
                 FROM purchase_orders po
                 JOIN suppliers s ON po.supplier_id = s.id
                 LEFT JOIN users u1 ON po.created_by = u1.id
