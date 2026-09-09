@@ -108,7 +108,12 @@
                     <td style="padding:11px 14px;font-weight:600;color:#2d3748;">{{ inv.supplier_name or '—' }}</td>
                     <td style="padding:11px 14px;color:#4a5568;">
                         {% if inv.invoice_number %}
-                            <strong><i class="fa-solid fa-file-invoice" style="color:#3b82f6;margin-right:4px;"></i>{{ inv.invoice_number }}</strong>
+                            <button type="button" onclick="openEditInvoiceModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', '{{ inv.invoice_number }}', {{ inv.invoice_amount or 0 }}, '{{ inv.invoice_date or '' }}', '{{ inv.due_date or '' }}')"
+                                    style="background:none;border:none;padding:0;cursor:pointer;color:#2b6cb0;text-align:left;display:inline-flex;align-items:center;gap:4px;"
+                                    title="Hacer clic para editar número o vencimiento de la factura">
+                                <strong><i class="fa-solid fa-file-invoice" style="color:#3b82f6;"></i> {{ inv.invoice_number }}</strong>
+                                <i class="fa-solid fa-pen-to-square" style="font-size:11px;color:#94a3b8;"></i>
+                            </button>
                         {% else %}
                             <button type="button" onclick="openAttachInvoiceModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', {{ inv.invoice_amount or 0 }}, '{{ inv.due_date or '' }}')"
                                     style="background:none;border:none;padding:0;cursor:pointer;color:#3182ce;font-style:italic;text-decoration:underline;"
@@ -124,9 +129,18 @@
                     <td style="padding:11px 14px;text-align:right;font-weight:600;color:#2d3748;">${{ "{:,.0f}".format(inv.invoice_amount or 0) }}</td>
                     <td style="padding:11px 14px;text-align:center;font-size:13px;">
                         {% if inv.due_date %}
-                            <span style="color:{% if inv.payment_status == 'Vencida' %}#e53e3e;font-weight:700;{% else %}#4a5568;{% endif %}">{{ inv.due_date | date_cl }}</span>
+                            <button type="button" onclick="openEditInvoiceModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', '{{ inv.invoice_number or '' }}', {{ inv.invoice_amount or 0 }}, '{{ inv.invoice_date or '' }}', '{{ inv.due_date }}')"
+                                    style="background:none;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin:auto;"
+                                    title="Hacer clic para modificar la fecha de vencimiento">
+                                <span style="color:{% if inv.payment_status == 'Vencida' %}#e53e3e;font-weight:700;{% else %}#2b6cb0;text-decoration:underline;{% endif %}">{{ inv.due_date | date_cl }}</span>
+                                <i class="fa-solid fa-pen" style="font-size:10px;color:#94a3b8;"></i>
+                            </button>
                         {% else %}
-                            <span style="color:#a0aec0;">—</span>
+                            <button type="button" onclick="openEditInvoiceModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', '{{ inv.invoice_number or '' }}', {{ inv.invoice_amount or 0 }}, '{{ inv.invoice_date or '' }}', '')"
+                                    style="background:none;border:1px dashed #cbd5e1;padding:2px 8px;border-radius:4px;cursor:pointer;color:#3182ce;font-size:11px;"
+                                    title="Hacer clic para asignar fecha de vencimiento">
+                                <i class="fa-solid fa-calendar-plus" style="margin-right:2px;"></i>Asignar
+                            </button>
                         {% endif %}
                     </td>
                     <td style="padding:11px 14px;text-align:center;">
@@ -522,6 +536,91 @@
         </form>
     </div>
 </div>
+
+<!-- ─── MODAL 4: EDITAR DATOS / VENCIMIENTO DE FACTURA ───────────────────── -->
+<div id="edit-invoice-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:20px;overflow-y:auto;">
+    <div style="background:#fff;border-radius:12px;padding:26px;width:540px;max-width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:1px solid #e2e8f0;padding-bottom:12px;">
+            <div>
+                <h3 style="margin:0;font-size:18px;font-weight:700;color:#1e293b;" id="edit-inv-modal-title">
+                    <i class="fa-solid fa-pen-to-square" style="color:#3182ce;margin-right:6px;"></i>Modificar Datos de Factura
+                </h3>
+                <p style="margin:4px 0 0 0;font-size:13px;color:#64748b;" id="edit-inv-supplier">Proveedor: —</p>
+            </div>
+            <button type="button" onclick="closeEditInvoiceModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#94a3b8;">✕</button>
+        </div>
+
+        <form id="edit-invoice-form" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="invoice_id" id="edit-inv-id" value="">
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+                <div>
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">
+                        N° de Factura <span style="color:#e53e3e;">*</span>
+                    </label>
+                    <input type="text" name="invoice_number" id="edit-inv-number" required placeholder="FAC-0000"
+                           style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
+                </div>
+
+                <div>
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">
+                        Monto Factura ($) <span style="color:#e53e3e;">*</span>
+                    </label>
+                    <input type="number" name="invoice_amount" id="edit-inv-amount" step="0.01" min="0" required placeholder="0.00"
+                           style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;font-weight:600;">
+                </div>
+
+                <div>
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">Fecha Emisión Factura</label>
+                    <input type="date" name="invoice_date" id="edit-inv-date"
+                           style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
+                </div>
+
+                <div>
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">
+                        Fecha Vencimiento (Pago) <span style="color:#e53e3e;">*</span>
+                    </label>
+                    <input type="date" name="due_date" id="edit-inv-due-date" required
+                           style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
+                </div>
+            </div>
+
+            <!-- Reemplazar o subir nuevo documento (opcional) -->
+            <div style="margin-bottom:16px;">
+                <label style="font-weight:600;font-size:13px;display:block;margin-bottom:6px;">
+                    <i class="fa-solid fa-file-pdf" style="color:#3182ce;margin-right:4px;"></i>
+                    Archivo de la Factura (Opcional si ya existe)
+                </label>
+                <div style="border:2px dashed #cbd5e1;border-radius:8px;padding:14px;text-align:center;cursor:pointer;background:#f8fafc;"
+                     onclick="document.getElementById('edit-inv-file-input').click()">
+                    <input type="file" name="document_file" id="edit-inv-file-input" accept="image/*,.pdf" style="display:none;" onchange="previewEditInvFile(this)">
+                    <div id="edit-inv-file-ph">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size:22px;color:#94a3b8;margin-bottom:4px;display:block;"></i>
+                        <p style="margin:0;font-size:13px;color:#475569;">Haz clic para reemplazar la foto o PDF de la factura</p>
+                    </div>
+                    <p id="edit-inv-file-name" style="margin:0;font-size:13px;font-weight:600;color:#0284c7;display:none;"></p>
+                </div>
+            </div>
+
+            <div style="margin-bottom:18px;">
+                <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">Observaciones / Notas</label>
+                <textarea name="notes" id="edit-inv-notes" rows="2" placeholder="Opcional..."
+                          style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;resize:vertical;"></textarea>
+            </div>
+
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button type="button" onclick="closeEditInvoiceModal()"
+                        style="padding:9px 18px;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;cursor:pointer;font-weight:500;">
+                    Cancelar
+                </button>
+                <button type="submit"
+                        style="padding:9px 24px;border-radius:6px;background:#3182ce;color:#fff;border:none;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px;">
+                    <i class="fa-solid fa-floppy-disk"></i> Guardar Modificaciones
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -541,6 +640,7 @@ setInputValueAndDatepicker('modal-date', todayStr);
 setInputValueAndDatepicker('new-inv-date', todayStr);
 setInputValueAndDatepicker('new-inv-pay-date', todayStr);
 setInputValueAndDatepicker('attach-inv-date', todayStr);
+setInputValueAndDatepicker('edit-inv-date', todayStr);
 
 // Modal Cargar Factura
 function openNewInvoiceModal() {
@@ -653,6 +753,48 @@ function previewAttachInvFile(input) {
     }
 }
 
+// Modal Editar Factura (Modificar Fecha de Vencimiento, N°, etc.)
+function openEditInvoiceModal(invoiceId, supplierName, invoiceNumber, amount, invoiceDate, dueDate) {
+    document.getElementById('edit-inv-id').value = invoiceId;
+    document.getElementById('edit-inv-supplier').textContent = 'Proveedor: ' + (supplierName || '—');
+    document.getElementById('edit-inv-number').value = invoiceNumber || '';
+    document.getElementById('edit-inv-amount').value = amount || '';
+    
+    if (invoiceDate) {
+        setInputValueAndDatepicker('edit-inv-date', invoiceDate);
+    }
+    if (dueDate) {
+        setInputValueAndDatepicker('edit-inv-due-date', dueDate);
+    } else {
+        setInputValueAndDatepicker('edit-inv-due-date', '');
+    }
+
+    // Reset file preview
+    const ph = document.getElementById('edit-inv-file-ph');
+    const name = document.getElementById('edit-inv-file-name');
+    const fileInput = document.getElementById('edit-inv-file-input');
+    if (ph) ph.style.display = 'block';
+    if (name) { name.textContent = ''; name.style.display = 'none'; }
+    if (fileInput) fileInput.value = '';
+
+    document.getElementById('edit-invoice-form').action = '/compras/facturas/' + invoiceId + '/editar';
+    document.getElementById('edit-invoice-modal').style.display = 'flex';
+}
+
+function closeEditInvoiceModal() {
+    document.getElementById('edit-invoice-modal').style.display = 'none';
+}
+
+function previewEditInvFile(input) {
+    const ph = document.getElementById('edit-inv-file-ph');
+    const name = document.getElementById('edit-inv-file-name');
+    if (input.files && input.files[0]) {
+        ph.style.display = 'none';
+        name.textContent = 'Archivo seleccionado: ' + input.files[0].name;
+        name.style.display = 'block';
+    }
+}
+
 function filterInvoicesTable() {
     const query = (document.getElementById('search-invoices-input').value || '').toLowerCase().trim();
     const rows = document.querySelectorAll('#invoices-table-body tr');
@@ -685,6 +827,12 @@ const attachModal = document.getElementById('attach-invoice-modal');
 if (attachModal) {
     attachModal.addEventListener('click', function(e) {
         if (e.target === this) closeAttachInvoiceModal();
+    });
+}
+const editModal = document.getElementById('edit-invoice-modal');
+if (editModal) {
+    editModal.addEventListener('click', function(e) {
+        if (e.target === this) closeEditInvoiceModal();
     });
 }
 

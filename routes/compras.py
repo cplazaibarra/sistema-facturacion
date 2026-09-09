@@ -606,6 +606,86 @@ def registrar_pago_factura(invoice_id):
     return redirect(url_for('compras.cuentas_por_pagar'))
 
 
+@compras_bp.route('/compras/facturas/<int:invoice_id>/editar', methods=['POST'])
+def editar_factura_proveedor(invoice_id):
+    """Permite editar el número de factura, monto, fecha de emisión, vencimiento y documento."""
+    inv = get_purchase_invoice(invoice_id)
+    if not inv:
+        flash("Factura de compra no encontrada.", "danger")
+        return redirect(url_for('compras.cuentas_por_pagar'))
+
+    invoice_number = (request.form.get('invoice_number') or inv.get('invoice_number') or '').strip()
+    due_date       = (request.form.get('due_date') or '').strip()
+    if not due_date:
+        flash("La fecha de vencimiento es obligatoria.", "danger")
+        return redirect(url_for('compras.cuentas_por_pagar'))
+
+    invoice_amount = request.form.get('invoice_amount', type=float) or inv.get('invoice_amount') or 0.0
+    invoice_date   = (request.form.get('invoice_date') or inv.get('invoice_date') or date.today().isoformat()).strip()
+    notes          = (request.form.get('notes') or '').strip()
+
+    # Upload nuevo archivo de factura si se proporciona
+    doc_file_path = inv.get('document_file')
+    doc_file = request.files.get('document_file')
+    if doc_file and doc_file.filename:
+        upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'documentos_compra')
+        os.makedirs(upload_dir, exist_ok=True)
+        from werkzeug.utils import secure_filename
+        ext = os.path.splitext(doc_file.filename)[1].lower()
+        filename = secure_filename(f"factura_{invoice_number or invoice_id}_{date.today().isoformat()}{ext}")
+        doc_file.save(os.path.join(upload_dir, filename))
+        doc_file_path = f"documentos_compra/{filename}"
+
+    # Recalcular estado si aún no está pagada
+    new_status = inv.get('payment_status')
+    if new_status in ('Pendiente', 'Vencida'):
+        if due_date and due_date < date.today().isoformat():
+            new_status = 'Vencida'
+        else:
+            new_status = 'Pendiente'
+
+    from db import get_connection
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE purchase_invoices
+                SET invoice_number = %s,
+                    invoice_amount = %s,
+                    invoice_date   = %s,
+                    due_date       = %s,
+                    document_file  = COALESCE(%s, document_file),
+                    payment_status = %s,
+                    notes          = CASE WHEN %s <> '' THEN %s ELSE notes END
+                WHERE id = %s
+            """, (
+                invoice_number,
+                invoice_amount,
+                invoice_date,
+                due_date,
+                doc_file_path,
+                new_status,
+                notes, notes,
+                invoice_id
+            ))
+
+            if inv.get('inventory_entry_id') and invoice_number:
+                cur.execute("""
+                    UPDATE inventory_entries
+                    SET document_number = %s,
+                        document_file   = COALESCE(%s, document_file)
+                    WHERE id = %s
+                """, (
+                    invoice_number,
+                    doc_file_path,
+                    inv['inventory_entry_id']
+                ))
+
+            conn.commit()
+
+    flash(f"Factura #{invoice_number or invoice_id} actualizada con éxito.", "success")
+    return redirect(url_for('compras.cuentas_por_pagar'))
+
+
 
 @compras_bp.route('/api/compras/facturas/pendientes/count')
 def api_pending_invoices_count():
