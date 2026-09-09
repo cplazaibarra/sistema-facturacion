@@ -290,25 +290,9 @@ def cotizaciones():
     # Incluir únicamente cotizaciones
     only_cotizaciones = [r for r in ventas_records_all if r['status']['label'] == 'Cotización' or str(r['sale_number']).startswith('COT-')]
 
-    cotizaciones_records = []
-    for record in only_cotizaciones:
-        q_status = record.get('quotation_status', 'Activa')
-        if card_filter == 'Cotizaciones Hoy':
-            if record['date'] == today_str:
-                cotizaciones_records.append(record)
-        elif card_filter in ['Activa', 'Cotizaciones Activas']:
-            if q_status == 'Activa':
-                cotizaciones_records.append(record)
-        elif card_filter in ['Ganada', 'Cotizaciones Ganadas']:
-            if q_status == 'Ganada':
-                cotizaciones_records.append(record)
-        elif card_filter in ['Perdida', 'Cotizaciones Perdidas']:
-            if q_status == 'Perdida':
-                cotizaciones_records.append(record)
-        elif card_filter in ['', 'all', 'Todas']:
-            cotizaciones_records.append(record)
-        else:
-            cotizaciones_records.append(record)
+    # Enviar todas las cotizaciones a la plantilla para permitir filtrado fluido en frontend
+    # sin que registros ganados o perdidos desaparezcan del DOM al interactuar con los filtros
+    cotizaciones_records = only_cotizaciones
 
     # Extraer clientes y productos únicos para filtros
     all_clients = sorted(list(set(c['customer']['name'] for c in only_cotizaciones if c['customer']['name'])))
@@ -1432,7 +1416,7 @@ def convertir_cotizacion(sale_id):
     from markupsafe import Markup
     msg = Markup(f"Venta {new_sale_number} creada exitosamente a partir de la Cotización {quotation['sale_number']}. La cotización ha pasado a estado 'Ganada' (100%). <a href='{url_for('ventas.ventas')}?filter=Ventas+Pendientes' style='font-weight: bold; text-decoration: underline; color: #1A365D;'>Haz clic aquí para ver la nueva venta</a>.")
     flash(msg, "success")
-    return redirect(url_for('ventas.cotizaciones'))
+    return redirect(url_for('ventas.cotizaciones', filter='Ganada'))
 
 
 @ventas_bp.route('/ventas/cotizacion/<int:sale_id>/actualizar-estado', methods=['POST'])
@@ -1456,7 +1440,7 @@ def actualizar_estado_cotizacion(sale_id):
         
     update_quotation_status(sale_id, new_status, prob_val)
     flash(f"Cotización {quotation['sale_number']} actualizada: Estado '{new_status}' con probabilidad del {prob_val}%.", "success")
-    return redirect(request.referrer or url_for('ventas.cotizaciones'))
+    return redirect(url_for('ventas.cotizaciones', filter=new_status))
 
 
 @ventas_bp.route('/ventas/clientes', methods=['GET', 'POST'])

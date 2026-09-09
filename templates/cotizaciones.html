@@ -21,7 +21,8 @@
 <div class="sf-metrics-grid">
     {% for metric in cotizaciones_metrics %}
     <div class="sf-metric-card {% if active_filter == metric.filter_val or (metric.filter_val == '' and active_filter in ['', 'all', 'Todas']) %}active-filter{% endif %}" 
-         onclick="window.location.href='{{ url_for('ventas.cotizaciones') }}?filter={{ metric.filter_val | urlencode }}'" 
+         data-filter-val="{{ metric.filter_val }}"
+         onclick="setQuotationCardFilter('{{ metric.filter_val }}')" 
          style="cursor:pointer;" title="Filtrar por {{ metric.label }}">
         <span class="sf-metric-icon {{ metric.color }}">{{ metric.icon | safe }}</span>
         <div class="sf-metric-content">
@@ -32,12 +33,10 @@
     {% endfor %}
 </div>
 
-{% if active_filter and active_filter not in ['', 'all', 'Todas'] %}
-<div style="display:flex; align-items:center; gap:10px; margin: 8px 0 0 0; padding: 6px 14px; background:#EBF8FF; border-radius:6px; border-left: 4px solid #3182ce; font-size:13px; color:#2b6cb0;">
-    <span>🔍 Filtro activo por Estado: <strong>{{ active_filter }}</strong></span>
-    <a href="{{ url_for('ventas.cotizaciones') }}?filter=" style="margin-left:10px; color:#e53e3e; font-weight:600; text-decoration:none;">✕ Ver Todas</a>
+<div id="cot-active-filter-banner" style="display:{% if active_filter and active_filter not in ['', 'all', 'Todas'] %}flex{% else %}none{% endif %}; align-items:center; gap:10px; margin: 8px 0 0 0; padding: 6px 14px; background:#EBF8FF; border-radius:6px; border-left: 4px solid #3182ce; font-size:13px; color:#2b6cb0;">
+    <span>🔍 Filtro activo por Estado: <strong id="cot-active-filter-name">{{ active_filter }}</strong></span>
+    <a href="javascript:void(0);" onclick="setQuotationCardFilter('')" style="margin-left:10px; color:#e53e3e; font-weight:600; text-decoration:none;">✕ Ver Todas</a>
 </div>
-{% endif %}
 
 <!-- Barra de herramientas de la tabla con Filtros de Cliente, Producto y Estado -->
 <div class="sf-table-toolbar" style="flex-wrap: wrap; gap: 12px; padding: 12px 16px; margin-top: 16px;">
@@ -50,7 +49,7 @@
         <!-- Filtro por Estado -->
         <div style="display: flex; align-items: center; gap: 6px;">
             <label style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">📊 Estado:</label>
-            <select id="sf-status-filter-cot" onchange="filterCotizacionesTable()" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white;">
+            <select id="sf-status-filter-cot" onchange="onStatusSelectChange()" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white;">
                 <option value="" {% if active_filter in ['', 'all', 'Todas'] %}selected{% endif %}>-- Todos --</option>
                 <option value="Activa" {% if active_filter == 'Activa' %}selected{% endif %}>Activa</option>
                 <option value="Ganada" {% if active_filter == 'Ganada' %}selected{% endif %}>Ganada</option>
@@ -150,7 +149,7 @@
         </thead>
         <tbody>
             {% for sale in cotizaciones_records %}
-            <tr class="sf-table-row" data-status="{{ sale.quotation_status }}" data-customer="{{ sale.customer.name }} {{ sale.customer.email }}" data-products="{% for product in sale.products %}{% if product is mapping %}{{ product.product_name or product.name }} {% else %}{{ product }} {% endif %}{% endfor %}">
+            <tr class="sf-table-row" data-status="{{ sale.quotation_status or 'Activa' }}" data-customer="{{ sale.customer.name }} {{ sale.customer.email }}" data-products="{% for product in sale.products %}{% if product is mapping %}{{ product.product_name or product.name }} {% else %}{{ product }} {% endif %}{% endfor %}">
                 <td>
                     <input type="checkbox" class="sf-checkbox">
                 </td>
@@ -365,6 +364,55 @@
 </div>
 
 <script>
+function onStatusSelectChange() {
+    const statusSelect = document.getElementById('sf-status-filter-cot');
+    const val = statusSelect ? statusSelect.value : '';
+    updateActiveFilterUI(val);
+    filterCotizacionesTable();
+}
+
+function setQuotationCardFilter(filterVal) {
+    const statusSelect = document.getElementById('sf-status-filter-cot');
+    if (statusSelect) {
+        statusSelect.value = filterVal;
+    }
+    updateActiveFilterUI(filterVal);
+    filterCotizacionesTable();
+}
+
+function updateActiveFilterUI(filterVal) {
+    const normVal = (filterVal || '').toLowerCase().trim();
+
+    // 1. Actualizar tarjetas métricas
+    const cards = document.querySelectorAll('.sf-metrics-grid .sf-metric-card');
+    cards.forEach(card => {
+        const cardVal = (card.getAttribute('data-filter-val') || '').toLowerCase().trim();
+        if ((normVal === '' && cardVal === '') || (cardVal !== '' && cardVal === normVal)) {
+            card.classList.add('active-filter');
+        } else {
+            card.classList.remove('active-filter');
+        }
+    });
+
+    // 2. Actualizar banner de filtro activo
+    const banner = document.getElementById('cot-active-filter-banner');
+    const filterName = document.getElementById('cot-active-filter-name');
+    if (banner) {
+        if (normVal && !['', 'all', 'todas'].includes(normVal)) {
+            banner.style.display = 'flex';
+            if (filterName) filterName.textContent = filterVal;
+        } else {
+            banner.style.display = 'none';
+        }
+    }
+
+    // 3. Actualizar URL silenciosamente para mantener consistencia
+    try {
+        const newUrl = filterVal ? `?filter=${encodeURIComponent(filterVal)}` : `?filter=`;
+        window.history.replaceState(null, '', newUrl);
+    } catch(e) {}
+}
+
 function filterCotizacionesTable() {
     const searchInput = document.getElementById('sf-search-input-cot');
     const statusSelect = document.getElementById('sf-status-filter-cot');
@@ -380,7 +428,7 @@ function filterCotizacionesTable() {
     let visibleCount = 0;
 
     rows.forEach(row => {
-        const rowStatus = (row.getAttribute('data-status') || '').toLowerCase();
+        const rowStatus = (row.getAttribute('data-status') || 'activa').toLowerCase();
         const customerData = (row.getAttribute('data-customer') || '').toLowerCase();
         const productsData = (row.getAttribute('data-products') || '').toLowerCase();
         const fullText = (row.textContent || '').toLowerCase();
@@ -409,8 +457,13 @@ function clearCotizacionesFilters() {
     if (document.getElementById('sf-status-filter-cot')) document.getElementById('sf-status-filter-cot').value = '';
     if (document.getElementById('sf-client-filter-cot')) document.getElementById('sf-client-filter-cot').value = '';
     if (document.getElementById('sf-product-filter-cot')) document.getElementById('sf-product-filter-cot').value = '';
+    updateActiveFilterUI('');
     filterCotizacionesTable();
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    filterCotizacionesTable();
+});
 
 function openCotizacionDetail(sale) {
     const modal = document.getElementById('modal-view-cotizacion');
