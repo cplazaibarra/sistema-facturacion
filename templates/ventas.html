@@ -4,6 +4,15 @@
 {% block page_title %}Ventas{% endblock %}
 
 {% block content %}
+<style>
+.status-badge-container:hover .payment-history-popover {
+    display: block !important;
+}
+.sf-invoice-tag:hover {
+    background-color: #dbeafe !important;
+    border-color: #93c5fd !important;
+}
+</style>
 <!-- Barra de acciones superior estilo Salesforce -->
 <div class="sf-action-bar">
     <div class="sf-action-left">
@@ -170,7 +179,7 @@
          </thead>
         <tbody>
             {% for sale in ventas_records %}
-            <tr class="sf-table-row" data-status="{{ sale.status.label }}" data-date="{{ sale.date }}" data-sale-number="{{ sale.sale_number }}" data-customer="{{ sale.customer.name }} {{ sale.customer.email }}" data-products="{% for product in sale.products %}{% if product is mapping %}{{ product.product_name or product.name }} {% else %}{{ product }} {% endif %}{% endfor %}">
+            <tr class="sf-table-row" data-status="{{ sale.status.label }}" data-date="{{ sale.date }}" data-sale-number="{{ sale.sale_number }}" data-invoice="{{ sale.invoice_number }}" data-customer="{{ sale.customer.name }} {{ sale.customer.email }}" data-products="{% for product in sale.products %}{% if product is mapping %}{{ product.product_name or product.name }} {% else %}{{ product }} {% endif %}{% endfor %}">
                 <td>
                     <input type="checkbox" class="sf-checkbox">
                 </td>
@@ -223,21 +232,43 @@
                       {% endif %}
                   </td>
                   <td>
-                      <div class="status-badge-container" style="position: relative; display: inline-block; cursor: pointer;" data-id="{{ sale.id }}" data-number="{{ sale.sale_number }}" data-total="{{ sale.total }}" data-status="{{ sale.payment_status }}" data-due="{{ sale.invoice_due_date }}" data-payment-date="{{ sale.payment_date }}" data-proof="{{ sale.payment_proof_file }}" data-payment-history='{{ sale.payment_history | tojson | safe }}' data-bank-account-id="{{ sale.bank_account_id or '' }}" onclick="openEditPaymentModal(this)" title="Haz clic para actualizar el pago de la factura">
+                      <!-- Número de Factura / Boleta Arriba -->
+                      <div class="sf-invoice-badge-wrapper" style="margin-bottom: 6px; line-height: 1.2;">
+                          {% if sale.invoice_number %}
+                              {% if sale.invoice_file %}
+                                  <a href="{{ sale.invoice_file }}" target="_blank" class="sf-invoice-tag" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 700; color: #1e40af; background: #eff6ff; border: 1px solid #bfdbfe; padding: 2px 7px; border-radius: 4px; text-decoration: none; transition: all 0.2s;" title="Clic para ver la factura adjunta">
+                                      <span>📄</span>
+                                      <span>{{ sale.invoice_number if 'factura' in sale.invoice_number.lower() or 'fact' in sale.invoice_number.lower() or 'boleta' in sale.invoice_number.lower() else ('Boleta #' if 'boleta' in (sale.notes or '').lower() else 'Factura #') ~ sale.invoice_number }}</span>
+                                  </a>
+                              {% else %}
+                                  <span class="sf-invoice-tag" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 700; color: #1e40af; background: #eff6ff; border: 1px solid #bfdbfe; padding: 2px 7px; border-radius: 4px;" title="Número de factura/boleta asignado">
+                                      <span>📄</span>
+                                      <span>{{ sale.invoice_number if 'factura' in sale.invoice_number.lower() or 'fact' in sale.invoice_number.lower() or 'boleta' in sale.invoice_number.lower() else ('Boleta #' if 'boleta' in (sale.notes or '').lower() else 'Factura #') ~ sale.invoice_number }}</span>
+                                  </span>
+                              {% endif %}
+                          {% else %}
+                              <span style="display: inline-block; font-size: 11px; color: #94a3b8; font-style: italic; background: #f8fafc; border: 1px dashed #cbd5e1; padding: 2px 6px; border-radius: 4px;" title="Sin número de factura registrado">
+                                  {{ 'Sin Boleta' if 'boleta' in (sale.notes or '').lower() else 'Sin Factura' }}
+                              </span>
+                          {% endif %}
+                      </div>
+
+                      <!-- Estado del Pago Abajo -->
+                      <div class="status-badge-container" style="position: relative; display: inline-block; cursor: pointer;" data-id="{{ sale.id }}" data-number="{{ sale.sale_number }}" data-total="{{ sale.total }}" data-status="{{ sale.payment_status }}" data-due="{{ sale.invoice_due_date }}" data-payment-date="{{ sale.payment_date }}" data-proof="{{ sale.payment_proof_file }}" data-invoice-number="{{ sale.invoice_number }}" data-payment-history='{{ sale.payment_history | tojson | safe }}' data-bank-account-id="{{ sale.bank_account_id or '' }}" onclick="openEditPaymentModal(this)" title="Haz clic para actualizar el pago de la factura">
                            {% if sale.payment_status == 'Pagado' %}
                            <span class="sf-badge sf-badge-success" style="background-color: rgba(72, 187, 120, 0.1); color: #48BB78; border: 1px solid rgba(72, 187, 120, 0.2);">
-                               <span class="sf-badge-dot" style="background-color: #48BB78;"></span>
-                               Pagado
+                                <span class="sf-badge-dot" style="background-color: #48BB78;"></span>
+                                Pagado
                            </span>
                            {% elif sale.payment_status == 'Pendiente Aprobación Pago' %}
                            <span class="sf-badge sf-badge-warning" style="background-color: rgba(236, 201, 75, 0.1); color: #D69E2E; border: 1px solid rgba(236, 201, 75, 0.2);">
-                               <span class="sf-badge-dot" style="background-color: #D69E2E;"></span>
-                               Por Validar
+                                <span class="sf-badge-dot" style="background-color: #D69E2E;"></span>
+                                Por Validar
                            </span>
                            {% elif sale.payment_status == 'Retrasada' %}
                            <span class="sf-badge sf-badge-danger" style="background-color: rgba(229, 62, 62, 0.1); color: #E53E3E; border: 1px solid rgba(229, 62, 62, 0.2);">
-                               <span class="sf-badge-dot" style="background-color: #E53E3E;"></span>
-                               Retrasada
+                                <span class="sf-badge-dot" style="background-color: #E53E3E;"></span>
+                                Retrasada
                            </span>
                            {% elif sale.payment_status == 'Cotización' %}
                             <span class="sf-badge sf-badge-info" style="background-color: rgba(59, 130, 246, 0.1); color: #2563EB; border: 1px solid rgba(59, 130, 246, 0.2);">
@@ -246,32 +277,31 @@
                             </span>
                            {% else %}
                            <span class="sf-badge sf-badge-warning" style="background-color: rgba(237, 137, 54, 0.1); color: #ED8936; border: 1px solid rgba(237, 137, 54, 0.2);">
-                               <span class="sf-badge-dot" style="background-color: #ED8936;"></span>
-                               Pendiente
+                                <span class="sf-badge-dot" style="background-color: #ED8936;"></span>
+                                Pendiente
                            </span>
                            {% endif %}
-                      </div>
 
-                          <!-- Popover flotante para mostrar historial de cobros y pagos -->
-                          <div class="payment-history-popover" style="display: none; position: absolute; bottom: 50%; right: 105%; transform: translateY(50%); background: #2d3748; color: #fff; padding: 12px; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.25); z-index: 9999; width: 280px; font-size: 11px;">
-                              <strong style="display: block; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px; margin-bottom: 6px;">Historial de Pagos y Fechas:</strong>
-                              {% if sale.payment_history %}
-                                  <div style="max-height: 150px; overflow-y: auto;">
-                                      {% for p_hist in sale.payment_history %}
-                                          <div style="margin-bottom: 8px; border-left: 2px solid #4299e1; padding-left: 6px;">
-                                              <span style="font-weight: 600; color: #f7fafc;">{{ p_hist.action }}</span> 
-                                              <span style="color: #cbd5e0;">por {{ p_hist.user_name }}</span>
-                                              <div style="color: #a0aec0;">{{ p_hist.changed_at }}</div>
-                                              {% if p_hist.details %}
-                                                  <div style="color: #e2e8f0; font-size: 10px;">{{ p_hist.details }}</div>
-                                              {% endif %}
-                                          </div>
-                                      {% endfor %}
-                                  </div>
-                              {% else %}
-                                  <span style="color: #cbd5e0;">Sin modificaciones de pagos registradas.</span>
-                              {% endif %}
-                          </div>
+                           <!-- Popover flotante para mostrar historial de cobros y pagos -->
+                           <div class="payment-history-popover" style="display: none; position: absolute; bottom: 50%; right: 105%; transform: translateY(50%); background: #2d3748; color: #fff; padding: 12px; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.25); z-index: 9999; width: 280px; font-size: 11px;">
+                               <strong style="display: block; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px; margin-bottom: 6px;">Historial de Pagos y Fechas:</strong>
+                               {% if sale.payment_history %}
+                                   <div style="max-height: 150px; overflow-y: auto;">
+                                       {% for p_hist in sale.payment_history %}
+                                           <div style="margin-bottom: 8px; border-left: 2px solid #4299e1; padding-left: 6px;">
+                                               <span style="font-weight: 600; color: #f7fafc;">{{ p_hist.action }}</span> 
+                                               <span style="color: #cbd5e0;">por {{ p_hist.user_name }}</span>
+                                               <div style="color: #a0aec0;">{{ p_hist.changed_at }}</div>
+                                               {% if p_hist.details %}
+                                                   <div style="color: #e2e8f0; font-size: 10px;">{{ p_hist.details }}</div>
+                                               {% endif %}
+                                           </div>
+                                       {% endfor %}
+                                   </div>
+                               {% else %}
+                                   <span style="color: #cbd5e0;">Sin modificaciones de pagos registradas.</span>
+                               {% endif %}
+                           </div>
                       </div>
 
                       <!-- Quién subió el comprobante actual -->
@@ -442,9 +472,13 @@
                         <span style="color: #718096; font-size: 13px;">Venta N°:</span>
                         <strong id="label_sale_number" style="color: #2d3748;">-</strong>
                     </div>
-                    <div style="display: flex; justify-content: space-between;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                         <span style="color: #718096; font-size: 13px;">Monto total:</span>
                         <strong id="label_sale_total" style="color: #2d3748;">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: #718096; font-size: 13px;">Factura / Doc:</span>
+                        <strong id="label_sale_invoice_number" style="color: #1e40af;">-</strong>
                     </div>
                 </div>
 
@@ -796,9 +830,15 @@
         const bankAccountId = element.getAttribute('data-bank-account-id');
         const rawHistory = element.getAttribute('data-payment-history') || '[]';
 
+        const invoiceNumber = element.getAttribute('data-invoice-number') || '';
+
         document.getElementById('edit_sale_id').value = saleId;
         document.getElementById('label_sale_number').innerText = saleNumber;
         document.getElementById('label_sale_total').innerText = total;
+        const invLabel = document.getElementById('label_sale_invoice_number');
+        if (invLabel) {
+            invLabel.innerText = invoiceNumber ? invoiceNumber : 'Sin Factura asignada';
+        }
         
         // El estado en BD puede ser 'Retrasada' pero mapea a 'Pendiente' en el select
         const cleanStatus = (paymentStatus === 'Retrasada') ? 'Pendiente' : paymentStatus;
