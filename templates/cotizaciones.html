@@ -636,6 +636,7 @@ function openChangeStatusModal(saleId, saleNumber, currentStatus, currentProb) {
 
     const prob = (currentProb !== undefined && currentProb !== null && currentProb !== '') ? parseInt(currentProb) : 50;
     updateChangeProbFromRange(prob);
+    handleChangeStatusSelectChange();
 
     modal.style.display = 'flex';
 }
@@ -665,11 +666,15 @@ function updateChangeProbFromNumber(val) {
 
 function handleChangeStatusSelectChange() {
     const status = document.getElementById('change_status_select').value;
+    const notice = document.getElementById('modal-ganada-sale-notice');
     if (status === 'Ganada') {
         updateChangeProbFromRange(100);
+        if (notice) notice.style.display = 'block';
     } else if (status === 'Perdida') {
         updateChangeProbFromRange(0);
+        if (notice) notice.style.display = 'none';
     } else if (status === 'Activa') {
+        if (notice) notice.style.display = 'none';
         const cur = parseInt(document.getElementById('change_prob_input').value) || 0;
         if (cur === 0 || cur === 100) {
             updateChangeProbFromRange(50);
@@ -781,6 +786,10 @@ function handleChangeStatusSelectChange() {
                     <option value="Perdida">🔴 Perdida (Descartada)</option>
                 </select>
                 <small style="color: #64748b; font-size: 11px; margin-top: 4px; display: block;">Etapa en el embudo comercial de ventas</small>
+            </div>
+
+            <div id="modal-ganada-sale-notice" style="display: none; margin-bottom: 18px; padding: 10px 12px; background: #f0fdf4; border-left: 4px solid #16a34a; border-radius: 6px; font-size: 12px; color: #166534; line-height: 1.4;">
+                <span>⚡ <strong>Generación Automática de Venta:</strong> Al marcar la cotización como <strong>Ganada</strong>, el sistema generará automáticamente la venta real (VTA-) con su registro de cobranza y consumo de lotes correspondiente.</span>
             </div>
 
             <div style="margin-bottom: 24px; background: #f8fafc; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0;">

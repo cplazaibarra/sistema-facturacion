@@ -1077,7 +1077,13 @@ def nueva_cotizacion():
                 "notes": notes,
             }
             update_sale(edit_id, sale_data)
-            flash(f"Cotización {existing['sale_number']} actualizada correctamente (Estado: {quotation_status} | Probabilidad: {win_probability}%).", "success")
+            if quotation_status == 'Ganada':
+                vta_num, _ = _convert_quotation_to_sale(edit_id)
+                from markupsafe import Markup
+                flash(Markup(f"¡Cotización {existing['sale_number']} actualizada como <strong>Ganada</strong>! Se generó automáticamente la Venta <strong>{vta_num}</strong>. <a href='{url_for('ventas.ventas')}?open_vta={vta_num}' style='font-weight: bold; text-decoration: underline; color: #1A365D;'>Ver Venta</a>"), "success")
+                return redirect(url_for('ventas.cotizaciones', filter='Ganada'))
+            else:
+                flash(f"Cotización {existing['sale_number']} actualizada correctamente (Estado: {quotation_status} | Probabilidad: {win_probability}%).", "success")
         else:
             # ── MODO CREACIÓN: Generar número e insertar nueva cotización ──
             with get_connection() as conn:
@@ -1107,8 +1113,14 @@ def nueva_cotizacion():
                 "notes": notes,
                 "created_at": datetime.utcnow().isoformat(timespec='seconds')
             }
-            insert_sale(sale_data)
-            flash(f"Cotización guardada exitosamente (Estado: {quotation_status} | Probabilidad: {win_probability}%).", "success")
+            new_cot_id = insert_sale(sale_data)
+            if quotation_status == 'Ganada':
+                vta_num, _ = _convert_quotation_to_sale(new_cot_id)
+                from markupsafe import Markup
+                flash(Markup(f"¡Cotización {sale_number} guardada como <strong>Ganada</strong>! Se generó automáticamente la Venta <strong>{vta_num}</strong>. <a href='{url_for('ventas.ventas')}?open_vta={vta_num}' style='font-weight: bold; text-decoration: underline; color: #1A365D;'>Ver Venta</a>"), "success")
+                return redirect(url_for('ventas.cotizaciones', filter='Ganada'))
+            else:
+                flash(f"Cotización guardada exitosamente (Estado: {quotation_status} | Probabilidad: {win_probability}%).", "success")
 
         return redirect(url_for('ventas.cotizaciones'))
         
@@ -1303,19 +1315,25 @@ def emitir_cotizacion(sale_id):
     return redirect(url_for('ventas.cotizaciones'))
 
 
-@ventas_bp.route('/ventas/cotizacion/<int:sale_id>/convertir', methods=['POST'])
-def convertir_cotizacion(sale_id):
-    """Convertir una cotización a venta real (Crea VTA- sin eliminar COT-)"""
-    from db import get_connection, insert_sale
+def _convert_quotation_to_sale(sale_id):
+    """
+    Convierte una cotización a venta real (Crea VTA- sin eliminar COT-).
+    Si ya tiene una venta generada previamente, retorna el folio existente sin duplicar.
+    Retorna: (new_sale_number, error_message)
+    """
+    from db import get_sale, get_connection, insert_sale, consume_lots_for_sale
     quotation = get_sale(sale_id)
     if not quotation:
-        flash("Cotización no encontrada.", "danger")
-        return redirect(url_for('ventas.cotizaciones'))
-        
-    if quotation["status"] != "Cotización" and not str(quotation.get("sale_number", "")).startswith("COT-"):
-        flash("Este registro no es una cotización válida.", "warning")
-        return redirect(url_for('ventas.cotizaciones'))
-        
+        return None, "Cotización no encontrada."
+
+    notes_str = quotation.get("notes") or ""
+    if "Venta Generada:" in notes_str:
+        try:
+            existing_vta = notes_str.split("Venta Generada:")[1].split("\n")[0].strip()
+            return existing_vta, None
+        except Exception:
+            pass
+
     # Generar folio VTA- para la nueva venta
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -1326,10 +1344,10 @@ def convertir_cotizacion(sale_id):
     from datetime import timedelta
     sale_date_dt = datetime.today()
     sale_date = sale_date_dt.strftime('%Y-%m-%d')
-    
+
     pay_method = quotation.get("payment_method") or "Efectivo"
-    notes_raw = (quotation.get("notes") or "").lower()
-    
+    notes_raw = notes_str.lower()
+
     # Determinar si el pago es a 30 días o al contado / mismo día
     if "30" in pay_method.lower() or "30" in notes_raw:
         due_date_dt = sale_date_dt + timedelta(days=30)
@@ -1342,6 +1360,10 @@ def convertir_cotizacion(sale_id):
     origin_tag = f"Cotización de Origen: {quotation['sale_number']}"
     full_notes = f"{origin_tag}\n{cot_notes}" if cot_notes else origin_tag
 
+    # Determinar vendedor responsable
+    seller_name = quotation.get("seller_name") if quotation.get("seller_name") and quotation.get("seller_name") != "Vendedor" else get_logged_in_user_info()[0]
+    seller_initials = quotation.get("seller_initials") if quotation.get("seller_initials") and quotation.get("seller_initials") != "V" else get_logged_in_user_info()[1]
+
     # Crear nueva venta manteniendo la cotización original intacta
     new_sale_data = {
         "sale_number": new_sale_number,
@@ -1353,8 +1375,8 @@ def convertir_cotizacion(sale_id):
         "products": quotation["products"],
         "total_amount": quotation["total_amount"],
         "status": "Pendiente",
-        "seller_name": quotation.get("seller_name") if quotation.get("seller_name") and quotation.get("seller_name") != "Vendedor" else get_logged_in_user_info()[0],
-        "seller_initials": quotation.get("seller_initials") if quotation.get("seller_initials") and quotation.get("seller_initials") != "V" else get_logged_in_user_info()[1],
+        "seller_name": seller_name,
+        "seller_initials": seller_initials,
         "payment_method": pay_method,
         "payment_status": "Pendiente",
         "delivery_status": "Pendiente",
@@ -1387,7 +1409,7 @@ def convertir_cotizacion(sale_id):
                     "Pendiente",
                     logged_user,
                     now_str,
-                    f"Venta creada a partir de Cotización {quotation['sale_number']}"
+                    f"Venta creada automáticamente a partir de Cotización {quotation['sale_number']} (Ganada)"
                 )
             )
             # 3. Guardar en las notas de la cotización de origen qué venta fue creada a partir de ella, y actualizar estado a 'Ganada' con 100% probabilidad
@@ -1395,13 +1417,12 @@ def convertir_cotizacion(sale_id):
             reference_line = f"Venta Generada: {new_sale_number}"
             updated_cot_notes = f"{reference_line}\n{new_cot_notes}" if new_cot_notes else reference_line
             cur.execute(
-                "UPDATE sales SET notes = %s, quotation_status = 'Ganada', win_probability = 100 WHERE id = %s",
+                "UPDATE sales SET notes = %s, status = 'Cotización', quotation_status = 'Ganada', win_probability = 100 WHERE id = %s",
                 (updated_cot_notes, sale_id)
             )
         conn.commit()
 
     # 4. Descontar stock por lote si los productos tenían lote seleccionado
-    from db import consume_lots_for_sale
     lot_consumptions = []
     for prod in quotation.get("products", []):
         if isinstance(prod, dict) and prod.get("lot_number"):
@@ -1412,16 +1433,33 @@ def convertir_cotizacion(sale_id):
             })
     if lot_consumptions:
         consume_lots_for_sale(new_sale_id, lot_consumptions)
+
+    return new_sale_number, None
+
+
+@ventas_bp.route('/ventas/cotizacion/<int:sale_id>/convertir', methods=['POST'])
+def convertir_cotizacion(sale_id):
+    """Convertir una cotización a venta real (Crea VTA- sin eliminar COT-)"""
+    from db import get_sale
+    quotation = get_sale(sale_id)
+    if not quotation:
+        flash("Cotización no encontrada.", "danger")
+        return redirect(url_for('ventas.cotizaciones'))
         
+    vta_num, err = _convert_quotation_to_sale(sale_id)
+    if err and not vta_num:
+        flash(err, "warning")
+        return redirect(url_for('ventas.cotizaciones'))
+
     from markupsafe import Markup
-    msg = Markup(f"Venta {new_sale_number} creada exitosamente a partir de la Cotización {quotation['sale_number']}. La cotización ha pasado a estado 'Ganada' (100%). <a href='{url_for('ventas.ventas')}?filter=Ventas+Pendientes' style='font-weight: bold; text-decoration: underline; color: #1A365D;'>Haz clic aquí para ver la nueva venta</a>.")
+    msg = Markup(f"Venta {vta_num} creada exitosamente a partir de la Cotización {quotation['sale_number']}. La cotización ha pasado a estado 'Ganada' (100%). <a href='{url_for('ventas.ventas')}?open_vta={vta_num}' style='font-weight: bold; text-decoration: underline; color: #1A365D;'>Haz clic aquí para ver la nueva venta</a>.")
     flash(msg, "success")
     return redirect(url_for('ventas.cotizaciones', filter='Ganada'))
 
 
 @ventas_bp.route('/ventas/cotizacion/<int:sale_id>/actualizar-estado', methods=['POST'])
 def actualizar_estado_cotizacion(sale_id):
-    """Actualizar estado (Activa, Ganada, Perdida) y probabilidad de una cotización"""
+    """Actualizar estado (Activa, Ganada, Perdida) y probabilidad de una cotización. Genera venta automática si pasa a Ganada."""
     from db import get_sale, update_quotation_status
     quotation = get_sale(sale_id)
     if not quotation:
@@ -1437,9 +1475,27 @@ def actualizar_estado_cotizacion(sale_id):
         prob_val = max(0, min(100, int(prob_raw)))
     else:
         prob_val = 100 if new_status == 'Ganada' else (0 if new_status == 'Perdida' else 50)
-        
-    update_quotation_status(sale_id, new_status, prob_val)
-    flash(f"Cotización {quotation['sale_number']} actualizada: Estado '{new_status}' con probabilidad del {prob_val}%.", "success")
+
+    if new_status == 'Ganada':
+        notes_str = quotation.get("notes") or ""
+        had_vta = "Venta Generada:" in notes_str
+        vta_num, err = _convert_quotation_to_sale(sale_id)
+
+        from markupsafe import Markup
+        if vta_num and not had_vta:
+            msg = Markup(f"¡Cotización {quotation['sale_number']} marcada como <strong>Ganada</strong>! Se generó automáticamente la Venta <strong>{vta_num}</strong>. <a href='{url_for('ventas.ventas')}?open_vta={vta_num}' style='font-weight: bold; text-decoration: underline; color: #1A365D;'>Haz clic aquí para ver la nueva venta</a>.")
+            flash(msg, "success")
+        elif vta_num:
+            update_quotation_status(sale_id, new_status, 100)
+            msg = Markup(f"Cotización {quotation['sale_number']} actualizada a 'Ganada'. Venta asociada: <strong>{vta_num}</strong>. <a href='{url_for('ventas.ventas')}?open_vta={vta_num}' style='font-weight: bold; text-decoration: underline; color: #1A365D;'>Ver Venta</a>.")
+            flash(msg, "success")
+        else:
+            update_quotation_status(sale_id, new_status, 100)
+            flash(f"Cotización {quotation['sale_number']} actualizada a 'Ganada' (100%).", "success")
+    else:
+        update_quotation_status(sale_id, new_status, prob_val)
+        flash(f"Cotización {quotation['sale_number']} actualizada: Estado '{new_status}' con probabilidad del {prob_val}%.", "success")
+
     return redirect(url_for('ventas.cotizaciones', filter=new_status))
 
 
