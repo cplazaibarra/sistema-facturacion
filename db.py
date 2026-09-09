@@ -3115,6 +3115,127 @@ def list_active_purchase_orders_by_supplier(supplier_id: int) -> list[dict]:
             )
             return [dict(row) for row in cur.fetchall()]
 
+def get_purchase_years() -> list[int]:
+    """Obtiene los años disponibles con órdenes de compra registradas."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT DISTINCT SUBSTRING(order_date, 1, 4)::int as yr
+                FROM purchase_orders
+                WHERE order_date IS NOT NULL AND status != 'Cancelada'
+                ORDER BY yr DESC
+            """)
+            years = [r['yr'] for r in cur.fetchall() if r['yr']]
+            current_yr = datetime.now().year
+            if current_yr not in years:
+                years.insert(0, current_yr)
+            return sorted(list(set(years)), reverse=True)
+
+def get_purchased_products_matrix(year: int, category: str = None) -> dict:
+    """
+    Genera la matriz mensual de productos comprados por SKU para un año determinado.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            query = """
+                SELECT 
+                    p.id as product_id,
+                    COALESCE(NULLIF(p.sku, ''), 'SIN-SKU') as sku,
+                    p.name as product_name,
+                    COALESCE(NULLIF(p.category, ''), 'Sin Categoría') as category,
+                    COALESCE(NULLIF(p.unit_of_measure, ''), 'UN') as unit_of_measure,
+                    SUBSTRING(po.order_date, 6, 2)::int as month_num,
+                    SUM(poi.quantity_ordered) as total_qty,
+                    SUM(COALESCE(poi.total_price, poi.quantity_ordered * poi.unit_price, 0)) as total_amount
+                FROM purchase_order_items poi
+                JOIN purchase_orders po ON poi.purchase_order_id = po.id
+                JOIN products p ON poi.product_id = p.id
+                WHERE po.status NOT IN ('Cancelada', 'Borrador')
+                  AND SUBSTRING(po.order_date, 1, 4)::int = %s
+            """
+            params = [year]
+            if category and category != 'all':
+                query += " AND p.category = %s"
+                params.append(category)
+
+            query += """
+                GROUP BY p.id, p.sku, p.name, p.category, p.unit_of_measure, month_num
+                ORDER BY p.name, month_num
+            """
+            cur.execute(query, tuple(params))
+            rows = cur.fetchall()
+
+            # Obtener todas las categorías para filtros
+            cur.execute("""
+                SELECT DISTINCT COALESCE(NULLIF(p.category, ''), 'Sin Categoría') as cat
+                FROM purchase_order_items poi
+                JOIN purchase_orders po ON poi.purchase_order_id = po.id
+                JOIN products p ON poi.product_id = p.id
+                WHERE po.status NOT IN ('Cancelada', 'Borrador')
+                  AND SUBSTRING(po.order_date, 1, 4)::int = %s
+                ORDER BY cat
+            """, (year,))
+            categories = [r['cat'] for r in cur.fetchall() if r['cat']]
+
+    # Estructurar la matriz
+    products_map = {}
+    monthly_totals = {m: 0 for m in range(1, 13)}
+    monthly_amounts = {m: 0.0 for m in range(1, 13)}
+
+    for row in rows:
+        pid = row['product_id']
+        m = row['month_num']
+        qty = int(row['total_qty'] or 0)
+        amt = float(row['total_amount'] or 0.0)
+
+        if pid not in products_map:
+            products_map[pid] = {
+                'product_id': pid,
+                'sku': row['sku'],
+                'product_name': row['product_name'],
+                'category': row['category'],
+                'unit_of_measure': row['unit_of_measure'],
+                'months': {i: 0 for i in range(1, 13)},
+                'total_qty': 0,
+                'total_amount': 0.0
+            }
+
+        products_map[pid]['months'][m] += qty
+        products_map[pid]['total_qty'] += qty
+        products_map[pid]['total_amount'] += amt
+
+        if 1 <= m <= 12:
+            monthly_totals[m] += qty
+            monthly_amounts[m] += amt
+
+    products_list = sorted(products_map.values(), key=lambda x: x['total_qty'], reverse=True)
+    grand_total_qty = sum(monthly_totals.values())
+    grand_total_amount = sum(monthly_amounts.values())
+
+    month_names = {
+        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+        5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
+        9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+    }
+
+    top_month_num = max(monthly_totals, key=monthly_totals.get) if grand_total_qty > 0 else None
+    top_month = f"{month_names[top_month_num]} ({monthly_totals[top_month_num]:,} u)" if top_month_num and monthly_totals[top_month_num] > 0 else "—"
+    top_product = f"{products_list[0]['sku']} - {products_list[0]['product_name']} ({products_list[0]['total_qty']:,} u)" if products_list else "—"
+
+    return {
+        'year': year,
+        'products': products_list,
+        'monthly_totals': monthly_totals,
+        'monthly_amounts': monthly_amounts,
+        'grand_total_qty': grand_total_qty,
+        'grand_total_amount': grand_total_amount,
+        'categories': categories,
+        'top_product': top_product,
+        'top_month': top_month,
+        'total_skus': len(products_list)
+    }
+
+
 def register_inventory_entry(
     po_id: int, order_number: str, entry_date: str,
     warehouse: str, notes: str, items: list,

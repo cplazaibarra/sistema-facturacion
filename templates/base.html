@@ -76,19 +76,22 @@
                     </div>
                 </div>
                 <div class="nav-section">
-                    <button class="nav-item nav-toggle {% if request.endpoint in ['compras.list_oc', 'compras.nueva_oc', 'compras.editar_oc', 'compras.cuentas_por_pagar', 'proveedores.proveedores', 'proveedores.ver_proveedor', 'proveedores.editar_proveedor', 'proveedores.agregar_contacto', 'proveedores.editar_contacto'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['compras.list_oc', 'compras.nueva_oc', 'compras.editar_oc', 'compras.cuentas_por_pagar', 'compras.productos_comprados', 'proveedores.proveedores', 'proveedores.ver_proveedor', 'proveedores.editar_proveedor', 'proveedores.agregar_contacto', 'proveedores.editar_contacto'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
                         <span class="icon"><i class="fa-solid fa-cart-shopping"></i></span>
                         <span>Compra</span>
                         <span id="badge-facturas" style="display:none;background:#e53e3e;color:#fff;border-radius:12px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:4px;min-width:18px;text-align:center;"></span>
                         <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
-                    <div class="nav-submenu {% if request.endpoint in ['compras.list_oc', 'compras.nueva_oc', 'compras.editar_oc', 'compras.cuentas_por_pagar', 'proveedores.proveedores', 'proveedores.ver_proveedor', 'proveedores.editar_proveedor', 'proveedores.agregar_contacto', 'proveedores.editar_contacto'] %}open{% endif %}">
+                    <div class="nav-submenu {% if request.endpoint in ['compras.list_oc', 'compras.nueva_oc', 'compras.editar_oc', 'compras.cuentas_por_pagar', 'compras.productos_comprados', 'proveedores.proveedores', 'proveedores.ver_proveedor', 'proveedores.editar_proveedor', 'proveedores.agregar_contacto', 'proveedores.editar_contacto'] %}open{% endif %}">
                         <a href="{{ url_for('compras.list_oc') }}" class="nav-item nav-subitem {% if request.endpoint in ['compras.list_oc', 'compras.nueva_oc', 'compras.editar_oc'] %}active{% endif %}">
                             <span>Órdenes de Compra</span>
                         </a>
                         <a href="{{ url_for('compras.cuentas_por_pagar') }}" class="nav-item nav-subitem {% if request.endpoint == 'compras.cuentas_por_pagar' %}active{% endif %}" style="display:flex;align-items:center;justify-content:space-between;">
                             <span>Cuentas por Pagar</span>
                             <span id="badge-facturas-sub" style="display:none;background:#e53e3e;color:#fff;border-radius:12px;font-size:10px;font-weight:700;padding:1px 6px;min-width:18px;text-align:center;"></span>
+                        </a>
+                        <a href="{{ url_for('compras.productos_comprados') }}" class="nav-item nav-subitem {% if request.endpoint == 'compras.productos_comprados' %}active{% endif %}">
+                            <span>Productos Comprados</span>
                         </a>
                         <a href="{{ url_for('proveedores.proveedores') }}" class="nav-item nav-subitem {% if request.endpoint in ['proveedores.proveedores', 'proveedores.ver_proveedor', 'proveedores.editar_proveedor', 'proveedores.agregar_contacto', 'proveedores.editar_contacto'] %}active{% endif %}">
                             <span>Proveedores</span>

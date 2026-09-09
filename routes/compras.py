@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, jsonify, flash, send_file, session
+from flask import Blueprint, render_template, request, redirect, url_for, jsonify, flash, send_file, session, Response
 from datetime import datetime, date
 import io, os
 from db import (
@@ -20,6 +20,8 @@ from db import (
     count_pending_invoices,
     update_invoice_payment_status,
     list_entries_missing_invoice,
+    get_purchase_years,
+    get_purchased_products_matrix,
 )
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -27,6 +29,79 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
 compras_bp = Blueprint('compras', __name__)
+
+@compras_bp.route('/compras/productos-comprados')
+def productos_comprados():
+    """Matriz mensual de productos comprados por SKU"""
+    available_years = get_purchase_years()
+    current_year = datetime.now().year
+    default_year = available_years[0] if available_years else current_year
+
+    selected_year = request.args.get('year', default_year, type=int)
+    selected_category = request.args.get('category', 'all').strip()
+
+    matrix_data = get_purchased_products_matrix(selected_year, selected_category)
+
+    months_headers = [
+        (1, 'Ene'), (2, 'Feb'), (3, 'Mar'), (4, 'Abr'),
+        (5, 'May'), (6, 'Jun'), (7, 'Jul'), (8, 'Ago'),
+        (9, 'Sep'), (10, 'Oct'), (11, 'Nov'), (12, 'Dic')
+    ]
+
+    return render_template(
+        'compras_productos_comprados.html',
+        matrix=matrix_data,
+        available_years=available_years,
+        selected_year=selected_year,
+        selected_category=selected_category,
+        months_headers=months_headers
+    )
+
+@compras_bp.route('/compras/productos-comprados/exportar-csv')
+def exportar_productos_comprados_csv():
+    """Descarga en formato CSV la matriz de productos comprados"""
+    available_years = get_purchase_years()
+    default_year = available_years[0] if available_years else datetime.now().year
+    selected_year = request.args.get('year', default_year, type=int)
+    selected_category = request.args.get('category', 'all').strip()
+
+    matrix_data = get_purchased_products_matrix(selected_year, selected_category)
+
+    import csv
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=';')
+
+    month_names = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+    headers = ['SKU', 'Producto', 'Categoría', 'Unidad'] + month_names + [f'Total {selected_year}']
+    writer.writerow(headers)
+
+    for p in matrix_data['products']:
+        row = [
+            p['sku'],
+            p['product_name'],
+            p['category'],
+            p['unit_of_measure']
+        ]
+        for m in range(1, 13):
+            row.append(p['months'].get(m, 0))
+        row.append(p['total_qty'])
+        writer.writerow(row)
+
+    total_row = ['TOTALES', '', '', '']
+    for m in range(1, 13):
+        total_row.append(matrix_data['monthly_totals'].get(m, 0))
+    total_row.append(matrix_data['grand_total_qty'])
+    writer.writerow(total_row)
+
+    csv_data = output.getvalue()
+    output.close()
+
+    filename = f"productos_comprados_{selected_year}.csv"
+    return Response(
+        "\ufeff" + csv_data,
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment;filename={filename}"}
+    )
 
 @compras_bp.route('/compras/oc')
 def list_oc():

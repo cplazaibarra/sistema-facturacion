@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}Productos Comprados - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Compra > Productos Comprados{% endblock %}
+
+{% block content %}
+<!-- Barra de acciones superior -->
+<div class="sf-action-bar" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+    <div class="sf-action-left">
+        <h3 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b;">
+            <i class="fa-solid fa-boxes-stacked" style="color: #3b82f6; margin-right: 8px;"></i>
+            Matriz de Productos Comprados por SKU
+        </h3>
+        <p style="margin: 4px 0 0; color: #64748b; font-size: 13px;">
+            Cantidades mensuales adquiridas por cada producto e insumo durante el año <strong>{{ selected_year }}</strong>.
+        </p>
+    </div>
+    <div class="sf-action-right" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <!-- Selector de Año -->
+        <div style="display: flex; align-items: center; gap: 6px; background: white; padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+            <label for="year-selector" style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">
+                <i class="fa-solid fa-calendar-days" style="color: #3b82f6;"></i> Año:
+            </label>
+            <select id="year-selector" onchange="changeYear(this.value)"
+                    style="border: none; background: transparent; font-weight: 700; color: #1e293b; font-size: 14px; outline: none; cursor: pointer;">
+                {% for y in available_years %}
+                <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Botón Exportar CSV -->
+        <a href="{{ url_for('compras.exportar_productos_comprados_csv', year=selected_year, category=selected_category) }}"
+           class="sf-btn-primary"
+           style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; background: #059669; color: white; font-weight: 600; font-size: 13px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+            <i class="fa-solid fa-file-excel"></i>
+            <span>Exportar CSV</span>
+        </a>
+    </div>
+</div>
+
+<!-- Tarjetas de métricas y resumen -->
+<div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    <div class="stat-card" style="background: white; padding: 18px 20px; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); display: flex; align-items: center; gap: 16px;">
+        <div style="width: 48px; height: 48px; border-radius: 10px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            <i class="fa-solid fa-boxes-packing"></i>
+        </div>
+        <div>
+            <div style="font-size: 22px; font-weight: 700; color: #1e293b;">{{ "{:,.0f}".format(matrix.grand_total_qty) }} <span style="font-size: 13px; font-weight: 500; color: #64748b;">u</span></div>
+            <div style="font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;">Total Comprado ({{ selected_year }})</div>
+        </div>
+    </div>
+
+    <div class="stat-card" style="background: white; padding: 18px 20px; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); display: flex; align-items: center; gap: 16px;">
+        <div style="width: 48px; height: 48px; border-radius: 10px; background: #f0fdf4; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            <i class="fa-solid fa-barcode"></i>
+        </div>
+        <div>
+            <div style="font-size: 22px; font-weight: 700; color: #1e293b;">{{ matrix.total_skus }}</div>
+            <div style="font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;">SKUs Diferentes</div>
+        </div>
+    </div>
+
+    <div class="stat-card" style="background: white; padding: 18px 20px; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); display: flex; align-items: center; gap: 16px;">
+        <div style="width: 48px; height: 48px; border-radius: 10px; background: #fefce8; color: #ca8a04; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            <i class="fa-solid fa-chart-line"></i>
+        </div>
+        <div>
+            <div style="font-size: 16px; font-weight: 700; color: #1e293b;">{{ matrix.top_month }}</div>
+            <div style="font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;">Mes Mayor Compra</div>
+        </div>
+    </div>
+
+    <div class="stat-card" style="background: white; padding: 18px 20px; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); display: flex; align-items: center; gap: 16px;">
+        <div style="width: 48px; height: 48px; border-radius: 10px; background: #f5f3ff; color: #7c3aed; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            <i class="fa-solid fa-crown"></i>
+        </div>
+        <div>
+            <div style="font-size: 14px; font-weight: 700; color: #1e293b; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ matrix.top_product }}">
+                {{ matrix.top_product }}
+            </div>
+            <div style="font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase;">SKU Más Adquirido</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tarjeta Principal con la Matriz -->
+<div class="recent-card" style="background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; overflow: hidden;">
+    
+    <!-- Barra de Filtros y Búsqueda -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; flex: 1;">
+            <!-- Buscador por texto -->
+            <div style="position: relative; min-width: 240px; flex: 1; max-width: 320px;">
+                <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #a0aec0; font-size: 13px;">🔍</span>
+                <input type="text" id="matrix-search-input" onkeyup="filterMatrixTable()" placeholder="Buscar por SKU o nombre..."
+                       style="width: 100%; padding: 7px 10px 7px 32px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; background: #fff;">
+            </div>
+
+            <!-- Filtro por Categoría -->
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <label for="filter-category" style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">
+                    <i class="fa-solid fa-tags" style="color: #64748b;"></i> Categoría:
+                </label>
+                <select id="filter-category" onchange="filterMatrixTable()"
+                        style="padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; cursor: pointer;">
+                    <option value="">-- Todas las Categorías --</option>
+                    {% for cat in matrix.categories %}
+                    <option value="{{ cat }}" {% if selected_category == cat %}selected{% endif %}>{{ cat }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Botón Limpiar -->
+            <button type="button" onclick="clearMatrixFilters()" title="Limpiar Filtros"
+                    style="padding: 7px 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #475569; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                <i class="fa-solid fa-rotate-left" style="font-size: 11px;"></i> Limpiar
+            </button>
+        </div>
+
+        <div style="font-size: 13px; color: #718096; white-space: nowrap;">
+            Mostrando <strong id="matrix-count" style="color: #2d3748;">{{ matrix.products|length }}</strong> SKU(s)
+        </div>
+    </div>
+
+    <!-- Tabla Matriz con Scroll Horizontal -->
+    <div style="overflow-x: auto; max-width: 100%; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <table class="data-table" style="width: 100%; border-collapse: collapse; min-width: 950px;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                    <th style="padding: 10px 14px; text-align: left; font-size: 12px; color: #475569; font-weight: 700; position: sticky; left: 0; background: #f8fafc; z-index: 2; min-width: 130px; box-shadow: 1px 0 0 #e2e8f0;">
+                        SKU
+                    </th>
+                    <th style="padding: 10px 14px; text-align: left; font-size: 12px; color: #475569; font-weight: 700; min-width: 200px;">
+                        PRODUCTO
+                    </th>
+                    <th style="padding: 10px 10px; text-align: left; font-size: 12px; color: #475569; font-weight: 700; min-width: 120px;">
+                        CATEGORÍA
+                    </th>
+                    <th style="padding: 10px 8px; text-align: center; font-size: 12px; color: #475569; font-weight: 700; width: 50px;">
+                        UM
+                    </th>
+                    {% for m_num, m_name in months_headers %}
+                    <th style="padding: 10px 8px; text-align: right; font-size: 12px; color: #475569; font-weight: 700; min-width: 55px;">
+                        {{ m_name }}
+                    </th>
+                    {% endfor %}
+                    <th style="padding: 10px 14px; text-align: right; font-size: 12px; color: #1e293b; font-weight: 800; min-width: 85px; background: #eff6ff;">
+                        TOTAL
+                    </th>
+                </tr>
+            </thead>
+            <tbody id="matrix-tbody">
+                {% for p in matrix.products %}
+                <tr class="matrix-row" data-category="{{ p.category }}" style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;">
+                    <!-- SKU Sticky -->
+                    <td style="padding: 10px 14px; font-weight: 700; color: #1e293b; position: sticky; left: 0; background: white; z-index: 1; box-shadow: 1px 0 0 #e2e8f0;">
+                        <span style="font-family: monospace; font-size: 13px; color: #2563eb; background: #eff6ff; padding: 2px 6px; border-radius: 4px; border: 1px solid #dbeafe;">
+                            {{ p.sku }}
+                        </span>
+                    </td>
+                    <!-- Nombre -->
+                    <td style="padding: 10px 14px; font-weight: 600; color: #334155; font-size: 13px;">
+                        {{ p.product_name }}
+                    </td>
+                    <!-- Categoría -->
+                    <td style="padding: 10px 10px; color: #64748b; font-size: 12px;">
+                        <span style="background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+                            {{ p.category }}
+                        </span>
+                    </td>
+                    <!-- Unidad de Medida -->
+                    <td style="padding: 10px 8px; text-align: center; color: #94a3b8; font-size: 11px; font-weight: 600;">
+                        {{ p.unit_of_measure }}
+                    </td>
+                    <!-- Meses 1 a 12 -->
+                    {% for m_num, m_name in months_headers %}
+                        {% set qty = p.months[m_num] %}
+                        <td style="padding: 10px 8px; text-align: right; font-size: 13px; {% if qty > 0 %}font-weight: 700; color: #0f172a; background: #f0fdf4;{% else %}color: #cbd5e1;{% endif %}">
+                            {% if qty > 0 %}
+                                {{ "{:,.0f}".format(qty) }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                    <!-- Total Anual -->
+                    <td style="padding: 10px 14px; text-align: right; font-weight: 800; color: #1e3a8a; font-size: 14px; background: #eff6ff;">
+                        {{ "{:,.0f}".format(p.total_qty) }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr id="empty-initial-row">
+                    <td colspan="17" style="text-align: center; color: #94a3b8; padding: 36px 14px;">
+                        <i class="fa-solid fa-box-open" style="font-size: 32px; color: #cbd5e1; margin-bottom: 8px; display: block;"></i>
+                        No se registraron compras de productos durante el año {{ selected_year }}.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <!-- Fila de Totales Mensuales (Pie) -->
+            {% if matrix.products %}
+            <tfoot>
+                <tr style="background: #f8fafc; border-top: 2px solid #cbd5e1; font-weight: 800;">
+                    <td style="padding: 12px 14px; color: #0f172a; position: sticky; left: 0; background: #f8fafc; z-index: 2; box-shadow: 1px 0 0 #e2e8f0; font-size: 13px;">
+                        TOTAL MENSUAL
+                    </td>
+                    <td style="padding: 12px 14px; color: #64748b; font-size: 12px;">
+                        {{ matrix.total_skus }} SKUs
+                    </td>
+                    <td></td>
+                    <td style="text-align: center; color: #64748b; font-size: 12px;">u</td>
+                    {% for m_num, m_name in months_headers %}
+                        {% set m_total = matrix.monthly_totals[m_num] %}
+                        <td style="padding: 12px 8px; text-align: right; font-size: 13px; {% if m_total > 0 %}color: #15803d; font-weight: 800; background: #dcfce7;{% else %}color: #94a3b8;{% endif %}">
+                            {% if m_total > 0 %}
+                                {{ "{:,.0f}".format(m_total) }}
+                            {% else %}
+                                0
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                    <td style="padding: 12px 14px; text-align: right; font-size: 15px; font-weight: 900; color: #1e3a8a; background: #dbeafe;">
+                        {{ "{:,.0f}".format(matrix.grand_total_qty) }}
+                    </td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+
+</div>
+
+{% block scripts %}
+<script>
+    function changeYear(year) {
+        const cat = document.getElementById('filter-category').value;
+        let url = `?year=${year}`;
+        if (cat) url += `&category=${encodeURIComponent(cat)}`;
+        window.location.href = url;
+    }
+
+    function filterMatrixTable() {
+        const searchVal = (document.getElementById('matrix-search-input').value || '').toLowerCase().trim();
+        const catVal = (document.getElementById('filter-category').value || '').trim().toLowerCase();
+
+        const rows = document.querySelectorAll('.matrix-row');
+        let visible = 0;
+
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            const rowCat = (row.getAttribute('data-category') || '').toLowerCase();
+
+            const matchSearch = !searchVal || text.includes(searchVal);
+            const matchCat = !catVal || rowCat === catVal;
+
+            if (matchSearch && matchCat) {
+                row.style.display = '';
+                visible++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        const countElem = document.getElementById('matrix-count');
+        if (countElem) countElem.textContent = visible;
+
+        let noResultRow = document.getElementById('no-matrix-results-row');
+        const tbody = document.getElementById('matrix-tbody');
+        if (visible === 0) {
+            if (!noResultRow && tbody) {
+                noResultRow = document.createElement('tr');
+                noResultRow.id = 'no-matrix-results-row';
+                noResultRow.innerHTML = '<td colspan="17" style="text-align:center; color:#718096; padding:32px;"><i class="fa-solid fa-magnifying-glass" style="margin-right:6px;"></i>No se encontraron SKUs con los filtros aplicados.</td>';
+                tbody.appendChild(noResultRow);
+            } else if (noResultRow) {
+                noResultRow.style.display = '';
+            }
+        } else if (noResultRow) {
+            noResultRow.style.display = 'none';
+        }
+    }
+
+    function clearMatrixFilters() {
+        document.getElementById('matrix-search-input').value = '';
+        document.getElementById('filter-category').value = '';
+        filterMatrixTable();
+    }
+</script>
+{% endblock %}
+{% endblock %}
