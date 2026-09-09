@@ -933,6 +933,16 @@ def ingreso_ventas():
         }
 
         if entry["sku"] and entry["product_name"] and entry["sale_date"]:
+            from db import get_product_available_stock
+            avail = get_product_available_stock(entry["sku"])
+            if quantity > avail:
+                avail_disp = int(avail) if avail.is_integer() else avail
+                flash(
+                    f"Stock insuficiente en bodega para '{entry['product_name']}'. "
+                    f"Se solicitaron {quantity} unidades, pero el máximo disponible en bodega es de {avail_disp} unidades.",
+                    "danger"
+                )
+                return redirect(url_for('ventas.ingreso_ventas'))
             insert_sales_entry(entry)
 
         return redirect(url_for('ventas.ingreso_ventas'))
@@ -1078,7 +1088,12 @@ def nueva_cotizacion():
             }
             update_sale(edit_id, sale_data)
             if quotation_status == 'Ganada':
-                vta_num, _ = _convert_quotation_to_sale(edit_id)
+                vta_num, err = _convert_quotation_to_sale(edit_id)
+                if not vta_num and err:
+                    from markupsafe import Markup
+                    flash(Markup(f"⚠️ Cotización {existing['sale_number']} guardada, pero <strong>no se pudo generar la venta por stock insuficiente</strong>: {err}"), "danger")
+                    update_quotation_status(edit_id, existing.get('quotation_status') or 'Activa', existing.get('win_probability') or 50)
+                    return redirect(url_for('ventas.cotizaciones'))
                 from markupsafe import Markup
                 flash(Markup(f"¡Cotización {existing['sale_number']} actualizada como <strong>Ganada</strong>! Se generó automáticamente la Venta <strong>{vta_num}</strong>. <a href='{url_for('ventas.ventas')}?open_vta={vta_num}' style='font-weight: bold; text-decoration: underline; color: #1A365D;'>Ver Venta</a>"), "success")
                 return redirect(url_for('ventas.cotizaciones', filter='Ganada'))
@@ -1115,7 +1130,12 @@ def nueva_cotizacion():
             }
             new_cot_id = insert_sale(sale_data)
             if quotation_status == 'Ganada':
-                vta_num, _ = _convert_quotation_to_sale(new_cot_id)
+                vta_num, err = _convert_quotation_to_sale(new_cot_id)
+                if not vta_num and err:
+                    from markupsafe import Markup
+                    flash(Markup(f"⚠️ Cotización {sale_number} guardada, pero <strong>no se pudo generar la venta por stock insuficiente</strong>: {err}"), "danger")
+                    update_quotation_status(new_cot_id, 'Activa', 50)
+                    return redirect(url_for('ventas.cotizaciones'))
                 from markupsafe import Markup
                 flash(Markup(f"¡Cotización {sale_number} guardada como <strong>Ganada</strong>! Se generó automáticamente la Venta <strong>{vta_num}</strong>. <a href='{url_for('ventas.ventas')}?open_vta={vta_num}' style='font-weight: bold; text-decoration: underline; color: #1A365D;'>Ver Venta</a>"), "success")
                 return redirect(url_for('ventas.cotizaciones', filter='Ganada'))
@@ -1124,7 +1144,10 @@ def nueva_cotizacion():
 
         return redirect(url_for('ventas.cotizaciones'))
         
+    from db import get_product_available_stock
     products = [p for p in list_products() if p.get('product_type', 'Final') != 'Insumo']
+    for p in products:
+        p['available_stock'] = int(get_product_available_stock(p['id']))
     default_date = datetime.today().strftime('%Y-%m-%d')
 
     # ── Detectar modo EDICIÓN (edit_id) o modo CLONACIÓN (clone_id) ──
@@ -1319,9 +1342,17 @@ def _convert_quotation_to_sale(sale_id):
     """
     Convierte una cotización a venta real (Crea VTA- sin eliminar COT-).
     Si ya tiene una venta generada previamente, retorna el folio existente sin duplicar.
+    Valida previamente que exista stock suficiente en bodega. Si no hay suficiente stock,
+    no genera la venta y retorna el mensaje de error correspondiente.
     Retorna: (new_sale_number, error_message)
     """
-    from db import get_sale, get_connection, insert_sale, consume_lots_for_sale
+    from db import (
+        get_sale,
+        get_connection,
+        insert_sale,
+        validate_stock_for_sale,
+        discount_stock_for_sale
+    )
     quotation = get_sale(sale_id)
     if not quotation:
         return None, "Cotización no encontrada."
@@ -1333,6 +1364,12 @@ def _convert_quotation_to_sale(sale_id):
             return existing_vta, None
         except Exception:
             pass
+
+    # 1. Validar que haya stock físico suficiente en bodega antes de emitir la venta
+    products_list = quotation.get("products", [])
+    is_valid, err_msg, details = validate_stock_for_sale(products_list)
+    if not is_valid:
+        return None, err_msg
 
     # Generar folio VTA- para la nueva venta
     with get_connection() as conn:
@@ -1372,7 +1409,7 @@ def _convert_quotation_to_sale(sale_id):
         "customer_initials": quotation.get("customer_initials", ""),
         "sale_date": sale_date,
         "sale_time": datetime.now().strftime("%H:%M:%S"),
-        "products": quotation["products"],
+        "products": products_list,
         "total_amount": quotation["total_amount"],
         "status": "Pendiente",
         "seller_name": seller_name,
@@ -1422,17 +1459,8 @@ def _convert_quotation_to_sale(sale_id):
             )
         conn.commit()
 
-    # 4. Descontar stock por lote si los productos tenían lote seleccionado
-    lot_consumptions = []
-    for prod in quotation.get("products", []):
-        if isinstance(prod, dict) and prod.get("lot_number"):
-            lot_consumptions.append({
-                "product_id": prod.get("product_id"),
-                "lot_number": prod.get("lot_number"),
-                "quantity": prod.get("quantity", 0)
-            })
-    if lot_consumptions:
-        consume_lots_for_sale(new_sale_id, lot_consumptions)
+    # 4. Descontar existencias en bodega (lotes y/o inventario general)
+    discount_stock_for_sale(new_sale_id, products_list)
 
     return new_sale_number, None
 
@@ -1448,7 +1476,8 @@ def convertir_cotizacion(sale_id):
         
     vta_num, err = _convert_quotation_to_sale(sale_id)
     if err and not vta_num:
-        flash(err, "warning")
+        from markupsafe import Markup
+        flash(Markup(f"⚠️ <strong>No se pudo convertir a Venta:</strong> {err}"), "danger")
         return redirect(url_for('ventas.cotizaciones'))
 
     from markupsafe import Markup
@@ -1490,8 +1519,8 @@ def actualizar_estado_cotizacion(sale_id):
             msg = Markup(f"Cotización {quotation['sale_number']} actualizada a 'Ganada'. Venta asociada: <strong>{vta_num}</strong>. <a href='{url_for('ventas.ventas')}?open_vta={vta_num}' style='font-weight: bold; text-decoration: underline; color: #1A365D;'>Ver Venta</a>.")
             flash(msg, "success")
         else:
-            update_quotation_status(sale_id, new_status, 100)
-            flash(f"Cotización {quotation['sale_number']} actualizada a 'Ganada' (100%).", "success")
+            flash(Markup(f"⚠️ <strong>No se pudo cambiar a 'Ganada' ni generar la venta:</strong> {err}"), "danger")
+            return redirect(url_for('ventas.cotizaciones'))
     else:
         update_quotation_status(sale_id, new_status, prob_val)
         flash(f"Cotización {quotation['sale_number']} actualizada: Estado '{new_status}' con probabilidad del {prob_val}%.", "success")
@@ -1665,6 +1694,21 @@ def api_sale_lots(sale_id):
     from db import get_sale_lot_movements
     movs = get_sale_lot_movements(sale_id)
     return jsonify(movs)
+
+
+@ventas_bp.route('/api/producto/<int:product_id>/stock')
+def api_producto_stock(product_id):
+    """Retorna el stock disponible en bodega para un producto (y lote opcional)."""
+    from db import get_product_available_stock
+    lot = request.args.get('lot', '').strip() or None
+    avail = get_product_available_stock(product_id, lot)
+    avail_disp = int(avail) if avail.is_integer() else avail
+    return jsonify({
+        "product_id": product_id,
+        "available_stock": avail_disp,
+        "lot": lot
+    })
+
 
 
 

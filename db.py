@@ -3371,6 +3371,153 @@ def get_lot_traceability(lot_number: str) -> dict:
             }
 
 
+def get_product_available_stock(product_id_or_sku, lot_number: str = None) -> float:
+    """
+    Retorna el stock disponible en bodega para un producto (y lote específico si se indica).
+    """
+    clean_lot = (lot_number or "").strip()
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            if isinstance(product_id_or_sku, int) or (isinstance(product_id_or_sku, str) and str(product_id_or_sku).isdigit()):
+                cur.execute("SELECT id, sku, requires_lot FROM products WHERE id = %s", (int(product_id_or_sku),))
+            else:
+                cur.execute(
+                    "SELECT id, sku, requires_lot FROM products WHERE sku = %s OR LOWER(name) = LOWER(%s)",
+                    (str(product_id_or_sku).strip(), str(product_id_or_sku).strip())
+                )
+            prod = cur.fetchone()
+            if not prod:
+                return 0.0
+
+            product_id = prod["id"]
+            sku = prod["sku"]
+            requires_lot = bool(prod.get("requires_lot"))
+
+            # Si se consulta por un lote físico específico:
+            if clean_lot:
+                cur.execute(
+                    "SELECT COALESCE(available_qty, 0) as qty FROM lot_stock WHERE product_id = %s AND lot_number = %s",
+                    (product_id, clean_lot)
+                )
+                row = cur.fetchone()
+                return float(row["qty"] or 0) if row else 0.0
+
+            # 1. Total disponible en lotes (lot_stock)
+            cur.execute(
+                "SELECT COALESCE(SUM(available_qty), 0) as total_lot FROM lot_stock WHERE product_id = %s",
+                (product_id,)
+            )
+            lot_row = cur.fetchone()
+            total_lot = float(lot_row["total_lot"] or 0) if lot_row else 0.0
+
+    # 2. Total disponible en inventario general (inventory_items)
+    inventory_items = get_page_data("inventory_items") or []
+    inv_stock = 0.0
+    found_in_inv = False
+    for item in inventory_items:
+        if item.get("code") == sku:
+            inv_stock = float(item.get("stock", 0) or 0)
+            found_in_inv = True
+            break
+
+    if requires_lot:
+        return total_lot
+
+    if total_lot > 0 and inv_stock > 0:
+        return max(total_lot, inv_stock)
+    elif total_lot > 0:
+        return total_lot
+    elif found_in_inv:
+        return inv_stock
+    else:
+        return 0.0
+
+
+def validate_stock_for_sale(products_list: list) -> tuple[bool, str, dict]:
+    """
+    Valida que todos los productos de la venta tengan stock disponible suficiente en bodega.
+    Retorna: (is_valid, error_message, stock_details)
+    """
+    for prod in products_list:
+        if not isinstance(prod, dict):
+            continue
+        pid = prod.get("product_id") or prod.get("id")
+        pname = prod.get("product_name") or prod.get("name") or "Producto"
+        qty = int(prod.get("quantity", 0) or 0)
+        lot_num = (prod.get("lot_number") or "").strip()
+
+        if qty <= 0:
+            continue
+
+        avail = get_product_available_stock(pid or pname, lot_num)
+        if qty > avail:
+            avail_display = int(avail) if avail.is_integer() else avail
+            if lot_num:
+                err_msg = (
+                    f"Stock insuficiente en bodega para el producto '{pname}' (Lote: {lot_num}). "
+                    f"Se solicitaron {qty} unidades, pero el máximo disponible en bodega para ese lote es de {avail_display} unidades."
+                )
+            else:
+                err_msg = (
+                    f"Stock insuficiente en bodega para el producto '{pname}'. "
+                    f"Se solicitaron {qty} unidades, pero el máximo disponible en bodega es de {avail_display} unidades."
+                )
+            return False, err_msg, {"product_name": pname, "requested": qty, "available": avail_display}
+
+    return True, "", {}
+
+
+def discount_stock_for_sale(sale_id: int, products_list: list) -> None:
+    """
+    Descuenta las existencias en bodega para los productos de una venta emitida.
+    Descuenta tanto en lot_stock (con trazabilidad) como en inventory_items (stock general).
+    """
+    # 1. Descuento de lotes
+    lot_consumptions = []
+    for prod in products_list:
+        if isinstance(prod, dict) and prod.get("lot_number"):
+            lot_consumptions.append({
+                "product_id": prod.get("product_id"),
+                "lot_number": prod.get("lot_number"),
+                "quantity": int(prod.get("quantity", 0) or 0)
+            })
+    if lot_consumptions:
+        consume_lots_for_sale(sale_id, lot_consumptions)
+
+    # 2. Descuento en inventory_items (stock general de inventario)
+    inventory_items = get_page_data("inventory_items") or []
+    if inventory_items:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, sku, name FROM products")
+                db_prods = cur.fetchall()
+                id_to_sku = {p["id"]: p["sku"] for p in db_prods}
+                name_to_sku = {p["name"].strip().lower(): p["sku"] for p in db_prods}
+
+        inv_map = {item.get("code"): item for item in inventory_items if item.get("code")}
+        changed = False
+
+        for prod in products_list:
+            if not isinstance(prod, dict):
+                continue
+            qty = int(prod.get("quantity", 0) or 0)
+            if qty <= 0:
+                continue
+
+            pid = prod.get("product_id")
+            pname = (prod.get("product_name") or prod.get("name") or "").strip().lower()
+            sku = prod.get("sku") or id_to_sku.get(pid) or name_to_sku.get(pname)
+
+            if sku and sku in inv_map:
+                current_st = float(inv_map[sku].get("stock", 0.0) or 0.0)
+                inv_map[sku]["stock"] = max(0.0, current_st - qty)
+                changed = True
+
+        if changed:
+            set_page_data("inventory_items", inventory_items)
+
+
 def get_product_calculated_cost(product_id: int) -> float | None:
     """Calcula el costo del producto según:
        1. Promedio ponderado de las compras de los últimos 30 días.
