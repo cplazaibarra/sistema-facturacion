@@ -42,12 +42,12 @@
 
             <div class="form-divider" style="height: 1px; background: #E2E8F0; margin: 24px 0;"></div>
 
-            <h4 style="margin-bottom: 12px;">Productos a Solicitar</h4>
+            <h4 style="margin-bottom: 12px;">Insumos a Solicitar</h4>
             
             <div id="productos-oc-section" style="margin-top: 15px;">
                 <!-- Cabecera de columnas única -->
                 <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 12px; margin-bottom: 8px; font-weight: 600; font-size: 13px; color: #4a5568; border-bottom: 2px solid #E2E8F0; padding-bottom: 6px;">
-                    <div>Producto</div>
+                    <div>Insumo</div>
                     <div>Cantidad</div>
                     <div>Precio Unitario ($)</div>
                     <div style="width: 40px; text-align: center;"></div>
@@ -139,12 +139,12 @@ document.addEventListener('DOMContentLoaded', () => {
         row.style.alignItems = 'center';
         row.className = 'product-row';
 
-        let options = '<option value="">Seleccionar producto</option>';
+        let options = '<option value="">Seleccionar insumo</option>';
         supplierProducts.forEach(p => {
             options += `<option value="${p.id}">${p.name} (SKU: ${p.sku})</option>`;
         });
 
-        const initialLabel = selectedId ? selectedLabel : "Seleccionar producto";
+        const initialLabel = selectedId ? selectedLabel : "Seleccionar insumo";
         const initialVal = selectedId ? selectedId : "";
         const labelColor = selectedId ? '#2d3748' : '#4a5568';
 
@@ -160,10 +160,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="product-dropdown-menu" style="display: none; position: absolute; top: 105%; left: 0; right: 0; background: #fff; border: 1px solid #cbd5e0; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; padding: 8px;">
                     <div style="position: relative; margin-bottom: 8px;">
                         <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #a0aec0; font-size: 13px;">🔍</span>
-                        <input type="text" class="product-search-input" placeholder="Buscar producto..." style="width: 100%; padding: 6px 6px 6px 26px; border: 1px solid #E2E8F0; border-radius: 4px; font-size: 12px;">
+                        <input type="text" class="product-search-input" placeholder="Buscar insumo..." style="width: 100%; padding: 6px 6px 6px 26px; border: 1px solid #E2E8F0; border-radius: 4px; font-size: 12px;">
                     </div>
                     <div class="options-list" style="max-height: 160px; overflow-y: auto;">
-                        <div class="dropdown-opt" data-value="" style="padding: 6px 8px; font-size: 13px; color: #718096; cursor: pointer; border-radius: 4px;">Seleccionar producto</div>
+                        <div class="dropdown-opt" data-value="" style="padding: 6px 8px; font-size: 13px; color: #718096; cursor: pointer; border-radius: 4px;">Seleccionar insumo</div>
                     </div>
                 </div>
             </div>
@@ -254,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (isDuplicate) {
-                alert('Este producto ya ha sido seleccionado en otra línea de esta orden.');
+                alert('Este insumo ya ha sido seleccionado en otra línea de esta orden.');
                 dropdownMenu.style.display = 'none';
                 return;
             }
@@ -316,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (values.length !== uniqueValues.size) {
             e.preventDefault();
-            alert('Hay productos duplicados en las líneas de la orden de compra. Por favor, remueva las líneas repetidas.');
+            alert('Hay insumos duplicados en las líneas de la orden de compra. Por favor, remueva las líneas repetidas.');
         }
     });
 });

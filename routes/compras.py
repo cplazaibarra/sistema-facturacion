@@ -161,10 +161,12 @@ def aprobar_oc(po_id):
 
 @compras_bp.route('/api/compras/proveedores/<int:supplier_id>/productos')
 def api_supplier_products(supplier_id):
-    """API para obtener todos los productos del sistema (permitiendo elegir cualquiera ya definido)"""
+    """API para obtener productos de tipo Insumo para la Orden de Compra"""
     from db import list_products
     products = list_products()
-    return jsonify(products)
+    # Solo productos tipo 'Insumo' (materias primas, envases, etiquetas, etc.)
+    insumos = [p for p in products if (p.get('product_type') or '').strip().lower() == 'insumo']
+    return jsonify(insumos)
 
 @compras_bp.route('/api/compras/proveedores/<int:supplier_id>/oc-activas')
 def api_supplier_active_oc(supplier_id):
