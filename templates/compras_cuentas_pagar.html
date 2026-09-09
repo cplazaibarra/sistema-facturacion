@@ -107,20 +107,29 @@
                 <tr style="border-bottom:1px solid #f0f0f0;">
                     <td style="padding:11px 14px;font-weight:600;color:#2d3748;">{{ inv.supplier_name or '—' }}</td>
                     <td style="padding:11px 14px;color:#4a5568;">
-                        {% if inv.invoice_number %}
-                            <button type="button" onclick="openEditInvoiceModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', '{{ inv.invoice_number }}', {{ inv.invoice_amount or 0 }}, '{{ inv.invoice_date or '' }}', '{{ inv.due_date or '' }}')"
-                                    style="background:none;border:none;padding:0;cursor:pointer;color:#2b6cb0;text-align:left;display:inline-flex;align-items:center;gap:4px;"
-                                    title="Hacer clic para editar número o vencimiento de la factura">
-                                <strong><i class="fa-solid fa-file-invoice" style="color:#3b82f6;"></i> {{ inv.invoice_number }}</strong>
-                                <i class="fa-solid fa-pen-to-square" style="font-size:11px;color:#94a3b8;"></i>
-                            </button>
-                        {% else %}
-                            <button type="button" onclick="openAttachInvoiceModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', {{ inv.invoice_amount or 0 }}, '{{ inv.due_date or '' }}')"
-                                    style="background:none;border:none;padding:0;cursor:pointer;color:#3182ce;font-style:italic;text-decoration:underline;"
-                                    title="Hacer clic para ingresar N° de Factura">
-                                <i class="fa-solid fa-file-circle-plus" style="margin-right:3px;"></i>Doc. sin N°
-                            </button>
-                        {% endif %}
+                        <div style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                            {% if inv.invoice_number %}
+                                <button type="button" onclick="openEditInvoiceModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', '{{ inv.invoice_number }}', {{ inv.invoice_amount or 0 }}, '{{ inv.invoice_date or '' }}', '{{ inv.due_date or '' }}')"
+                                        style="background:none;border:none;padding:0;cursor:pointer;color:#2b6cb0;text-align:left;display:inline-flex;align-items:center;gap:4px;"
+                                        title="Hacer clic para editar número o vencimiento de la factura">
+                                    <strong><i class="fa-solid fa-file-invoice" style="color:#3b82f6;"></i> {{ inv.invoice_number }}</strong>
+                                    <i class="fa-solid fa-pen-to-square" style="font-size:11px;color:#94a3b8;"></i>
+                                </button>
+                            {% else %}
+                                <button type="button" onclick="openAttachInvoiceModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', {{ inv.invoice_amount or 0 }}, '{{ inv.due_date or '' }}')"
+                                        style="background:none;border:none;padding:0;cursor:pointer;color:#3182ce;font-style:italic;text-decoration:underline;"
+                                        title="Hacer clic para ingresar N° de Factura">
+                                    <i class="fa-solid fa-file-circle-plus" style="margin-right:3px;"></i>Doc. sin N°
+                                </button>
+                            {% endif %}
+                            {% if inv.document_file %}
+                            <a href="/uploads/{{ inv.document_file }}" target="_blank"
+                               style="padding:2px 7px;border-radius:4px;background:#ebf8ff;color:#3182ce;font-size:11px;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:3px;border:1px solid #bee3f8;"
+                               title="Ver Documento Tributario">
+                                <i class="fa-solid fa-eye"></i> Ver
+                            </a>
+                            {% endif %}
+                        </div>
                     </td>
                     <td style="padding:11px 14px;color:#718096;font-size:13px;">
                         {% if inv.oc_number %}<span>{{ inv.oc_number }}</span>{% endif %}
@@ -164,13 +173,6 @@
                     <td style="padding:11px 14px;text-align:center;">
                         <div style="display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center;">
                             <div style="display:flex;gap:6px;justify-content:center;align-items:center;flex-wrap:wrap;">
-                                {% if inv.document_file %}
-                                <a href="/uploads/{{ inv.document_file }}" target="_blank"
-                                   style="padding:5px 10px;border-radius:6px;background:#ebf8ff;color:#3182ce;font-size:12px;text-decoration:none;font-weight:600;"
-                                   title="Ver Documento Tributario">
-                                    <i class="fa-solid fa-eye"></i> Ver
-                                </a>
-                                {% endif %}
                                 {% if inv.payment_status == 'Sin Factura' %}
                                 <button type="button" onclick="openAttachInvoiceModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', {{ inv.invoice_amount or 0 }}, '{{ inv.due_date or '' }}')"
                                         style="padding:5px 12px;border-radius:6px;background:#3182ce;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:5px;">
