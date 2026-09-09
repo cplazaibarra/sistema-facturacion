@@ -61,54 +61,6 @@
     </div>
 </div>
 
-<!-- Alerta guías sin factura interactiva -->
-{% if guias_sin_factura %}
-<div style="background:#fffbeb;border:1px solid #f6e05e;border-radius:10px;padding:18px;margin-bottom:24px;box-shadow:0 2px 4px rgba(214,158,46,0.08);">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-            <i class="fa-solid fa-triangle-exclamation" style="color:#d69e2e;font-size:20px;"></i>
-            <strong style="color:#744210;font-size:15px;">
-                Guías de Despacho pendientes de Factura ({{ guias_sin_factura|length }})
-            </strong>
-        </div>
-        <span style="font-size:12px;color:#975a16;background:#fefcbf;padding:4px 10px;border-radius:12px;">
-            Haz clic en "Subir Factura" para cargar el documento tributario
-        </span>
-    </div>
-
-    <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:13px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
-            <thead>
-                <tr style="background:#fef3c7;color:#92400e;text-align:left;">
-                    <th style="padding:8px 12px;">Fecha Ingreso</th>
-                    <th style="padding:8px 12px;">Proveedor</th>
-                    <th style="padding:8px 12px;">N° Guía / Recepción</th>
-                    <th style="padding:8px 12px;">OC Asociada</th>
-                    <th style="padding:8px 12px;text-align:right;">Monto Mercadería</th>
-                    <th style="padding:8px 12px;text-align:center;">Acción</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for g in guias_sin_factura %}
-                <tr style="border-bottom:1px solid #fef3c7;">
-                    <td style="padding:8px 12px;color:#78350f;">{{ g.entry_date }}</td>
-                    <td style="padding:8px 12px;font-weight:600;color:#1e293b;">{{ g.supplier_name or 'Sin proveedor' }}</td>
-                    <td style="padding:8px 12px;color:#475569;"><strong>{{ g.order_number }}</strong></td>
-                    <td style="padding:8px 12px;color:#64748b;">{{ g.oc_number or '-' }}</td>
-                    <td style="padding:8px 12px;text-align:right;font-weight:600;color:#1e293b;">${{ "{:,.0f}".format(g.total_amount or 0) }}</td>
-                    <td style="padding:8px 12px;text-align:center;">
-                        <button type="button" onclick="openInvoiceForGuia({{ g.id }}, '{{ g.supplier_name or '' }}', {{ g.supplier_id or 'null' }}, '{{ g.order_number }}', {{ g.total_amount or 0 }}, {{ g.purchase_order_id or 'null' }})"
-                                style="padding:5px 12px;background:#3182ce;color:#fff;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
-                            <i class="fa-solid fa-cloud-arrow-up"></i> Subir Factura
-                        </button>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-{% endif %}
 
 <!-- Tabs de filtro -->
 <div style="display:flex;gap:4px;margin-bottom:0;border-bottom:2px solid #e2e8f0;">
