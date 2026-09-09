@@ -18,6 +18,61 @@
 
 <div class="recent-section">
     <div class="recent-card">
+        <!-- Barra de Filtros y Búsqueda -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; flex: 1;">
+                <!-- Buscador general -->
+                <div style="position: relative; min-width: 220px; flex: 1; max-width: 280px;">
+                    <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #a0aec0; font-size: 13px;">🔍</span>
+                    <input type="text" id="oc-search-input" onkeyup="filterOCTable()" placeholder="Buscar por OC, proveedor o factura..."
+                           style="width: 100%; padding: 7px 10px 7px 32px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; background: #fff;">
+                </div>
+
+                <!-- Filtro Estado de Pago -->
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <label for="filter-payment-status" style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">
+                        <i class="fa-solid fa-money-bill-wave" style="color: #10b981;"></i> Estado Pago:
+                    </label>
+                    <select id="filter-payment-status" onchange="filterOCTable()"
+                            style="padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; cursor: pointer;">
+                        <option value="">-- Todos los Estados de Pago --</option>
+                        <option value="Por Pagar">⏳ Por Pagar</option>
+                        <option value="Sin Factura">📄 Sin Factura</option>
+                        <option value="Pagada">✅ Pagada</option>
+                        <option value="Vencida">⚠️ Vencida</option>
+                        <option value="Sin Iniciar">⚪ Sin Iniciar / -</option>
+                    </select>
+                </div>
+
+                <!-- Filtro Estado OC -->
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <label for="filter-oc-status" style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">
+                        <i class="fa-solid fa-clipboard-list" style="color: #3b82f6;"></i> Estado OC:
+                    </label>
+                    <select id="filter-oc-status" onchange="filterOCTable()"
+                            style="padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; cursor: pointer;">
+                        <option value="">-- Todos los Estados OC --</option>
+                        <option value="Emitida">Emitida</option>
+                        <option value="Recibida">Recibida</option>
+                        <option value="Parcialmente Recibida">Parcialmente Recibida</option>
+                        <option value="Pendiente Aprobación">Pendiente Aprobación</option>
+                        <option value="Borrador">Borrador</option>
+                    </select>
+                </div>
+
+                <!-- Botón Limpiar -->
+                <button type="button" onclick="clearOCFilters()" title="Limpiar Filtros"
+                        style="padding: 7px 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #475569; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                    <i class="fa-solid fa-rotate-left" style="font-size: 11px;"></i> Limpiar
+                </button>
+            </div>
+
+            <!-- Contador de registros -->
+            <div style="font-size: 13px; color: #718096; white-space: nowrap;">
+                Mostrando <strong id="oc-count" style="color: #2d3748;">{{ orders|length }}</strong> orden(es)
+            </div>
+        </div>
+
         <table class="data-table">
             <thead>
                 <tr>
@@ -31,9 +86,23 @@
                     <th>Acciones</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="oc-table-body">
                 {% for order in orders %}
-                <tr>
+                {% set p_statuses = [] %}
+                {% if order.invoices and order.invoices|length > 0 %}
+                    {% for inv in order.invoices %}
+                        {% if inv.payment_status == 'Pendiente' %}
+                            {% if 'Por Pagar' not in p_statuses %}{% set _ = p_statuses.append('Por Pagar') %}{% endif %}
+                        {% elif inv.payment_status %}
+                            {% if inv.payment_status not in p_statuses %}{% set _ = p_statuses.append(inv.payment_status) %}{% endif %}
+                        {% endif %}
+                    {% endfor %}
+                {% elif order.status in ['Recibida', 'Parcialmente Recibida'] %}
+                    {% set _ = p_statuses.append('Sin Factura') %}
+                {% else %}
+                    {% set _ = p_statuses.append('Sin Iniciar') %}
+                {% endif %}
+                <tr class="oc-table-row" data-oc-status="{{ order.status }}" data-payment-status="{{ p_statuses|join('|') }}">
                     <td>
                         <a href="javascript:void(0);" onclick="openOCDetailModal({{ order.id }})" style="font-weight: 700; color: #0284c7; text-decoration: underline;" title="Ver Detalle de la Orden de Compra">
                             {{ order.oc_number }}
@@ -357,6 +426,99 @@
     function closeOCDetailModal() {
         document.getElementById('modal-view-oc').style.display = 'none';
     }
+
+    // Filtros de Órdenes de Compra
+    function filterOCTable() {
+        const searchInput = document.getElementById('oc-search-input');
+        const paymentSelect = document.getElementById('filter-payment-status');
+        const ocSelect = document.getElementById('filter-oc-status');
+
+        const searchVal = (searchInput ? searchInput.value : '').toLowerCase().trim();
+        const paymentVal = (paymentSelect ? paymentSelect.value : '').trim();
+        const ocVal = (ocSelect ? ocSelect.value : '').trim();
+
+        const rows = document.querySelectorAll('.oc-table-row');
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            const rowPaymentStatuses = (row.getAttribute('data-payment-status') || '').split('|');
+            const rowOcStatus = (row.getAttribute('data-oc-status') || '').trim();
+
+            // Match text search
+            const matchSearch = !searchVal || text.includes(searchVal);
+
+            // Match payment status
+            let matchPayment = true;
+            if (paymentVal) {
+                matchPayment = rowPaymentStatuses.includes(paymentVal);
+            }
+
+            // Match OC status
+            let matchOC = true;
+            if (ocVal) {
+                matchOC = (rowOcStatus === ocVal);
+            }
+
+            if (matchSearch && matchPayment && matchOC) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        const countElem = document.getElementById('oc-count');
+        if (countElem) {
+            countElem.textContent = visibleCount;
+        }
+
+        // Fila cuando no hay resultados
+        let noResultRow = document.getElementById('no-oc-results-row');
+        const tbody = document.getElementById('oc-table-body');
+        if (visibleCount === 0) {
+            if (!noResultRow && tbody) {
+                noResultRow = document.createElement('tr');
+                noResultRow.id = 'no-oc-results-row';
+                noResultRow.innerHTML = '<td colspan="8" style="text-align:center; color:#718096; padding:24px;"><i class="fa-solid fa-magnifying-glass" style="margin-right:6px;"></i>No se encontraron órdenes de compra con los filtros seleccionados.</td>';
+                tbody.appendChild(noResultRow);
+            } else if (noResultRow) {
+                noResultRow.style.display = '';
+            }
+        } else if (noResultRow) {
+            noResultRow.style.display = 'none';
+        }
+    }
+
+    function clearOCFilters() {
+        const searchInput = document.getElementById('oc-search-input');
+        const paymentSelect = document.getElementById('filter-payment-status');
+        const ocSelect = document.getElementById('filter-oc-status');
+
+        if (searchInput) searchInput.value = '';
+        if (paymentSelect) paymentSelect.value = '';
+        if (ocSelect) ocSelect.value = '';
+
+        filterOCTable();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const params = new URLSearchParams(window.location.search);
+        const pStatus = params.get('estado_pago') || params.get('pago');
+        const oStatus = params.get('estado_oc') || params.get('estado');
+
+        if (pStatus) {
+            const pSelect = document.getElementById('filter-payment-status');
+            if (pSelect) pSelect.value = pStatus;
+        }
+        if (oStatus) {
+            const oSelect = document.getElementById('filter-oc-status');
+            if (oSelect) oSelect.value = oStatus;
+        }
+        if (pStatus || oStatus) {
+            filterOCTable();
+        }
+    });
 </script>
 {% endblock %}
 {% endblock %}
