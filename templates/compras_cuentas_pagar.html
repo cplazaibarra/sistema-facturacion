@@ -110,7 +110,11 @@
                         {% if inv.invoice_number %}
                             <strong><i class="fa-solid fa-file-invoice" style="color:#3b82f6;margin-right:4px;"></i>{{ inv.invoice_number }}</strong>
                         {% else %}
-                            <span style="color:#a0aec0;font-style:italic;">Doc. sin N°</span>
+                            <button type="button" onclick="openAttachInvoiceModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', {{ inv.invoice_amount or 0 }}, '{{ inv.due_date or '' }}')"
+                                    style="background:none;border:none;padding:0;cursor:pointer;color:#3182ce;font-style:italic;text-decoration:underline;"
+                                    title="Hacer clic para ingresar N° de Factura">
+                                <i class="fa-solid fa-file-circle-plus" style="margin-right:3px;"></i>Doc. sin N°
+                            </button>
                         {% endif %}
                     </td>
                     <td style="padding:11px 14px;color:#718096;font-size:13px;">
@@ -131,7 +135,12 @@
                         {% elif inv.payment_status == 'Pendiente' %}
                             <span style="background:#fffff0;color:#d69e2e;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">⏳ Por Pagar</span>
                         {% elif inv.payment_status == 'Sin Factura' %}
-                            <span style="background:#fffaf0;color:#dd6b20;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">📄 Sin Factura</span>
+                            <button type="button" onclick="openAttachInvoiceModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', {{ inv.invoice_amount or 0 }}, '{{ inv.due_date or '' }}')"
+                                    style="background:#fffaf0;color:#dd6b20;border:1px solid #fbd38d;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;"
+                                    title="Hacer clic para subir foto y registrar factura">
+                                <span>📄 Sin Factura</span>
+                                <i class="fa-solid fa-pen-to-square" style="font-size:10px;"></i>
+                            </button>
                         {% elif inv.payment_status == 'Pagada' %}
                             <span style="background:#f0fff4;color:#276749;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">✅ Pagada</span>
                         {% else %}
@@ -140,13 +149,19 @@
                     </td>
                     <td style="padding:11px 14px;text-align:center;">
                         <div style="display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center;">
-                            <div style="display:flex;gap:6px;justify-content:center;align-items:center;">
+                            <div style="display:flex;gap:6px;justify-content:center;align-items:center;flex-wrap:wrap;">
                                 {% if inv.document_file %}
                                 <a href="/uploads/{{ inv.document_file }}" target="_blank"
                                    style="padding:5px 10px;border-radius:6px;background:#ebf8ff;color:#3182ce;font-size:12px;text-decoration:none;font-weight:600;"
                                    title="Ver Documento Tributario">
                                     <i class="fa-solid fa-eye"></i> Ver
                                 </a>
+                                {% endif %}
+                                {% if inv.payment_status == 'Sin Factura' %}
+                                <button type="button" onclick="openAttachInvoiceModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', {{ inv.invoice_amount or 0 }}, '{{ inv.due_date or '' }}')"
+                                        style="padding:5px 12px;border-radius:6px;background:#3182ce;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:5px;">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i> Subir Factura
+                                </button>
                                 {% endif %}
                                 {% if inv.payment_status in ('Pendiente', 'Vencida', 'Sin Factura') %}
                                 <button onclick="openPayModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', {{ inv.invoice_amount or 0 }}, '{{ inv.payment_status }}', '{{ inv.invoice_number or '' }}')"
@@ -419,6 +434,90 @@
         </form>
     </div>
 </div>
+
+<!-- ─── MODAL 3: ASOCIAR FACTURA Y SUBIR ARCHIVO (A REGISTRO 'SIN FACTURA') ── -->
+<div id="attach-invoice-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:20px;overflow-y:auto;">
+    <div style="background:#fff;border-radius:12px;padding:26px;width:540px;max-width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:1px solid #e2e8f0;padding-bottom:12px;">
+            <div>
+                <h3 style="margin:0;font-size:18px;font-weight:700;color:#1e293b;" id="attach-inv-modal-title">
+                    <i class="fa-solid fa-cloud-arrow-up" style="color:#3182ce;margin-right:6px;"></i>Registrar Factura
+                </h3>
+                <p style="margin:4px 0 0 0;font-size:13px;color:#64748b;" id="attach-inv-supplier">Proveedor: —</p>
+            </div>
+            <button type="button" onclick="closeAttachInvoiceModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#94a3b8;">✕</button>
+        </div>
+
+        <form id="attach-invoice-form" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="invoice_id" id="attach-inv-id" value="">
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+                <div>
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">
+                        N° de Factura <span style="color:#e53e3e;">*</span>
+                    </label>
+                    <input type="text" name="invoice_number" id="attach-inv-number" required placeholder="Ej. FAC-10523"
+                           style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
+                </div>
+
+                <div>
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">
+                        Monto Factura ($) <span style="color:#e53e3e;">*</span>
+                    </label>
+                    <input type="number" name="invoice_amount" id="attach-inv-amount" step="0.01" min="0" required placeholder="0.00"
+                           style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;font-weight:600;">
+                </div>
+
+                <div>
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">Fecha Emisión Factura</label>
+                    <input type="date" name="invoice_date" id="attach-inv-date"
+                           style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
+                </div>
+
+                <div>
+                    <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">Fecha Vencimiento (Pago)</label>
+                    <input type="date" name="due_date" id="attach-inv-due-date"
+                           style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
+                </div>
+            </div>
+
+            <!-- Subir Foto / PDF de la Factura -->
+            <div style="margin-bottom:16px;">
+                <label style="font-weight:600;font-size:13px;display:block;margin-bottom:6px;">
+                    <i class="fa-solid fa-camera" style="color:#3182ce;margin-right:4px;"></i>
+                    Foto o Archivo PDF de la Factura
+                </label>
+                <div style="border:2px dashed #cbd5e1;border-radius:8px;padding:18px;text-align:center;cursor:pointer;background:#f8fafc;"
+                     onclick="document.getElementById('attach-inv-file-input').click()">
+                    <input type="file" name="document_file" id="attach-inv-file-input" accept="image/*,.pdf" style="display:none;" onchange="previewAttachInvFile(this)">
+                    <div id="attach-inv-file-ph">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size:26px;color:#94a3b8;margin-bottom:6px;display:block;"></i>
+                        <p style="margin:0;font-size:13px;color:#475569;font-weight:500;">Haz clic aquí para seleccionar o tomar foto de la factura</p>
+                        <span style="font-size:11px;color:#94a3b8;">Formatos permitidos: JPG, PNG, WEBP, PDF</span>
+                    </div>
+                    <p id="attach-inv-file-name" style="margin:0;font-size:13px;font-weight:600;color:#0284c7;display:none;"></p>
+                </div>
+            </div>
+
+            <div style="margin-bottom:18px;">
+                <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">Observaciones / Comentarios</label>
+                <textarea name="notes" rows="2" placeholder="Detalles de la factura o proveedor..."
+                          style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;resize:vertical;"></textarea>
+            </div>
+
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button type="button" onclick="closeAttachInvoiceModal()"
+                        style="padding:9px 18px;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;cursor:pointer;font-weight:500;">
+                    Cancelar
+                </button>
+                <button type="submit"
+                        style="padding:9px 24px;border-radius:6px;background:#3182ce;color:#fff;border:none;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px;">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Guardar y Vincular Factura
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -427,6 +526,9 @@ const todayStr = new Date().toISOString().split('T')[0];
 document.getElementById('modal-date').value = todayStr;
 document.getElementById('new-inv-date').value = todayStr;
 document.getElementById('new-inv-pay-date').value = todayStr;
+if (document.getElementById('attach-inv-date')) {
+    document.getElementById('attach-inv-date').value = todayStr;
+}
 
 // Modal Cargar Factura
 function openNewInvoiceModal() {
@@ -502,6 +604,41 @@ function handleModalPayMethodChange(method) {
     }
 }
 
+// Modal Vincular Factura a registro 'Sin Factura'
+function openAttachInvoiceModal(invoiceId, supplierName, amount, dueDate) {
+    document.getElementById('attach-inv-id').value = invoiceId;
+    document.getElementById('attach-inv-supplier').textContent = 'Proveedor: ' + (supplierName || '—');
+    document.getElementById('attach-inv-amount').value = amount || '';
+    document.getElementById('attach-inv-number').value = '';
+    if (dueDate) {
+        document.getElementById('attach-inv-due-date').value = dueDate;
+    }
+    // Reset file preview
+    const ph = document.getElementById('attach-inv-file-ph');
+    const name = document.getElementById('attach-inv-file-name');
+    const fileInput = document.getElementById('attach-inv-file-input');
+    if (ph) ph.style.display = 'block';
+    if (name) { name.textContent = ''; name.style.display = 'none'; }
+    if (fileInput) fileInput.value = '';
+
+    document.getElementById('attach-invoice-form').action = '/compras/facturas/' + invoiceId + '/vincular-documento';
+    document.getElementById('attach-invoice-modal').style.display = 'flex';
+}
+
+function closeAttachInvoiceModal() {
+    document.getElementById('attach-invoice-modal').style.display = 'none';
+}
+
+function previewAttachInvFile(input) {
+    const ph = document.getElementById('attach-inv-file-ph');
+    const name = document.getElementById('attach-inv-file-name');
+    if (input.files && input.files[0]) {
+        ph.style.display = 'none';
+        name.textContent = 'Archivo seleccionado: ' + input.files[0].name;
+        name.style.display = 'block';
+    }
+}
+
 function filterInvoicesTable() {
     const query = (document.getElementById('search-invoices-input').value || '').toLowerCase().trim();
     const rows = document.querySelectorAll('#invoices-table-body tr');
@@ -530,6 +667,12 @@ document.getElementById('new-invoice-modal').addEventListener('click', function(
 document.getElementById('pay-modal').addEventListener('click', function(e) {
     if (e.target === this) closePayModal();
 });
+const attachModal = document.getElementById('attach-invoice-modal');
+if (attachModal) {
+    attachModal.addEventListener('click', function(e) {
+        if (e.target === this) closeAttachInvoiceModal();
+    });
+}
 
 {% if auto_open_pay_inv %}
 document.addEventListener('DOMContentLoaded', () => {
@@ -542,6 +685,16 @@ document.addEventListener('DOMContentLoaded', () => {
     );
 });
 {% endif %}
+
+{% if auto_open_attach_inv %}
+document.addEventListener('DOMContentLoaded', () => {
+    openAttachInvoiceModal(
+        {{ auto_open_attach_inv.id }},
+        "{{ auto_open_attach_inv.supplier_name or '' }}",
+        {{ auto_open_attach_inv.invoice_amount or 0 }},
+        "{{ auto_open_attach_inv.due_date or '' }}"
+    );
+});
+{% endif %}
 </script>
 {% endblock %}
-

@@ -362,6 +362,9 @@ def cuentas_por_pagar():
     open_pay_id = request.args.get('open_pay', type=int)
     auto_open_pay_inv = get_purchase_invoice(open_pay_id) if open_pay_id else None
 
+    open_attach_id = request.args.get('open_attach', type=int)
+    auto_open_attach_inv = get_purchase_invoice(open_attach_id) if open_attach_id else None
+
     return render_template(
         'compras_cuentas_pagar.html',
         invoices=invoices,
@@ -372,6 +375,7 @@ def cuentas_por_pagar():
         stats=stats,
         filtro_activo=filtro,
         auto_open_pay_inv=auto_open_pay_inv,
+        auto_open_attach_inv=auto_open_attach_inv,
     )
 
 
@@ -448,6 +452,85 @@ def nueva_factura_proveedor():
         })
 
     flash(f"Factura #{invoice_number} cargada y registrada con éxito.", "success")
+    return redirect(url_for('compras.cuentas_por_pagar'))
+
+
+@compras_bp.route('/compras/facturas/<int:invoice_id>/vincular-documento', methods=['POST'])
+def vincular_documento_factura(invoice_id):
+    """Vincula el número de factura y el archivo PDF/foto a un registro que estaba 'Sin Factura'."""
+    inv = get_purchase_invoice(invoice_id)
+    if not inv:
+        flash("Registro de compra no encontrado.", "danger")
+        return redirect(url_for('compras.cuentas_por_pagar'))
+
+    invoice_number = (request.form.get('invoice_number') or '').strip()
+    if not invoice_number:
+        flash("Debes ingresar el número de factura.", "danger")
+        return redirect(url_for('compras.cuentas_por_pagar'))
+
+    invoice_amount = request.form.get('invoice_amount', type=float) or inv.get('invoice_amount') or 0.0
+    invoice_date   = (request.form.get('invoice_date') or date.today().isoformat()).strip()
+    due_date       = (request.form.get('due_date') or '').strip()
+    notes          = (request.form.get('notes') or '').strip()
+
+    # Upload de archivo de factura
+    doc_file_path = inv.get('document_file')
+    doc_file = request.files.get('document_file')
+    if doc_file and doc_file.filename:
+        upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'documentos_compra')
+        os.makedirs(upload_dir, exist_ok=True)
+        from werkzeug.utils import secure_filename
+        ext = os.path.splitext(doc_file.filename)[1].lower()
+        filename = secure_filename(f"factura_{invoice_number}_{date.today().isoformat()}{ext}")
+        doc_file.save(os.path.join(upload_dir, filename))
+        doc_file_path = f"documentos_compra/{filename}"
+
+    # Determinar estado
+    new_status = 'Pendiente'
+    if due_date and due_date < date.today().isoformat():
+        new_status = 'Vencida'
+
+    from db import get_connection
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE purchase_invoices
+                SET invoice_number = %s,
+                    invoice_amount = %s,
+                    invoice_date   = %s,
+                    due_date       = %s,
+                    document_file  = COALESCE(%s, document_file),
+                    payment_status = CASE WHEN payment_status = 'Sin Factura' THEN %s ELSE payment_status END,
+                    notes          = CASE WHEN %s <> '' THEN COALESCE(notes, '') || '\n' || %s ELSE notes END
+                WHERE id = %s
+            """, (
+                invoice_number,
+                invoice_amount,
+                invoice_date,
+                due_date,
+                doc_file_path,
+                new_status,
+                notes, notes,
+                invoice_id
+            ))
+
+            # Actualizar recepción de bodega si existe
+            if inv.get('inventory_entry_id'):
+                cur.execute("""
+                    UPDATE inventory_entries
+                    SET document_type   = 'factura',
+                        document_number = %s,
+                        document_file   = COALESCE(%s, document_file)
+                    WHERE id = %s
+                """, (
+                    invoice_number,
+                    doc_file_path,
+                    inv['inventory_entry_id']
+                ))
+
+            conn.commit()
+
+    flash(f"Factura #{invoice_number} vinculada correctamente con su documento.", "success")
     return redirect(url_for('compras.cuentas_por_pagar'))
 
 
