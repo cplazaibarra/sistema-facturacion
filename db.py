@@ -4245,12 +4245,13 @@ def list_purchase_invoices(status_filter: str | list | tuple = None) -> list:
             cur.execute(f"""
                 SELECT pi.*, s.name AS supplier_name,
                        ie.order_number AS entry_number, ie.entry_date,
+                       COALESCE(pi.purchase_order_id, ie.purchase_order_id) AS purchase_order_id,
                        po.oc_number,
                        ba.bank_name, ba.account_number, ba.account_type
                 FROM purchase_invoices pi
                 LEFT JOIN suppliers s ON s.id = pi.supplier_id
                 LEFT JOIN inventory_entries ie ON ie.id = pi.inventory_entry_id
-                LEFT JOIN purchase_orders po ON po.id = pi.purchase_order_id
+                LEFT JOIN purchase_orders po ON po.id = COALESCE(pi.purchase_order_id, ie.purchase_order_id)
                 LEFT JOIN bank_accounts ba ON ba.id = pi.bank_account_id
                 {where}
                 ORDER BY

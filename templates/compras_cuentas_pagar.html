@@ -132,8 +132,21 @@
                         </div>
                     </td>
                     <td style="padding:11px 14px;color:#718096;font-size:13px;">
-                        {% if inv.oc_number %}<span>{{ inv.oc_number }}</span>{% endif %}
-                        {% if inv.entry_number %}<br><small>Entrada: {{ inv.entry_number }}</small>{% endif %}
+                        {% if inv.oc_number %}
+                            {% if inv.purchase_order_id %}
+                            <a href="javascript:void(0);" onclick="openOCDetailModal({{ inv.purchase_order_id }})"
+                               style="font-weight: 700; color: #0284c7; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"
+                               title="Ver Detalle de la Orden de Compra {{ inv.oc_number }}">
+                                <i class="fa-solid fa-file-lines" style="font-size: 11px;"></i>
+                                {{ inv.oc_number }}
+                            </a>
+                            {% else %}
+                            <span style="font-weight: 600; color: #475569;">{{ inv.oc_number }}</span>
+                            {% endif %}
+                        {% else %}
+                            <span style="color: #cbd5e1;">—</span>
+                        {% endif %}
+                        {% if inv.entry_number %}<br><small style="color: #64748b;">Entrada: {{ inv.entry_number }}</small>{% endif %}
                     </td>
                     <td style="padding:11px 14px;text-align:right;font-weight:600;color:#2d3748;">${{ "{:,.0f}".format(inv.invoice_amount or 0) }}</td>
                     <td style="padding:11px 14px;text-align:center;font-size:13px;">
@@ -623,6 +636,78 @@
         </form>
     </div>
 </div>
+
+<!-- Modal Ver Detalle Orden de Compra -->
+<div id="modal-view-oc" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; padding: 20px; overflow-y: auto;">
+    <div style="background: white; border-radius: 12px; width: 760px; max-width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px;">
+            <div>
+                <h2 id="modal-oc-title" style="margin: 0; font-size: 20px; color: #1e293b;">Orden de Compra</h2>
+                <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Comprobante de Pedido a Proveedor</p>
+            </div>
+            <button type="button" onclick="closeOCDetailModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #94a3b8;">✕</button>
+        </div>
+
+        <!-- DATOS CABECERA OC -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">DATOS ORDEN DE COMPRA</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px;">
+                <div><strong>N° Orden:</strong> <span id="modal-oc-number">-</span></div>
+                <div><strong>Proveedor:</strong> <a id="modal-oc-supplier-link" href="#" style="color: #2b6cb0; font-weight: 600; text-decoration: underline;">-</a></div>
+                <div><strong>Fecha Emisión:</strong> <span id="modal-oc-date">-</span></div>
+                <div><strong>Forma / Condición Pago:</strong> <span id="modal-oc-payment-method" style="font-weight: 600; color: #2b6cb0;">-</span></div>
+                <div><strong>Estado:</strong> <span id="modal-oc-status">-</span></div>
+                <div><strong>Creado por:</strong> <span id="modal-oc-creator">-</span></div>
+                <div style="grid-column: span 2;"><strong>Aprobado por:</strong> <span id="modal-oc-approver">-</span></div>
+                <div style="grid-column: span 2; border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 4px;">
+                    <strong>Notas / Observaciones:</strong>
+                    <div id="modal-oc-notes" style="color: #475569; margin-top: 4px; white-space: pre-wrap; font-size: 13px;">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FACTURAS Y DOCUMENTOS RELACIONADOS -->
+        <div style="margin-bottom: 20px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4 style="margin: 0; font-size: 14px; color: #334155; text-transform: uppercase;">
+                    <i class="fa-solid fa-file-invoice-dollar" style="color: #3b82f6; margin-right: 6px;"></i>FACTURAS Y ESTADO DE PAGO
+                </h4>
+            </div>
+            <div id="modal-oc-invoices-container">
+                <!-- Se inyectan dinámicamente -->
+            </div>
+        </div>
+
+        <!-- PRODUCTOS SOLICITADOS -->
+        <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">PRODUCTOS DE LA ORDEN</h4>
+        <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                    <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; text-align: left;">
+                        <th style="padding: 10px 12px;">Producto</th>
+                        <th style="padding: 10px 12px; text-align: center;">Cant. Pedida</th>
+                        <th style="padding: 10px 12px; text-align: center;">Cant. Recibida</th>
+                        <th style="padding: 10px 12px; text-align: right;">Precio Unit.</th>
+                        <th style="padding: 10px 12px; text-align: right;">Total</th>
+                    </tr>
+                </thead>
+                <tbody id="modal-oc-items-body">
+                    <!-- Se inyecta dinámicamente vía JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #e2e8f0; padding-top: 16px;">
+            <a id="btn-modal-oc-pdf" href="#" target="_blank" style="padding: 8px 16px; background: #e2e8f0; color: #334155; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-file-pdf" style="color: #e53e3e;"></i> Descargar PDF Oficial
+            </a>
+            <div style="text-align: right;">
+                <span style="font-size: 14px; color: #64748b; margin-right: 8px;">TOTAL ORDEN:</span>
+                <span id="modal-oc-total" style="font-size: 20px; font-weight: 700; color: #2b6cb0;">$0</span>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -835,6 +920,113 @@ const editModal = document.getElementById('edit-invoice-modal');
 if (editModal) {
     editModal.addEventListener('click', function(e) {
         if (e.target === this) closeEditInvoiceModal();
+    });
+}
+
+// Modal Detalle de Orden de Compra (OC)
+async function openOCDetailModal(poId) {
+    try {
+        const res = await fetch(`/api/compras/oc/${poId}/detalle`);
+        if (!res.ok) throw new Error("Error al obtener detalle");
+        const data = await res.json();
+        const po = data.order;
+        const items = data.items;
+
+        document.getElementById('modal-oc-title').textContent = `Orden de Compra ${po.oc_number}`;
+        document.getElementById('modal-oc-number').textContent = po.oc_number || '-';
+        document.getElementById('modal-oc-supplier-link').textContent = po.supplier_name || '-';
+        document.getElementById('modal-oc-supplier-link').href = `/proveedores/${po.supplier_id}`;
+        document.getElementById('modal-oc-date').textContent = po.order_date || '-';
+        document.getElementById('modal-oc-payment-method').textContent = po.payment_method || 'Efectivo';
+        document.getElementById('modal-oc-status').textContent = po.status || '-';
+        document.getElementById('modal-oc-creator').textContent = po.creator_name || '-';
+        document.getElementById('modal-oc-approver').textContent = po.approver_name || '-';
+        document.getElementById('modal-oc-notes').textContent = po.notes || 'Sin observaciones adicionales';
+        document.getElementById('modal-oc-total').textContent = '$' + Math.round(po.total_amount || 0).toLocaleString('es-CL');
+        document.getElementById('btn-modal-oc-pdf').href = `/compras/oc/${po.id}/pdf`;
+
+        // FACTURAS
+        const invoicesContainer = document.getElementById('modal-oc-invoices-container');
+        const invoices = po.invoices || [];
+        if (invoices.length > 0) {
+            let invHtml = '<table style="width: 100%; border-collapse: collapse; font-size: 13px;">';
+            invHtml += `
+                <thead>
+                    <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; text-align: left;">
+                        <th style="padding: 6px 8px;">N° Factura</th>
+                        <th style="padding: 6px 8px; text-align: right;">Monto</th>
+                        <th style="padding: 6px 8px; text-align: center;">Vencimiento</th>
+                        <th style="padding: 6px 8px; text-align: center;">Estado</th>
+                        <th style="padding: 6px 8px; text-align: center;">Documento</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+            invoices.forEach(inv => {
+                let statusBadge = '';
+                if (inv.payment_status === 'Pagada') {
+                    let bankInfo = inv.bank_name ? ` · 🏦 ${inv.bank_name} (${inv.account_number || ''})` : '';
+                    statusBadge = `<span style="background:#def7ec;color:#03543f;font-weight:600;padding:2px 8px;border-radius:12px;font-size:11px;">✅ Pagada (${inv.payment_date || ''}${bankInfo})</span>`;
+                } else if (inv.payment_status === 'Vencida') {
+                    statusBadge = `<span style="background:#fde8e8;color:#9b1c1c;font-weight:600;padding:2px 8px;border-radius:12px;font-size:11px;">⚠️ Vencida</span>`;
+                } else if (inv.payment_status === 'Pendiente') {
+                    statusBadge = `<span style="background:#fef08a;color:#713f12;font-weight:600;padding:2px 8px;border-radius:12px;font-size:11px;">⏳ Pendiente</span>`;
+                } else {
+                    statusBadge = `<span style="background:#e2e8f0;color:#475569;font-weight:600;padding:2px 8px;border-radius:12px;font-size:11px;">${inv.payment_status}</span>`;
+                }
+
+                let docLink = inv.document_file 
+                    ? `<a href="/uploads/${inv.document_file}" target="_blank" style="color:#2563eb;text-decoration:underline;"><i class="fa-solid fa-file-pdf"></i> Ver archivo</a>` 
+                    : '<span style="color:#94a3b8;">Sin archivo</span>';
+
+                invHtml += `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 6px 8px; font-weight: 600;">${inv.invoice_number || 'Sin N°'}</td>
+                        <td style="padding: 6px 8px; text-align: right; font-weight: 600;">$${Math.round(inv.invoice_amount || 0).toLocaleString('es-CL')}</td>
+                        <td style="padding: 6px 8px; text-align: center;">${inv.due_date || '-'}</td>
+                        <td style="padding: 6px 8px; text-align: center;">${statusBadge}</td>
+                        <td style="padding: 6px 8px; text-align: center;">${docLink}</td>
+                    </tr>
+                `;
+            });
+            invHtml += '</tbody></table>';
+            invoicesContainer.innerHTML = invHtml;
+        } else {
+            invoicesContainer.innerHTML = '<p style="margin: 0; color: #94a3b8; font-size: 13px;">No hay facturas o comprobantes registrados para esta Orden de Compra todavía.</p>';
+        }
+
+        // PRODUCTOS
+        const tbody = document.getElementById('modal-oc-items-body');
+        tbody.innerHTML = '';
+
+        items.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid #e2e8f0';
+            tr.innerHTML = `
+                <td style="padding: 10px 12px; font-weight: 500;">${item.product_name}</td>
+                <td style="padding: 10px 12px; text-align: center;">${item.quantity_ordered}</td>
+                <td style="padding: 10px 12px; text-align: center; color: #2b6cb0; font-weight: 600;">${item.quantity_received || 0}</td>
+                <td style="padding: 10px 12px; text-align: right;">$${Math.round(item.unit_price || 0).toLocaleString('es-CL')}</td>
+                <td style="padding: 10px 12px; text-align: right; font-weight: 600;">$${Math.round(item.total_price || 0).toLocaleString('es-CL')}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('modal-view-oc').style.display = 'flex';
+    } catch(e) {
+        console.error(e);
+        alert("No se pudo cargar la orden de compra.");
+    }
+}
+
+function closeOCDetailModal() {
+    document.getElementById('modal-view-oc').style.display = 'none';
+}
+
+const ocModal = document.getElementById('modal-view-oc');
+if (ocModal) {
+    ocModal.addEventListener('click', function(e) {
+        if (e.target === this) closeOCDetailModal();
     });
 }
 
