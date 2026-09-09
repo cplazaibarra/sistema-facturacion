@@ -3235,6 +3235,96 @@ def get_purchased_products_matrix(year: int, category: str = None) -> dict:
         'total_skus': len(products_list)
     }
 
+def get_purchase_order_entries(po_id: int) -> list[dict]:
+    """Obtiene todas las recepciones / entradas de bodega de una OC con sus productos e información de factura"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT ie.id, ie.entry_date, ie.order_number, ie.warehouse, ie.notes,
+                       ie.document_type, ie.document_number, ie.document_file, ie.total_amount,
+                       COALESCE(
+                           (
+                               SELECT json_agg(json_build_object(
+                                   'id', iei.id,
+                                   'product_id', iei.product_id,
+                                   'product_name', p.name,
+                                   'sku', COALESCE(p.sku, 'SIN-SKU'),
+                                   'quantity', iei.quantity,
+                                   'unit_price', iei.unit_price,
+                                   'total', iei.total,
+                                   'lot_number', COALESCE(iei.lot_number, '')
+                               ))
+                               FROM inventory_entry_items iei
+                               JOIN products p ON iei.product_id = p.id
+                               WHERE iei.inventory_entry_id = ie.id
+                           ), '[]'::json
+                       ) as items,
+                       (
+                           SELECT json_build_object(
+                               'id', pi.id,
+                               'invoice_number', pi.invoice_number,
+                               'payment_status', pi.payment_status,
+                               'invoice_amount', pi.invoice_amount,
+                               'due_date', pi.due_date,
+                               'document_file', pi.document_file
+                           )
+                           FROM purchase_invoices pi
+                           WHERE pi.inventory_entry_id = ie.id
+                           LIMIT 1
+                       ) as invoice
+                FROM inventory_entries ie
+                WHERE ie.purchase_order_id = %s
+                ORDER BY ie.id ASC
+            """, (po_id,))
+            return [dict(r) for r in cur.fetchall()]
+
+def get_inventory_entry_detail(entry_id: int) -> dict | None:
+    """Obtiene el detalle completo de un ingreso de mercadería con sus productos y OC asociada"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT ie.id, ie.entry_date, ie.order_number, ie.warehouse, ie.notes,
+                       ie.document_type, ie.document_number, ie.document_file, ie.total_amount,
+                       ie.purchase_order_id,
+                       po.oc_number, s.name as supplier_name,
+                       COALESCE(
+                           (
+                               SELECT json_agg(json_build_object(
+                                   'id', iei.id,
+                                   'product_id', iei.product_id,
+                                   'product_name', p.name,
+                                   'sku', COALESCE(p.sku, 'SIN-SKU'),
+                                   'quantity', iei.quantity,
+                                   'unit_price', iei.unit_price,
+                                   'total', iei.total,
+                                   'lot_number', COALESCE(iei.lot_number, '')
+                               ))
+                               FROM inventory_entry_items iei
+                               JOIN products p ON iei.product_id = p.id
+                               WHERE iei.inventory_entry_id = ie.id
+                           ), '[]'::json
+                       ) as items,
+                       (
+                           SELECT json_build_object(
+                               'id', pi.id,
+                               'invoice_number', pi.invoice_number,
+                               'payment_status', pi.payment_status,
+                               'invoice_amount', pi.invoice_amount,
+                               'due_date', pi.due_date,
+                               'document_file', pi.document_file
+                           )
+                           FROM purchase_invoices pi
+                           WHERE pi.inventory_entry_id = ie.id
+                           LIMIT 1
+                       ) as invoice
+                FROM inventory_entries ie
+                LEFT JOIN purchase_orders po ON ie.purchase_order_id = po.id
+                LEFT JOIN suppliers s ON ie.supplier_id = s.id
+                WHERE ie.id = %s
+            """, (entry_id,))
+            row = cur.fetchone()
+            return dict(row) if row else None
+
 
 def register_inventory_entry(
     po_id: int, order_number: str, entry_date: str,

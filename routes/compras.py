@@ -22,6 +22,8 @@ from db import (
     list_entries_missing_invoice,
     get_purchase_years,
     get_purchased_products_matrix,
+    get_purchase_order_entries,
+    get_inventory_entry_detail,
 )
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -257,15 +259,25 @@ def api_oc_items(po_id):
 
 @compras_bp.route('/api/compras/oc/<int:po_id>/detalle')
 def api_oc_detalle(po_id):
-    """API para obtener el detalle completo de una Orden de Compra"""
+    """API para obtener el detalle completo de una Orden de Compra, incluyendo recepciones y facturas"""
     po = get_purchase_order(po_id)
     if not po:
         return jsonify({"error": "Orden de compra no encontrada"}), 404
     items = get_purchase_order_items(po_id)
+    entries = get_purchase_order_entries(po_id)
     return jsonify({
         "order": po,
-        "items": items
+        "items": items,
+        "entries": entries
     })
+
+@compras_bp.route('/api/compras/entradas/<int:entry_id>/detalle')
+def api_entrada_detalle(entry_id):
+    """API para obtener el detalle de una recepción/entrada con los productos ingresados"""
+    entry = get_inventory_entry_detail(entry_id)
+    if not entry:
+        return jsonify({"error": "Recepción de mercadería no encontrada"}), 404
+    return jsonify(entry)
 
 @compras_bp.route('/compras/oc/<int:po_id>/pdf')
 def descargar_oc_pdf(po_id):

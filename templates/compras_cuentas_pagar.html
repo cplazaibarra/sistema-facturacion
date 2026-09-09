@@ -146,7 +146,19 @@
                         {% else %}
                             <span style="color: #cbd5e1;">—</span>
                         {% endif %}
-                        {% if inv.entry_number %}<br><small style="color: #64748b;">Entrada: {{ inv.entry_number }}</small>{% endif %}
+                        {% if inv.entry_number %}
+                            <br>
+                            {% if inv.inventory_entry_id %}
+                            <a href="javascript:void(0);" onclick="openEntryDetailModal({{ inv.inventory_entry_id }})"
+                               style="font-size: 12px; font-weight: 600; color: #059669; text-decoration: underline; display: inline-flex; align-items: center; gap: 3px; margin-top: 2px;"
+                               title="Ver productos recibidos en Entrada {{ inv.entry_number }}">
+                                <i class="fa-solid fa-boxes-stacked" style="font-size: 10px;"></i>
+                                Entrada: {{ inv.entry_number }}
+                            </a>
+                            {% else %}
+                            <small style="color: #64748b;">Entrada: {{ inv.entry_number }}</small>
+                            {% endif %}
+                        {% endif %}
                     </td>
                     <td style="padding:11px 14px;text-align:right;font-weight:600;color:#2d3748;">${{ "{:,.0f}".format(inv.invoice_amount or 0) }}</td>
                     <td style="padding:11px 14px;text-align:center;font-size:13px;">
@@ -639,7 +651,7 @@
 
 <!-- Modal Ver Detalle Orden de Compra -->
 <div id="modal-view-oc" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; padding: 20px; overflow-y: auto;">
-    <div style="background: white; border-radius: 12px; width: 760px; max-width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 24px;">
+    <div style="background: white; border-radius: 12px; width: 800px; max-width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 24px;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px;">
             <div>
                 <h2 id="modal-oc-title" style="margin: 0; font-size: 20px; color: #1e293b;">Orden de Compra</h2>
@@ -666,6 +678,18 @@
             </div>
         </div>
 
+        <!-- RECEPCIONES / PRODUCTOS INGRESADOS EN BODEGA -->
+        <div style="margin-bottom: 20px; background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4 style="margin: 0; font-size: 14px; color: #0f172a; text-transform: uppercase; font-weight: 700;">
+                    <i class="fa-solid fa-truck-ramp-box" style="color: #059669; margin-right: 6px;"></i>RECEPCIONES Y PRODUCTOS INGRESADOS EN BODEGA
+                </h4>
+            </div>
+            <div id="modal-oc-entries-container">
+                <!-- Se inyectan dinámicamente con desglose de productos por recepción -->
+            </div>
+        </div>
+
         <!-- FACTURAS Y DOCUMENTOS RELACIONADOS -->
         <div style="margin-bottom: 20px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -679,7 +703,7 @@
         </div>
 
         <!-- PRODUCTOS SOLICITADOS -->
-        <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">PRODUCTOS DE LA ORDEN</h4>
+        <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">PRODUCTOS TOTALES DE LA ORDEN</h4>
         <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                 <thead>
@@ -704,6 +728,66 @@
             <div style="text-align: right;">
                 <span style="font-size: 14px; color: #64748b; margin-right: 8px;">TOTAL ORDEN:</span>
                 <span id="modal-oc-total" style="font-size: 20px; font-weight: 700; color: #2b6cb0;">$0</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ver Detalle de Entrada Individual -->
+<div id="modal-view-entry" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; justify-content: center; align-items: center; padding: 20px; overflow-y: auto;">
+    <div style="background: white; border-radius: 12px; width: 750px; max-width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.25); padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 18px;">
+            <div>
+                <h2 id="modal-entry-title" style="margin: 0; font-size: 20px; color: #065f46; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-boxes-packing"></i> Detalle de Entrada en Bodega
+                </h2>
+                <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Comprobante de Recepción Física de Productos</p>
+            </div>
+            <button type="button" onclick="closeEntryDetailModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: #94a3b8;">✕</button>
+        </div>
+
+        <!-- CABECERA ENTRADA -->
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
+                <div><strong>N° Entrada:</strong> <span id="modal-entry-number" style="font-weight: 700; color: #065f46;">-</span></div>
+                <div><strong>Proveedor:</strong> <span id="modal-entry-supplier" style="font-weight: 600;">-</span></div>
+                <div><strong>Fecha Recepción:</strong> <span id="modal-entry-date">-</span></div>
+                <div><strong>Bodega Destino:</strong> <span id="modal-entry-warehouse">-</span></div>
+                <div><strong>Orden de Compra:</strong> <span id="modal-entry-oc" style="font-weight: 600; color: #0284c7;">-</span></div>
+                <div><strong>Documento Asociado:</strong> <span id="modal-entry-doc">-</span></div>
+                <div style="grid-column: span 2;" id="modal-entry-notes-row"><strong>Notas / Observaciones:</strong> <span id="modal-entry-notes" style="color: #475569;">-</span></div>
+            </div>
+        </div>
+
+        <!-- PRODUCTOS INGRESADOS -->
+        <h4 style="margin: 0 0 10px 0; font-size: 14px; color: #1e293b; text-transform: uppercase;">
+            <i class="fa-solid fa-dolly" style="color: #059669; margin-right: 6px;"></i>Productos Ingresados en Esta Entrada
+        </h4>
+        <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                    <tr style="background: #f8fafc; border-bottom: 1px solid #cbd5e1; text-align: left;">
+                        <th style="padding: 10px 12px;">SKU</th>
+                        <th style="padding: 10px 12px;">Producto</th>
+                        <th style="padding: 10px 12px; text-align: center;">Lote</th>
+                        <th style="padding: 10px 12px; text-align: center;">Cant. Recibida</th>
+                        <th style="padding: 10px 12px; text-align: right;">Costo Unit.</th>
+                        <th style="padding: 10px 12px; text-align: right;">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody id="modal-entry-items-body">
+                    <!-- Dinámico -->
+                </tbody>
+            </table>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #e2e8f0; padding-top: 14px;">
+            <button type="button" onclick="closeEntryDetailModal()" style="padding: 8px 16px; background: #e2e8f0; color: #334155; border-radius: 6px; border: none; font-weight: 600; cursor: pointer;">
+                Cerrar
+            </button>
+            <div style="text-align: right;">
+                <span style="font-size: 13px; color: #64748b; margin-right: 8px;">TOTAL RECEPCIÓN:</span>
+                <span id="modal-entry-total" style="font-size: 20px; font-weight: 700; color: #059669;">$0</span>
             </div>
         </div>
     </div>
@@ -945,6 +1029,89 @@ async function openOCDetailModal(poId) {
         document.getElementById('modal-oc-total').textContent = '$' + Math.round(po.total_amount || 0).toLocaleString('es-CL');
         document.getElementById('btn-modal-oc-pdf').href = `/compras/oc/${po.id}/pdf`;
 
+        // RECEPCIONES / PRODUCTOS INGRESADOS EN BODEGA
+        const entriesContainer = document.getElementById('modal-oc-entries-container');
+        const entries = data.entries || [];
+        if (entries.length > 0) {
+            let entriesHtml = '';
+            entries.forEach((entry, idx) => {
+                let docLabel = entry.document_number ? `(${entry.document_type || 'Doc'}: ${entry.document_number})` : '';
+                let entryItems = entry.items || [];
+                let entryTotal = entryItems.reduce((acc, curr) => acc + (parseFloat(curr.total) || 0), 0);
+
+                let invoiceInfo = '';
+                if (entry.invoice) {
+                    let invBadge = entry.invoice.payment_status === 'Pagada'
+                        ? '<span style="background:#def7ec;color:#03543f;font-weight:600;padding:2px 8px;border-radius:12px;font-size:11px;">Pagada</span>'
+                        : '<span style="background:#fef08a;color:#713f12;font-weight:600;padding:2px 8px;border-radius:12px;font-size:11px;">Por Pagar</span>';
+                    invoiceInfo = `<div style="font-size: 12px; color: #475569; margin-top: 4px;">
+                        <strong>Factura Asociada:</strong> ${entry.invoice.invoice_number || 'Sin N°'} (${invBadge})
+                    </div>`;
+                }
+
+                entriesHtml += `
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; margin-bottom: ${idx === entries.length - 1 ? '0' : '12px'};">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                            <div>
+                                <span style="font-weight: 700; color: #065f46; font-size: 14px;">
+                                    <i class="fa-solid fa-box-archive" style="margin-right: 4px;"></i>Entrada: ${entry.order_number} ${docLabel}
+                                </span>
+                                <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
+                                    <span>📅 Fecha: <strong>${entry.entry_date || '-'}</strong></span> · 
+                                    <span>📍 Bodega: <strong>${entry.warehouse || 'Principal'}</strong></span>
+                                </div>
+                                ${invoiceInfo}
+                            </div>
+                            <div style="text-align: right;">
+                                <span style="font-size: 11px; color: #64748b; text-transform: uppercase;">Subtotal Recepción</span>
+                                <div style="font-size: 14px; font-weight: 700; color: #059669;">$${Math.round(entryTotal).toLocaleString('es-CL')}</div>
+                            </div>
+                        </div>
+
+                        <div style="border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; background: #fff;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                                <thead>
+                                    <tr style="background: #f1f5f9; border-bottom: 1px solid #e2e8f0; text-align: left;">
+                                        <th style="padding: 6px 8px;">SKU</th>
+                                        <th style="padding: 6px 8px;">Producto Ingresado</th>
+                                        <th style="padding: 6px 8px; text-align: center;">Lote</th>
+                                        <th style="padding: 6px 8px; text-align: center;">Cant. Ingresada</th>
+                                        <th style="padding: 6px 8px; text-align: right;">Costo Unit.</th>
+                                        <th style="padding: 6px 8px; text-align: right;">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+
+                if (entryItems.length === 0) {
+                    entriesHtml += `<tr><td colspan="6" style="padding: 8px; text-align: center; color: #94a3b8;">Sin detalle de productos</td></tr>`;
+                } else {
+                    entryItems.forEach(item => {
+                        entriesHtml += `
+                            <tr style="border-bottom: 1px solid #f8fafc;">
+                                <td style="padding: 6px 8px; color: #64748b; font-family: monospace;">${item.sku || '-'}</td>
+                                <td style="padding: 6px 8px; font-weight: 500;">${item.product_name}</td>
+                                <td style="padding: 6px 8px; text-align: center; color: #475569;">${item.lot_number || '-'}</td>
+                                <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #059669;">${item.quantity}</td>
+                                <td style="padding: 6px 8px; text-align: right;">$${Math.round(item.unit_price || 0).toLocaleString('es-CL')}</td>
+                                <td style="padding: 6px 8px; text-align: right; font-weight: 600;">$${Math.round(item.total || 0).toLocaleString('es-CL')}</td>
+                            </tr>
+                        `;
+                    });
+                }
+
+                entriesHtml += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+            entriesContainer.innerHTML = entriesHtml;
+        } else {
+            entriesContainer.innerHTML = '<p style="margin: 0; color: #94a3b8; font-size: 13px;">No se registran entradas físicas en bodega aún para esta Orden de Compra.</p>';
+        }
+
         // FACTURAS
         const invoicesContainer = document.getElementById('modal-oc-invoices-container');
         const invoices = po.invoices || [];
@@ -995,7 +1162,7 @@ async function openOCDetailModal(poId) {
             invoicesContainer.innerHTML = '<p style="margin: 0; color: #94a3b8; font-size: 13px;">No hay facturas o comprobantes registrados para esta Orden de Compra todavía.</p>';
         }
 
-        // PRODUCTOS
+        // PRODUCTOS TOTALES
         const tbody = document.getElementById('modal-oc-items-body');
         tbody.innerHTML = '';
 
@@ -1027,6 +1194,81 @@ const ocModal = document.getElementById('modal-view-oc');
 if (ocModal) {
     ocModal.addEventListener('click', function(e) {
         if (e.target === this) closeOCDetailModal();
+    });
+}
+
+// Modal Detalle de Entrada en Bodega (Recepción de productos)
+async function openEntryDetailModal(entryId) {
+    try {
+        const res = await fetch(`/api/compras/entradas/${entryId}/detalle`);
+        if (!res.ok) throw new Error("Error al obtener detalle de la entrada");
+        const entry = await res.json();
+
+        document.getElementById('modal-entry-title').innerHTML = `
+            <i class="fa-solid fa-boxes-packing"></i> Detalle de Entrada: ${entry.order_number}
+        `;
+        document.getElementById('modal-entry-number').textContent = entry.order_number || '-';
+        document.getElementById('modal-entry-supplier').textContent = entry.supplier_name || '-';
+        document.getElementById('modal-entry-date').textContent = entry.entry_date || '-';
+        document.getElementById('modal-entry-warehouse').textContent = entry.warehouse || 'Almacén Principal';
+        
+        let ocHtml = '-';
+        if (entry.oc_number) {
+            ocHtml = entry.purchase_order_id 
+                ? `<a href="javascript:void(0);" onclick="closeEntryDetailModal(); openOCDetailModal(${entry.purchase_order_id})" style="color: #0284c7; text-decoration: underline;">${entry.oc_number}</a>`
+                : entry.oc_number;
+        }
+        document.getElementById('modal-entry-oc').innerHTML = ocHtml;
+
+        let docText = entry.document_number ? `${entry.document_type || 'Documento'}: ${entry.document_number}` : 'Sin N° registrado';
+        if (entry.document_file) {
+            docText += ` · <a href="/uploads/${entry.document_file}" target="_blank" style="color: #0284c7; text-decoration: underline;"><i class="fa-solid fa-file-pdf"></i> Ver archivo</a>`;
+        }
+        document.getElementById('modal-entry-doc').innerHTML = docText;
+        document.getElementById('modal-entry-notes').textContent = entry.notes || 'Sin observaciones';
+
+        const tbody = document.getElementById('modal-entry-items-body');
+        tbody.innerHTML = '';
+        const items = entry.items || [];
+        let total = 0;
+
+        items.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid #f1f5f9';
+            const subtotal = parseFloat(item.total) || (parseFloat(item.quantity || 0) * parseFloat(item.unit_price || 0));
+            total += subtotal;
+
+            tr.innerHTML = `
+                <td style="padding: 10px 12px; font-family: monospace; color: #64748b;">${item.sku || '-'}</td>
+                <td style="padding: 10px 12px; font-weight: 500;">${item.product_name || '-'}</td>
+                <td style="padding: 10px 12px; text-align: center; color: #475569;">${item.lot_number || '-'}</td>
+                <td style="padding: 10px 12px; text-align: center; font-weight: 700; color: #059669;">${item.quantity || 0}</td>
+                <td style="padding: 10px 12px; text-align: right;">$${Math.round(item.unit_price || 0).toLocaleString('es-CL')}</td>
+                <td style="padding: 10px 12px; text-align: right; font-weight: 600;">$${Math.round(subtotal).toLocaleString('es-CL')}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        if (items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="padding: 16px; text-align: center; color: #94a3b8;">No se registraron productos en esta entrada.</td></tr>';
+        }
+
+        document.getElementById('modal-entry-total').textContent = '$' + Math.round(total).toLocaleString('es-CL');
+        document.getElementById('modal-view-entry').style.display = 'flex';
+    } catch(e) {
+        console.error(e);
+        alert("No se pudo cargar el detalle de la entrada.");
+    }
+}
+
+function closeEntryDetailModal() {
+    document.getElementById('modal-view-entry').style.display = 'none';
+}
+
+const entryModal = document.getElementById('modal-view-entry');
+if (entryModal) {
+    entryModal.addEventListener('click', function(e) {
+        if (e.target === this) closeEntryDetailModal();
     });
 }
 
