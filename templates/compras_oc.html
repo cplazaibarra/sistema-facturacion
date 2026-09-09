@@ -44,7 +44,7 @@
                             {{ order.supplier_name }}
                         </a>
                     </td>
-                    <td>{{ order.order_date }}</td>
+                    <td>{{ order.order_date | date_cl }}</td>
                     <td style="font-weight: 600;">${{ "{:,.2f}".format(order.total_amount) }}</td>
                     
                     <!-- Factura(s) Relacionada(s) -->

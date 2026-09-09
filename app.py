@@ -27,6 +27,22 @@ def from_json_filter(value):
         return json.loads(value)
     return value
 
+@app.template_filter('date_cl')
+def date_cl_filter(value):
+    """Formatea cualquier fecha o string ISO a formato chileno DD/MM/AAAA."""
+    if not value:
+        return ''
+    val_str = str(value).strip()
+    if not val_str:
+        return ''
+    # Si viene con hora '2026-09-09 14:30:00'
+    date_part = val_str.split(' ')[0].split('T')[0]
+    parts = date_part.split('-')
+    if len(parts) == 3 and len(parts[0]) == 4:
+        # yyyy-mm-dd -> dd/mm/yyyy
+        return f"{parts[2]}/{parts[1]}/{parts[0]}"
+    return val_str
+
 # Inicializar Base de Datos
 init_db()
 

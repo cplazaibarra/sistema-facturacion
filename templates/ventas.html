@@ -208,7 +208,7 @@
                 </td>
                 <td>
                     <div class="sf-cell-date">
-                        <div>{{ sale.date }}</div>
+                        <div>{{ sale.date | date_cl }}</div>
                         <div class="sf-cell-time">{{ sale.time }}</div>
                     </div>
                 </td>
@@ -333,13 +333,13 @@
                           <div>
                               {% if sale.payment_status == 'Pagado' %}
                                   <span style="color: #48BB78; font-weight: 500;">Pagado el:</span>
-                                  <div style="color: #718096;">{{ sale.payment_date }}</div>
+                                  <div style="color: #718096;">{{ sale.payment_date | date_cl }}</div>
                               {% elif sale.payment_status == 'Retrasada' %}
                                   <span style="color: #E53E3E; font-weight: 600;">Retrasada (Cobrar):</span>
-                                  <div style="color: #E53E3E; font-weight: 700;">{{ sale.invoice_due_date }}</div>
+                                  <div style="color: #E53E3E; font-weight: 700;">{{ sale.invoice_due_date | date_cl }}</div>
                               {% else %}
                                   <span style="color: #ED8936; font-weight: 500;">Vence (Cobrar):</span>
-                                  <div style="color: #718096; font-weight: 600;">{{ sale.invoice_due_date }}</div>
+                                  <div style="color: #718096; font-weight: 600;">{{ sale.invoice_due_date | date_cl }}</div>
                               {% endif %}
                           </div>
                       </div>

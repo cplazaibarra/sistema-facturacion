@@ -124,7 +124,7 @@
                     <td style="padding:11px 14px;text-align:right;font-weight:600;color:#2d3748;">${{ "{:,.0f}".format(inv.invoice_amount or 0) }}</td>
                     <td style="padding:11px 14px;text-align:center;font-size:13px;">
                         {% if inv.due_date %}
-                            <span style="color:{% if inv.payment_status == 'Vencida' %}#e53e3e;font-weight:700;{% else %}#4a5568;{% endif %}">{{ inv.due_date }}</span>
+                            <span style="color:{% if inv.payment_status == 'Vencida' %}#e53e3e;font-weight:700;{% else %}#4a5568;{% endif %}">{{ inv.due_date | date_cl }}</span>
                         {% else %}
                             <span style="color:#a0aec0;">—</span>
                         {% endif %}
@@ -179,7 +179,7 @@
                             </div>
                             {% if inv.payment_status == 'Pagada' and inv.payment_date %}
                             <div style="font-size:11px;color:#64748b;text-align:center;">
-                                <span><i class="fa-solid fa-check" style="color:#38a169;"></i> Pagado: {{ inv.payment_date }}</span>
+                                <span><i class="fa-solid fa-check" style="color:#38a169;"></i> Pagado: {{ inv.payment_date | date_cl }}</span>
                                 {% if inv.bank_name %}
                                 <br><span><i class="fa-solid fa-building-columns" style="color:#3b82f6;"></i> {{ inv.bank_name }} ({{ inv.account_number }})</span>
                                 {% endif %}
@@ -526,13 +526,21 @@
 
 {% block scripts %}
 <script>
-const todayStr = new Date().toISOString().split('T')[0];
-document.getElementById('modal-date').value = todayStr;
-document.getElementById('new-inv-date').value = todayStr;
-document.getElementById('new-inv-pay-date').value = todayStr;
-if (document.getElementById('attach-inv-date')) {
-    document.getElementById('attach-inv-date').value = todayStr;
+function setInputValueAndDatepicker(id, val) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el._flatpickr) {
+        el._flatpickr.setDate(val, true);
+    } else {
+        el.value = val;
+    }
 }
+
+const todayStr = new Date().toISOString().split('T')[0];
+setInputValueAndDatepicker('modal-date', todayStr);
+setInputValueAndDatepicker('new-inv-date', todayStr);
+setInputValueAndDatepicker('new-inv-pay-date', todayStr);
+setInputValueAndDatepicker('attach-inv-date', todayStr);
 
 // Modal Cargar Factura
 function openNewInvoiceModal() {
@@ -615,7 +623,9 @@ function openAttachInvoiceModal(invoiceId, supplierName, amount, dueDate) {
     document.getElementById('attach-inv-amount').value = amount || '';
     document.getElementById('attach-inv-number').value = '';
     if (dueDate) {
-        document.getElementById('attach-inv-due-date').value = dueDate;
+        setInputValueAndDatepicker('attach-inv-due-date', dueDate);
+    } else {
+        setInputValueAndDatepicker('attach-inv-due-date', '');
     }
     // Reset file preview
     const ph = document.getElementById('attach-inv-file-ph');

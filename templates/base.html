@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=11">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     {% block extra_css %}{% endblock %}
     <script>
@@ -391,6 +392,40 @@
 
         loadSystemNotifications();
         setInterval(loadSystemNotifications, 45000);
+    </script>
+    <!-- Flatpickr (Selector de fechas formato DD/MM/AAAA) -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+    <script>
+        function initAppDatepickers(container) {
+            const root = container || document;
+            const dateInputs = root.querySelectorAll('input[type="date"], input.date-cl, input.datepicker');
+            dateInputs.forEach(input => {
+                if (input._flatpickr) return;
+                // Guardar valor inicial si ya tiene fecha YYYY-MM-DD
+                const initialVal = input.value;
+                flatpickr(input, {
+                    locale: 'es',
+                    dateFormat: 'Y-m-d',       // Valor interno para formularios POST
+                    altInput: true,            // Input visible para el usuario
+                    altFormat: 'd/m/Y',        // Formato visual día/mes/año
+                    allowInput: true,
+                    defaultDate: initialVal || null,
+                    onReady: function(selectedDates, dateStr, instance) {
+                        if (instance.altInput) {
+                            instance.altInput.placeholder = 'dd/mm/aaaa';
+                            instance.altInput.style.cssText = input.style.cssText;
+                            if (input.className) {
+                                instance.altInput.className = input.className;
+                            }
+                        }
+                    }
+                });
+            });
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            initAppDatepickers();
+        });
     </script>
     {% block scripts %}{% endblock %}
 </body>
