@@ -49,7 +49,10 @@ init_db()
 # Servir archivos estáticos subidos
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
-    """Serve uploaded files"""
+    """Serve uploaded files from both root uploads/ and static/uploads/"""
+    root_uploads = os.path.join(os.path.dirname(__file__), 'uploads')
+    if os.path.isfile(os.path.join(root_uploads, filename)):
+        return send_from_directory(root_uploads, filename)
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 # Registrar Blueprints
