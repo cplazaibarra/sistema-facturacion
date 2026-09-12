@@ -197,14 +197,6 @@
                     <td style="padding:11px 14px;text-align:center;">
                         <div style="display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center;">
                             <div style="display:flex;gap:6px;justify-content:center;align-items:center;flex-wrap:wrap;">
-                                <button type="button" onclick="openInvoiceProductsModal({{ inv.id }})"
-                                        style="padding:5px 10px;border-radius:6px;background:#f8fafc;color:#1e293b;border:1px solid #cbd5e1;cursor:pointer;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:5px;transition:all 0.15s ease;"
-                                        onmouseover="this.style.background='#f1f5f9';this.style.borderColor='#94a3b8';"
-                                        onmouseout="this.style.background='#f8fafc';this.style.borderColor='#cbd5e1';"
-                                        title="Ver detalle de productos ingresados en bodega">
-                                    <i class="fa-solid fa-boxes-stacked" style="color:#059669;"></i>
-                                    <span>Ver Entrada</span>
-                                </button>
                                 {% if inv.payment_status == 'Sin Factura' %}
                                 <button type="button" onclick="openAttachInvoiceModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', {{ inv.invoice_amount or 0 }}, '{{ inv.due_date or '' }}')"
                                         style="padding:5px 12px;border-radius:6px;background:#3182ce;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:5px;">
