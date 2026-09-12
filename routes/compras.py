@@ -24,6 +24,7 @@ from db import (
     get_purchased_products_matrix,
     get_purchase_order_entries,
     get_inventory_entry_detail,
+    get_purchase_invoice_products_detail,
 )
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -278,6 +279,14 @@ def api_entrada_detalle(entry_id):
     if not entry:
         return jsonify({"error": "Recepción de mercadería no encontrada"}), 404
     return jsonify(entry)
+
+@compras_bp.route('/api/compras/facturas/<int:invoice_id>/productos')
+def api_factura_productos(invoice_id):
+    """API para obtener el detalle de productos ingresados asociados a una factura"""
+    data = get_purchase_invoice_products_detail(invoice_id)
+    if not data:
+        return jsonify({"error": "Factura no encontrada"}), 404
+    return jsonify(data)
 
 @compras_bp.route('/compras/oc/<int:po_id>/pdf')
 def descargar_oc_pdf(po_id):

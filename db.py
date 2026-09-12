@@ -4373,6 +4373,80 @@ def get_purchase_invoice(invoice_id: int) -> dict:
             return cur.fetchone()
 
 
+def get_purchase_invoice_products_detail(invoice_id: int) -> dict | None:
+    """Obtiene el detalle completo de una factura de compra y los productos ingresados en bodega."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT pi.*, s.name AS supplier_name,
+                       COALESCE(pi.purchase_order_id, ie.purchase_order_id) AS purchase_order_id,
+                       po.oc_number,
+                       ie.id AS entry_id, ie.order_number AS entry_number, ie.entry_date,
+                       ie.warehouse, ie.document_type AS entry_doc_type,
+                       ie.document_number AS entry_doc_number, ie.document_file AS entry_doc_file,
+                       ba.bank_name, ba.account_number, ba.account_type
+                FROM purchase_invoices pi
+                LEFT JOIN suppliers s ON s.id = pi.supplier_id
+                LEFT JOIN inventory_entries ie ON ie.id = pi.inventory_entry_id
+                LEFT JOIN purchase_orders po ON po.id = COALESCE(pi.purchase_order_id, ie.purchase_order_id)
+                LEFT JOIN bank_accounts ba ON ba.id = pi.bank_account_id
+                WHERE pi.id = %s
+            """, (invoice_id,))
+            inv_row = cur.fetchone()
+            if not inv_row:
+                return None
+            inv = dict(inv_row)
+
+            items = []
+            # 1. Si la factura tiene entrada directa de inventario
+            if inv.get("inventory_entry_id"):
+                cur.execute("""
+                    SELECT iei.id, iei.product_id, iei.quantity, iei.unit_price, iei.total, iei.lot_number,
+                           p.sku, p.name AS product_name, ie.warehouse, ie.entry_date, ie.order_number AS entry_number
+                    FROM inventory_entry_items iei
+                    JOIN products p ON iei.product_id = p.id
+                    JOIN inventory_entries ie ON iei.inventory_entry_id = ie.id
+                    WHERE iei.inventory_entry_id = %s
+                    ORDER BY iei.id ASC
+                """, (inv["inventory_entry_id"],))
+                items = [dict(r) for r in cur.fetchall()]
+
+            # 2. Si no tiene entrada directa pero tiene OC asociada, buscar todas las entradas de esa OC
+            if not items and inv.get("purchase_order_id"):
+                cur.execute("""
+                    SELECT iei.id, iei.product_id, iei.quantity, iei.unit_price, iei.total, iei.lot_number,
+                           p.sku, p.name AS product_name, ie.warehouse, ie.entry_date, ie.order_number AS entry_number
+                    FROM inventory_entry_items iei
+                    JOIN products p ON iei.product_id = p.id
+                    JOIN inventory_entries ie ON iei.inventory_entry_id = ie.id
+                    WHERE ie.purchase_order_id = %s
+                    ORDER BY ie.id ASC, iei.id ASC
+                """, (inv["purchase_order_id"],))
+                items = [dict(r) for r in cur.fetchall()]
+
+            # 3. Si aún no hay recepción registrada, traer los ítems de la OC
+            if not items and inv.get("purchase_order_id"):
+                cur.execute("""
+                    SELECT poi.id, poi.product_id, poi.quantity_ordered AS quantity, poi.unit_price, poi.total_price AS total,
+                           '' AS lot_number, p.sku, p.name AS product_name, 'Sin recepción aún' AS warehouse, '' AS entry_date, '' AS entry_number
+                    FROM purchase_order_items poi
+                    JOIN products p ON poi.product_id = p.id
+                    WHERE poi.purchase_order_id = %s
+                    ORDER BY poi.id ASC
+                """, (inv["purchase_order_id"],))
+                items = [dict(r) for r in cur.fetchall()]
+
+            total_qty = sum(float(it.get("quantity") or 0) for it in items)
+            total_amount = sum(float(it.get("total") or (float(it.get("quantity") or 0) * float(it.get("unit_price") or 0))) for it in items)
+
+            return {
+                "invoice": inv,
+                "items": items,
+                "total_quantity": total_qty,
+                "total_amount": total_amount
+            }
+
+
 def list_purchase_invoices(status_filter: str | list | tuple = None) -> list:
     """Lista facturas de proveedor con datos del proveedor, entrada de bodega y cuenta bancaria."""
     with get_connection() as conn:
