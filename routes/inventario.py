@@ -324,7 +324,7 @@ def ingreso_mercaderia():
                 'purchase_order_id':  po_id,
                 'supplier_id':        supplier_id,
                 'invoice_number':     document_number if document_type == 'factura' else '',
-                'invoice_amount':     invoice_amount or (po['total_amount'] if po else 0),
+                'invoice_amount':     invoice_amount or sum(item["quantity"] * item["unit_price"] for item in items),
                 'invoice_date':       invoice_date,
                 'due_date':           due_date,
                 'document_file':      doc_file_path,
