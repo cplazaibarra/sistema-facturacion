@@ -9,20 +9,25 @@
         <button class="btn-primary">+ Nuevo Producto</button>
         <button class="btn-secondary" onclick="exportInventory()">Exportar</button>
     </div>
-    <div class="filter-group">
-        <select id="inventory-warehouse-filter" class="form-control" style="min-width: 160px;">
+    <div class="filter-group" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <div style="position: relative; min-width: 280px; flex: 1; max-width: 380px;">
+            <input type="text" id="inventory-general-search" class="form-control" placeholder="Buscar cualquier cosa (SKU, producto, lote...)" style="padding-left: 36px; padding-right: 32px; width: 100%;">
+            <span style="position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px; pointer-events: none;">🔍</span>
+            <button type="button" id="clear-search-btn" onclick="clearGeneralSearch()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; border-radius: 50%; width: 18px; height: 18px; display: none; align-items: center; justify-content: center; color: #64748b; cursor: pointer; font-size: 11px; line-height: 1;" title="Limpiar búsqueda">✕</button>
+        </div>
+        <select id="inventory-warehouse-filter" class="form-control" style="min-width: 150px;">
             <option value="">Todas las bodegas</option>
             {% for wh in warehouses_list %}
             <option value="{{ wh }}">{{ wh }}</option>
             {% endfor %}
         </select>
-        <select id="inventory-category-filter" class="form-control">
+        <select id="inventory-category-filter" class="form-control" style="min-width: 160px;">
             <option value="">Todas las categorías</option>
             {% for category in inventory_categories %}
             <option value="{{ category }}">{{ category }}</option>
             {% endfor %}
         </select>
-        <select id="inventory-stock-filter" class="form-control">
+        <select id="inventory-stock-filter" class="form-control" style="min-width: 140px;">
             <option value="">Todos los estados</option>
             {% for option in inventory_stock_filters %}
             <option value="{{ option }}">{{ option }}</option>
@@ -233,20 +238,55 @@
             conGen.style.display = 'none';
             conLot.style.display = 'block';
         }
+
+        if (typeof window.applyInventoryFilters === 'function') {
+            window.applyInventoryFilters();
+        }
     }
 
-    function filterLotesTable() {
-        const q = (document.getElementById('filter-lotes-input') ? document.getElementById('filter-lotes-input').value : '').toLowerCase().trim();
-        const whFilter = document.getElementById('inventory-warehouse-filter');
-        const selectedWh = (whFilter ? whFilter.value : '').toLowerCase().trim();
+    function filterLotesTable(globalSearch, selWarehouse, selCategory) {
+        const lotSearchInput = document.getElementById('filter-lotes-input');
+        const lotSearchTerm = (lotSearchInput ? lotSearchInput.value : '').toLowerCase().trim();
+        
+        const generalSearch = document.getElementById('inventory-general-search');
+        const generalSearchTerm = (generalSearch ? generalSearch.value : '').toLowerCase().trim();
+        
+        const q = lotSearchTerm || (globalSearch !== undefined ? globalSearch : generalSearchTerm);
 
-        document.querySelectorAll('.lot-row').forEach(row => {
+        const whFilter = document.getElementById('inventory-warehouse-filter');
+        const selectedWh = selWarehouse !== undefined ? selWarehouse : (whFilter ? whFilter.value : '').toLowerCase().trim();
+
+        const catFilter = document.getElementById('inventory-category-filter');
+        const selectedCat = selCategory !== undefined ? selCategory : (catFilter ? catFilter.value : '').toLowerCase().trim();
+
+        let visibleLots = 0;
+        const lotRows = document.querySelectorAll('.lot-row');
+        lotRows.forEach(row => {
+            const rowText = (row.textContent || '').toLowerCase();
             const txt = (row.dataset.search || '').toLowerCase();
             const rowWh = (row.dataset.warehouse || '').toLowerCase();
-            const matchesText = !q || txt.includes(q);
+            const catCell = row.cells[2] ? row.cells[2].textContent.toLowerCase().trim() : '';
+
+            const matchesText = !q || txt.includes(q) || rowText.includes(q);
             const matchesWh = !selectedWh || rowWh.includes(selectedWh);
-            row.style.display = (matchesText && matchesWh) ? '' : 'none';
+            const matchesCat = !selectedCat || catCell === selectedCat || catCell.includes(selectedCat);
+
+            const isVisible = matchesText && matchesWh && matchesCat;
+            row.style.display = isVisible ? '' : 'none';
+            if (isVisible) visibleLots++;
         });
+
+        const lotTbody = document.querySelector('#tabla-lotes tbody');
+        let noLotsRow = document.getElementById('no-lotes-results-row');
+        if (!noLotsRow && lotTbody) {
+            noLotsRow = document.createElement('tr');
+            noLotsRow.id = 'no-lotes-results-row';
+            noLotsRow.innerHTML = '<td colspan="10" style="text-align: center; color: #64748b; padding: 30px; font-style: italic;">🔍 No se encontraron lotes que coincidan con la búsqueda.</td>';
+            lotTbody.appendChild(noLotsRow);
+        }
+        if (noLotsRow) {
+            noLotsRow.style.display = (visibleLots === 0 && lotRows.length > 0) ? '' : 'none';
+        }
     }
 
     function exportInventory() {
@@ -332,11 +372,27 @@
         }
     }
 
+    function clearGeneralSearch() {
+        const generalSearch = document.getElementById('inventory-general-search');
+        const headerSearch = document.querySelector('.header .search-box input');
+        const lotSearch = document.getElementById('filter-lotes-input');
+        if (generalSearch) generalSearch.value = '';
+        if (headerSearch) headerSearch.value = '';
+        if (lotSearch) lotSearch.value = '';
+        const clearBtn = document.getElementById('clear-search-btn');
+        if (clearBtn) clearBtn.style.display = 'none';
+        if (typeof window.applyInventoryFilters === 'function') {
+            window.applyInventoryFilters();
+        }
+    }
+
     (function () {
         const categoryFilter = document.getElementById('inventory-category-filter');
         const stockFilter = document.getElementById('inventory-stock-filter');
         const warehouseFilter = document.getElementById('inventory-warehouse-filter');
-        const searchInput = document.querySelector('.header .search-box input');
+        const generalSearch = document.getElementById('inventory-general-search');
+        const headerSearch = document.querySelector('.header .search-box input');
+        const clearBtn = document.getElementById('clear-search-btn');
         const rows = Array.from(document.querySelectorAll('#container-tab-general .data-table tbody tr'));
 
         function normalize(value) {
@@ -347,30 +403,77 @@
             const selectedCategory = normalize(categoryFilter ? categoryFilter.value : '');
             const selectedStatus = normalize(stockFilter ? stockFilter.value : '');
             const selectedWarehouse = normalize(warehouseFilter ? warehouseFilter.value : '');
-            const searchTerm = normalize(searchInput ? searchInput.value : '');
+            
+            let searchTerm = normalize(generalSearch ? generalSearch.value : '');
+            if (!searchTerm && headerSearch) {
+                searchTerm = normalize(headerSearch.value);
+            }
 
+            if (clearBtn) {
+                clearBtn.style.display = searchTerm ? 'inline-flex' : 'none';
+            }
+
+            let visibleCount = 0;
             rows.forEach((row) => {
+                const rowText = normalize(row.textContent);
                 const rowCategory = normalize(row.getAttribute('data-category'));
                 const rowStatus = normalize(row.getAttribute('data-status'));
                 const rowWarehouse = normalize(row.getAttribute('data-warehouse'));
                 const rowCode = normalize(row.getAttribute('data-code'));
                 const rowName = normalize(row.getAttribute('data-name'));
                 const rowDesc = normalize(row.getAttribute('data-desc'));
+
                 const matchesCategory = !selectedCategory || rowCategory === selectedCategory;
                 const matchesStatus = !selectedStatus || rowStatus === selectedStatus;
                 const matchesWarehouse = !selectedWarehouse || rowWarehouse.includes(selectedWarehouse);
-                const matchesSearch = !searchTerm || rowCode.includes(searchTerm) || rowName.includes(searchTerm) || rowDesc.includes(searchTerm) || rowCategory.includes(searchTerm);
-                row.style.display = matchesCategory && matchesStatus && matchesWarehouse && matchesSearch ? '' : 'none';
+                
+                // Filtro general: busca cualquier texto en cualquier columna o dato
+                const matchesSearch = !searchTerm || 
+                    rowText.includes(searchTerm) || 
+                    rowCode.includes(searchTerm) || 
+                    rowName.includes(searchTerm) || 
+                    rowDesc.includes(searchTerm) || 
+                    rowCategory.includes(searchTerm) ||
+                    rowWarehouse.includes(searchTerm) ||
+                    rowStatus.includes(searchTerm);
+
+                const isVisible = matchesCategory && matchesStatus && matchesWarehouse && matchesSearch;
+                row.style.display = isVisible ? '' : 'none';
+                if (isVisible) visibleCount++;
             });
 
-            filterLotesTable();
+            const generalTbody = document.querySelector('#container-tab-general .data-table tbody');
+            let noGeneralRow = document.getElementById('no-general-results-row');
+            if (!noGeneralRow && generalTbody) {
+                noGeneralRow = document.createElement('tr');
+                noGeneralRow.id = 'no-general-results-row';
+                noGeneralRow.innerHTML = '<td colspan="9" style="text-align: center; color: #64748b; padding: 30px; font-style: italic;">🔍 No se encontraron productos que coincidan con la búsqueda.</td>';
+                generalTbody.appendChild(noGeneralRow);
+            }
+            if (noGeneralRow) {
+                noGeneralRow.style.display = (visibleCount === 0 && rows.length > 0) ? '' : 'none';
+            }
+
+            filterLotesTable(searchTerm, selectedWarehouse, selectedCategory);
         }
+
+        window.applyInventoryFilters = applyFilters;
 
         if (categoryFilter) categoryFilter.addEventListener('change', applyFilters);
         if (stockFilter) stockFilter.addEventListener('change', applyFilters);
         if (warehouseFilter) warehouseFilter.addEventListener('change', applyFilters);
-        if (searchInput) {
-            searchInput.addEventListener('input', applyFilters);
+
+        if (generalSearch) {
+            generalSearch.addEventListener('input', () => {
+                if (headerSearch) headerSearch.value = generalSearch.value;
+                applyFilters();
+            });
+        }
+        if (headerSearch) {
+            headerSearch.addEventListener('input', () => {
+                if (generalSearch) generalSearch.value = headerSearch.value;
+                applyFilters();
+            });
         }
     })();
 </script>
