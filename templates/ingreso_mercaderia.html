@@ -147,16 +147,33 @@
                         <thead>
                             <tr style="background: #f1f5f9; text-align: left; border-bottom: 2px solid #cbd5e1;">
                                 <th style="padding: 10px 12px;">Producto</th>
-                                <th style="padding: 10px 12px; width: 100px;">Solicitado</th>
-                                <th style="padding: 10px 12px; width: 110px;">Recibido Prev.</th>
-                                <th style="padding: 10px 12px; width: 100px;">Pendiente</th>
-                                <th style="padding: 10px 12px; width: 130px;">Recibido Ahora</th>
-                                <th style="padding: 10px 12px; width: 200px;">N° Lote Físico</th>
+                                <th style="padding: 10px 12px; width: 85px; text-align: center;">Solicitado</th>
+                                <th style="padding: 10px 12px; width: 95px; text-align: center;">Recibido Prev.</th>
+                                <th style="padding: 10px 12px; width: 85px; text-align: center;">Pendiente</th>
+                                <th style="padding: 10px 12px; width: 110px; text-align: center;">Recibido Ahora</th>
+                                <th style="padding: 10px 12px; width: 110px; text-align: right;">Precio Unit. (OC)</th>
+                                <th style="padding: 10px 12px; width: 120px; text-align: right;">Total Línea</th>
+                                <th style="padding: 10px 12px; width: 180px;">N° Lote Físico</th>
                             </tr>
                         </thead>
                         <tbody id="recepcion-tbody">
                             <!-- Filas dinámicas generadas por JavaScript -->
                         </tbody>
+                        <tfoot id="recepcion-tfoot" style="background: #f8fafc; border-top: 2px solid #cbd5e1; font-weight: 700;">
+                            <tr>
+                                <td colspan="4" style="padding: 12px; text-align: right; color: #475569;">
+                                    <span>TOTAL RECEPCIÓN ACTUAL:</span>
+                                </td>
+                                <td style="padding: 12px; text-align: center; color: #0284c7; font-size: 14px;" id="total-qty-now">
+                                    0 un.
+                                </td>
+                                <td></td>
+                                <td style="padding: 12px; text-align: right; color: #059669; font-size: 16px;" id="total-amount-now">
+                                    $0
+                                </td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>
@@ -245,11 +262,15 @@ function updateDocType() {
         document.getElementById('alert-guia').style.display = 'none';
         document.getElementById('alert-factura').style.display = 'flex';
 
-        // Auto-sugerir monto si está vacío y hay una OC seleccionada
-        const ocSelect = document.getElementById('ingreso-oc');
-        const selectedOption = ocSelect.options[ocSelect.selectedIndex];
-        if (selectedOption && selectedOption.dataset.total && (!invoiceAmount.value || invoiceAmount.value == '0')) {
-            invoiceAmount.value = selectedOption.dataset.total;
+        // Sincronizar monto si hay productos cargados o sugerir el total
+        if (typeof recalculateTotals === 'function') {
+            recalculateTotals();
+        } else {
+            const ocSelect = document.getElementById('ingreso-oc');
+            const selectedOption = ocSelect.options[ocSelect.selectedIndex];
+            if (selectedOption && selectedOption.dataset.total && (!invoiceAmount.value || invoiceAmount.value == '0')) {
+                invoiceAmount.value = selectedOption.dataset.total;
+            }
         }
     } else {
         lblGuia.style.borderColor = '#3182ce';
@@ -330,6 +351,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Función para recalcular los totales de cada línea y el total general de la recepción
+    function recalculateTotals() {
+        let totalQty = 0;
+        let totalAmount = 0;
+
+        document.querySelectorAll('.recepcion-row').forEach(row => {
+            const inputQty = row.querySelector('.input-qty');
+            const unitPrice = parseFloat(row.dataset.unitPrice) || 0;
+            const qty = parseInt(inputQty.value) || 0;
+            const lineTotal = qty * unitPrice;
+
+            totalQty += qty;
+            totalAmount += lineTotal;
+
+            const lineTotalCell = row.querySelector('.line-total-cell');
+            if (lineTotalCell) {
+                lineTotalCell.textContent = '$' + Math.round(lineTotal).toLocaleString('es-CL');
+            }
+        });
+
+        const totalQtyElem = document.getElementById('total-qty-now');
+        const totalAmountElem = document.getElementById('total-amount-now');
+        if (totalQtyElem) totalQtyElem.textContent = `${totalQty} un.`;
+        if (totalAmountElem) totalAmountElem.textContent = '$' + Math.round(totalAmount).toLocaleString('es-CL');
+
+        // Si el tipo de documento es Factura de Compra, sincronizar automáticamente el Monto Factura
+        const isFactura = document.getElementById('opt-factura').checked;
+        const invoiceAmountInput = document.getElementById('invoice_amount');
+        if (isFactura && invoiceAmountInput) {
+            invoiceAmountInput.value = totalAmount > 0 ? totalAmount : '';
+        }
+    }
+
     // 2. Cargar ítems pendientes de la OC seleccionada
     async function loadOcItems(poId) {
         tbody.innerHTML = '';
@@ -352,36 +406,54 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (pending <= 0) return;
                     pendingCount++;
                     const requiresLot = Boolean(item.requires_lot);
+                    const unitPrice = parseFloat(item.unit_price) || 0;
+                    const initialLineTotal = pending * unitPrice;
+
                     const row = document.createElement('tr');
                     row.className = 'recepcion-row';
                     row.dataset.requiresLot = requiresLot ? '1' : '0';
                     row.dataset.productName = item.product_name;
+                    row.dataset.unitPrice = unitPrice;
                     row.style.borderBottom = '1px solid #e2e8f0';
                     row.innerHTML = `
                         <td style="padding: 10px 12px;">
                             <div style="display: flex; flex-direction: column; gap: 4px;">
                                 <strong style="color: #1e293b;">${item.product_name}</strong>
-                                ${requiresLot ? '<span style="color: #b91c1c; font-size: 11px; font-weight: 700;"><i class="fa-solid fa-triangle-exclamation"></i> Requiere Lote Obligatorio</span>' : '<span style="color: #94a3b8; font-size: 11px;">Lote Opcional</span>'}
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    ${item.product_sku ? `<span style="font-family: monospace; font-size: 11px; background: #f1f5f9; color: #475569; padding: 1px 5px; border-radius: 4px;">SKU: ${item.product_sku}</span>` : ''}
+                                    ${requiresLot ? '<span style="color: #b91c1c; font-size: 11px; font-weight: 700;"><i class="fa-solid fa-triangle-exclamation"></i> Requiere Lote</span>' : '<span style="color: #94a3b8; font-size: 11px;">Lote Opcional</span>'}
+                                </div>
                             </div>
                             <input type="hidden" name="product_id[]" value="${item.product_id}">
-                            <input type="hidden" name="unit_price[]" value="${item.unit_price}">
+                            <input type="hidden" name="unit_price[]" value="${unitPrice}">
                         </td>
-                        <td style="padding: 10px 12px; font-weight: 500;">${item.quantity_ordered}</td>
-                        <td style="padding: 10px 12px; color: #64748b;">${item.quantity_received}</td>
-                        <td style="padding: 10px 12px; font-weight: 700; color: #2563eb;" class="pending-qty">${pending}</td>
-                        <td style="padding: 10px 12px;">
-                            <input type="number" name="quantity[]" class="form-control input-qty" value="${pending}" min="0" max="${pending}" required style="width: 100px; padding: 7px 10px; border: 1px solid #CBD5E1; border-radius: 6px; font-weight: 600; text-align: center;">
+                        <td style="padding: 10px 12px; font-weight: 500; text-align: center;">${item.quantity_ordered}</td>
+                        <td style="padding: 10px 12px; color: #64748b; text-align: center;">${item.quantity_received}</td>
+                        <td style="padding: 10px 12px; font-weight: 700; color: #2563eb; text-align: center;" class="pending-qty">${pending}</td>
+                        <td style="padding: 10px 12px; text-align: center;">
+                            <input type="number" name="quantity[]" class="form-control input-qty" value="${pending}" min="0" max="${pending}" required style="width: 90px; padding: 7px 10px; border: 1px solid #CBD5E1; border-radius: 6px; font-weight: 600; text-align: center;">
+                        </td>
+                        <td style="padding: 10px 12px; text-align: right; font-weight: 600; color: #475569;">
+                            $${Math.round(unitPrice).toLocaleString('es-CL')}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: right; font-weight: 700; color: #059669;" class="line-total-cell">
+                            $${Math.round(initialLineTotal).toLocaleString('es-CL')}
                         </td>
                         <td style="padding: 10px 12px;">
                             <input type="text" name="lot_number[]" class="form-control input-lot" placeholder="${requiresLot ? 'LOTE Obligatorio *' : 'Opcional (Ej. A21)'}" ${requiresLot ? 'required' : ''} style="width: 100%; padding: 7px 10px; border: 1px solid ${requiresLot ? '#fca5a5' : '#CBD5E1'}; border-radius: 6px; background: ${requiresLot ? '#fff5f5' : '#fff'}; font-weight: 500;">
                         </td>
                     `;
                     tbody.appendChild(row);
+
+                    // Event listener para recalcular totales en vivo al cambiar la cantidad
+                    const qtyInput = row.querySelector('.input-qty');
+                    qtyInput.addEventListener('input', recalculateTotals);
                 });
 
                 if (pendingCount > 0) {
                     table.style.display = 'table';
                     ocHint.textContent = 'Valida las cantidades recibidas físicamente y asigna el N° de lote correspondiente a cada producto.';
+                    recalculateTotals();
                 } else {
                     table.style.display = 'none';
                     ocHint.textContent = 'Esta Orden de Compra ya tiene todas sus cantidades recibidas por completo.';
@@ -403,12 +475,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedOpt = ocSelect.options[ocSelect.selectedIndex];
         if (selectedOpt && selectedOpt.dataset.supplierId) {
             supplierSelect.value = selectedOpt.dataset.supplierId;
-            // Si Factura está activa y el monto está vacío, sugerir el total de la OC
-            const isFactura = document.getElementById('opt-factura').checked;
-            const amountInput = document.getElementById('invoice_amount');
-            if (isFactura && selectedOpt.dataset.total && (!amountInput.value || amountInput.value == '0')) {
-                amountInput.value = selectedOpt.dataset.total;
-            }
         }
         loadOcItems(poId);
     });
