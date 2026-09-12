@@ -11,6 +11,7 @@ from db import (
     get_purchase_order_items,
     list_active_purchase_orders_by_supplier,
     approve_purchase_order,
+    anular_purchase_order,
     # Cuentas por Pagar y Bancos
     list_bank_accounts,
     create_purchase_invoice,
@@ -235,6 +236,42 @@ def aprobar_oc(po_id):
         
     approve_purchase_order(po_id, user_id)
     flash(f"Orden de Compra {po['oc_number']} aprobada con éxito.", "success")
+    return redirect(url_for('compras.list_oc'))
+
+@compras_bp.route('/compras/oc/<int:po_id>/anular', methods=['POST'])
+def anular_oc(po_id):
+    """Anular una orden de compra en estado Emitida que no registra recepciones de mercadería"""
+    po = get_purchase_order(po_id)
+    if not po:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'error': 'Orden de Compra no encontrada'}), 404
+        flash("Orden de Compra no encontrada.", "danger")
+        return redirect(url_for('compras.list_oc'))
+
+    if po['status'] != 'Emitida':
+        msg = f"Solo se pueden anular órdenes de compra en estado 'Emitida'. Estado actual: '{po['status']}'."
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'error': msg}), 400
+        flash(msg, "warning")
+        return redirect(url_for('compras.list_oc'))
+
+    reason = request.form.get('reason', '').strip()
+    if not reason and request.is_json:
+        data = request.get_json(silent=True) or {}
+        reason = data.get('reason', '').strip()
+
+    ok = anular_purchase_order(po_id, reason=reason)
+    if ok:
+        msg = f"Orden de Compra {po['oc_number']} ha sido anulada exitosamente."
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': True, 'message': msg})
+        flash(msg, "success")
+    else:
+        msg = f"No se pudo anular la Orden de Compra {po['oc_number']} porque ya registra recepciones de mercadería en bodega."
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'error': msg}), 400
+        flash(msg, "danger")
+
     return redirect(url_for('compras.list_oc'))
 
 @compras_bp.route('/api/compras/proveedores/<int:supplier_id>/productos')

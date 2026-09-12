@@ -57,6 +57,7 @@
                         <option value="Parcialmente Recibida">Parcialmente Recibida</option>
                         <option value="Pendiente Aprobación">Pendiente Aprobación</option>
                         <option value="Borrador">Borrador</option>
+                        <option value="Anulada">Anulada</option>
                     </select>
                 </div>
 
@@ -211,7 +212,17 @@
                     <!-- Estado OC -->
                     <td>
                         {% if order.status == 'Emitida' %}
-                        <span class="badge" style="background-color: #00AEEF; color: white;">{{ order.status }}</span>
+                            {% if (not order.entries or order.entries|length == 0) %}
+                            <button type="button" onclick="openAnularOCModal({{ order.id }}, '{{ order.oc_number }}')"
+                                    class="badge" style="background-color: #00AEEF; color: white; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; transition: opacity 0.15s ease;"
+                                    onmouseover="this.style.opacity='0.85';" onmouseout="this.style.opacity='1';"
+                                    title="Hacer clic para anular esta Orden de Compra (sin mercadería recibida)">
+                                <span>{{ order.status }}</span>
+                                <i class="fa-solid fa-ban" style="font-size: 10px; margin-left: 2px;"></i>
+                            </button>
+                            {% else %}
+                            <span class="badge" style="background-color: #00AEEF; color: white;">{{ order.status }}</span>
+                            {% endif %}
                         {% elif order.status == 'Borrador' %}
                         <span class="badge" style="background-color: #A0AEC0; color: white;">{{ order.status }}</span>
                         {% elif order.status == 'Pendiente Aprobación' %}
@@ -220,6 +231,11 @@
                         <span class="badge" style="background-color: #6B5B95; color: white;">{{ order.status }}</span>
                         {% elif order.status == 'Recibida' %}
                         <span class="badge" style="background-color: #00D1B2; color: white;">{{ order.status }}</span>
+                        {% elif order.status == 'Anulada' %}
+                        <span class="badge" style="background-color: #E53E3E; color: white; display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="fa-solid fa-ban" style="font-size: 10px;"></i>
+                            {{ order.status }}
+                        </span>
                         {% else %}
                         <span class="badge" style="background-color: #718096; color: white;">{{ order.status }}</span>
                         {% endif %}
@@ -244,7 +260,12 @@
                             <i class="fa-solid fa-boxes-packing"></i> Recepcionar
                         </a>
                         {% endif %}
-                        {% if order.status not in ['Borrador', 'Pendiente Aprobación', 'Emitida', 'Parcialmente Recibida'] or (order.status == 'Pendiente Aprobación' and session.get('role_name') not in ['Aprobador', 'Gerente', 'Administrativo']) %}
+                        {% if order.status == 'Emitida' and (not order.entries or order.entries|length == 0) %}
+                        <button type="button" onclick="openAnularOCModal({{ order.id }}, '{{ order.oc_number }}')" class="badge" style="background-color: #fee2e2; border: 1px solid #fca5a5; color: #dc2626; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;" title="Anular esta Orden de Compra">
+                            <i class="fa-solid fa-ban"></i> Anular
+                        </button>
+                        {% endif %}
+                        {% if (order.status not in ['Borrador', 'Pendiente Aprobación', 'Emitida', 'Parcialmente Recibida']) or (order.status == 'Pendiente Aprobación' and session.get('role_name') not in ['Aprobador', 'Gerente', 'Administrativo']) %}
                         <span style="color: #a0aec0; font-size: 13px;">-</span>
                         {% endif %}
                     </td>
@@ -342,9 +363,14 @@
 
         <!-- ACCIONES -->
         <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 16px;">
-            <a id="btn-modal-oc-pdf" href="#" target="_blank" class="sf-btn-secondary" style="padding: 8px 14px; font-weight: 600; text-decoration: none; background: #6B5B95; color: white; border-radius: 6px;">
-                📄 Descargar PDF
-            </a>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <a id="btn-modal-oc-pdf" href="#" target="_blank" class="sf-btn-secondary" style="padding: 8px 14px; font-weight: 600; text-decoration: none; background: #6B5B95; color: white; border-radius: 6px;">
+                    📄 Descargar PDF
+                </a>
+                <button type="button" id="btn-modal-oc-anular" style="display: none; padding: 8px 14px; font-weight: 600; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 6px; cursor: pointer;">
+                    <i class="fa-solid fa-ban" style="margin-right: 4px;"></i> Anular Orden
+                </button>
+            </div>
             <button type="button" onclick="closeOCDetailModal()" style="padding: 8px 16px; background: #e2e8f0; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; color: #475569;">
                 Cerrar
             </button>
@@ -412,8 +438,63 @@
     </div>
 </div>
 
+<!-- Modal Confirmación Anular Orden de Compra -->
+<div id="modal-anular-oc" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; justify-content: center; align-items: center; padding: 20px;">
+    <div style="background: white; border-radius: 12px; width: 480px; max-width: 95%; box-shadow: 0 10px 30px rgba(0,0,0,0.25); padding: 24px; animation: modalFadeIn 0.2s ease;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #fed7d7; padding-bottom: 12px; margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 36px; height: 36px; border-radius: 50%; background: #fee2e2; display: flex; align-items: center; justify-content: center; color: #dc2626; font-size: 18px;">
+                    <i class="fa-solid fa-ban"></i>
+                </div>
+                <div>
+                    <h3 style="margin: 0; font-size: 18px; color: #991b1b; font-weight: 700;">Anular Orden de Compra</h3>
+                    <p style="margin: 2px 0 0 0; font-size: 12.5px; color: #64748b;" id="anular-oc-subtitle">¿Deseas anular esta orden?</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeAnularOCModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #94a3b8;">✕</button>
+        </div>
+
+        <form id="form-anular-oc" method="POST" action="">
+            <p style="font-size: 13.5px; color: #334155; line-height: 1.5; margin: 0 0 14px 0;">
+                Esta acción cambiará el estado de la orden <strong id="anular-oc-number" style="color: #0284c7;">-</strong> a <span style="background:#fee2e2;color:#991b1b;padding:2px 6px;border-radius:4px;font-weight:700;">Anulada</span>.
+                <br><span style="font-size: 12px; color: #64748b;">(Solo es posible ya que aún no registra recepciones de mercadería en bodega).</span>
+            </p>
+
+            <div style="margin-bottom: 18px;">
+                <label for="anular-reason" style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                    Motivo de Anulación <span style="color: #94a3b8; font-weight: 400;">(Opcional)</span>:
+                </label>
+                <textarea id="anular-reason" name="reason" rows="3" placeholder="Ej: Error de pedido, proveedor sin stock, duplicada..."
+                          style="width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 10px; font-size: 13px; outline: none; resize: vertical;"></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" onclick="closeAnularOCModal()"
+                        style="padding: 8px 16px; background: #e2e8f0; color: #475569; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                    Cancelar
+                </button>
+                <button type="submit"
+                        style="padding: 8px 18px; background: #dc2626; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-ban"></i> Confirmar Anulación
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% block scripts %}
 <script>
+    function openAnularOCModal(poId, ocNumber) {
+        document.getElementById('anular-oc-number').textContent = ocNumber;
+        document.getElementById('anular-oc-subtitle').textContent = `Orden N° ${ocNumber}`;
+        document.getElementById('form-anular-oc').action = `/compras/oc/${poId}/anular`;
+        document.getElementById('anular-reason').value = '';
+        document.getElementById('modal-anular-oc').style.display = 'flex';
+    }
+
+    function closeAnularOCModal() {
+        document.getElementById('modal-anular-oc').style.display = 'none';
+    }
     async function openOCDetailModal(poId) {
         try {
             const res = await fetch(`/api/compras/oc/${poId}/detalle`);
@@ -428,12 +509,37 @@
             document.getElementById('modal-oc-supplier-link').href = `/proveedores/${po.supplier_id}`;
             document.getElementById('modal-oc-date').textContent = po.order_date || '-';
             document.getElementById('modal-oc-payment-method').textContent = po.payment_method || 'Efectivo';
-            document.getElementById('modal-oc-status').textContent = po.status || '-';
+            let statusHtml = `<span style="font-weight:600;">${po.status || '-'}</span>`;
+            if (po.status === 'Emitida') {
+                statusHtml = `<span style="background-color: #00AEEF; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">Emitida</span>`;
+            } else if (po.status === 'Anulada') {
+                statusHtml = `<span style="background-color: #E53E3E; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;"><i class="fa-solid fa-ban" style="font-size: 9px; margin-right: 3px;"></i>Anulada</span>`;
+            } else if (po.status === 'Recibida') {
+                statusHtml = `<span style="background-color: #00D1B2; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">Recibida</span>`;
+            } else if (po.status === 'Parcialmente Recibida') {
+                statusHtml = `<span style="background-color: #6B5B95; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">Parcialmente Recibida</span>`;
+            }
+            document.getElementById('modal-oc-status').innerHTML = statusHtml;
             document.getElementById('modal-oc-creator').textContent = po.creator_name || '-';
             document.getElementById('modal-oc-approver').textContent = po.approver_name || '-';
             document.getElementById('modal-oc-notes').textContent = po.notes || 'Sin observaciones adicionales';
             document.getElementById('modal-oc-total').textContent = '$' + Math.round(po.total_amount || 0).toLocaleString('es-CL');
             document.getElementById('btn-modal-oc-pdf').href = `/compras/oc/${po.id}/pdf`;
+
+            // Botón Anular dentro del modal si está Emitida y sin recepciones
+            const anularBtn = document.getElementById('btn-modal-oc-anular');
+            const entries = data.entries || [];
+            if (anularBtn) {
+                if (po.status === 'Emitida' && entries.length === 0) {
+                    anularBtn.style.display = 'inline-flex';
+                    anularBtn.onclick = function() {
+                        closeOCDetailModal();
+                        openAnularOCModal(po.id, po.oc_number);
+                    };
+                } else {
+                    anularBtn.style.display = 'none';
+                }
+            }
 
             // RECEPCIONES / PRODUCTOS INGRESADOS EN BODEGA
             const entriesContainer = document.getElementById('modal-oc-entries-container');

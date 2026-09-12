@@ -3099,6 +3099,42 @@ def approve_purchase_order(po_id: int, user_id: int) -> None:
             )
         conn.commit()
 
+def anular_purchase_order(po_id: int, reason: str = "") -> bool:
+    """Anula una Orden de Compra en estado 'Emitida' si no registra recepciones de mercadería"""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Validar que exista la OC y esté en estado 'Emitida'
+            cur.execute("SELECT id, oc_number, status, notes FROM purchase_orders WHERE id = %s", (po_id,))
+            po = cur.fetchone()
+            if not po or po["status"] != "Emitida":
+                return False
+
+            # Validar que no tenga recepciones registradas ni cantidades recibidas
+            cur.execute("SELECT COUNT(*) as count FROM inventory_entries WHERE purchase_order_id = %s", (po_id,))
+            entries_count = cur.fetchone()["count"]
+            if entries_count > 0:
+                return False
+
+            cur.execute("SELECT COALESCE(SUM(quantity_received), 0) as total_rec FROM purchase_order_items WHERE purchase_order_id = %s", (po_id,))
+            total_rec = cur.fetchone()["total_rec"]
+            if total_rec > 0:
+                return False
+
+            new_notes = po.get("notes") or ""
+            if reason:
+                new_notes = f"{new_notes}\n[ANULADA]: {reason}".strip()
+
+            cur.execute(
+                """
+                UPDATE purchase_orders
+                SET status = 'Anulada', notes = %s
+                WHERE id = %s
+                """,
+                (new_notes, po_id)
+            )
+        conn.commit()
+    return True
+
 def get_purchase_order_items(po_id: int) -> list[dict]:
     """Obtiene los productos asociados a una OC"""
     with get_connection() as conn:
