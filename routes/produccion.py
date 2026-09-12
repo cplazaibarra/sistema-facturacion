@@ -82,9 +82,10 @@ def nueva_ot():
                 # Cargar componentes de la receta
                 cur.execute(
                     """
-                    SELECT pri.input_product_id, pri.quantity_required
+                    SELECT pri.input_product_id, pri.quantity_required, p.sku, p.name
                     FROM product_recipe_items pri
                     JOIN product_recipes pr ON pri.recipe_id = pr.id
+                    JOIN products p ON pri.input_product_id = p.id
                     WHERE pr.final_product_id = %s
                     """,
                     (final_product_id,)
@@ -93,7 +94,22 @@ def nueva_ot():
                 if not recipe_items:
                     flash("El producto seleccionado no tiene una receta definida.", "danger")
                     return redirect(url_for('produccion.nueva_ot'))
-                
+
+                # Validar stock disponible de insumos
+                inventory_items = get_page_data("inventory_items") or []
+                stock_map = {item.get("code"): float(item.get("stock", 0.0) or 0.0) for item in inventory_items if item.get("code")}
+                insufficient = []
+                for row in recipe_items:
+                    req_qty = float(row["quantity_required"]) * quantity
+                    avail_qty = stock_map.get(row["sku"], 0.0)
+                    if avail_qty < req_qty:
+                        faltan = req_qty - avail_qty
+                        insufficient.append(f"{row['name']} (Faltan {faltan:g} un)")
+
+                if insufficient:
+                    flash(f"No se puede solicitar fabricación porque falta stock de insumos: {', '.join(insufficient)}", "danger")
+                    return redirect(url_for('produccion.nueva_ot'))
+
                 # Generar ot_number
                 cur.execute("SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM production_orders")
                 next_id = cur.fetchone()["next_id"]

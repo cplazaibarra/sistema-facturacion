@@ -3455,7 +3455,45 @@ def register_inventory_entry(
 
             cur.execute("UPDATE purchase_orders SET status = %s WHERE id = %s", (new_status, po_id))
         conn.commit()
-        return entry_id
+
+    # 4. Actualizar stock físico en inventory_items (page_data)
+    try:
+        inventory_items = get_page_data("inventory_items") or []
+        inv_map = {item.get("code"): item for item in inventory_items if item.get("code")}
+        with get_connection() as conn_prods:
+            with conn_prods.cursor() as cur_p:
+                cur_p.execute("SELECT id, sku, name, category, description, cost FROM products")
+                db_prods = {p["id"]: p for p in cur_p.fetchall()}
+
+        for item in items:
+            prod_id = item["product_id"]
+            qty = float(item["quantity"])
+            prod_info = db_prods.get(prod_id)
+            if not prod_info:
+                continue
+            sku = prod_info["sku"]
+            if sku in inv_map:
+                current_st = float(inv_map[sku].get("stock", 0.0) or 0.0)
+                inv_map[sku]["stock"] = current_st + qty
+                min_st = float(inv_map[sku].get("min_stock", 10) or 10)
+                inv_map[sku]["status"] = "Normal" if inv_map[sku]["stock"] >= min_st else "Stock Bajo"
+            else:
+                inventory_items.append({
+                    "code": sku,
+                    "name": prod_info["name"],
+                    "desc": prod_info["description"] or "",
+                    "category": prod_info["category"] or "Insumos",
+                    "stock": qty,
+                    "min_stock": 10,
+                    "price": float(prod_info["cost"] or item.get("unit_price") or 0.0),
+                    "status": "Normal" if qty >= 10 else "Stock Bajo",
+                    "stock_percent": 100
+                })
+        set_page_data("inventory_items", inventory_items)
+    except Exception as e:
+        print(f"Error al actualizar inventory_items en register_inventory_entry: {e}")
+
+    return entry_id
 
 
 def get_lot_stock_by_product(product_id: int) -> list[dict]:
