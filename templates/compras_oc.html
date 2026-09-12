@@ -213,7 +213,7 @@
                     <td>
                         {% if order.status == 'Emitida' %}
                             {% if (not order.entries or order.entries|length == 0) %}
-                            <button type="button" onclick="openAnularOCModal({{ order.id }}, '{{ order.oc_number }}')"
+                            <button type="button" onclick="event.stopPropagation(); openAnularOCModal({{ order.id }}, '{{ order.oc_number }}')"
                                     class="badge" style="background-color: #00AEEF; color: white; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; transition: opacity 0.15s ease;"
                                     onmouseover="this.style.opacity='0.85';" onmouseout="this.style.opacity='1';"
                                     title="Hacer clic para anular esta Orden de Compra (sin mercadería recibida)">
@@ -261,7 +261,7 @@
                         </a>
                         {% endif %}
                         {% if order.status == 'Emitida' and (not order.entries or order.entries|length == 0) %}
-                        <button type="button" onclick="openAnularOCModal({{ order.id }}, '{{ order.oc_number }}')" class="badge" style="background-color: #fee2e2; border: 1px solid #fca5a5; color: #dc2626; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;" title="Anular esta Orden de Compra">
+                        <button type="button" onclick="event.stopPropagation(); openAnularOCModal({{ order.id }}, '{{ order.oc_number }}')" class="badge" style="background-color: #fee2e2; border: 1px solid #fca5a5; color: #dc2626; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;" title="Anular esta Orden de Compra">
                             <i class="fa-solid fa-ban"></i> Anular
                         </button>
                         {% endif %}
@@ -481,20 +481,39 @@
         </form>
     </div>
 </div>
+{% endblock %}
 
 {% block scripts %}
 <script>
-    function openAnularOCModal(poId, ocNumber) {
-        document.getElementById('anular-oc-number').textContent = ocNumber;
-        document.getElementById('anular-oc-subtitle').textContent = `Orden N° ${ocNumber}`;
-        document.getElementById('form-anular-oc').action = `/compras/oc/${poId}/anular`;
-        document.getElementById('anular-reason').value = '';
-        document.getElementById('modal-anular-oc').style.display = 'flex';
-    }
+    window.openAnularOCModal = function(poId, ocNumber) {
+        const numEl = document.getElementById('anular-oc-number');
+        const subEl = document.getElementById('anular-oc-subtitle');
+        const formEl = document.getElementById('form-anular-oc');
+        const reasonEl = document.getElementById('anular-reason');
+        const modalEl = document.getElementById('modal-anular-oc');
 
-    function closeAnularOCModal() {
-        document.getElementById('modal-anular-oc').style.display = 'none';
-    }
+        if (numEl) numEl.textContent = ocNumber;
+        if (subEl) subEl.textContent = `Orden N° ${ocNumber}`;
+        if (formEl) formEl.action = `/compras/oc/${poId}/anular`;
+        if (reasonEl) reasonEl.value = '';
+        if (modalEl) {
+            modalEl.style.display = 'flex';
+        } else {
+            if (confirm(`¿Estás seguro de anular la Orden de Compra ${ocNumber}?`)) {
+                const tempForm = document.createElement('form');
+                tempForm.method = 'POST';
+                tempForm.action = `/compras/oc/${poId}/anular`;
+                document.body.appendChild(tempForm);
+                tempForm.submit();
+            }
+        }
+    };
+
+    window.closeAnularOCModal = function() {
+        const modalEl = document.getElementById('modal-anular-oc');
+        if (modalEl) modalEl.style.display = 'none';
+    };
+
     async function openOCDetailModal(poId) {
         try {
             const res = await fetch(`/api/compras/oc/${poId}/detalle`);
@@ -543,7 +562,6 @@
 
             // RECEPCIONES / PRODUCTOS INGRESADOS EN BODEGA
             const entriesContainer = document.getElementById('modal-oc-entries-container');
-            const entries = data.entries || [];
             if (entries.length > 0) {
                 let entriesHtml = '';
                 entries.forEach((entry, idx) => {
@@ -883,10 +901,12 @@
             const oSelect = document.getElementById('filter-oc-status');
             if (oSelect) oSelect.value = oStatus;
         }
-        if (pStatus || oStatus) {
-            filterOCTable();
+        const anularModal = document.getElementById('modal-anular-oc');
+        if (anularModal) {
+            anularModal.addEventListener('click', function(e) {
+                if (e.target === this) closeAnularOCModal();
+            });
         }
     });
 </script>
-{% endblock %}
 {% endblock %}
