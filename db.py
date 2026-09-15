@@ -1081,6 +1081,27 @@ def init_db() -> None:
                 )
                 """
             )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS inventory_movements (
+                    id             SERIAL PRIMARY KEY,
+                    product_id     INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+                    movement_type  TEXT NOT NULL,
+                    quantity       DOUBLE PRECISION NOT NULL,
+                    unit_cost      DOUBLE PRECISION DEFAULT 0.0,
+                    lot_number     TEXT,
+                    warehouse      TEXT DEFAULT 'Almacén Principal',
+                    reference_type TEXT,
+                    reference_id   INTEGER,
+                    notes          TEXT,
+                    created_at     TEXT NOT NULL,
+                    created_by     TEXT DEFAULT 'Sistema'
+                );
+                CREATE INDEX IF NOT EXISTS idx_inv_mov_product_id ON inventory_movements(product_id);
+                CREATE INDEX IF NOT EXISTS idx_inv_mov_lot_number ON inventory_movements(lot_number);
+                CREATE INDEX IF NOT EXISTS idx_inv_mov_reference ON inventory_movements(reference_type, reference_id);
+                """
+            )
         conn.commit()
 
     seed_data_if_empty()
@@ -3488,6 +3509,20 @@ def register_inventory_entry(
                         (prod_id, lot_number, entry_id, entry_date, qty, qty, warehouse)
                     )
 
+                # Fase 2: Registrar movimiento relacional en Kardex universal (inventory_movements)
+                record_inventory_movement(
+                    product_id=prod_id,
+                    movement_type="PURCHASE_RECEIPT",
+                    quantity=qty,
+                    unit_cost=price,
+                    lot_number=lot_number if lot_number else None,
+                    warehouse=warehouse,
+                    reference_type="purchase_order",
+                    reference_id=po_id,
+                    notes=f"Recepción de compra {order_number} (Entrada #{entry_id})",
+                    conn=conn
+                )
+
                 new_received = po_item["quantity_received"] + qty
                 cur.execute(
                     "UPDATE purchase_order_items SET quantity_received = %s WHERE id = %s",
@@ -3700,6 +3735,236 @@ def get_lot_traceability(lot_number: str) -> dict:
             }
 
 
+# ==============================================================================
+# FASE 2: CONSISTENCIA Y FUENTE DE VERDAD DE INVENTARIO (KARDEX / MOVIMIENTOS)
+# ==============================================================================
+
+def record_inventory_movement(
+    product_id: int,
+    movement_type: str,
+    quantity: float,
+    unit_cost: float = 0.0,
+    lot_number: str = None,
+    warehouse: str = "Almacén Principal",
+    reference_type: str = None,
+    reference_id: int = None,
+    notes: str = None,
+    created_by: str = "Sistema",
+    conn=None
+) -> int:
+    """
+    Registra un movimiento en inventory_movements cumpliendo los invariantes de inventario:
+    - INV-008: Magnitud != 0.0
+    - INV-002: Salidas (qty < 0) deben tener origen identificable (reference_type o notes)
+    - INV-001: Stock disponible relacional no puede quedar en negativo
+    """
+    qty = float(quantity)
+    if qty == 0.0:
+        raise ValueError("INV-008: La cantidad de un movimiento de inventario no puede ser 0.0")
+
+    if qty < 0 and not reference_type and not notes:
+        raise ValueError("INV-002: Toda salida de inventario debe tener un documento o referencia de origen identificable")
+
+    def _execute(cursor):
+        # Validar existencia del producto
+        cursor.execute("SELECT id, sku, name FROM products WHERE id = %s", (product_id,))
+        prod = cursor.fetchone()
+        if not prod:
+            raise ValueError(f"Producto con ID {product_id} no encontrado en catálogo")
+
+        # INV-001: No permitir que el stock relacional sea negativo si es salida
+        if qty < 0:
+            cursor.execute(
+                "SELECT COALESCE(SUM(quantity), 0.0) as current_stock FROM inventory_movements WHERE product_id = %s",
+                (product_id,)
+            )
+            row = cursor.fetchone()
+            current_stock = float(row["current_stock"] if row else 0.0)
+            if current_stock + qty < -1e-6:
+                raise ValueError(
+                    f"INV-001: Stock insuficiente. Stock relacional actual: {current_stock}, salida solicitada: {abs(qty)}"
+                )
+
+        now_str = datetime.utcnow().isoformat(timespec='seconds')
+        cursor.execute(
+            """
+            INSERT INTO inventory_movements (
+                product_id, movement_type, quantity, unit_cost, lot_number,
+                warehouse, reference_type, reference_id, notes, created_at, created_by
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id;
+            """,
+            (
+                product_id, movement_type, qty, float(unit_cost or 0.0),
+                (lot_number or "").strip() or None,
+                warehouse or "Almacén Principal",
+                reference_type, reference_id, notes, now_str, created_by
+            )
+        )
+        mov_id = cursor.fetchone()["id"]
+        return mov_id
+
+    if conn is not None:
+        with conn.cursor() as cur:
+            return _execute(cur)
+    else:
+        with get_connection() as new_conn:
+            with new_conn.cursor() as cur:
+                res = _execute(cur)
+            new_conn.commit()
+            return res
+
+
+def get_relational_stock(product_id: int, conn=None) -> float:
+    """Calcula el stock actual disponible de un producto sumando sus movimientos."""
+    query = "SELECT COALESCE(SUM(quantity), 0.0) as stock FROM inventory_movements WHERE product_id = %s"
+    if conn is not None:
+        with conn.cursor() as cur:
+            cur.execute(query, (product_id,))
+            row = cur.fetchone()
+            return float(row["stock"] if row else 0.0)
+    else:
+        with get_connection() as new_conn:
+            with new_conn.cursor() as cur:
+                cur.execute(query, (product_id,))
+                row = cur.fetchone()
+                return float(row["stock"] if row else 0.0)
+
+
+def get_relational_stock_by_sku(sku: str, conn=None) -> float:
+    """Calcula el stock actual disponible de un producto por SKU sumando movimientos."""
+    query = """
+        SELECT COALESCE(SUM(im.quantity), 0.0) as stock
+        FROM inventory_movements im
+        JOIN products p ON p.id = im.product_id
+        WHERE p.sku = %s;
+    """
+    if conn is not None:
+        with conn.cursor() as cur:
+            cur.execute(query, (sku.strip(),))
+            row = cur.fetchone()
+            return float(row["stock"] if row else 0.0)
+    else:
+        with get_connection() as new_conn:
+            with new_conn.cursor() as cur:
+                cur.execute(query, (sku.strip(),))
+                row = cur.fetchone()
+                return float(row["stock"] if row else 0.0)
+
+
+def consume_fifo_lots(product_id: int, quantity: float, sale_id: int = None, ot_id: int = None, conn=None) -> list[dict]:
+    """
+    Consume lotes disponibles utilizando estrategia FIFO (ordenados por entry_date ASC, id ASC).
+    Actualiza lot_stock.available_qty y retorna la lista de consumos efectuados:
+    [{'lot_number': str, 'quantity': float, 'entry_id': int}]
+    """
+    qty_to_consume = float(quantity)
+    if qty_to_consume <= 0:
+        return []
+
+    def _execute(cursor):
+        cursor.execute(
+            """
+            SELECT id, lot_number, available_qty, entry_id, entry_date
+            FROM lot_stock
+            WHERE product_id = %s AND available_qty > 0
+            ORDER BY entry_date ASC, id ASC;
+            """,
+            (product_id,)
+        )
+        lots = cursor.fetchall()
+        
+        total_available = sum(float(l["available_qty"]) for l in lots)
+        if total_available < qty_to_consume - 1e-6:
+            raise ValueError(
+                f"INV-004: Stock insuficiente en lotes FIFO. Disponible: {total_available}, Requerido: {qty_to_consume}"
+            )
+
+        consumed = []
+        rem = qty_to_consume
+        for lot in lots:
+            avail = float(lot["available_qty"])
+            take = min(avail, rem)
+            if take > 0:
+                cursor.execute(
+                    "UPDATE lot_stock SET available_qty = available_qty - %s WHERE id = %s",
+                    (take, lot["id"])
+                )
+                consumed.append({
+                    "lot_number": lot["lot_number"],
+                    "quantity": take,
+                    "entry_id": lot["entry_id"]
+                })
+                rem -= take
+                if rem <= 1e-6:
+                    break
+        return consumed
+
+    if conn is not None:
+        with conn.cursor() as cur:
+            return _execute(cur)
+    else:
+        with get_connection() as new_conn:
+            with new_conn.cursor() as cur:
+                res = _execute(cur)
+            new_conn.commit()
+            return res
+
+
+def get_stock_with_dual_read(product_id_or_sku, lot_number: str = None) -> tuple[float, float, float]:
+    """
+    Dual-Read Helper:
+    Compara el stock leído de page_data (legacy) con el stock relacional de inventory_movements.
+    Si difieren, emite advertencia en el log de auditoría.
+    Retorna: (legacy_stock, relational_stock, delta)
+    """
+    from security import security_logger
+
+    clean_lot = (lot_number or "").strip()
+    product_id = None
+    sku = None
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            if isinstance(product_id_or_sku, int) or (isinstance(product_id_or_sku, str) and str(product_id_or_sku).isdigit()):
+                cur.execute("SELECT id, sku FROM products WHERE id = %s", (int(product_id_or_sku),))
+            else:
+                cur.execute(
+                    "SELECT id, sku FROM products WHERE sku = %s OR LOWER(name) = LOWER(%s)",
+                    (str(product_id_or_sku).strip(), str(product_id_or_sku).strip())
+                )
+            prod = cur.fetchone()
+            if prod:
+                product_id = prod["id"]
+                sku = prod["sku"]
+
+    # Stock legacy
+    legacy_stock = get_product_available_stock(product_id_or_sku, clean_lot)
+
+    # Stock relacional
+    relational_stock = 0.0
+    if product_id:
+        if clean_lot:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT COALESCE(SUM(quantity), 0.0) as stock FROM inventory_movements WHERE product_id = %s AND lot_number = %s",
+                        (product_id, clean_lot)
+                    )
+                    row = cur.fetchone()
+                    relational_stock = float(row["stock"] if row else 0.0)
+        else:
+            relational_stock = get_relational_stock(product_id)
+
+    delta = round(legacy_stock - relational_stock, 4)
+    if abs(delta) > 1e-4:
+        security_logger.warning(
+            f"[INVENTORY DUAL-READ DISCREPANCY] SKU={sku or product_id_or_sku} | Legacy={legacy_stock} | Relational={relational_stock} | Delta={delta}"
+        )
+
+    return (legacy_stock, relational_stock, delta)
+
+
 def get_product_available_stock(product_id_or_sku, lot_number: str = None) -> float:
     """
     Retorna el stock disponible en bodega para un producto (y lote específico si se indica).
@@ -3845,6 +4110,48 @@ def discount_stock_for_sale(sale_id: int, products_list: list) -> None:
 
         if changed:
             set_page_data("inventory_items", inventory_items)
+
+    # 3. Fase 2: Registrar movimientos de salida por venta en Kardex universal (inventory_movements)
+    try:
+        with get_connection() as conn_mov:
+            with conn_mov.cursor() as cur_m:
+                cur_m.execute("SELECT id, sku, name FROM products")
+                db_prods_m = cur_m.fetchall()
+                id_to_sku_m = {p["id"]: p["sku"] for p in db_prods_m}
+                sku_to_id_m = {p["sku"]: p["id"] for p in db_prods_m}
+                name_to_id_m = {p["name"].strip().lower(): p["id"] for p in db_prods_m}
+
+            for prod in products_list:
+                if not isinstance(prod, dict):
+                    continue
+                qty = int(prod.get("quantity", 0) or 0)
+                if qty <= 0:
+                    continue
+                pid = prod.get("product_id")
+                pname = (prod.get("product_name") or prod.get("name") or "").strip().lower()
+                sku = prod.get("sku") or id_to_sku_m.get(pid)
+                if not pid:
+                    pid = sku_to_id_m.get(sku) or name_to_id_m.get(pname)
+                if not pid:
+                    continue
+
+                lot_num = (prod.get("lot_number") or "").strip() or None
+                price = float(prod.get("unit_price") or prod.get("price") or 0.0)
+                record_inventory_movement(
+                    product_id=pid,
+                    movement_type="SALE",
+                    quantity=-qty,
+                    unit_cost=price,
+                    lot_number=lot_num,
+                    reference_type="sale",
+                    reference_id=sale_id,
+                    notes=f"Despacho/Venta #{sale_id}",
+                    conn=conn_mov
+                )
+            conn_mov.commit()
+    except Exception as e:
+        from security import security_logger
+        security_logger.error(f"Error al registrar inventory_movements para venta #{sale_id}: {e}")
 
 
 def get_product_calculated_cost(product_id: int) -> float | None:

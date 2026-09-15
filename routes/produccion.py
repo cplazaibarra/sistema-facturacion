@@ -409,6 +409,47 @@ def finalizar_ot(ot_id):
                 """,
                 (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), actual_unit_price, ot_id)
             )
+
+            # 5. Fase 2: Registrar movimientos en Kardex universal (inventory_movements)
+            from db import record_inventory_movement
+            # 5.1 Consumo de insumos planificados
+            for item in items:
+                record_inventory_movement(
+                    product_id=item["input_product_id"],
+                    movement_type="PRODUCTION_INPUT",
+                    quantity=-float(item["quantity_required"]),
+                    unit_cost=float(item["input_cost"] or 0.0),
+                    warehouse="Principal",
+                    reference_type="production_order",
+                    reference_id=ot_id,
+                    notes=f"Insumo planificado para OT {ot['ot_number']}",
+                    conn=conn
+                )
+            # 5.2 Consumo de insumos adicionales
+            for item in add_items:
+                record_inventory_movement(
+                    product_id=item["input_product_id"],
+                    movement_type="PRODUCTION_INPUT",
+                    quantity=-float(item["quantity"]),
+                    unit_cost=float(item["input_cost"] or 0.0),
+                    warehouse="Principal",
+                    reference_type="production_order",
+                    reference_id=ot_id,
+                    notes=f"Insumo adicional para OT {ot['ot_number']}",
+                    conn=conn
+                )
+            # 5.3 Alta de producto terminado
+            record_inventory_movement(
+                product_id=ot["final_product_id"],
+                movement_type="PRODUCTION_OUTPUT",
+                quantity=float(ot["quantity"]),
+                unit_cost=actual_unit_price,
+                warehouse="Principal",
+                reference_type="production_order",
+                reference_id=ot_id,
+                notes=f"Fabricación finalizada OT {ot['ot_number']}",
+                conn=conn
+            )
         conn.commit()
         
     flash("Orden de Trabajo finalizada. Insumos rebajados y producto terminado ingresado al stock.", "success")
