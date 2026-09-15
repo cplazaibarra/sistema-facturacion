@@ -2,14 +2,18 @@ import pytest
 
 def test_login_invalid_credentials(client):
     """Login con credenciales incorrectas debe fallar y permanecer en login."""
-    resp = client.post('/login', data={'username': 'admin', 'password': 'clave_erronea_123'}, follow_redirects=True)
+    from tests.conftest import get_csrf_token
+    token = get_csrf_token(client)
+    resp = client.post('/login', data={'username': 'admin', 'password': 'clave_erronea_123', 'csrf_token': token}, follow_redirects=True)
     assert resp.status_code == 200
     html = resp.data.decode('utf-8')
     assert "Usuario o contrase" in html or "incorrectos" in html
 
 def test_login_valid_credentials(client):
     """Login con credenciales válidas redirige a dashboard y establece sesión."""
-    resp = client.post('/login', data={'username': 'admin', 'password': 'admin123'}, follow_redirects=False)
+    from tests.conftest import get_csrf_token
+    token = get_csrf_token(client)
+    resp = client.post('/login', data={'username': 'admin', 'password': 'admin123', 'csrf_token': token}, follow_redirects=False)
     assert resp.status_code == 302
     assert '/dashboard' in resp.headers.get('Location', '')
 

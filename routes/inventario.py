@@ -21,6 +21,8 @@ from db import (
     list_sales
 )
 
+from security import allowed_file, validate_and_sanitize_filename
+
 inventario_bp = Blueprint('inventario', __name__)
 
 def handle_photo_upload(product_id):
@@ -28,8 +30,11 @@ def handle_photo_upload(product_id):
     if 'photo_file' in request.files:
         file = request.files['photo_file']
         if file and file.filename:
-            # Generar nombre seguro del archivo
-            filename = secure_filename(f"product_{product_id}_{int(datetime.utcnow().timestamp())}.jpg")
+            if not allowed_file(file.filename):
+                flash("Formato de imagen no permitido. Formatos válidos: PNG, JPG, JPEG, WEBP, PDF.", "danger")
+                return None
+            ext = file.filename.rsplit('.', 1)[1].lower()
+            filename = secure_filename(f"product_{product_id}_{int(datetime.utcnow().timestamp())}.{ext}")
             filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
             file.save(filepath)
             return f"/uploads/{filename}"
@@ -290,12 +295,20 @@ def ingreso_mercaderia():
         doc_file_path = None
         doc_file = request.files.get('document_file')
         if doc_file and doc_file.filename:
+            if not allowed_file(doc_file.filename):
+                flash("Formato de documento no permitido. Formatos válidos: PNG, JPG, JPEG, WEBP, PDF.", "danger")
+                return redirect(url_for('inventario.ingreso_mercaderia'))
             upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'documentos_compra')
             os.makedirs(upload_dir, exist_ok=True)
             from werkzeug.utils import secure_filename
-            ext = os.path.splitext(doc_file.filename)[1].lower()
-            filename = secure_filename(f"{document_type}_{document_number or order_number}{ext}")
-            save_path = os.path.join(upload_dir, filename)
+            clean_original = secure_filename(doc_file.filename)
+            ext = os.path.splitext(clean_original)[1].lower()
+            safe_base = secure_filename(f"{document_type}_{document_number or order_number}")
+            filename = f"{safe_base}{ext}"
+            save_path = os.path.abspath(os.path.join(upload_dir, filename))
+            if not save_path.startswith(os.path.abspath(upload_dir) + os.sep) and save_path != os.path.abspath(upload_dir):
+                flash("Nombre de archivo inválido detectado.", "danger")
+                return redirect(url_for('inventario.ingreso_mercaderia'))
             doc_file.save(save_path)
             doc_file_path = f"documentos_compra/{filename}"
 

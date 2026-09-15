@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify, flash, send_file, session, Response
 from datetime import datetime, date
 import io, os
+from security import allowed_file
 from db import (
     list_suppliers,
     list_products_by_supplier,
@@ -538,12 +539,21 @@ def nueva_factura_proveedor():
     doc_file_path = None
     doc_file = request.files.get('document_file')
     if doc_file and doc_file.filename:
+        if not allowed_file(doc_file.filename):
+            flash("Extensión no permitida para el archivo de factura. Formatos válidos: PNG, JPG, JPEG, WEBP, PDF.", "danger")
+            return redirect(url_for('compras.cuentas_por_pagar'))
         upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'documentos_compra')
         os.makedirs(upload_dir, exist_ok=True)
         from werkzeug.utils import secure_filename
-        ext = os.path.splitext(doc_file.filename)[1].lower()
-        filename = secure_filename(f"factura_{invoice_number or 'doc'}_{date.today().isoformat()}{ext}")
-        doc_file.save(os.path.join(upload_dir, filename))
+        clean_name = secure_filename(doc_file.filename)
+        ext = os.path.splitext(clean_name)[1].lower()
+        safe_base = secure_filename(f"factura_{invoice_number or 'doc'}_{date.today().isoformat()}")
+        filename = f"{safe_base}{ext}"
+        dest_path = os.path.abspath(os.path.join(upload_dir, filename))
+        if not dest_path.startswith(os.path.abspath(upload_dir) + os.sep) and dest_path != os.path.abspath(upload_dir):
+            flash("Nombre de archivo inválido detectado.", "danger")
+            return redirect(url_for('compras.cuentas_por_pagar'))
+        doc_file.save(dest_path)
         doc_file_path = f"documentos_compra/{filename}"
 
     # Si se marca como pagada al momento de cargar
@@ -560,12 +570,21 @@ def nueva_factura_proveedor():
         payment_method = request.form.get('payment_method', 'Transferencia bancaria')
         proof_file     = request.files.get('payment_proof_file')
         if proof_file and proof_file.filename:
+            if not allowed_file(proof_file.filename):
+                flash("Extensión no permitida para el comprobante de pago. Formatos válidos: PNG, JPG, JPEG, WEBP, PDF.", "danger")
+                return redirect(url_for('compras.cuentas_por_pagar'))
             upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'comprobantes_pago')
             os.makedirs(upload_dir, exist_ok=True)
             from werkzeug.utils import secure_filename
-            ext = os.path.splitext(proof_file.filename)[1].lower()
-            filename = secure_filename(f"comprobante_{invoice_number}_{payment_date}{ext}")
-            proof_file.save(os.path.join(upload_dir, filename))
+            clean_name = secure_filename(proof_file.filename)
+            ext = os.path.splitext(clean_name)[1].lower()
+            safe_base = secure_filename(f"comprobante_{invoice_number}_{payment_date}")
+            filename = f"{safe_base}{ext}"
+            dest_path = os.path.abspath(os.path.join(upload_dir, filename))
+            if not dest_path.startswith(os.path.abspath(upload_dir) + os.sep) and dest_path != os.path.abspath(upload_dir):
+                flash("Nombre de archivo inválido detectado.", "danger")
+                return redirect(url_for('compras.cuentas_por_pagar'))
+            proof_file.save(dest_path)
             payment_proof_path = f"comprobantes_pago/{filename}"
 
     inv_id = create_purchase_invoice({
@@ -623,12 +642,21 @@ def vincular_documento_factura(invoice_id):
     doc_file_path = inv.get('document_file')
     doc_file = request.files.get('document_file')
     if doc_file and doc_file.filename:
+        if not allowed_file(doc_file.filename):
+            flash("Extensión no permitida para el archivo de factura. Formatos válidos: PNG, JPG, JPEG, WEBP, PDF.", "danger")
+            return redirect(url_for('compras.cuentas_por_pagar'))
         upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'documentos_compra')
         os.makedirs(upload_dir, exist_ok=True)
         from werkzeug.utils import secure_filename
-        ext = os.path.splitext(doc_file.filename)[1].lower()
-        filename = secure_filename(f"factura_{invoice_number}_{date.today().isoformat()}{ext}")
-        doc_file.save(os.path.join(upload_dir, filename))
+        clean_name = secure_filename(doc_file.filename)
+        ext = os.path.splitext(clean_name)[1].lower()
+        safe_base = secure_filename(f"factura_{invoice_number}_{date.today().isoformat()}")
+        filename = f"{safe_base}{ext}"
+        dest_path = os.path.abspath(os.path.join(upload_dir, filename))
+        if not dest_path.startswith(os.path.abspath(upload_dir) + os.sep) and dest_path != os.path.abspath(upload_dir):
+            flash("Nombre de archivo inválido detectado.", "danger")
+            return redirect(url_for('compras.cuentas_por_pagar'))
+        doc_file.save(dest_path)
         doc_file_path = f"documentos_compra/{filename}"
 
     # Determinar estado
@@ -703,12 +731,21 @@ def registrar_pago_factura(invoice_id):
     proof_path = inv.get('payment_proof_file')
     proof_file = request.files.get('payment_proof_file')
     if proof_file and proof_file.filename:
+        if not allowed_file(proof_file.filename):
+            flash("Extensión no permitida para el comprobante de pago. Formatos válidos: PNG, JPG, JPEG, WEBP, PDF.", "danger")
+            return redirect(url_for('compras.cuentas_por_pagar'))
         upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'comprobantes_pago')
         os.makedirs(upload_dir, exist_ok=True)
         from werkzeug.utils import secure_filename
-        ext      = os.path.splitext(proof_file.filename)[1].lower()
-        filename = secure_filename(f"comprobante_{invoice_id}_{payment_date}{ext}")
-        proof_file.save(os.path.join(upload_dir, filename))
+        clean_name = secure_filename(proof_file.filename)
+        ext = os.path.splitext(clean_name)[1].lower()
+        safe_base = secure_filename(f"comprobante_{invoice_id}_{payment_date}")
+        filename = f"{safe_base}{ext}"
+        dest_path = os.path.abspath(os.path.join(upload_dir, filename))
+        if not dest_path.startswith(os.path.abspath(upload_dir) + os.sep) and dest_path != os.path.abspath(upload_dir):
+            flash("Nombre de archivo inválido detectado.", "danger")
+            return redirect(url_for('compras.cuentas_por_pagar'))
+        proof_file.save(dest_path)
         proof_path = f"comprobantes_pago/{filename}"
 
     ok = register_purchase_payment(invoice_id, {
@@ -761,12 +798,21 @@ def editar_factura_proveedor(invoice_id):
     doc_file_path = inv.get('document_file')
     doc_file = request.files.get('document_file')
     if doc_file and doc_file.filename:
+        if not allowed_file(doc_file.filename):
+            flash("Extensión no permitida para el archivo de factura. Formatos válidos: PNG, JPG, JPEG, WEBP, PDF.", "danger")
+            return redirect(url_for('compras.cuentas_por_pagar'))
         upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'documentos_compra')
         os.makedirs(upload_dir, exist_ok=True)
         from werkzeug.utils import secure_filename
-        ext = os.path.splitext(doc_file.filename)[1].lower()
-        filename = secure_filename(f"factura_{invoice_number or invoice_id}_{date.today().isoformat()}{ext}")
-        doc_file.save(os.path.join(upload_dir, filename))
+        clean_name = secure_filename(doc_file.filename)
+        ext = os.path.splitext(clean_name)[1].lower()
+        safe_base = secure_filename(f"factura_{invoice_number or invoice_id}_{date.today().isoformat()}")
+        filename = f"{safe_base}{ext}"
+        dest_path = os.path.abspath(os.path.join(upload_dir, filename))
+        if not dest_path.startswith(os.path.abspath(upload_dir) + os.sep) and dest_path != os.path.abspath(upload_dir):
+            flash("Nombre de archivo inválido detectado.", "danger")
+            return redirect(url_for('compras.cuentas_por_pagar'))
+        doc_file.save(dest_path)
         doc_file_path = f"documentos_compra/{filename}"
 
     # Recalcular estado si aún no está pagada

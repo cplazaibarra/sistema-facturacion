@@ -32,6 +32,8 @@ services:
       - DB_NAME=facturacion
       - DB_USER=facturador
       - DB_PASSWORD=facturador_secure_pass_94
+      - APP_ENV=production
+      - SECRET_KEY=${SECRET_KEY}
     volumes:
       - ./static/uploads:/app/static/uploads
     depends_on:

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error CSRF (400) - Facturación Bodega Miel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0F172A; color: #F8FAFC; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .card { background: #1E293B; border: 1px solid #334155; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center; max-width: 480px; width: 90%; }
+        .icon { font-size: 48px; color: #F59E0B; margin-bottom: 16px; }
+        h2 { font-size: 20px; font-weight: 700; margin-bottom: 12px; color: #FFFFFF; }
+        p { color: #94A3B8; font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+        .btn { display: inline-block; background: #3B82F6; color: white; padding: 10px 22px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px; transition: background 0.2s; }
+        .btn:hover { background: #2563EB; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon"><i class="fa-solid fa-shield-halved"></i></div>
+        <h2>Error de Validación CSRF (400)</h2>
+        <p>{{ error_description or 'El token de seguridad del formulario es inválido o no fue provisto. Por favor recargue la página e intente de nuevo.' }}</p>
+        <a href="javascript:history.back()" class="btn">Volver y Reintentar</a>
+    </div>
+</body>
+</html>

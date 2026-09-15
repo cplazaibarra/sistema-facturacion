@@ -3,19 +3,44 @@ import json
 from dotenv import load_dotenv
 load_dotenv()  # Cargar variables del archivo .env local
 
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, request, redirect, url_for, session, jsonify, render_template
 from werkzeug.middleware.proxy_fix import ProxyFix
+from flask_wtf.csrf import CSRFProtect, CSRFError
 
 from db import init_db
+from security import validate_secret_key, log_security_event
 
 # Inicializar Flask
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_prefix=1)
 
-# Configuración
-app.config['SECRET_KEY'] = 'tu-clave-secreta-aqui'
+# Configuración de Entorno y Clave Secreta
+app_env = os.getenv('APP_ENV', 'development').lower()
+raw_secret = os.getenv('SECRET_KEY')
+if app_env == 'testing' and not raw_secret:
+    raw_secret = 'test_secret_key_environment_variable_for_tests_only_secure_1234'
+
+app.config['APP_ENV'] = app_env
+app.config['SECRET_KEY'] = validate_secret_key(raw_secret, app_env=app_env)
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# Configuración de Seguridad en Cookies de Sesión
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+if app_env == 'production':
+    app.config['SESSION_COOKIE_SECURE'] = True
+
+# Protección CSRF Global
+csrf = CSRFProtect(app)
+
+@app.errorhandler(CSRFError)
+def handle_csrf_error(e):
+    user = session.get('username') if 'user_id' in session else 'ANONYMOUS'
+    log_security_event('CSRF_ERROR', user, f"Ruta: {request.path} | Motivo: {e.description}", level='warning')
+    if request.path.startswith('/api/') or request.is_json:
+        return jsonify({"status": "error", "message": f"Error CSRF: {e.description}"}), 400
+    return render_template('csrf_error.html', error_description=e.description), 400
 
 # Crear carpeta de uploads si no existe
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -76,8 +101,6 @@ app.register_blueprint(reportes_bp)
 app.register_blueprint(compras_bp)
 app.register_blueprint(produccion_bp)
 
-from flask import request, redirect, url_for, session
-
 @app.before_request
 def check_login():
     # Permitir la ruta de login y los archivos estáticos (CSS, JS, imágenes, etc.)
@@ -88,9 +111,9 @@ def check_login():
     # Si no hay usuario en sesión, redirigir a login o responder JSON si es API
     if 'user_id' not in session:
         if request.path.startswith('/api/'):
-            from flask import jsonify
             return jsonify({"status": "error", "message": "Sesión expirada. Por favor vuelva a iniciar sesión."}), 401
         return redirect(url_for('auth.login'))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5001, use_reloader=True)
+    is_debug = app.config.get('APP_ENV') != 'production' and os.getenv('FLASK_DEBUG', '0') == '1'
+    app.run(debug=is_debug, host='0.0.0.0', port=5001, use_reloader=is_debug)

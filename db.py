@@ -5,6 +5,7 @@ import psycopg2
 import psycopg2.extras
 from datetime import datetime, timedelta
 from typing import Any, Dict
+from werkzeug.security import generate_password_hash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -1693,6 +1694,12 @@ def get_user(user_id: int) -> dict:
 
 
 def insert_user(user: dict) -> int:
+    raw_pw = user.get("password", "password123")
+    if raw_pw and not raw_pw.startswith(('scrypt:', 'pbkdf2:', 'argon2:')):
+        stored_pw = generate_password_hash(raw_pw)
+    else:
+        stored_pw = raw_pw or generate_password_hash("password123")
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -1703,7 +1710,7 @@ def insert_user(user: dict) -> int:
                 (
                     user["username"],
                     user["email"],
-                    user.get("password", "password123"),
+                    stored_pw,
                     user["full_name"],
                     user["role_id"],
                     bool(user.get("is_active", True)),
@@ -1718,19 +1725,40 @@ def insert_user(user: dict) -> int:
 def update_user(user_id: int, user: dict) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                UPDATE users SET email = %s, full_name = %s, role_id = %s, is_active = %s
-                WHERE id = %s
-                """,
-                (
-                    user.get("email"),
-                    user.get("full_name"),
-                    user.get("role_id"),
-                    bool(user.get("is_active", True)),
-                    user_id,
-                ),
-            )
+            if "password" in user and user["password"]:
+                raw_pw = user["password"]
+                if not raw_pw.startswith(('scrypt:', 'pbkdf2:', 'argon2:')):
+                    pw_hash = generate_password_hash(raw_pw)
+                else:
+                    pw_hash = raw_pw
+                cur.execute(
+                    """
+                    UPDATE users SET email = %s, full_name = %s, role_id = %s, is_active = %s, password = %s
+                    WHERE id = %s
+                    """,
+                    (
+                        user.get("email"),
+                        user.get("full_name"),
+                        user.get("role_id"),
+                        bool(user.get("is_active", True)),
+                        pw_hash,
+                        user_id,
+                    ),
+                )
+            else:
+                cur.execute(
+                    """
+                    UPDATE users SET email = %s, full_name = %s, role_id = %s, is_active = %s
+                    WHERE id = %s
+                    """,
+                    (
+                        user.get("email"),
+                        user.get("full_name"),
+                        user.get("role_id"),
+                        bool(user.get("is_active", True)),
+                        user_id,
+                    ),
+                )
         conn.commit()
 
 

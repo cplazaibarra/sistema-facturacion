@@ -1,6 +1,7 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
 from datetime import datetime
 import json
+from security import require_permission, log_security_event
 from db import (
     get_page_data,
     list_roles,
@@ -20,6 +21,7 @@ from db import (
 usuarios_bp = Blueprint('usuarios', __name__)
 
 @usuarios_bp.route('/administracion')
+@require_permission('administracion')
 def administracion():
     """Módulo de Administración"""
     modules = get_page_data("admin_modules") or []
@@ -28,6 +30,7 @@ def administracion():
     return render_template('administracion.html', modules=modules, settings=settings)
 
 @usuarios_bp.route('/administracion/listas-precios', methods=['GET', 'POST'])
+@require_permission('administracion')
 def listas_precios():
     from db import get_connection
     
@@ -164,6 +167,7 @@ def listas_precios():
     )
 
 @usuarios_bp.route('/usuarios', methods=['GET', 'POST'])
+@require_permission('usuarios')
 def usuarios():
     """Gestión de usuarios"""
     if request.method == 'POST':
@@ -172,13 +176,15 @@ def usuarios():
             "email": request.form.get('email', '').strip(),
             "full_name": request.form.get('full_name', '').strip(),
             "role_id": int(request.form.get('role_id', 0)),
-            "password": request.form.get('password', 'password123'),
+            "password": request.form.get('password', '').strip() or 'password123',
             "is_active": int(request.form.get('is_active', 1)),
             "created_at": datetime.utcnow().isoformat(timespec='seconds'),
         }
 
         if user["username"] and user["email"] and user["full_name"] and user["role_id"]:
-            insert_user(user)
+            new_id = insert_user(user)
+            log_security_event('USER_CREATED', session.get('username'), f"Usuario '{user['username']}' (ID: {new_id}) creado")
+            flash("Usuario creado exitosamente.", "success")
 
         return redirect(url_for('usuarios.usuarios'))
 
@@ -187,6 +193,7 @@ def usuarios():
     return render_template('usuarios.html', users=users, roles=roles)
 
 @usuarios_bp.route('/usuarios/<int:user_id>/editar', methods=['GET', 'POST'])
+@require_permission('usuarios')
 def editar_usuario(user_id):
     """Editar usuario"""
     if request.method == 'POST':
@@ -197,6 +204,8 @@ def editar_usuario(user_id):
             "is_active": int(request.form.get('is_active', 1)),
         }
         update_user(user_id, user)
+        log_security_event('USER_UPDATED', session.get('username'), f"Usuario ID {user_id} modificado")
+        flash("Usuario actualizado correctamente.", "success")
         return redirect(url_for('usuarios.usuarios'))
 
     user = get_user(user_id)
@@ -204,15 +213,19 @@ def editar_usuario(user_id):
     return render_template('editar_usuario.html', user=user, roles=roles)
 
 @usuarios_bp.route('/usuarios/<int:user_id>/eliminar', methods=['POST'])
+@require_permission('usuarios')
 def eliminar_usuario(user_id):
     """Eliminar usuario"""
     delete_user(user_id)
+    log_security_event('USER_DELETED', session.get('username'), f"Usuario ID {user_id} eliminado")
+    flash("Usuario eliminado correctamente.", "success")
     referrer = request.referrer
     if referrer and '/roles' in referrer:
         return redirect(url_for('usuarios.roles'))
     return redirect(url_for('usuarios.usuarios'))
 
 @usuarios_bp.route('/roles', methods=['GET', 'POST'])
+@require_permission('usuarios')
 def roles():
     """Gestión de roles"""
     if request.method == 'POST':
@@ -229,7 +242,9 @@ def roles():
         }
 
         if role["name"]:
-            insert_role(role)
+            r_id = insert_role(role)
+            log_security_event('ROLE_CREATED', session.get('username'), f"Rol '{role['name']}' creado")
+            flash("Rol creado exitosamente.", "success")
 
         return redirect(url_for('usuarios.roles'))
 
@@ -238,6 +253,7 @@ def roles():
     return render_template('roles.html', roles=all_roles, users=users)
 
 @usuarios_bp.route('/roles/<int:role_id>/editar', methods=['GET', 'POST'])
+@require_permission('usuarios')
 def editar_rol(role_id):
     """Editar rol"""
     if request.method == 'POST':
@@ -252,18 +268,24 @@ def editar_rol(role_id):
             "permissions": json.dumps(perms),
         }
         update_role(role_id, role)
+        log_security_event('ROLE_UPDATED', session.get('username'), f"Rol ID {role_id} modificado")
+        flash("Rol actualizado exitosamente.", "success")
         return redirect(url_for('usuarios.roles'))
 
     role = get_role(role_id)
     return render_template('editar_rol.html', role=role)
 
 @usuarios_bp.route('/roles/<int:role_id>/eliminar', methods=['POST'])
+@require_permission('usuarios')
 def eliminar_rol(role_id):
     """Eliminar rol"""
     delete_role(role_id)
+    log_security_event('ROLE_DELETED', session.get('username'), f"Rol ID {role_id} eliminado")
+    flash("Rol eliminado correctamente.", "success")
     return redirect(url_for('usuarios.roles'))
 
 @usuarios_bp.route('/usuarios/<int:user_id>/reasignar-rol', methods=['POST'])
+@require_permission('usuarios')
 def quick_update_role(user_id):
     """Reasignar rol rápidamente desde la pantalla de roles"""
     role_id = request.form.get('role_id', type=int)
@@ -284,6 +306,7 @@ def quick_update_role(user_id):
         "is_active": user["is_active"]
     }
     update_user(user_id, updated_user_data)
+    log_security_event('USER_ROLE_REASSIGNED', session.get('username'), f"Usuario ID {user_id} reasignado a rol {role_id}")
     flash(f"Rol del usuario {user['full_name']} actualizado correctamente.", "success")
     return redirect(url_for('usuarios.roles'))
 
@@ -291,6 +314,7 @@ def quick_update_role(user_id):
 # === Endpoints para Cuentas Bancarias de la Empresa ===
 
 @usuarios_bp.route('/administracion/cuentas-bancarias', methods=['GET', 'POST'])
+@require_permission('administracion')
 def cuentas_bancarias():
     """Administrar cuentas bancarias de la empresa"""
     from db import list_bank_accounts, insert_bank_account
@@ -308,7 +332,8 @@ def cuentas_bancarias():
             flash("Banco, número de cuenta y titular son requeridos.", "warning")
         else:
             try:
-                insert_bank_account(account_data)
+                acc_id = insert_bank_account(account_data)
+                log_security_event('BANK_ACCOUNT_CREATED', session.get('username'), f"Cuenta bancaria {acc_id} registrada")
                 flash("Cuenta bancaria registrada exitosamente.", "success")
             except Exception as e:
                 flash(f"Error al registrar la cuenta: Cuenta duplicada o datos inválidos.", "danger")
@@ -319,6 +344,7 @@ def cuentas_bancarias():
 
 
 @usuarios_bp.route('/administracion/cuentas-bancarias/<int:account_id>/editar', methods=['POST'])
+@require_permission('administracion')
 def editar_cuenta_bancaria(account_id):
     """Editar una cuenta bancaria existente"""
     from db import update_bank_account
@@ -333,6 +359,7 @@ def editar_cuenta_bancaria(account_id):
     }
     try:
         update_bank_account(account_id, account_data)
+        log_security_event('BANK_ACCOUNT_UPDATED', session.get('username'), f"Cuenta bancaria {account_id} actualizada")
         flash("Cuenta bancaria actualizada correctamente.", "success")
     except Exception as e:
         flash(f"Error al actualizar la cuenta.", "danger")
@@ -340,11 +367,13 @@ def editar_cuenta_bancaria(account_id):
 
 
 @usuarios_bp.route('/administracion/cuentas-bancarias/<int:account_id>/eliminar', methods=['POST'])
+@require_permission('administracion')
 def eliminar_cuenta_bancaria(account_id):
     """Eliminar una cuenta bancaria"""
     from db import delete_bank_account
     try:
         delete_bank_account(account_id)
+        log_security_event('BANK_ACCOUNT_DELETED', session.get('username'), f"Cuenta bancaria {account_id} eliminada")
         flash("Cuenta bancaria eliminada correctamente.", "success")
     except Exception as e:
         flash("No se puede eliminar la cuenta porque tiene pagos asociados.", "danger")

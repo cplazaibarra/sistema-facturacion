@@ -10,6 +10,20 @@ def client():
     with app.test_client() as client:
         yield client
 
+import re
+
+def get_csrf_token(client, path='/login'):
+    """Extrae el token CSRF generado en el formulario o cabecera HTML."""
+    resp = client.get(path)
+    html = resp.data.decode('utf-8')
+    match = re.search(r'name="csrf_token"\s+value="([^"]+)"', html)
+    if match:
+        return match.group(1)
+    match = re.search(r'name="csrf-token"\s+content="([^"]+)"', html)
+    if match:
+        return match.group(1)
+    return None
+
 @pytest.fixture
 def auth_client():
     """Test client para Flask con sesión de usuario Administrador."""
@@ -21,6 +35,12 @@ def auth_client():
             sess['user_name'] = 'Administrador'
             sess['role_name'] = 'Administrativo'
             sess['user_initials'] = 'AD'
+            sess['permissions'] = {
+                "dashboard": True, "usuarios": True, "ventas": True,
+                "inventario": True, "productos": True, "administracion": True,
+                "reportes": True, "configuracion": True, "crear_registros": True,
+                "aprobar_registros": True, "solo_ver": False
+            }
         yield client
 
 @pytest.fixture

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}Facturación Bodega Miel{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=11">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -428,6 +429,59 @@
         }
         document.addEventListener('DOMContentLoaded', function() {
             initAppDatepickers();
+
+            // Inyección automática y transparente de token CSRF en todos los formularios POST
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            if (csrfToken) {
+                document.querySelectorAll('form').forEach(form => {
+                    const method = (form.getAttribute('method') || 'GET').toUpperCase();
+                    if (method === 'POST' && !form.querySelector('input[name="csrf_token"]')) {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'csrf_token';
+                        input.value = csrfToken;
+                        form.appendChild(input);
+                    }
+                });
+
+                // Interceptar peticiones fetch para adjuntar cabecera X-CSRFToken
+                const originalFetch = window.fetch;
+                window.fetch = function(resource, init = {}) {
+                    init = init || {};
+                    const method = (init.method || 'GET').toUpperCase();
+                    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+                        init.headers = init.headers || {};
+                        if (init.headers instanceof Headers) {
+                            if (!init.headers.has('X-CSRFToken')) {
+                                init.headers.append('X-CSRFToken', csrfToken);
+                            }
+                        } else if (Array.isArray(init.headers)) {
+                            init.headers.push(['X-CSRFToken', csrfToken]);
+                        } else {
+                            if (!init.headers['X-CSRFToken']) {
+                                init.headers['X-CSRFToken'] = csrfToken;
+                            }
+                        }
+                    }
+                    return originalFetch(resource, init);
+                };
+
+                // Interceptar XMLHttpRequest para adjuntar cabecera X-CSRFToken
+                const origOpen = XMLHttpRequest.prototype.open;
+                XMLHttpRequest.prototype.open = function(method, url) {
+                    this._csrfMethod = method ? method.toUpperCase() : 'GET';
+                    return origOpen.apply(this, arguments);
+                };
+                const origSend = XMLHttpRequest.prototype.send;
+                XMLHttpRequest.prototype.send = function() {
+                    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(this._csrfMethod)) {
+                        try {
+                            this.setRequestHeader('X-CSRFToken', csrfToken);
+                        } catch (e) {}
+                    }
+                    return origSend.apply(this, arguments);
+                };
+            }
         });
     </script>
     {% block scripts %}{% endblock %}
