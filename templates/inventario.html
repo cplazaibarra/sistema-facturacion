@@ -173,9 +173,11 @@
                     </span>
                 </td>
                 <td>
-                    <span style="font-family: monospace; font-weight: 700; background: #eff6ff; color: #1d4ed8; padding: 3px 8px; border-radius: 6px; border: 1px solid #bfdbfe;">
-                        🏷️ {{ lot.lot_number }}
-                    </span>
+                    <a href="/trazabilidad?q={{ lot.lot_number }}" title="Ver trazabilidad genealógica 360°" style="text-decoration: none;">
+                        <span style="font-family: monospace; font-weight: 700; background: #eff6ff; color: #1d4ed8; padding: 3px 8px; border-radius: 6px; border: 1px solid #bfdbfe; cursor: pointer;">
+                            🏷️ {{ lot.lot_number }} ↗
+                        </span>
+                    </a>
                 </td>
                 <td>{{ lot.entry_date or '-' }}</td>
                 <td style="color: #64748b;">{{ lot.initial_qty }} un.</td>

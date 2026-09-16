@@ -22,22 +22,22 @@
     <div class="stat-card">
         <div class="stat-icon purple"><i class="fa-solid fa-truck-ramp-box"></i></div>
         <div class="stat-info">
-            <div class="stat-value">$450,000</div>
-            <div class="stat-label">Total Comprado (Año)</div>
+            <div class="stat-value">${{ "%.0f"|format(data.total_amount or 0) }}</div>
+            <div class="stat-label">Total Comprado (Real)</div>
         </div>
     </div>
     <div class="stat-card">
         <div class="stat-icon blue"><i class="fa-solid fa-store"></i></div>
         <div class="stat-info">
-            <div class="stat-value">12</div>
-            <div class="stat-label">Proveedores Activos</div>
+            <div class="stat-value">{{ data.total_suppliers or 0 }}</div>
+            <div class="stat-label">Proveedores con Órdenes</div>
         </div>
     </div>
     <div class="stat-card">
         <div class="stat-icon cyan"><i class="fa-solid fa-boxes-packing"></i></div>
         <div class="stat-info">
-            <div class="stat-value">48</div>
-            <div class="stat-label">Órdenes de Compra</div>
+            <div class="stat-value">{{ data.total_pos or 0 }}</div>
+            <div class="stat-label">Órdenes de Compra Emitidas</div>
         </div>
     </div>
 </div>
@@ -46,36 +46,35 @@
 <div class="settings-section" style="margin-top: 24px;">
     <div class="settings-card">
         <div class="card-header">
-            <h3>Compras Recientes por Proveedor</h3>
+            <h3>Compras por Proveedor</h3>
         </div>
         <table class="data-table" style="margin-top: 16px;">
             <thead>
                 <tr>
                     <th>Proveedor</th>
-                    <th>Última Compra</th>
-                    <th>Total Acumulado</th>
-                    <th>Estado de Pago</th>
+                    <th style="text-align: center;">Última Compra</th>
+                    <th style="text-align: center;">Órdenes de Compra</th>
+                    <th style="text-align: right;">Total Acumulado</th>
                 </tr>
             </thead>
             <tbody>
-                <tr>
-                    <td>Colmenares del Sur</td>
-                    <td>10 Ago 2026</td>
-                    <td>$280,000</td>
-                    <td><span class="badge success">Pagado</span></td>
-                </tr>
-                <tr>
-                    <td>Envases Plásticos Santiago</td>
-                    <td>08 Ago 2026</td>
-                    <td>$120,000</td>
-                    <td><span class="badge success">Pagado</span></td>
-                </tr>
-                <tr>
-                    <td>Etiquetas & Diseños SpA</td>
-                    <td>05 Ago 2026</td>
-                    <td>$50,000</td>
-                    <td><span class="badge warning">Pendiente</span></td>
-                </tr>
+                {% if data.has_data and data.suppliers %}
+                    {% for s in data.suppliers %}
+                    <tr>
+                        <td style="font-weight: 600;">{{ s.supplier_name }}</td>
+                        <td style="text-align: center;">{{ s.last_purchase_date or '-' }}</td>
+                        <td style="text-align: center;">{{ s.total_pos }} OC</td>
+                        <td style="text-align: right; font-weight: 600;">${{ "%.0f"|format(s.total_amount) }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: #64748b; padding: 32px;">
+                            <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">SIN DATOS REGISTRADOS PARA EL PERÍODO</div>
+                            <div style="font-size: 13px;">No se encontraron órdenes de compra registradas en el rango seleccionado.</div>
+                        </td>
+                    </tr>
+                {% endif %}
             </tbody>
         </table>
     </div>

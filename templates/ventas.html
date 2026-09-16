@@ -798,7 +798,7 @@
                     if (lotList && lotList.length > 0) {
                         let html = '<ul style="margin: 0; padding-left: 20px;">';
                         lotList.forEach(m => {
-                            html += `<li style="margin-bottom: 4px;"><strong>${m.product_name}</strong>: Lote <span style="font-family: monospace; font-weight: bold; background: #dbeafe; padding: 2px 6px; border-radius: 4px;">${m.lot_number}</span> — <strong>${m.quantity} un.</strong></li>`;
+                            html += `<li style="margin-bottom: 4px;"><strong>${m.product_name}</strong>: Lote <a href="/trazabilidad?q=${encodeURIComponent(m.lot_number)}" target="_blank" title="Ver trazabilidad 360° de este lote" style="text-decoration: none;"><span style="font-family: monospace; font-weight: bold; background: #dbeafe; color: #1e40af; padding: 2px 6px; border-radius: 4px; cursor: pointer;">🏷️ ${m.lot_number} ↗</span></a> — <strong>${m.quantity} un.</strong></li>`;
                         });
                         html += '</ul>';
                         lotsContent.innerHTML = html;

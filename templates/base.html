@@ -447,6 +447,26 @@
                     }
                 });
 
+                // Anti double-click y feedback visual de procesamiento en formularios
+                document.querySelectorAll('form').forEach(form => {
+                    form.addEventListener('submit', function(e) {
+                        if (form.dataset.submitting === 'true') {
+                            e.preventDefault();
+                            return false;
+                        }
+                        const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+                        if (submitBtn) {
+                            form.dataset.submitting = 'true';
+                            setTimeout(() => {
+                                submitBtn.disabled = true;
+                                submitBtn.style.opacity = '0.75';
+                                submitBtn.style.cursor = 'wait';
+                                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px;"></i> Procesando...';
+                            }, 10);
+                        }
+                    });
+                });
+
                 // Interceptar peticiones fetch para adjuntar cabecera X-CSRFToken
                 const originalFetch = window.fetch;
                 window.fetch = function(resource, init = {}) {

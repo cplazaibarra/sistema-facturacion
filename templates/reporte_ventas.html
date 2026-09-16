@@ -22,21 +22,21 @@
     <div class="stat-card">
         <div class="stat-icon blue"><i class="fa-solid fa-money-bill-wave"></i></div>
         <div class="stat-info">
-            <div class="stat-value">$1,245,000</div>
-            <div class="stat-label">Ingresos Totales (Año)</div>
+            <div class="stat-value">${{ "%.0f"|format(data.total_income or 0) }}</div>
+            <div class="stat-label">Ingresos Totales (Reales)</div>
         </div>
     </div>
     <div class="stat-card">
         <div class="stat-icon green"><i class="fa-solid fa-basket-shopping"></i></div>
         <div class="stat-info">
-            <div class="stat-value">1,540</div>
+            <div class="stat-value">{{ data.total_sales_count or 0 }}</div>
             <div class="stat-label">Ventas Registradas</div>
         </div>
     </div>
     <div class="stat-card">
         <div class="stat-icon cyan"><i class="fa-solid fa-chart-line"></i></div>
         <div class="stat-info">
-            <div class="stat-value">$808.44</div>
+            <div class="stat-value">${{ "%.2f"|format(data.avg_ticket or 0) }}</div>
             <div class="stat-label">Ticket Promedio</div>
         </div>
     </div>
@@ -52,30 +52,29 @@
             <thead>
                 <tr>
                     <th>Producto</th>
-                    <th>Unidades Vendidas</th>
-                    <th>Ingresos</th>
-                    <th>% del Total</th>
+                    <th style="text-align: center;">Unidades Vendidas</th>
+                    <th style="text-align: right;">Ingresos</th>
+                    <th style="text-align: center;">% del Total</th>
                 </tr>
             </thead>
             <tbody>
-                <tr>
-                    <td>Miel de Abeja 1kg</td>
-                    <td>850</td>
-                    <td>$425,000</td>
-                    <td>34.1%</td>
-                </tr>
-                <tr>
-                    <td>Miel de Abeja 500g</td>
-                    <td>420</td>
-                    <td>$168,000</td>
-                    <td>13.5%</td>
-                </tr>
-                <tr>
-                    <td>Polen Selección 250g</td>
-                    <td>270</td>
-                    <td>$108,000</td>
-                    <td>8.7%</td>
-                </tr>
+                {% if data.has_data and data.products %}
+                    {% for p in data.products %}
+                    <tr>
+                        <td style="font-weight: 600;">{{ p.name }}</td>
+                        <td style="text-align: center;">{{ p.units }}</td>
+                        <td style="text-align: right; font-weight: 600;">${{ "%.0f"|format(p.revenue) }}</td>
+                        <td style="text-align: center;">{{ p.percentage }}%</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: #64748b; padding: 32px;">
+                            <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">SIN DATOS REGISTRADOS PARA EL PERÍODO</div>
+                            <div style="font-size: 13px;">No se encontraron ventas completadas o emitidas en el rango seleccionado.</div>
+                        </td>
+                    </tr>
+                {% endif %}
             </tbody>
         </table>
     </div>

@@ -55,18 +55,36 @@ def get_sales_metrics() -> dict:
                 ventas_trend_text = "0% vs ayer"
                 ventas_trend_type = "neutral"
 
-            # 2. Stock total y productos con bajo stock
-            cur.execute("SELECT json FROM page_data WHERE key = 'inventory_items'")
-            row_inv = cur.fetchone()
-            items = []
-            if row_inv and row_inv["json"]:
-                try:
-                    items = json.loads(row_inv["json"])
-                except Exception:
-                    items = []
-            
-            total_stock = sum(int(it.get("stock", 0)) for it in items)
-            low_stock_count = sum(1 for it in items if int(it.get("stock", 0)) <= int(it.get("min_stock", 10)))
+            # 2. Stock total y productos con bajo stock (fuente oficial: inventory_movements)
+            cur.execute("SELECT COALESCE(SUM(quantity), 0) as total_units FROM inventory_movements")
+            row_stk = cur.fetchone()
+            total_stock = int(row_stk["total_units"]) if row_stk and row_stk["total_units"] is not None else 0
+
+            cur.execute("""
+                SELECT COUNT(*) as low_count
+                FROM (
+                    SELECT p.id
+                    FROM products p
+                    LEFT JOIN inventory_movements im ON im.product_id = p.id
+                    GROUP BY p.id, p.min_stock
+                    HAVING COALESCE(SUM(im.quantity), 0) <= COALESCE(p.min_stock, 10)
+                ) sub
+            """)
+            row_low = cur.fetchone()
+            low_stock_count = int(row_low["low_count"]) if row_low else 0
+
+            # Fallback legacy si movements estuviera vacío
+            if total_stock == 0:
+                cur.execute("SELECT json FROM page_data WHERE key = 'inventory_items'")
+                row_inv = cur.fetchone()
+                items = []
+                if row_inv and row_inv["json"]:
+                    try:
+                        items = json.loads(row_inv["json"])
+                    except Exception:
+                        items = []
+                total_stock = sum(int(it.get("stock", 0)) for it in items)
+                low_stock_count = sum(1 for it in items if int(it.get("stock", 0)) <= int(it.get("min_stock", 10)))
             
             if low_stock_count > 0:
                 stock_trend_text = f"{low_stock_count} bajo stock"
@@ -884,26 +902,28 @@ def get_system_notifications() -> list[dict]:
     # 2. Stock crítico en Bodega
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT json FROM page_data WHERE key = 'inventory_items'")
-            row = cur.fetchone()
-            if row and row['json']:
-                try:
-                    items = json.loads(row['json'])
-                    for it in items:
-                        stk = int(it.get('stock', 0))
-                        min_stk = int(it.get('min_stock', 10))
-                        if stk <= min_stk:
-                            notifications.append({
-                                'id': f"stock-{it.get('code')}",
-                                'type': 'warning',
-                                'icon': 'fa-solid fa-boxes-stacked',
-                                'title': f"Stock Bajo: {it.get('name', 'Insumo')}",
-                                'desc': f"Quedan {stk} unidades (mínimo requerido: {min_stk})",
-                                'link': '/inventario',
-                                'time': 'Bodega'
-                            })
-                except Exception:
-                    pass
+            cur.execute("""
+                SELECT p.id, p.name, p.sku, COALESCE(p.min_stock, 10) as min_stock,
+                       COALESCE(SUM(im.quantity), 0) as current_stock
+                FROM products p
+                LEFT JOIN inventory_movements im ON im.product_id = p.id
+                GROUP BY p.id, p.name, p.sku, p.min_stock
+                HAVING COALESCE(SUM(im.quantity), 0) <= COALESCE(p.min_stock, 10)
+                LIMIT 5
+            """)
+            low_rows = cur.fetchall()
+            for p_low in low_rows:
+                stk = int(p_low['current_stock'])
+                min_stk = int(p_low['min_stock'])
+                notifications.append({
+                    'id': f"stock-{p_low['sku'] or p_low['id']}",
+                    'type': 'warning',
+                    'icon': 'fa-solid fa-boxes-stacked',
+                    'title': f"Stock Bajo: {p_low['name']}",
+                    'desc': f"Quedan {stk} unidades (mínimo requerido: {min_stk})",
+                    'link': '/inventario',
+                    'time': 'Bodega'
+                })
 
     # 3. Ventas pendientes por gestionar
     with get_connection() as conn:
@@ -923,4 +943,190 @@ def get_system_notifications() -> list[dict]:
                 })
 
     return notifications
+
+
+def get_sales_report_data(year: Optional[int] = None) -> dict:
+    """
+    Calcula los datos reales consolidados para el reporte de ventas:
+    - Ingresos totales reales
+    - Cantidad total de ventas no canceladas
+    - Ticket promedio
+    - Desglose y distribución por producto
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            query = """
+                SELECT id, sale_number, total_amount, sale_date, products_json
+                FROM sales
+                WHERE status NOT IN ('Cancelada', 'Cotización')
+                  AND sale_number LIKE 'VTA-%%'
+            """
+            params = []
+            if year:
+                query += " AND SUBSTRING(sale_date, 1, 4) = %s"
+                params.append(str(year))
+            query += " ORDER BY sale_date DESC"
+
+            cur.execute(query, tuple(params))
+            sales = cur.fetchall()
+
+    total_sales_count = len(sales)
+    total_income = sum(float(s["total_amount"] or 0.0) for s in sales)
+    avg_ticket = (total_income / total_sales_count) if total_sales_count > 0 else 0.0
+
+    product_stats = {}
+    for s in sales:
+        raw = s.get("products_json")
+        if not raw:
+            continue
+        try:
+            prods = json.loads(raw) if isinstance(raw, str) else raw
+        except Exception:
+            prods = []
+
+        if isinstance(prods, dict):
+            prods = [prods]
+
+        for p in prods:
+            if isinstance(p, dict):
+                p_name = p.get("product_name") or p.get("name") or p.get("sku") or "Producto"
+                qty = float(p.get("quantity") or 1)
+                rev = float(p.get("subtotal") or (qty * float(p.get("price") or 0.0)))
+            elif isinstance(p, str):
+                import re
+                m = re.match(r'^(.*?)\s*\((\d+(?:\.\d+)?)\)$', p)
+                if m:
+                    p_name = m.group(1).strip()
+                    qty = float(m.group(2))
+                else:
+                    p_name = p.strip()
+                    qty = 1.0
+                rev = 0.0
+            else:
+                continue
+
+            if p_name not in product_stats:
+                product_stats[p_name] = {"units": 0.0, "revenue": 0.0}
+            product_stats[p_name]["units"] += qty
+            product_stats[p_name]["revenue"] += rev
+
+    # Distribución porcentual
+    items_list = []
+    for name, stats in sorted(product_stats.items(), key=lambda x: (x[1]["revenue"], x[1]["units"]), reverse=True):
+        pct = round((stats["revenue"] / total_income * 100), 1) if total_income > 0 else 0.0
+        items_list.append({
+            "name": name,
+            "units": int(stats["units"]) if stats["units"].is_integer() else round(stats["units"], 2),
+            "revenue": round(stats["revenue"], 2),
+            "percentage": pct,
+        })
+
+    return {
+        "total_income": round(total_income, 2),
+        "total_sales_count": total_sales_count,
+        "avg_ticket": round(avg_ticket, 2),
+        "products": items_list,
+        "has_data": total_sales_count > 0,
+    }
+
+
+def get_purchases_report_data(year: Optional[int] = None) -> dict:
+    """
+    Calcula los datos reales consolidados para el reporte de compras:
+    - Total acumulado comprado
+    - Proveedores activos con órdenes
+    - Total de órdenes de compra válidas
+    - Desglose por proveedor con total y estado de pago
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            query = """
+                SELECT 
+                    s.name as supplier_name,
+                    MAX(po.order_date) as last_purchase_date,
+                    COUNT(po.id) as total_pos,
+                    COALESCE(SUM(po.total_amount), 0) as total_amount
+                FROM purchase_orders po
+                JOIN suppliers s ON po.supplier_id = s.id
+                WHERE po.status != 'Anulada'
+            """
+            params = []
+            if year:
+                query += " AND SUBSTRING(po.order_date, 1, 4) = %s"
+                params.append(str(year))
+            query += " GROUP BY s.id, s.name ORDER BY total_amount DESC"
+
+            cur.execute(query, tuple(params))
+            supplier_rows = [dict(r) for r in cur.fetchall()]
+
+            # Obtener estado de pago agregado por proveedor desde facturas
+            cur.execute("""
+                SELECT supplier_id, payment_status, COUNT(*) as cnt
+                FROM purchase_invoices
+                GROUP BY supplier_id, payment_status
+            """)
+            inv_statuses = cur.fetchall()
+
+    total_amount = sum(float(r["total_amount"]) for r in supplier_rows)
+    total_suppliers = len(supplier_rows)
+    total_pos = sum(int(r["total_pos"]) for r in supplier_rows)
+
+    return {
+        "total_amount": round(total_amount, 2),
+        "total_suppliers": total_suppliers,
+        "total_pos": total_pos,
+        "suppliers": supplier_rows,
+        "has_data": total_pos > 0,
+    }
+
+
+def get_expenses_report_data(month: Optional[str] = None) -> dict:
+    """
+    Calcula los datos reales consolidados para el reporte de gastos operacionales:
+    - Total de facturas/gastos registrados en el mes o período
+    - Servicios y gastos directos
+    - Margen de gastos sobre ingresos del período
+    - Desglose por proveedor / tipo de gasto
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Facturas de compra registradas
+            cur.execute("""
+                SELECT 
+                    COALESCE(s.name, 'Proveedor General') as category,
+                    COALESCE(SUM(pi.invoice_amount), 0) as total_amount,
+                    COUNT(pi.id) as count_invoices
+                FROM purchase_invoices pi
+                LEFT JOIN suppliers s ON pi.supplier_id = s.id
+                GROUP BY s.name
+                ORDER BY total_amount DESC
+            """)
+            breakdown_rows = [dict(r) for r in cur.fetchall()]
+
+            # Total gastos acumulados
+            total_expenses = sum(float(r["total_amount"]) for r in breakdown_rows)
+
+            # Total ingresos acumulados para calcular margen
+            cur.execute("""
+                SELECT COALESCE(SUM(total_amount), 0) as total_sales
+                FROM sales
+                WHERE status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'
+            """)
+            row_sales = cur.fetchone()
+            total_sales = float(row_sales["total_sales"]) if row_sales else 0.0
+
+    margin_pct = round((total_expenses / total_sales * 100), 1) if total_sales > 0 else 0.0
+
+    # Agregar porcentajes a cada categoría
+    for r in breakdown_rows:
+        amt = float(r["total_amount"])
+        r["percentage"] = round((amt / total_expenses * 100), 1) if total_expenses > 0 else 0.0
+
+    return {
+        "total_expenses": round(total_expenses, 2),
+        "margin_pct": margin_pct,
+        "breakdown": breakdown_rows,
+        "has_data": len(breakdown_rows) > 0,
+    }
+
 

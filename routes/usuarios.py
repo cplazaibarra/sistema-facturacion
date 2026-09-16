@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 from security import require_permission, log_security_event
 from db import (
@@ -178,7 +178,7 @@ def usuarios():
             "role_id": int(request.form.get('role_id', 0)),
             "password": request.form.get('password', '').strip() or 'password123',
             "is_active": int(request.form.get('is_active', 1)),
-            "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+            "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds'),
         }
 
         if user["username"] and user["email"] and user["full_name"] and user["role_id"]:
@@ -238,7 +238,7 @@ def roles():
             "name": request.form.get('name', '').strip(),
             "description": request.form.get('description', '').strip(),
             "permissions": json.dumps(perms),
-            "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+            "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds'),
         }
 
         if role["name"]:

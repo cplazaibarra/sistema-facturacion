@@ -3,7 +3,7 @@ import os
 import re
 import psycopg2
 import psycopg2.extras
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 from werkzeug.security import generate_password_hash
 
@@ -555,7 +555,7 @@ def seed_data_if_empty() -> None:
                         role["name"],
                         role["description"],
                         role.get("permissions", "{}"),
-                        datetime.utcnow().isoformat(timespec='seconds'),
+                        datetime.now(timezone.utc).isoformat(timespec='seconds'),
                     ),
                 )
             
@@ -600,7 +600,7 @@ def seed_data_if_empty() -> None:
                             user["full_name"],
                             user["role_id"],
                             True,
-                            datetime.utcnow().isoformat(timespec='seconds'),
+                            datetime.now(timezone.utc).isoformat(timespec='seconds'),
                         ),
                     )
             
@@ -623,7 +623,7 @@ def seed_data_if_empty() -> None:
                         "payment_method": "Transferencia",
                         "payment_status": "Pagado",
                         "delivery_status": "Entregado",
-                        "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+                        "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds'),
                     },
                     {
                         "sale_number": "VTA-00155",
@@ -640,7 +640,7 @@ def seed_data_if_empty() -> None:
                         "payment_method": "Efectivo",
                         "payment_status": "Pendiente",
                         "delivery_status": "Pendiente",
-                        "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+                        "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds'),
                     },
                     {
                         "sale_number": "VTA-00154",
@@ -657,7 +657,7 @@ def seed_data_if_empty() -> None:
                         "payment_method": "Tarjeta",
                         "payment_status": "Pagado",
                         "delivery_status": "Entregado",
-                        "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+                        "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds'),
                     },
                     {
                         "sale_number": "VTA-00153",
@@ -674,7 +674,7 @@ def seed_data_if_empty() -> None:
                         "payment_method": "Transferencia",
                         "payment_status": "Pagado",
                         "delivery_status": "Entregado",
-                        "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+                        "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds'),
                     },
                     {
                         "sale_number": "VTA-00152",
@@ -691,7 +691,7 @@ def seed_data_if_empty() -> None:
                         "payment_method": "Efectivo",
                         "payment_status": "Cancelado",
                         "delivery_status": "Cancelado",
-                        "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+                        "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds'),
                     },
                 ]
                 
@@ -748,7 +748,7 @@ def seed_data_if_empty() -> None:
                             p["code"], # internal_code
                             p["category"],
                             None, None, None, None, # dimensiones y peso
-                            datetime.utcnow().isoformat(timespec='seconds')
+                            datetime.now(timezone.utc).isoformat(timespec='seconds')
                         )
                     )
             
@@ -775,7 +775,7 @@ def seed_data_if_empty() -> None:
                             ins["sku"],
                             ins["category"],
                             ins["product_type"],
-                            datetime.utcnow().isoformat(timespec='seconds')
+                            datetime.now(timezone.utc).isoformat(timespec='seconds')
                         )
                     )
             
@@ -886,11 +886,14 @@ from repositories.legacy_repo import (
 from repositories.reporting_repo import (
     get_cash_flow_data,
     get_cash_flow_data_weekly,
+    get_expenses_report_data,
     get_income_report_data,
     get_purchase_years,
     get_purchased_products_matrix,
+    get_purchases_report_data,
     get_sales_chart_data,
     get_sales_metrics,
+    get_sales_report_data,
     get_system_notifications,
     get_top_products,
 )
@@ -971,6 +974,7 @@ from repositories.sales_repo import (
 
 from repositories.production_repo import (
     get_next_ot_number,
+    list_production_orders,
 )
 
 from repositories.lot_genealogy_repo import (

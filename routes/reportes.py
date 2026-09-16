@@ -1,22 +1,35 @@
 from flask import Blueprint, render_template, make_response, request
-from db import get_income_report_data, get_cash_flow_data, get_cash_flow_data_weekly
+from db import (
+    get_income_report_data,
+    get_cash_flow_data,
+    get_cash_flow_data_weekly,
+    get_sales_report_data,
+    get_purchases_report_data,
+    get_expenses_report_data,
+)
 
 reportes_bp = Blueprint('reportes', __name__)
 
 @reportes_bp.route('/reporteria/ventas')
 def reportes_ventas():
-    """Reporte de Ventas"""
-    return render_template('reporte_ventas.html')
+    """Reporte de Ventas con datos reales consolidados"""
+    year = request.args.get('year', type=int)
+    data = get_sales_report_data(year=year)
+    return render_template('reporte_ventas.html', data=data, selected_year=year)
 
 @reportes_bp.route('/reporteria/compras')
 def reportes_compras():
-    """Reporte de Compras"""
-    return render_template('reporte_compras.html')
+    """Reporte de Compras con datos reales consolidados"""
+    year = request.args.get('year', type=int)
+    data = get_purchases_report_data(year=year)
+    return render_template('reporte_compras.html', data=data, selected_year=year)
 
 @reportes_bp.route('/reporteria/gastos')
 def reportes_gastos():
-    """Reporte de Gastos"""
-    return render_template('reporte_gastos.html')
+    """Reporte de Gastos con datos reales consolidados"""
+    month = request.args.get('month')
+    data = get_expenses_report_data(month=month)
+    return render_template('reporte_gastos.html', data=data, selected_month=month)
 
 @reportes_bp.route('/reporteria/ingresos')
 def reportes_ingresos():

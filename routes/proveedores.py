@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify
-from datetime import datetime
+from datetime import datetime, timezone
 from db import (
     list_suppliers,
     get_supplier,
@@ -30,7 +30,7 @@ def api_crear_proveedor():
         "name": name,
         "description": description,
         "website": website,
-        "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+        "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds'),
     }
 
     supplier_id = insert_supplier(supplier)
@@ -64,7 +64,7 @@ def proveedores():
             "tipo_compra": request.form.get('tipo_compra', 'Del Giro').strip(),
             "description": request.form.get('description', '').strip(),
             "website": request.form.get('website', '').strip(),
-            "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+            "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds'),
         }
 
         if supplier["name"]:
@@ -129,7 +129,7 @@ def agregar_contacto(supplier_id):
         "phone": request.form.get('phone', '').strip(),
         "email": request.form.get('email', '').strip(),
         "position": request.form.get('position', '').strip(),
-        "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+        "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds'),
     }
 
     if contact["name"]:

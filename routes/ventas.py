@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify, session, flash
-from datetime import datetime
+from datetime import datetime, timezone
 from db import (
     get_page_data,
     list_sales,
@@ -490,7 +490,7 @@ def registrar_pago_venta():
     if payment_status in ['Pagado', 'Pendiente Aprobación Pago'] and file and file.filename:
         safe_name = secure_filename(file.filename)
         ext = os.path.splitext(safe_name)[1]
-        filename = f"comprobante_venta_{sale_id}_{int(datetime.utcnow().timestamp())}{ext}"
+        filename = f"comprobante_venta_{sale_id}_{int(datetime.now(timezone.utc).timestamp())}{ext}"
         filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
         payment_proof_file = f"/uploads/{filename}"
@@ -624,14 +624,14 @@ def registrar_pago_venta():
                 "payment_proof_file": final_proof_file,
                 "payment_amount": total_amount if payment_status in ['Pagado', 'Pendiente Aprobación Pago'] else 0.0,
                 "payment_date": payment_date,
-                "seller_uploaded_at": datetime.utcnow().isoformat(),
-                "payment_uploaded_at": datetime.utcnow().isoformat() if payment_status in ['Pagado', 'Pendiente Aprobación Pago'] else None,
+                "seller_uploaded_at": datetime.now(timezone.utc).isoformat(),
+                "payment_uploaded_at": datetime.now(timezone.utc).isoformat() if payment_status in ['Pagado', 'Pendiente Aprobación Pago'] else None,
                 "accounting_approved": 1 if payment_status == 'Pagado' else 0,
                 "accounting_approved_by": user_responsible if payment_status == 'Pagado' else None,
-                "accounting_approved_at": datetime.utcnow().isoformat() if payment_status == 'Pagado' else None,
+                "accounting_approved_at": datetime.now(timezone.utc).isoformat() if payment_status == 'Pagado' else None,
                 "accounting_comment": "Pago registrado y aprobado automáticamente" if payment_status == 'Pagado' else "Pago registrado por Digitador, pendiente de validación por Aprobador",
                 "status": payment_status,
-                "updated_at": datetime.utcnow().isoformat()
+                "updated_at": datetime.now(timezone.utc).isoformat()
             }
             
             # Utilizar upsert_sale_payment para guardar los datos de pago dentro de la misma transacción
@@ -671,7 +671,7 @@ def registrar_pago_venta():
                             bank_account_id,
                             1 if payment_status == 'Pagado' else 0,
                             user_responsible if payment_status == 'Pagado' else None,
-                            datetime.utcnow().isoformat() if payment_status == 'Pagado' else None,
+                            datetime.now(timezone.utc).isoformat() if payment_status == 'Pagado' else None,
                             "Pago verificado y aprobado automáticamente" if payment_status == 'Pagado' else "Pendiente de validación",
                             existing_item["id"]
                         )
@@ -691,11 +691,11 @@ def registrar_pago_venta():
                             total_amount,
                             payment_date,
                             final_proof_file,
-                            datetime.utcnow().isoformat(),
+                            datetime.now(timezone.utc).isoformat(),
                             bank_account_id,
                             1 if payment_status == 'Pagado' else 0,
                             user_responsible if payment_status == 'Pagado' else None,
-                            datetime.utcnow().isoformat() if payment_status == 'Pagado' else None,
+                            datetime.now(timezone.utc).isoformat() if payment_status == 'Pagado' else None,
                             "Pago verificado y aprobado automáticamente" if payment_status == 'Pagado' else "Pendiente de validación"
                         )
                     )
@@ -748,7 +748,7 @@ def aprobar_pago_venta(sale_id):
                     updated_at = %s
                 WHERE sale_id = %s
                 """,
-                (user_responsible, datetime.utcnow().isoformat(), sale_row['total_amount'], datetime.utcnow().isoformat(), sale_id)
+                (user_responsible, datetime.now(timezone.utc).isoformat(), sale_row['total_amount'], datetime.now(timezone.utc).isoformat(), sale_id)
             )
             
             # 4. Registrar en historial de estado
@@ -809,7 +809,7 @@ def actualizar_estado_venta():
     if file and file.filename:
         safe_name = secure_filename(file.filename)
         ext = os.path.splitext(safe_name)[1]
-        filename = f"factura_venta_{sale_id}_{int(datetime.utcnow().timestamp())}{ext}"
+        filename = f"factura_venta_{sale_id}_{int(datetime.now(timezone.utc).timestamp())}{ext}"
         filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
         invoice_file_path = f"/uploads/{filename}"
@@ -876,7 +876,7 @@ def actualizar_estado_venta():
                     )
             else:
                 # Si no existe, creamos un registro inicial de pagos
-                now_str = datetime.utcnow().isoformat(timespec='seconds')
+                now_str = datetime.now(timezone.utc).isoformat(timespec='seconds')
                 cur.execute(
                     """
                     INSERT INTO sale_payments (sale_id, invoice_number, invoice_file, status, created_at, updated_at)
@@ -943,7 +943,7 @@ def ingreso_ventas():
             "customer_name": request.form.get('customer_name', '').strip(),
             "seller_name": request.form.get('seller_name', '').strip() or get_logged_in_user_info()[0],
             "notes": request.form.get('notes', '').strip(),
-            "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+            "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds'),
         }
 
         if entry["sku"] and entry["product_name"] and entry["sale_date"]:
@@ -1137,7 +1137,7 @@ def nueva_cotizacion():
                 "payment_status": cot_status,
                 "delivery_status": cot_status,
                 "notes": notes,
-                "created_at": datetime.utcnow().isoformat(timespec='seconds')
+                "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds')
             }
             new_cot_id = insert_sale(sale_data)
             if quotation_status == 'Ganada':
@@ -1453,13 +1453,13 @@ def _convert_quotation_to_sale(sale_id):
                 "payment_status": "Pendiente",
                 "delivery_status": "Pendiente",
                 "notes": full_notes,
-                "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+                "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds'),
             }
 
             # Insertar venta en la misma conexión
             new_sale_id = insert_sale(new_sale_data, conn=conn)
 
-            now_str = datetime.utcnow().isoformat(timespec='seconds')
+            now_str = datetime.now(timezone.utc).isoformat(timespec='seconds')
             logged_user, _ = get_logged_in_user_info()
 
             # Insertar registro inicial de pago

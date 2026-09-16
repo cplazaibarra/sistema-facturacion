@@ -433,22 +433,41 @@ def get_lot_recall_impact(lot_id: int, conn=None) -> Dict[str, Any]:
 
 
 def search_lots(query_str: str = "", limit: int = 50, conn=None) -> List[Dict[str, Any]]:
-    """Busca lotes por número de lote, SKU de producto o nombre."""
+    """Busca lotes por número de lote, SKU de producto, nombre, OT, OC, venta, proveedor o cliente."""
     q = f"%{(query_str or '').strip()}%"
     def _execute(cur):
         cur.execute(
             """
-            SELECT l.*, p.name as product_name, p.sku, p.category,
-                   ls.available_qty, s.name as supplier_name
+            SELECT DISTINCT l.id, l.product_id, l.lot_number, l.lot_type, l.origin_type,
+                   l.origin_id, l.supplier_id, l.purchase_order_id, l.inventory_entry_id,
+                   l.production_order_id, l.initial_quantity, l.created_at, l.expiry_date,
+                   l.status, l.warehouse, l.notes,
+                   p.name as product_name, p.sku, p.category,
+                   ls.available_qty, s.name as supplier_name,
+                   po.oc_number, pord.ot_number
             FROM lots l
             JOIN products p ON p.id = l.product_id
             LEFT JOIN lot_stock ls ON ls.lot_id = l.id
             LEFT JOIN suppliers s ON s.id = l.supplier_id
-            WHERE l.lot_number ILIKE %s OR p.name ILIKE %s OR p.sku ILIKE %s
+            LEFT JOIN purchase_orders po ON po.id = l.purchase_order_id
+            LEFT JOIN production_orders pord ON pord.id = l.production_order_id
+            LEFT JOIN production_lot_consumptions plc ON plc.input_lot_id = l.id
+            LEFT JOIN production_orders pord_cons ON pord_cons.id = plc.production_order_id
+            LEFT JOIN sale_lot_movements slm ON slm.lot_id = l.id
+            LEFT JOIN sales sale ON sale.id = slm.sale_id
+            WHERE l.lot_number ILIKE %s
+               OR p.name ILIKE %s
+               OR p.sku ILIKE %s
+               OR s.name ILIKE %s
+               OR po.oc_number ILIKE %s
+               OR pord.ot_number ILIKE %s
+               OR pord_cons.ot_number ILIKE %s
+               OR sale.sale_number ILIKE %s
+               OR sale.customer_name ILIKE %s
             ORDER BY l.id DESC
             LIMIT %s;
             """,
-            (q, q, q, limit)
+            (q, q, q, q, q, q, q, q, q, limit)
         )
         return [dict(r) for r in cur.fetchall()]
 

@@ -97,7 +97,7 @@ def register_inventory_entry(
                 RETURNING id
                 """,
                 (entry_date, order_number, po_id, supplier_id,
-                 warehouse, notes, total_amount, datetime.utcnow().isoformat(timespec='seconds'),
+                 warehouse, notes, total_amount, datetime.now(timezone.utc).isoformat(timespec='seconds'),
                  document_type, document_number, document_file)
             )
             entry_id = cur.fetchone()["id"]

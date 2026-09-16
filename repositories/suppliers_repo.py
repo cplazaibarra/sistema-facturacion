@@ -67,7 +67,7 @@ def insert_supplier(supplier: dict) -> int:
                     supplier.get("email"),
                     supplier.get("phone"),
                     supplier.get("tipo_compra", "Del Giro"),
-                    supplier.get("created_at", datetime.utcnow().isoformat(timespec='seconds')),
+                    supplier.get("created_at", datetime.now(timezone.utc).isoformat(timespec='seconds')),
                 ),
             )
             supplier_id = cur.fetchone()["id"]
@@ -156,7 +156,7 @@ def insert_supplier_contact(contact: dict) -> None:
                     contact.get("phone"),
                     contact.get("email"),
                     contact.get("position"),
-                    contact.get("created_at", datetime.utcnow().isoformat(timespec='seconds')),
+                    contact.get("created_at", datetime.now(timezone.utc).isoformat(timespec='seconds')),
                 ),
             )
         conn.commit()

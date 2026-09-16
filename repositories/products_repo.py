@@ -231,7 +231,7 @@ def add_product_supplier(product_id: int, supplier_id: int) -> None:
                 (
                     product_id,
                     supplier_id,
-                    datetime.utcnow().isoformat(timespec='seconds'),
+                    datetime.now(timezone.utc).isoformat(timespec='seconds'),
                 ),
             )
         conn.commit()

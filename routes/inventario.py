@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, send_from_directory, current_app, jsonify
 from werkzeug.utils import secure_filename
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from db import (
     get_page_data,
     list_products,
@@ -34,7 +34,7 @@ def handle_photo_upload(product_id):
                 flash("Formato de imagen no permitido. Formatos válidos: PNG, JPG, JPEG, WEBP, PDF.", "danger")
                 return None
             ext = file.filename.rsplit('.', 1)[1].lower()
-            filename = secure_filename(f"product_{product_id}_{int(datetime.utcnow().timestamp())}.{ext}")
+            filename = secure_filename(f"product_{product_id}_{int(datetime.now(timezone.utc).timestamp())}.{ext}")
             filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
             file.save(filepath)
             return f"/uploads/{filename}"
@@ -505,7 +505,7 @@ def productos():
             "labeling": request.form.get('labeling', '').strip(),
             "notes": request.form.get('notes', '').strip(),
             "attachment_url": request.form.get('attachment_url', '').strip(),
-            "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+            "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds'),
         }
 
         if product["sku"] and product["name"]:

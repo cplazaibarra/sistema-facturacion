@@ -1,65 +1,14 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from datetime import datetime, timezone
 import json
-from db import get_connection, get_page_data, set_page_data, list_products
+from db import get_connection, get_page_data, set_page_data, list_products, list_production_orders
 
 produccion_bp = Blueprint('produccion', __name__)
 
 @produccion_bp.route('/produccion')
 def list_ots():
     """Listar órdenes de trabajo (OT)"""
-    from db import get_connection
-    ots = []
-    
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT po.id, po.ot_number, po.quantity, po.status, po.notes, po.created_at, po.approved_at, po.completed_at, po.unit_cost,
-                       p.sku as final_product_sku, p.name as final_product_name
-                FROM production_orders po
-                JOIN products p ON po.final_product_id = p.id
-                ORDER BY po.id DESC
-                """
-            )
-            rows = cur.fetchall()
-            for r in rows:
-                ot_id = r["id"]
-                # Cargar insumos para esta OT
-                cur.execute(
-                    """
-                    SELECT poi.quantity_required, poi.unit_cost, p.sku as input_sku, p.name as input_name, p.cost as input_cost
-                    FROM production_order_items poi
-                    JOIN products p ON poi.input_product_id = p.id
-                    WHERE poi.production_order_id = %s
-                    """,
-                    (ot_id,)
-                )
-                items = [dict(row) for row in cur.fetchall()]
-                for item in items:
-                    if item.get("unit_cost") is None:
-                        item["unit_cost"] = float(item.get("input_cost") or 0.0)
-                
-                # Cargar insumos adicionales
-                cur.execute(
-                    """
-                    SELECT poai.quantity, poai.unit_cost, poai.reason, p.sku as input_sku, p.name as input_name, p.cost as input_cost
-                    FROM production_order_additional_items poai
-                    JOIN products p ON poai.input_product_id = p.id
-                    WHERE poai.production_order_id = %s
-                    """,
-                    (ot_id,)
-                )
-                additional_items = [dict(row) for row in cur.fetchall()]
-                for add in additional_items:
-                    if add.get("unit_cost") is None:
-                        add["unit_cost"] = float(add.get("input_cost") or 0.0)
-                
-                ot_dict = dict(r)
-                ot_dict["items"] = items
-                ot_dict["additional_items"] = additional_items
-                ots.append(ot_dict)
-                
+    ots = list_production_orders()
     products = list_products()
     input_products = [p for p in products if p.get('product_type', 'Final') == 'Insumo']
     return render_template('produccion.html', ots=ots, input_products=input_products)
@@ -201,7 +150,7 @@ def crear_producto_rapido():
         "depth_cm": None,
         "weight_kg": None,
         "product_type": product_type,
-        "created_at": datetime.utcnow().isoformat(timespec='seconds')
+        "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds')
     }
     
     try:

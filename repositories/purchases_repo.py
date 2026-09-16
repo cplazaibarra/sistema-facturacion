@@ -48,7 +48,7 @@ def create_purchase_order(supplier_id: int, order_date: str, notes: str, items: 
                 INSERT INTO purchase_orders (oc_number, supplier_id, order_date, status, total_amount, notes, created_by, payment_method, created_at)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
                 """,
-                (oc_num, supplier_id, order_date, status, total_amount, notes, created_by, payment_method or 'Efectivo', datetime.utcnow().isoformat(timespec='seconds'))
+                (oc_num, supplier_id, order_date, status, total_amount, notes, created_by, payment_method or 'Efectivo', datetime.now(timezone.utc).isoformat(timespec='seconds'))
             )
             po_id = cur.fetchone()["id"]
             
