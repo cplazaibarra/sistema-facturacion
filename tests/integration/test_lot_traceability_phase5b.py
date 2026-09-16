@@ -89,14 +89,23 @@ def genealogy_fixture():
                 cur.execute("DELETE FROM sale_lot_movements WHERE product_id IN %s", (pids,))
                 cur.execute("DELETE FROM inventory_movements WHERE product_id IN %s", (pids,))
                 cur.execute("DELETE FROM inventory_entry_items WHERE product_id IN %s", (pids,))
+                cur.execute("DELETE FROM production_lot_outputs WHERE output_product_id IN %s", (pids,))
                 cur.execute("DELETE FROM production_lot_consumptions WHERE input_product_id IN %s", (pids,))
-                cur.execute("DELETE FROM production_lot_outputs WHERE product_id IN %s", (pids,))
-                cur.execute("DELETE FROM production_order_items WHERE input_product_id IN %s", (pids,))
                 cur.execute("DELETE FROM lot_stock WHERE product_id IN %s", (pids,))
                 cur.execute("DELETE FROM lots WHERE product_id IN %s", (pids,))
+                cur.execute("DELETE FROM production_order_items WHERE input_product_id IN %s", (pids,))
+                cur.execute("DELETE FROM production_orders WHERE final_product_id IN %s", (pids,))
                 cur.execute("DELETE FROM purchase_order_items WHERE product_id IN %s", (pids,))
                 cur.execute("DELETE FROM products WHERE id IN %s", (pids,))
                 cur.execute("DELETE FROM suppliers WHERE id = %s", (supplier_id,))
+                # Limpiar page_data
+                cur.execute("SELECT json FROM page_data WHERE key = 'inventory_items'")
+                row = cur.fetchone()
+                if row and row.get("json"):
+                    import json
+                    items = json.loads(row["json"])
+                    items = [it for it in items if str(ts) not in str(it.get("code", ""))]
+                    cur.execute("UPDATE page_data SET json = %s WHERE key = 'inventory_items'", (json.dumps(items),))
             conn.commit()
     except Exception:
         pass
