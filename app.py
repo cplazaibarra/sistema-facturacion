@@ -106,13 +106,34 @@ def check_login():
     # Permitir la ruta de login y los archivos estáticos (CSS, JS, imágenes, etc.)
     if request.path.startswith('/static') or request.path.startswith('/uploads'):
         return
-    if request.endpoint in ('auth.login', 'uploaded_file'):
+    if request.endpoint in ('auth.login', 'uploaded_file', 'health'):
         return
     # Si no hay usuario en sesión, redirigir a login o responder JSON si es API
     if 'user_id' not in session:
         if request.path.startswith('/api/'):
             return jsonify({"status": "error", "message": "Sesión expirada. Por favor vuelva a iniciar sesión."}), 401
         return redirect(url_for('auth.login'))
+
+
+@app.route('/health')
+def health():
+    """Health check endpoint validating application and database connectivity."""
+    try:
+        from db import get_connection
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1 AS healthy;")
+                row = cur.fetchone()
+                if not row or row.get("healthy") != 1:
+                    return jsonify({"status": "unhealthy", "error": "Database check failed"}), 503
+        return jsonify({
+            "status": "healthy",
+            "database": "connected",
+            "environment": app.config.get("APP_ENV", "development"),
+        }), 200
+    except Exception as exc:
+        return jsonify({"status": "unhealthy", "error": str(exc)}), 503
+
 
 if __name__ == '__main__':
     is_debug = app.config.get('APP_ENV') != 'production' and os.getenv('FLASK_DEBUG', '0') == '1'

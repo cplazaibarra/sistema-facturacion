@@ -32,3 +32,5 @@ data/*.db
 .env
 cookies.txt
 /uploads/
+backups/
+static/uploads/

@@ -1,0 +1,14 @@
+-- Reversión de Migración 000002
+DROP TABLE IF EXISTS purchase_invoices CASCADE;
+DROP TABLE IF EXISTS purchase_order_items CASCADE;
+DROP TABLE IF EXISTS purchase_orders CASCADE;
+DROP TABLE IF EXISTS sales_payment_history CASCADE;
+DROP TABLE IF EXISTS sales_status_history CASCADE;
+DROP TABLE IF EXISTS sale_payment_items CASCADE;
+DROP TABLE IF EXISTS sale_payments CASCADE;
+DROP TABLE IF EXISTS sales_entries CASCADE;
+DROP TABLE IF EXISTS sales CASCADE;
+DROP TABLE IF EXISTS product_suppliers CASCADE;
+DROP TABLE IF EXISTS products CASCADE;
+DROP TABLE IF EXISTS supplier_contacts CASCADE;
+DROP TABLE IF EXISTS suppliers CASCADE;
