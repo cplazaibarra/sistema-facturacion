@@ -444,15 +444,17 @@ def test_production_atomic_and_idempotent(client, auth_client):
     )
 
     # 2. Crear OT en estado 'Aprobada'
+    ts_ot = int(datetime.now(timezone.utc).timestamp() * 1000)
+    ot_test_num = f"OT-TEST-CONCUR-{ts_ot}"
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO production_orders (ot_number, final_product_id, quantity, status, created_at)
-                VALUES ('OT-TEST-CONCUR', %s, 2, 'Aprobada', '2026-03-14 12:00:00')
+                VALUES (%s, %s, 2, 'Aprobada', '2026-03-14 12:00:00')
                 RETURNING id
                 """,
-                (p_fin_id,)
+                (ot_test_num, p_fin_id)
             )
             ot_id = cur.fetchone()["id"]
 
@@ -502,9 +504,13 @@ def test_production_atomic_and_idempotent(client, auth_client):
     # Cleanup
     with get_connection() as conn:
         with conn.cursor() as cur:
+            cur.execute("DELETE FROM production_lot_outputs WHERE production_order_id = %s", (ot_id,))
+            cur.execute("DELETE FROM production_lot_consumptions WHERE production_order_id = %s", (ot_id,))
             cur.execute("DELETE FROM inventory_movements WHERE product_id IN (%s, %s)", (p_in_id, p_fin_id))
             cur.execute("DELETE FROM inventory_entry_items WHERE product_id = %s", (p_fin_id,))
-            cur.execute("DELETE FROM inventory_entries WHERE order_number = 'OT-TEST-CONCUR'")
+            cur.execute("DELETE FROM inventory_entries WHERE order_number = %s", (ot_test_num,))
+            cur.execute("DELETE FROM lot_stock WHERE product_id IN (%s, %s)", (p_in_id, p_fin_id))
+            cur.execute("DELETE FROM lots WHERE product_id IN (%s, %s)", (p_in_id, p_fin_id))
             cur.execute("DELETE FROM production_order_items WHERE production_order_id = %s", (ot_id,))
             cur.execute("DELETE FROM production_orders WHERE id = %s", (ot_id,))
             cur.execute("DELETE FROM products WHERE id IN (%s, %s)", (p_in_id, p_fin_id))

@@ -24,9 +24,11 @@ REPO_MODULES = [
     "repositories.inventory_repo",
     "repositories.sales_repo",
     "repositories.production_repo",
+    "repositories.lot_genealogy_repo",
     "services.inventory_service",
     "services.sales_service",
     "services.purchase_service",
+    "services.lot_traceability_service",
 ]
 
 

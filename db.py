@@ -972,3 +972,15 @@ from repositories.sales_repo import (
 from repositories.production_repo import (
     get_next_ot_number,
 )
+
+from repositories.lot_genealogy_repo import (
+    create_lot,
+    get_lot,
+    get_lot_by_product_and_number,
+    record_production_consumption,
+    record_production_output,
+    trace_lot_forward,
+    trace_lot_backward,
+    get_lot_recall_impact,
+    search_lots,
+)

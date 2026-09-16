@@ -128,27 +128,57 @@ def register_inventory_entry(
                 if qty > pending:
                     raise ValueError(f"No puedes ingresar {qty} unidades. El máximo pendiente en la OC es {pending}.")
 
+                cur.execute("SELECT id, requires_lot, name FROM products WHERE id = %s", (prod_id,))
+                prod_row = cur.fetchone()
+                if prod_row and prod_row.get("requires_lot") and not lot_number:
+                    raise ValueError(f"INV-011: El producto '{prod_row['name']}' requiere número de lote obligatorio.")
+
+                lot_id = None
+                if lot_number:
+                    cur.execute(
+                        "SELECT id FROM lots WHERE product_id = %s AND lot_number = %s ORDER BY id DESC LIMIT 1",
+                        (prod_id, lot_number)
+                    )
+                    ex_lot = cur.fetchone()
+                    if ex_lot:
+                        lot_id = ex_lot["id"]
+                    else:
+                        now_iso = datetime.now(timezone.utc).isoformat()
+                        cur.execute(
+                            """
+                            INSERT INTO lots (
+                                product_id, lot_number, lot_type, origin_type, origin_id,
+                                supplier_id, purchase_order_id, inventory_entry_id,
+                                initial_quantity, created_at, status, warehouse
+                            ) VALUES (%s, %s, 'RAW_MATERIAL', 'PURCHASE', %s, %s, %s, %s, %s, %s, 'ACTIVE', %s)
+                            RETURNING id;
+                            """,
+                            (prod_id, lot_number, entry_id, supplier_id, po_id, entry_id, qty, now_iso, warehouse)
+                        )
+                        lot_id = cur.fetchone()["id"]
+
                 cur.execute(
                     """
-                    INSERT INTO inventory_entry_items (inventory_entry_id, product_id, quantity, unit_price, total, lot_number)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    INSERT INTO inventory_entry_items (inventory_entry_id, product_id, quantity, unit_price, total, lot_number, lot_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     """,
-                    (entry_id, prod_id, qty, price, line_total, lot_number)
+                    (entry_id, prod_id, qty, price, line_total, lot_number, lot_id)
                 )
 
                 # Si tiene número de lote, registrar o sumar en lot_stock
                 if lot_number:
                     cur.execute(
                         """
-                        INSERT INTO lot_stock (product_id, lot_number, entry_id, entry_date, initial_qty, available_qty, warehouse)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        INSERT INTO lot_stock (product_id, lot_number, entry_id, entry_date, initial_qty, available_qty, warehouse, lot_id)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (product_id, lot_number) DO UPDATE
                         SET initial_qty = lot_stock.initial_qty + EXCLUDED.initial_qty,
                             available_qty = lot_stock.available_qty + EXCLUDED.available_qty,
                             entry_date = EXCLUDED.entry_date,
-                            warehouse = EXCLUDED.warehouse
+                            warehouse = EXCLUDED.warehouse,
+                            lot_id = COALESCE(lot_stock.lot_id, EXCLUDED.lot_id)
                         """,
-                        (prod_id, lot_number, entry_id, entry_date, qty, qty, warehouse)
+                        (prod_id, lot_number, entry_id, entry_date, qty, qty, warehouse, lot_id)
                     )
 
                 # Fase 2: Registrar movimiento relacional en Kardex universal (inventory_movements)
@@ -162,7 +192,8 @@ def register_inventory_entry(
                     reference_type="purchase_order",
                     reference_id=po_id,
                     notes=f"Recepción de compra {order_number} (Entrada #{entry_id})",
-                    conn=conn
+                    conn=conn,
+                    lot_id=lot_id
                 )
 
                 new_received = po_item["quantity_received"] + qty
@@ -288,7 +319,7 @@ def consume_lots_for_sale(sale_id: int, lot_consumptions: list[dict], conn=None)
     lot_consumptions: lista de dicts con keys: product_id, lot_number, quantity
     """
     def _execute(cur):
-        now_iso = datetime.utcnow().isoformat(timespec='seconds')
+        now_iso = datetime.now(timezone.utc).isoformat(timespec='seconds')
         for item in lot_consumptions:
             pid = item.get("product_id")
             lot = (item.get("lot_number") or "").strip()
@@ -296,23 +327,39 @@ def consume_lots_for_sale(sale_id: int, lot_consumptions: list[dict], conn=None)
             if not pid or not lot or qty <= 0:
                 continue
 
+            lot_id = item.get("lot_id")
+            if not lot_id:
+                cur.execute(
+                    "SELECT id FROM lots WHERE product_id = %s AND lot_number = %s ORDER BY id DESC LIMIT 1",
+                    (pid, lot)
+                )
+                l_found = cur.fetchone()
+                if l_found:
+                    lot_id = l_found["id"]
+
             # Descontar de lot_stock bloqueando la fila
             cur.execute(
                 """
                 UPDATE lot_stock
                 SET available_qty = GREATEST(0, available_qty - %s)
                 WHERE product_id = %s AND lot_number = %s
+                RETURNING available_qty, lot_id;
                 """,
                 (qty, pid, lot)
             )
+            ls_row = cur.fetchone()
+            if ls_row and ls_row["available_qty"] <= 1e-6:
+                target_lid = lot_id or ls_row["lot_id"]
+                if target_lid:
+                    cur.execute("UPDATE lots SET status = 'DEPLETED' WHERE id = %s", (target_lid,))
 
             # Registrar movimiento
             cur.execute(
                 """
-                INSERT INTO sale_lot_movements (sale_id, product_id, lot_number, quantity, moved_at)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO sale_lot_movements (sale_id, product_id, lot_number, quantity, moved_at, lot_id)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                (sale_id, pid, lot, qty, now_iso)
+                (sale_id, pid, lot, qty, now_iso, lot_id)
             )
 
     if conn is not None:
@@ -403,13 +450,15 @@ def record_inventory_movement(
     reference_id: int = None,
     notes: str = None,
     created_by: str = "Sistema",
-    conn=None
+    conn=None,
+    lot_id: int = None
 ) -> int:
     """
     Registra un movimiento en inventory_movements cumpliendo los invariantes de inventario:
     - INV-008: Magnitud != 0.0
     - INV-002: Salidas (qty < 0) deben tener origen identificable (reference_type o notes)
     - INV-001: Stock disponible relacional no puede quedar en negativo
+    - Fase 5B: Asocia lot_id inmutable si existe lote
     """
     qty = float(quantity)
     if qty == 0.0:
@@ -438,20 +487,30 @@ def record_inventory_movement(
                     f"INV-001: Stock insuficiente. Stock relacional actual: {current_stock}, salida solicitada: {abs(qty)}"
                 )
 
-        now_str = datetime.utcnow().isoformat(timespec='seconds')
+        clean_lot = (lot_number or "").strip() or None
+        target_lot_id = lot_id
+        if not target_lot_id and clean_lot:
+            cursor.execute(
+                "SELECT id FROM lots WHERE product_id = %s AND lot_number = %s ORDER BY id DESC LIMIT 1",
+                (product_id, clean_lot)
+            )
+            found_l = cursor.fetchone()
+            if found_l:
+                target_lot_id = found_l["id"]
+
+        now_str = datetime.now(timezone.utc).isoformat(timespec='seconds')
         cursor.execute(
             """
             INSERT INTO inventory_movements (
                 product_id, movement_type, quantity, unit_cost, lot_number,
-                warehouse, reference_type, reference_id, notes, created_at, created_by
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                warehouse, reference_type, reference_id, notes, created_at, created_by, lot_id
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id;
             """,
             (
                 product_id, movement_type, qty, float(unit_cost or 0.0),
-                (lot_number or "").strip() or None,
-                warehouse or "Almacén Principal",
-                reference_type, reference_id, notes, now_str, created_by
+                clean_lot, warehouse or "Almacén Principal",
+                reference_type, reference_id, notes, now_str, created_by, target_lot_id
             )
         )
         mov_id = cursor.fetchone()["id"]
@@ -518,7 +577,7 @@ def consume_fifo_lots(product_id: int, quantity: float, sale_id: int = None, ot_
     def _execute(cursor):
         cursor.execute(
             """
-            SELECT id, lot_number, available_qty, entry_id, entry_date
+            SELECT id, lot_number, available_qty, entry_id, entry_date, lot_id
             FROM lot_stock
             WHERE product_id = %s AND available_qty > 0
             ORDER BY entry_date ASC, id ASC
@@ -541,10 +600,26 @@ def consume_fifo_lots(product_id: int, quantity: float, sale_id: int = None, ot_
             take = min(avail, rem)
             if take > 0:
                 cursor.execute(
-                    "UPDATE lot_stock SET available_qty = available_qty - %s WHERE id = %s",
+                    "UPDATE lot_stock SET available_qty = available_qty - %s WHERE id = %s RETURNING available_qty",
                     (take, lot["id"])
                 )
+                new_avail = cursor.fetchone()["available_qty"]
+
+                lot_id = lot.get("lot_id")
+                if not lot_id:
+                    cursor.execute(
+                        "SELECT id FROM lots WHERE product_id = %s AND lot_number = %s ORDER BY id DESC LIMIT 1",
+                        (product_id, lot["lot_number"])
+                    )
+                    lrow = cursor.fetchone()
+                    if lrow:
+                        lot_id = lrow["id"]
+
+                if new_avail <= 1e-6 and lot_id:
+                    cursor.execute("UPDATE lots SET status = 'DEPLETED' WHERE id = %s", (lot_id,))
+
                 consumed.append({
+                    "lot_id": lot_id,
                     "lot_number": lot["lot_number"],
                     "quantity": take,
                     "entry_id": lot["entry_id"]
@@ -727,15 +802,53 @@ def discount_stock_for_sale(sale_id: int, products_list: list, conn=None) -> Non
     Soporta conn opcional para ejecutarse dentro de la transacción de la venta.
     """
     def _execute(cur, active_conn):
+        cur.execute("SELECT id, sku, LOWER(TRIM(name)) as lname FROM products")
+        all_prods = cur.fetchall()
+        sku_to_id = {p["sku"]: p["id"] for p in all_prods if p.get("sku")}
+        id_to_sku = {p["id"]: p["sku"] for p in all_prods if p.get("sku")}
+        name_to_id = {p["lname"]: p["id"] for p in all_prods if p.get("lname")}
+        name_to_sku = {p["lname"]: p["sku"] for p in all_prods if p.get("lname") and p.get("sku")}
+
         # 1. Descuento de lotes
         lot_consumptions = []
         for prod in products_list:
-            if isinstance(prod, dict) and prod.get("lot_number"):
+            if not isinstance(prod, dict):
+                continue
+            pid = prod.get("product_id")
+            pname = (prod.get("product_name") or prod.get("name") or "").strip().lower()
+            sku = prod.get("sku") or (id_to_sku.get(pid) if pid else None)
+            if not pid:
+                pid = sku_to_id.get(sku) or name_to_id.get(pname)
+            if not pid:
+                continue
+
+            qty = int(prod.get("quantity", 0) or 0)
+            if qty <= 0:
+                continue
+
+            cur.execute("SELECT requires_lot, name FROM products WHERE id = %s", (pid,))
+            p_req = cur.fetchone()
+            req_lot = p_req["requires_lot"] if p_req else False
+
+            cur.execute("SELECT COUNT(*) as c FROM lot_stock WHERE product_id = %s AND available_qty > 0", (pid,))
+            has_lots = cur.fetchone()["c"] > 0
+
+            if prod.get("lot_number"):
                 lot_consumptions.append({
-                    "product_id": prod.get("product_id"),
+                    "product_id": pid,
                     "lot_number": prod.get("lot_number"),
-                    "quantity": int(prod.get("quantity", 0) or 0)
+                    "quantity": qty
                 })
+            elif req_lot or has_lots:
+                fifo_consumed = consume_fifo_lots(pid, qty, sale_id=sale_id, conn=active_conn)
+                for fc in fifo_consumed:
+                    lot_consumptions.append({
+                        "product_id": pid,
+                        "lot_number": fc["lot_number"],
+                        "quantity": fc["quantity"],
+                        "lot_id": fc.get("lot_id")
+                    })
+
         if lot_consumptions:
             consume_lots_for_sale(sale_id, lot_consumptions, conn=active_conn)
 
@@ -743,13 +856,6 @@ def discount_stock_for_sale(sale_id: int, products_list: list, conn=None) -> Non
         cur.execute("SELECT json FROM page_data WHERE key = 'inventory_items' FOR UPDATE")
         pd_row = cur.fetchone()
         inventory_items = json.loads(pd_row["json"]) if pd_row and pd_row["json"] else []
-
-        cur.execute("SELECT id, sku, name FROM products")
-        db_prods = cur.fetchall()
-        id_to_sku = {p["id"]: p["sku"] for p in db_prods}
-        sku_to_id = {p["sku"]: p["id"] for p in db_prods}
-        name_to_sku = {p["name"].strip().lower(): p["sku"] for p in db_prods}
-        name_to_id = {p["name"].strip().lower(): p["id"] for p in db_prods}
 
         if inventory_items:
             inv_map = {item.get("code"): item for item in inventory_items if item.get("code")}
@@ -779,8 +885,12 @@ def discount_stock_for_sale(sale_id: int, products_list: list, conn=None) -> Non
                     (json.dumps(inventory_items, ensure_ascii=False),)
                 )
 
-        # 3. Fase 2: Registrar movimientos de salida por venta en Kardex universal (inventory_movements)
-        # Ordenar productos por product_id para prevenir deadlocks
+        # 3. Fase 2 & 5B: Registrar movimientos de salida por venta en Kardex universal (inventory_movements)
+        # Agrupar lotes consumidos por product_id para Kardex
+        prod_lot_map = {}
+        for lc in lot_consumptions:
+            prod_lot_map.setdefault(lc["product_id"], []).append(lc)
+
         sorted_prods = sorted(
             [p for p in products_list if isinstance(p, dict)],
             key=lambda x: int(x.get("product_id") or sku_to_id.get(x.get("sku")) or name_to_id.get((x.get("product_name") or x.get("name") or "").strip().lower()) or 0)
@@ -798,19 +908,35 @@ def discount_stock_for_sale(sale_id: int, products_list: list, conn=None) -> Non
             if not pid:
                 continue
 
-            lot_num = (prod.get("lot_number") or "").strip() or None
             price = float(prod.get("unit_price") or prod.get("price") or 0.0)
-            record_inventory_movement(
-                product_id=pid,
-                movement_type="SALE",
-                quantity=-qty,
-                unit_cost=price,
-                lot_number=lot_num,
-                reference_type="sale",
-                reference_id=sale_id,
-                notes=f"Despacho/Venta #{sale_id}",
-                conn=active_conn
-            )
+            consumed_lots_for_prod = prod_lot_map.get(pid, [])
+            if consumed_lots_for_prod:
+                for cl in consumed_lots_for_prod:
+                    record_inventory_movement(
+                        product_id=pid,
+                        movement_type="SALE",
+                        quantity=-float(cl["quantity"]),
+                        unit_cost=price,
+                        lot_number=cl.get("lot_number"),
+                        reference_type="sale",
+                        reference_id=sale_id,
+                        notes=f"Despacho/Venta #{sale_id} (Lote {cl.get('lot_number')})",
+                        conn=active_conn,
+                        lot_id=cl.get("lot_id")
+                    )
+            else:
+                lot_num = (prod.get("lot_number") or "").strip() or None
+                record_inventory_movement(
+                    product_id=pid,
+                    movement_type="SALE",
+                    quantity=-qty,
+                    unit_cost=price,
+                    lot_number=lot_num,
+                    reference_type="sale",
+                    reference_id=sale_id,
+                    notes=f"Despacho/Venta #{sale_id}",
+                    conn=active_conn
+                )
 
     if conn is not None:
         with conn.cursor() as cur:

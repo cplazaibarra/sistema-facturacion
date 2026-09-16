@@ -74,6 +74,9 @@
                         <a href="{{ url_for('inventario.ingreso_mercaderia') }}" class="nav-item nav-subitem {% if request.endpoint == 'inventario.ingreso_mercaderia' %}active{% endif %}">
                             <span>Ingreso Mercadería</span>
                         </a>
+                        <a href="{{ url_for('trazabilidad.view_trazabilidad') }}" class="nav-item nav-subitem {% if request.endpoint == 'trazabilidad.view_trazabilidad' %}active{% endif %}">
+                            <span>Trazabilidad de Lotes</span>
+                        </a>
                     </div>
                 </div>
                 <div class="nav-section">

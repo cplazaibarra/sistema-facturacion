@@ -65,13 +65,14 @@ def get_test_conn(db_info):
 def test_migrations_forward_apply_cleanly(fresh_test_db):
     """Verify that all migrations apply cleanly in an empty database."""
     with get_test_conn(fresh_test_db) as conn:
+        total_files = len(mig.get_migration_files())
         applied = mig.apply_all_migrations(conn)
-        assert applied == 5, f"Expected 5 migrations applied, got {applied}"
+        assert applied == total_files, f"Expected {total_files} migrations applied, got {applied}"
 
         # Verify tracking in schema_migrations
         with conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) as count FROM schema_migrations;")
-            assert cur.fetchone()["count"] == 5
+            assert cur.fetchone()["count"] == total_files
 
 
 def test_migrations_idempotency(fresh_test_db):
@@ -169,19 +170,19 @@ def test_atomic_sequences_exist_and_increment(fresh_test_db):
 def test_migration_rollback_step(fresh_test_db):
     """Verify that migration rollback (down) works step by step."""
     with get_test_conn(fresh_test_db) as conn:
+        latest_version = mig.get_migration_files()[-1]["version"]
         reverted = mig.down_cmd(conn, steps=1)
         assert reverted == 1
 
-        # Check status shows migration 5 reverted
+        # Check status shows latest migration reverted
         applied = mig.get_applied_migrations(conn)
-        assert "000005" not in applied
-        assert "000004" in applied
+        assert latest_version not in applied
 
-        # Re-apply migration 5 to restore state
+        # Re-apply latest migration to restore state
         reapplied = mig.up_cmd(conn)
         assert reapplied == 1
         applied = mig.get_applied_migrations(conn)
-        assert "000005" in applied
+        assert latest_version in applied
 
 
 def test_health_check_endpoint():

@@ -90,6 +90,7 @@ from routes.proveedores import proveedores_bp
 from routes.reportes import reportes_bp
 from routes.compras import compras_bp
 from routes.produccion import produccion_bp
+from routes.trazabilidad import trazabilidad_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(dashboard_bp)
@@ -100,6 +101,7 @@ app.register_blueprint(proveedores_bp)
 app.register_blueprint(reportes_bp)
 app.register_blueprint(compras_bp)
 app.register_blueprint(produccion_bp)
+app.register_blueprint(trazabilidad_bp)
 
 @app.before_request
 def check_login():

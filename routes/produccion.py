@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 from db import get_connection, get_page_data, set_page_data, list_products
 
@@ -428,45 +428,169 @@ def finalizar_ot(ot_id):
                 (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), actual_unit_price, ot_id)
             )
 
-            # 5. Fase 2: Registrar movimientos en Kardex universal (inventory_movements)
-            from db import record_inventory_movement
-            # 5.1 Consumo de insumos planificados
+            # 5. Fase 2 & 5B: Registrar movimientos y genealogía de lotes en Kardex universal
+            from db import record_inventory_movement, consume_fifo_lots
+            now_iso = datetime.now(timezone.utc).isoformat()
+
+            # 5.1 Consumo de insumos planificados (con FIFO de lotes si aplica)
             for item in items:
-                record_inventory_movement(
-                    product_id=item["input_product_id"],
-                    movement_type="PRODUCTION_INPUT",
-                    quantity=-float(item["quantity_required"]),
-                    unit_cost=float(item["input_cost"] or 0.0),
-                    warehouse="Principal",
-                    reference_type="production_order",
-                    reference_id=ot_id,
-                    notes=f"Insumo planificado para OT {ot['ot_number']}",
-                    conn=conn
-                )
-            # 5.2 Consumo de insumos adicionales
+                input_pid = item["input_product_id"]
+                qty_needed = float(item["quantity_required"])
+                cost_u = float(item["input_cost"] or 0.0)
+
+                cur.execute("SELECT requires_lot, name FROM products WHERE id = %s", (input_pid,))
+                p_info = cur.fetchone()
+                req_lot = p_info["requires_lot"] if p_info else False
+
+                cur.execute("SELECT COUNT(*) as c FROM lot_stock WHERE product_id = %s AND available_qty > 0", (input_pid,))
+                has_lots = cur.fetchone()["c"] > 0
+
+                if req_lot or has_lots:
+                    consumed_lots = consume_fifo_lots(input_pid, qty_needed, ot_id=ot_id, conn=conn)
+                    for c in consumed_lots:
+                        cur.execute(
+                            """
+                            INSERT INTO production_lot_consumptions (
+                                production_order_id, input_product_id, input_lot_id, quantity_consumed, created_at
+                            ) VALUES (%s, %s, %s, %s, %s)
+                            """,
+                            (ot_id, input_pid, c["lot_id"], float(c["quantity"]), now_iso)
+                        )
+                        record_inventory_movement(
+                            product_id=input_pid,
+                            movement_type="PRODUCTION_INPUT",
+                            quantity=-float(c["quantity"]),
+                            unit_cost=cost_u,
+                            warehouse="Principal",
+                            reference_type="production_order",
+                            reference_id=ot_id,
+                            notes=f"Insumo planificado para OT {ot['ot_number']} (Lote {c['lot_number']})",
+                            conn=conn,
+                            lot_id=c["lot_id"]
+                        )
+                else:
+                    record_inventory_movement(
+                        product_id=input_pid,
+                        movement_type="PRODUCTION_INPUT",
+                        quantity=-qty_needed,
+                        unit_cost=cost_u,
+                        warehouse="Principal",
+                        reference_type="production_order",
+                        reference_id=ot_id,
+                        notes=f"Insumo planificado para OT {ot['ot_number']}",
+                        conn=conn
+                    )
+
+            # 5.2 Consumo de insumos adicionales (con FIFO de lotes si aplica)
             for item in add_items:
-                record_inventory_movement(
-                    product_id=item["input_product_id"],
-                    movement_type="PRODUCTION_INPUT",
-                    quantity=-float(item["quantity"]),
-                    unit_cost=float(item["input_cost"] or 0.0),
-                    warehouse="Principal",
-                    reference_type="production_order",
-                    reference_id=ot_id,
-                    notes=f"Insumo adicional para OT {ot['ot_number']}",
-                    conn=conn
+                input_pid = item["input_product_id"]
+                qty_needed = float(item["quantity"])
+                cost_u = float(item["input_cost"] or 0.0)
+
+                cur.execute("SELECT requires_lot, name FROM products WHERE id = %s", (input_pid,))
+                p_info = cur.fetchone()
+                req_lot = p_info["requires_lot"] if p_info else False
+
+                cur.execute("SELECT COUNT(*) as c FROM lot_stock WHERE product_id = %s AND available_qty > 0", (input_pid,))
+                has_lots = cur.fetchone()["c"] > 0
+
+                if req_lot or has_lots:
+                    consumed_lots = consume_fifo_lots(input_pid, qty_needed, ot_id=ot_id, conn=conn)
+                    for c in consumed_lots:
+                        cur.execute(
+                            """
+                            INSERT INTO production_lot_consumptions (
+                                production_order_id, input_product_id, input_lot_id, quantity_consumed, created_at
+                            ) VALUES (%s, %s, %s, %s, %s)
+                            """,
+                            (ot_id, input_pid, c["lot_id"], float(c["quantity"]), now_iso)
+                        )
+                        record_inventory_movement(
+                            product_id=input_pid,
+                            movement_type="PRODUCTION_INPUT",
+                            quantity=-float(c["quantity"]),
+                            unit_cost=cost_u,
+                            warehouse="Principal",
+                            reference_type="production_order",
+                            reference_id=ot_id,
+                            notes=f"Insumo adicional para OT {ot['ot_number']} (Lote {c['lot_number']})",
+                            conn=conn,
+                            lot_id=c["lot_id"]
+                        )
+                else:
+                    record_inventory_movement(
+                        product_id=input_pid,
+                        movement_type="PRODUCTION_INPUT",
+                        quantity=-qty_needed,
+                        unit_cost=cost_u,
+                        warehouse="Principal",
+                        reference_type="production_order",
+                        reference_id=ot_id,
+                        notes=f"Insumo adicional para OT {ot['ot_number']}",
+                        conn=conn
+                    )
+
+            # 5.3 Alta de producto terminado y creación de Lote de Producto Terminado
+            final_pid = ot["final_product_id"]
+            output_lot_number = request.form.get("output_lot_number") or f"PT-{ot['ot_number']}"
+            output_qty = float(ot["quantity"])
+
+            cur.execute(
+                """
+                INSERT INTO lots (
+                    product_id, lot_number, lot_type, origin_type, origin_id,
+                    production_order_id, initial_quantity, created_at, status, warehouse, notes
+                ) VALUES (%s, %s, 'FINISHED_PRODUCT', 'PRODUCTION', %s, %s, %s, %s, 'ACTIVE', 'Principal', %s)
+                RETURNING id;
+                """,
+                (
+                    final_pid, output_lot_number, ot_id, ot_id, output_qty,
+                    now_iso, f"Producido por OT {ot['ot_number']}"
                 )
-            # 5.3 Alta de producto terminado
+            )
+            output_lot_id = cur.fetchone()["id"]
+
+            cur.execute(
+                """
+                INSERT INTO production_lot_outputs (
+                    production_order_id, output_product_id, output_lot_id, quantity_produced, created_at
+                ) VALUES (%s, %s, %s, %s, %s)
+                """,
+                (ot_id, final_pid, output_lot_id, output_qty, now_iso)
+            )
+
+            cur.execute(
+                """
+                INSERT INTO lot_stock (product_id, lot_number, entry_id, entry_date, initial_qty, available_qty, warehouse, lot_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (product_id, lot_number) DO UPDATE
+                SET available_qty = lot_stock.available_qty + EXCLUDED.available_qty,
+                    initial_qty = lot_stock.initial_qty + EXCLUDED.initial_qty,
+                    lot_id = COALESCE(lot_stock.lot_id, EXCLUDED.lot_id);
+                """,
+                (
+                    final_pid, output_lot_number, entry_id, datetime.now().strftime("%Y-%m-%d"),
+                    output_qty, output_qty, "Principal", output_lot_id
+                )
+            )
+
+            cur.execute(
+                "UPDATE inventory_entry_items SET lot_number = %s, lot_id = %s WHERE inventory_entry_id = %s",
+                (output_lot_number, output_lot_id, entry_id)
+            )
+
             record_inventory_movement(
-                product_id=ot["final_product_id"],
+                product_id=final_pid,
                 movement_type="PRODUCTION_OUTPUT",
-                quantity=float(ot["quantity"]),
+                quantity=output_qty,
                 unit_cost=actual_unit_price,
+                lot_number=output_lot_number,
                 warehouse="Principal",
                 reference_type="production_order",
                 reference_id=ot_id,
-                notes=f"Fabricación finalizada OT {ot['ot_number']}",
-                conn=conn
+                notes=f"Fabricación finalizada OT {ot['ot_number']} (Lote {output_lot_number})",
+                conn=conn,
+                lot_id=output_lot_id
             )
             conn.commit()
         
