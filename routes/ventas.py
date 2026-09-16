@@ -18,21 +18,27 @@ ventas_bp = Blueprint('ventas', __name__)
 
 def get_logged_in_user_info():
     """Obtiene el nombre completo y las iniciales del usuario logeado en la sesión"""
-    name = session.get('full_name') or session.get('user_name')
-    if not name and session.get('user_id'):
-        from db import get_connection
-        try:
-            with get_connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("SELECT full_name, username FROM users WHERE id = %s", (session['user_id'],))
-                    u = cur.fetchone()
-                    if u:
-                        name = u['full_name'] or u['username']
-                        session['full_name'] = name
-                        session['user_name'] = name
-        except Exception:
-            pass
-    name = (name or session.get('username') or 'Administrador').strip()
+    from flask import has_request_context
+    name = None
+    if has_request_context():
+        name = session.get('full_name') or session.get('user_name')
+        if not name and session.get('user_id'):
+            from db import get_connection
+            try:
+                with get_connection() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("SELECT full_name, username FROM users WHERE id = %s", (session['user_id'],))
+                        u = cur.fetchone()
+                        if u:
+                            name = u['full_name'] or u['username']
+                            session['full_name'] = name
+                            session['user_name'] = name
+            except Exception:
+                pass
+        name = (name or session.get('username') or 'Administrador').strip()
+    else:
+        name = 'Administrador'
+
     parts = [p for p in name.split() if p]
     if len(parts) >= 2:
         initials = (parts[0][0] + parts[1][0]).upper()
@@ -492,8 +498,8 @@ def registrar_pago_venta():
 
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # 1. Obtener la venta, su estado anterior y el pago anterior para auditar diferencias
-            cur.execute("SELECT total_amount, sale_date, status, payment_status FROM sales WHERE id = %s", (sale_id,))
+            # 1. Obtener la venta con bloqueo exclusivo, su estado anterior y el pago anterior para auditar diferencias
+            cur.execute("SELECT total_amount, sale_date, status, payment_status FROM sales WHERE id = %s FOR UPDATE", (sale_id,))
             sale_row = cur.fetchone()
             if not sale_row:
                 flash('Venta no encontrada.', 'danger')
@@ -628,8 +634,8 @@ def registrar_pago_venta():
                 "updated_at": datetime.utcnow().isoformat()
             }
             
-            # Utilizar upsert_sale_payment para guardar los datos de pago
-            upsert_sale_payment(sale_id, payment_data)
+            # Utilizar upsert_sale_payment para guardar los datos de pago dentro de la misma transacción
+            upsert_sale_payment(sale_id, payment_data, conn=conn)
 
             # 4. Registrar en la tabla de transacciones de pago (sale_payment_items) si hay comprobante o se marca como Pagado
             if payment_status in ['Pagado', 'Pendiente Aprobación Pago']:
@@ -1108,12 +1114,9 @@ def nueva_cotizacion():
             else:
                 flash(f"Cotización {existing['sale_number']} actualizada correctamente (Estado: {quotation_status} | Probabilidad: {win_probability}%).", "success")
         else:
-            # ── MODO CREACIÓN: Generar número e insertar nueva cotización ──
-            with get_connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM sales")
-                    next_id = cur.fetchone()["next_id"]
-                    sale_number = f"COT-{next_id:05d}"
+            # ── MODO CREACIÓN: Generar número con secuencia e insertar nueva cotización ──
+            from db import get_next_sale_number
+            sale_number = get_next_sale_number(prefix="COT")
 
             seller_name, seller_initials = get_logged_in_user_info()
             sale_data = {
@@ -1354,88 +1357,112 @@ def _convert_quotation_to_sale(sale_id):
     no genera la venta y retorna el mensaje de error correspondiente.
     Retorna: (new_sale_number, error_message)
     """
+    import json
     from db import (
-        get_sale,
         get_connection,
         insert_sale,
         validate_stock_for_sale,
-        discount_stock_for_sale
+        discount_stock_for_sale,
+        get_next_sale_number,
     )
-    quotation = get_sale(sale_id)
-    if not quotation:
-        return None, "Cotización no encontrada."
-
-    notes_str = quotation.get("notes") or ""
-    if "Venta Generada:" in notes_str:
-        try:
-            existing_vta = notes_str.split("Venta Generada:")[1].split("\n")[0].strip()
-            return existing_vta, None
-        except Exception:
-            pass
-
-    # 1. Validar que haya stock físico suficiente en bodega antes de emitir la venta
-    products_list = quotation.get("products", [])
-    is_valid, err_msg, details = validate_stock_for_sale(products_list)
-    if not is_valid:
-        return None, err_msg
-
-    # Generar folio VTA- para la nueva venta
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM sales")
-            next_id = cur.fetchone()["next_id"]
-            new_sale_number = f"VTA-{next_id:05d}"
-
     from datetime import timedelta
-    sale_date_dt = datetime.today()
-    sale_date = sale_date_dt.strftime('%Y-%m-%d')
 
-    pay_method = quotation.get("payment_method") or "Efectivo"
-    notes_raw = notes_str.lower()
-
-    # Determinar si el pago es a 30 días o al contado / mismo día
-    if "30" in pay_method.lower() or "30" in notes_raw:
-        due_date_dt = sale_date_dt + timedelta(days=30)
-    else:
-        due_date_dt = sale_date_dt
-    invoice_due_date = due_date_dt.strftime('%Y-%m-%d')
-
-    # Preservar notas y origen de la cotización
-    cot_notes = quotation.get("notes") or ""
-    origin_tag = f"Cotización de Origen: {quotation['sale_number']}"
-    full_notes = f"{origin_tag}\n{cot_notes}" if cot_notes else origin_tag
-
-    # Determinar vendedor responsable
-    seller_name = quotation.get("seller_name") if quotation.get("seller_name") and quotation.get("seller_name") != "Vendedor" else get_logged_in_user_info()[0]
-    seller_initials = quotation.get("seller_initials") if quotation.get("seller_initials") and quotation.get("seller_initials") != "V" else get_logged_in_user_info()[1]
-
-    # Crear nueva venta manteniendo la cotización original intacta
-    new_sale_data = {
-        "sale_number": new_sale_number,
-        "customer_name": quotation["customer_name"],
-        "customer_email": quotation.get("customer_email", ""),
-        "customer_initials": quotation.get("customer_initials", ""),
-        "sale_date": sale_date,
-        "sale_time": datetime.now().strftime("%H:%M:%S"),
-        "products": products_list,
-        "total_amount": quotation["total_amount"],
-        "status": "Pendiente",
-        "seller_name": seller_name,
-        "seller_initials": seller_initials,
-        "payment_method": pay_method,
-        "payment_status": "Pendiente",
-        "delivery_status": "Pendiente",
-        "notes": full_notes,
-        "created_at": datetime.utcnow().isoformat(timespec='seconds'),
-    }
-
-    new_sale_id = insert_sale(new_sale_data)
-
-    now_str = datetime.utcnow().isoformat(timespec='seconds')
-    logged_user, _ = get_logged_in_user_info()
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # 1. Crear registro inicial de pagos con la fecha de cobro/vencimiento automática
+            # 1. Bloquear la cotización para evitar conversiones concurrentes (Idempotencia)
+            cur.execute(
+                """
+                SELECT id, sale_number, customer_name, customer_email, customer_initials,
+                       products_json, total_amount, status, quotation_status, notes,
+                       seller_name, seller_initials, payment_method
+                FROM sales
+                WHERE id = %s
+                FOR UPDATE
+                """,
+                (sale_id,)
+            )
+            row = cur.fetchone()
+            if not row:
+                return None, "Cotización no encontrada."
+
+            quotation = dict(row)
+            notes_str = quotation.get("notes") or ""
+
+            # Si ya fue convertida previamente, retornar el número existente sin crear nueva venta
+            if "Venta Generada:" in notes_str:
+                try:
+                    existing_vta = notes_str.split("Venta Generada:")[1].split("\n")[0].strip()
+                    return existing_vta, None
+                except Exception:
+                    pass
+
+            if quotation.get("quotation_status") == "Ganada" and quotation.get("status") != "Cotización":
+                return quotation.get("sale_number"), None
+
+            products_list = json.loads(quotation["products_json"]) if quotation.get("products_json") else []
+
+            # 2. Bloquear productos involucrados en orden consistente (id ASC) para evitar deadlocks
+            product_ids = sorted(list(set(
+                int(p["product_id"]) for p in products_list if isinstance(p, dict) and p.get("product_id")
+            )))
+            if product_ids:
+                cur.execute(
+                    "SELECT id FROM products WHERE id = ANY(%s) ORDER BY id ASC FOR UPDATE",
+                    (product_ids,)
+                )
+
+            # 3. Validar stock físico disponible antes de generar la venta
+            is_valid, err_msg, details = validate_stock_for_sale(products_list)
+            if not is_valid:
+                return None, err_msg
+
+            # 4. Generar nuevo folio usando secuencia atómica
+            new_sale_number = get_next_sale_number(prefix="VTA", conn=conn)
+
+            sale_date_dt = datetime.today()
+            sale_date = sale_date_dt.strftime('%Y-%m-%d')
+            pay_method = quotation.get("payment_method") or "Efectivo"
+            notes_raw = notes_str.lower()
+
+            if "30" in pay_method.lower() or "30" in notes_raw:
+                due_date_dt = sale_date_dt + timedelta(days=30)
+            else:
+                due_date_dt = sale_date_dt
+            invoice_due_date = due_date_dt.strftime('%Y-%m-%d')
+
+            cot_notes = quotation.get("notes") or ""
+            origin_tag = f"Cotización de Origen: {quotation['sale_number']}"
+            full_notes = f"{origin_tag}\n{cot_notes}" if cot_notes else origin_tag
+
+            seller_name = quotation.get("seller_name") if quotation.get("seller_name") and quotation.get("seller_name") != "Vendedor" else get_logged_in_user_info()[0]
+            seller_initials = quotation.get("seller_initials") if quotation.get("seller_initials") and quotation.get("seller_initials") != "V" else get_logged_in_user_info()[1]
+
+            new_sale_data = {
+                "sale_number": new_sale_number,
+                "customer_name": quotation["customer_name"],
+                "customer_email": quotation.get("customer_email", ""),
+                "customer_initials": quotation.get("customer_initials", ""),
+                "sale_date": sale_date,
+                "sale_time": datetime.now().strftime("%H:%M:%S"),
+                "products": products_list,
+                "total_amount": quotation["total_amount"],
+                "status": "Pendiente",
+                "seller_name": seller_name,
+                "seller_initials": seller_initials,
+                "payment_method": pay_method,
+                "payment_status": "Pendiente",
+                "delivery_status": "Pendiente",
+                "notes": full_notes,
+                "created_at": datetime.utcnow().isoformat(timespec='seconds'),
+            }
+
+            # Insertar venta en la misma conexión
+            new_sale_id = insert_sale(new_sale_data, conn=conn)
+
+            now_str = datetime.utcnow().isoformat(timespec='seconds')
+            logged_user, _ = get_logged_in_user_info()
+
+            # Insertar registro inicial de pago
             cur.execute(
                 """
                 INSERT INTO sale_payments (sale_id, invoice_due_date, status, created_at, updated_at)
@@ -1443,7 +1470,8 @@ def _convert_quotation_to_sale(sale_id):
                 """,
                 (new_sale_id, invoice_due_date, 'Factura pendiente', now_str, now_str)
             )
-            # 2. Registrar historial de la nueva venta
+
+            # Registrar historial de la nueva venta
             cur.execute(
                 """
                 INSERT INTO sales_status_history (sale_id, status, user_name, changed_at, comment)
@@ -1457,20 +1485,20 @@ def _convert_quotation_to_sale(sale_id):
                     f"Venta creada automáticamente a partir de Cotización {quotation['sale_number']} (Ganada)"
                 )
             )
-            # 3. Guardar en las notas de la cotización de origen qué venta fue creada a partir de ella, y actualizar estado a 'Ganada' con 100% probabilidad
-            new_cot_notes = quotation.get("notes") or ""
+
+            # Actualizar notas y estado en la cotización de origen
             reference_line = f"Venta Generada: {new_sale_number}"
-            updated_cot_notes = f"{reference_line}\n{new_cot_notes}" if new_cot_notes else reference_line
+            updated_cot_notes = f"{reference_line}\n{cot_notes}" if cot_notes else reference_line
             cur.execute(
                 "UPDATE sales SET notes = %s, status = 'Cotización', quotation_status = 'Ganada', win_probability = 100 WHERE id = %s",
                 (updated_cot_notes, sale_id)
             )
-        conn.commit()
 
-    # 4. Descontar existencias en bodega (lotes y/o inventario general)
-    discount_stock_for_sale(new_sale_id, products_list)
+            # Descontar existencias dentro de la misma transacción
+            discount_stock_for_sale(new_sale_id, products_list, conn=conn)
 
-    return new_sale_number, None
+            conn.commit()
+            return new_sale_number, None
 
 
 @ventas_bp.route('/ventas/cotizacion/<int:sale_id>/convertir', methods=['POST'])

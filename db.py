@@ -1102,6 +1102,19 @@ def init_db() -> None:
                 CREATE INDEX IF NOT EXISTS idx_inv_mov_reference ON inventory_movements(reference_type, reference_id);
                 """
             )
+            # Secuencias para correlativos atómicos
+            cur.execute(
+                """
+                CREATE SEQUENCE IF NOT EXISTS purchase_order_number_seq;
+                SELECT setval('purchase_order_number_seq', GREATEST(COALESCE((SELECT MAX(id) FROM purchase_orders), 0), 1), true);
+
+                CREATE SEQUENCE IF NOT EXISTS sales_number_seq;
+                SELECT setval('sales_number_seq', GREATEST(COALESCE((SELECT MAX(id) FROM sales), 0), 1), true);
+
+                CREATE SEQUENCE IF NOT EXISTS production_order_number_seq;
+                SELECT setval('production_order_number_seq', GREATEST(COALESCE((SELECT MAX(id) FROM production_orders), 0), 1), true);
+                """
+            )
         conn.commit()
 
     seed_data_if_empty()
@@ -1977,43 +1990,50 @@ def get_sale(sale_id: int) -> dict | None:
             return None
 
 
-def insert_sale(sale: dict) -> int:
-    with get_connection() as conn:
+def insert_sale(sale: dict, conn=None) -> int:
+    def _execute(cursor):
+        cursor.execute(
+            """
+            INSERT INTO sales (
+                sale_number, customer_name, customer_email, customer_initials,
+                sale_date, sale_time, products_json, total_amount, status,
+                seller_name, seller_initials, payment_method, payment_status,
+                delivery_status, notes, quotation_status, win_probability, created_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (
+                sale["sale_number"],
+                sale["customer_name"],
+                sale.get("customer_email", ""),
+                sale.get("customer_initials", ""),
+                sale["sale_date"],
+                sale["sale_time"],
+                json.dumps(sale["products"], ensure_ascii=False),
+                sale["total_amount"],
+                sale["status"],
+                sale["seller_name"],
+                sale.get("seller_initials", ""),
+                sale.get("payment_method", ""),
+                sale.get("payment_status", "Pendiente"),
+                sale.get("delivery_status", "Pendiente"),
+                sale.get("notes", ""),
+                sale.get("quotation_status", "Activa"),
+                sale.get("win_probability", 50),
+                sale["created_at"],
+            ),
+        )
+        return cursor.fetchone()["id"]
+
+    if conn is not None:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO sales (
-                    sale_number, customer_name, customer_email, customer_initials,
-                    sale_date, sale_time, products_json, total_amount, status,
-                    seller_name, seller_initials, payment_method, payment_status,
-                    delivery_status, notes, quotation_status, win_probability, created_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-                """,
-                (
-                    sale["sale_number"],
-                    sale["customer_name"],
-                    sale.get("customer_email", ""),
-                    sale.get("customer_initials", ""),
-                    sale["sale_date"],
-                    sale["sale_time"],
-                    json.dumps(sale["products"], ensure_ascii=False),
-                    sale["total_amount"],
-                    sale["status"],
-                    sale["seller_name"],
-                    sale.get("seller_initials", ""),
-                    sale.get("payment_method", ""),
-                    sale.get("payment_status", "Pendiente"),
-                    sale.get("delivery_status", "Pendiente"),
-                    sale.get("notes", ""),
-                    sale.get("quotation_status", "Activa"),
-                    sale.get("win_probability", 50),
-                    sale["created_at"],
-                ),
-            )
-            inserted_id = cur.fetchone()["id"]
-        conn.commit()
-        return inserted_id
+            return _execute(cur)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                ins_id = _execute(cur)
+            c.commit()
+            return ins_id
 
 
 def update_sale(sale_id: int, sale: dict) -> None:
@@ -2194,139 +2214,146 @@ def get_sale_payment(sale_id: int) -> dict | None:
             return dict(row) if row else None
 
 
-def upsert_sale_payment(sale_id: int, payment: dict) -> None:
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'sale_payments'
-                """
-            )
-            payment_columns = {row["column_name"] for row in cur.fetchall()}
-            has_invoice_number = "invoice_number" in payment_columns
-            has_accounting_comment = "accounting_comment" in payment_columns
-            has_invoice_due_date = "invoice_due_date" in payment_columns
-            has_payment_date = "payment_date" in payment_columns
-            has_invoice_amount = "invoice_amount" in payment_columns
-            has_payment_amount = "payment_amount" in payment_columns
-            
-            cur.execute(
-                "SELECT id FROM sale_payments WHERE sale_id = %s",
-                (sale_id,),
-            )
-            existing = cur.fetchone()
-            if existing:
-                if has_invoice_number:
-                    cur.execute(
-                        """
-                        UPDATE sale_payments
-                        SET invoice_number = %s, invoice_amount = %s, invoice_due_date = %s, invoice_file = %s, payment_proof_file = %s, payment_amount = %s, payment_date = %s, seller_uploaded_at = %s,
-                            payment_uploaded_at = %s, accounting_approved = %s, accounting_approved_by = %s,
-                            accounting_approved_at = %s, accounting_comment = %s, status = %s, updated_at = %s
-                        WHERE sale_id = %s
-                        """,
-                        (
-                            payment.get("invoice_number"),
-                            payment.get("invoice_amount"),
-                            payment.get("invoice_due_date"),
-                            payment.get("invoice_file"),
-                            payment.get("payment_proof_file"),
-                            payment.get("payment_amount"),
-                            payment.get("payment_date"),
-                            payment.get("seller_uploaded_at"),
-                            payment.get("payment_uploaded_at"),
-                            payment.get("accounting_approved", 0),
-                            payment.get("accounting_approved_by"),
-                            payment.get("accounting_approved_at"),
-                            payment.get("accounting_comment"),
-                            payment.get("status", "Factura pendiente"),
-                            payment.get("updated_at"),
-                            sale_id,
-                        ),
-                    )
-                else:
-                    cur.execute(
-                        """
-                        UPDATE sale_payments
-                        SET invoice_amount = %s, invoice_due_date = %s, invoice_file = %s, payment_proof_file = %s, payment_amount = %s, payment_date = %s, seller_uploaded_at = %s,
-                            payment_uploaded_at = %s, accounting_approved = %s, accounting_approved_by = %s,
-                            accounting_approved_at = %s, accounting_comment = %s, status = %s, updated_at = %s
-                        WHERE sale_id = %s
-                        """,
-                        (
-                            payment.get("invoice_amount"),
-                            payment.get("invoice_due_date"),
-                            payment.get("invoice_file"),
-                            payment.get("payment_proof_file"),
-                            payment.get("payment_amount"),
-                            payment.get("payment_date"),
-                            payment.get("seller_uploaded_at"),
-                            payment.get("payment_uploaded_at"),
-                            payment.get("accounting_approved", 0),
-                            payment.get("accounting_approved_by"),
-                            payment.get("accounting_approved_at"),
-                            payment.get("accounting_comment"),
-                            payment.get("status", "Factura pendiente"),
-                            payment.get("updated_at"),
-                            sale_id,
-                        ),
-                    )
-            else:
+def upsert_sale_payment(sale_id: int, payment: dict, conn=None) -> None:
+    def _execute(cur):
+        cur.execute(
+            """
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'sale_payments'
+            """
+        )
+        payment_columns = {row["column_name"] for row in cur.fetchall()}
+        has_invoice_number = "invoice_number" in payment_columns
+        has_accounting_comment = "accounting_comment" in payment_columns
+        has_invoice_due_date = "invoice_due_date" in payment_columns
+        has_payment_date = "payment_date" in payment_columns
+        has_invoice_amount = "invoice_amount" in payment_columns
+        has_payment_amount = "payment_amount" in payment_columns
+        
+        cur.execute(
+            "SELECT id FROM sale_payments WHERE sale_id = %s",
+            (sale_id,),
+        )
+        existing = cur.fetchone()
+        if existing:
+            if has_invoice_number:
                 cur.execute(
                     """
-                    INSERT INTO sale_payments (
-                        sale_id, invoice_file, payment_proof_file, seller_uploaded_at,
-                        payment_uploaded_at, accounting_approved, accounting_approved_by,
-                        accounting_approved_at, status, created_at, updated_at
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    UPDATE sale_payments
+                    SET invoice_number = %s, invoice_amount = %s, invoice_due_date = %s, invoice_file = %s, payment_proof_file = %s, payment_amount = %s, payment_date = %s, seller_uploaded_at = %s,
+                        payment_uploaded_at = %s, accounting_approved = %s, accounting_approved_by = %s,
+                        accounting_approved_at = %s, accounting_comment = %s, status = %s, updated_at = %s
+                    WHERE sale_id = %s
                     """,
                     (
-                        sale_id,
+                        payment.get("invoice_number"),
+                        payment.get("invoice_amount"),
+                        payment.get("invoice_due_date"),
                         payment.get("invoice_file"),
                         payment.get("payment_proof_file"),
+                        payment.get("payment_amount"),
+                        payment.get("payment_date"),
                         payment.get("seller_uploaded_at"),
                         payment.get("payment_uploaded_at"),
                         payment.get("accounting_approved", 0),
                         payment.get("accounting_approved_by"),
                         payment.get("accounting_approved_at"),
+                        payment.get("accounting_comment"),
                         payment.get("status", "Factura pendiente"),
-                        payment.get("created_at"),
                         payment.get("updated_at"),
+                        sale_id,
                     ),
                 )
-                if has_invoice_number:
-                    cur.execute(
-                        "UPDATE sale_payments SET invoice_number = %s WHERE sale_id = %s",
-                        (payment.get("invoice_number"), sale_id),
-                    )
-                if has_invoice_amount:
-                    cur.execute(
-                        "UPDATE sale_payments SET invoice_amount = %s WHERE sale_id = %s",
-                        (payment.get("invoice_amount"), sale_id),
-                    )
-                if has_payment_amount:
-                    cur.execute(
-                        "UPDATE sale_payments SET payment_amount = %s WHERE sale_id = %s",
-                        (payment.get("payment_amount"), sale_id),
-                    )
-                if has_invoice_due_date:
-                    cur.execute(
-                        "UPDATE sale_payments SET invoice_due_date = %s WHERE sale_id = %s",
-                        (payment.get("invoice_due_date"), sale_id),
-                    )
-                if has_payment_date:
-                    cur.execute(
-                        "UPDATE sale_payments SET payment_date = %s WHERE sale_id = %s",
-                        (payment.get("payment_date"), sale_id),
-                    )
-                if has_accounting_comment:
-                    cur.execute(
-                        "UPDATE sale_payments SET accounting_comment = %s WHERE sale_id = %s",
-                        (payment.get("accounting_comment"), sale_id),
-                    )
-        conn.commit()
+            else:
+                cur.execute(
+                    """
+                    UPDATE sale_payments
+                    SET invoice_amount = %s, invoice_due_date = %s, invoice_file = %s, payment_proof_file = %s, payment_amount = %s, payment_date = %s, seller_uploaded_at = %s,
+                        payment_uploaded_at = %s, accounting_approved = %s, accounting_approved_by = %s,
+                        accounting_approved_at = %s, accounting_comment = %s, status = %s, updated_at = %s
+                    WHERE sale_id = %s
+                    """,
+                    (
+                        payment.get("invoice_amount"),
+                        payment.get("invoice_due_date"),
+                        payment.get("invoice_file"),
+                        payment.get("payment_proof_file"),
+                        payment.get("payment_amount"),
+                        payment.get("payment_date"),
+                        payment.get("seller_uploaded_at"),
+                        payment.get("payment_uploaded_at"),
+                        payment.get("accounting_approved", 0),
+                        payment.get("accounting_approved_by"),
+                        payment.get("accounting_approved_at"),
+                        payment.get("accounting_comment"),
+                        payment.get("status", "Factura pendiente"),
+                        payment.get("updated_at"),
+                        sale_id,
+                    ),
+                )
+        else:
+            cur.execute(
+                """
+                INSERT INTO sale_payments (
+                    sale_id, invoice_file, payment_proof_file, seller_uploaded_at,
+                    payment_uploaded_at, accounting_approved, accounting_approved_by,
+                    accounting_approved_at, status, created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    sale_id,
+                    payment.get("invoice_file"),
+                    payment.get("payment_proof_file"),
+                    payment.get("seller_uploaded_at"),
+                    payment.get("payment_uploaded_at"),
+                    payment.get("accounting_approved", 0),
+                    payment.get("accounting_approved_by"),
+                    payment.get("accounting_approved_at"),
+                    payment.get("status", "Factura pendiente"),
+                    payment.get("created_at"),
+                    payment.get("updated_at"),
+                ),
+            )
+            if has_invoice_number:
+                cur.execute(
+                    "UPDATE sale_payments SET invoice_number = %s WHERE sale_id = %s",
+                    (payment.get("invoice_number"), sale_id),
+                )
+            if has_invoice_amount:
+                cur.execute(
+                    "UPDATE sale_payments SET invoice_amount = %s WHERE sale_id = %s",
+                    (payment.get("invoice_amount"), sale_id),
+                )
+            if has_payment_amount:
+                cur.execute(
+                    "UPDATE sale_payments SET payment_amount = %s WHERE sale_id = %s",
+                    (payment.get("payment_amount"), sale_id),
+                )
+            if has_invoice_due_date:
+                cur.execute(
+                    "UPDATE sale_payments SET invoice_due_date = %s WHERE sale_id = %s",
+                    (payment.get("invoice_due_date"), sale_id),
+                )
+            if has_payment_date:
+                cur.execute(
+                    "UPDATE sale_payments SET payment_date = %s WHERE sale_id = %s",
+                    (payment.get("payment_date"), sale_id),
+                )
+            if has_accounting_comment:
+                cur.execute(
+                    "UPDATE sale_payments SET accounting_comment = %s WHERE sale_id = %s",
+                    (payment.get("accounting_comment"), sale_id),
+                )
+
+    if conn is not None:
+        with conn.cursor() as cur:
+            _execute(cur)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                _execute(cur)
+            c.commit()
 
 
 def list_sale_payment_items(sale_id: int) -> list[dict]:
@@ -2964,14 +2991,58 @@ def delete_category(category: str) -> None:
 # GESTIÓN DE ÓRDENES DE COMPRA (OC) Y RECEPCIÓN
 # ==========================================
 
-def get_next_oc_number() -> str:
-    """Genera el siguiente número correlativo único para una OC"""
-    with get_connection() as conn:
+def get_next_oc_number(conn=None) -> str:
+    """Genera el siguiente número correlativo único para una OC usando secuencias de PostgreSQL"""
+    def _execute(cursor):
+        cursor.execute("SELECT nextval('purchase_order_number_seq') as val")
+        val = cursor.fetchone()["val"]
+        return f"OC-{val:05d}"
+
+    if conn is not None:
         with conn.cursor() as cur:
-            cur.execute("SELECT id FROM purchase_orders ORDER BY id DESC LIMIT 1")
-            row = cur.fetchone()
-            next_id = (row["id"] + 1) if row else 1
-            return f"OC-{next_id:05d}"
+            return _execute(cur)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                val_str = _execute(cur)
+            c.commit()
+            return val_str
+
+
+def get_next_sale_number(prefix: str = "VTA", conn=None) -> str:
+    """Genera el siguiente número correlativo único para una venta o cotización (ej: VTA-00001, COT-00001)"""
+    def _execute(cursor):
+        cursor.execute("SELECT nextval('sales_number_seq') as val")
+        val = cursor.fetchone()["val"]
+        return f"{prefix}-{val:05d}"
+
+    if conn is not None:
+        with conn.cursor() as cur:
+            return _execute(cur)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                val_str = _execute(cur)
+            c.commit()
+            return val_str
+
+
+def get_next_ot_number(conn=None) -> str:
+    """Genera el siguiente número correlativo único para una Orden de Trabajo (ej: OT-00001)"""
+    def _execute(cursor):
+        cursor.execute("SELECT nextval('production_order_number_seq') as val")
+        val = cursor.fetchone()["val"]
+        return f"OT-{val:05d}"
+
+    if conn is not None:
+        with conn.cursor() as cur:
+            return _execute(cur)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                val_str = _execute(cur)
+            c.commit()
+            return val_str
 
 def create_purchase_order(supplier_id: int, order_date: str, notes: str, items: list[dict], status: str = "Emitida", created_by: int = None, payment_method: str = "Efectivo") -> str:
     """Crea una Orden de Compra completa en la base de datos"""
@@ -3438,7 +3509,8 @@ def register_inventory_entry(
     Retorna el id del registro creado."""
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, supplier_id FROM purchase_orders WHERE id = %s", (po_id,))
+            # 0. Bloquear cabecera de la Orden de Compra
+            cur.execute("SELECT id, supplier_id, status FROM purchase_orders WHERE id = %s FOR UPDATE", (po_id,))
             po = cur.fetchone()
             if not po:
                 raise ValueError("Orden de Compra no encontrada.")
@@ -3462,8 +3534,9 @@ def register_inventory_entry(
             )
             entry_id = cur.fetchone()["id"]
 
-            # 2. Guardar items del ingreso, validar límites y actualizar OC
-            for item in items:
+            # 2. Guardar items del ingreso, validar límites y actualizar OC (con orden consistente de productos)
+            sorted_items = sorted(items, key=lambda x: x["product_id"])
+            for item in sorted_items:
                 prod_id    = item["product_id"]
                 qty        = item["quantity"]
                 price      = item["unit_price"]
@@ -3475,6 +3548,7 @@ def register_inventory_entry(
                     SELECT id, quantity_ordered, quantity_received
                     FROM purchase_order_items
                     WHERE purchase_order_id = %s AND product_id = %s
+                    FOR UPDATE
                     """,
                     (po_id, prod_id)
                 )
@@ -3553,46 +3627,54 @@ def register_inventory_entry(
                 new_status = "Emitida"
 
             cur.execute("UPDATE purchase_orders SET status = %s WHERE id = %s", (new_status, po_id))
-        conn.commit()
 
-    # 4. Actualizar stock físico en inventory_items (page_data)
-    try:
-        inventory_items = get_page_data("inventory_items") or []
-        inv_map = {item.get("code"): item for item in inventory_items if item.get("code")}
-        with get_connection() as conn_prods:
-            with conn_prods.cursor() as cur_p:
-                cur_p.execute("SELECT id, sku, name, category, description, cost FROM products")
-                db_prods = {p["id"]: p for p in cur_p.fetchall()}
+            # 4. Actualizar stock en page_data.inventory_items dentro de la misma transacción
+            try:
+                cur.execute("SELECT json FROM page_data WHERE key = 'inventory_items' FOR UPDATE")
+                pd_row = cur.fetchone()
+                inventory_items = json.loads(pd_row["json"]) if pd_row and pd_row["json"] else []
+                inv_map = {item.get("code"): item for item in inventory_items if item.get("code")}
 
-        for item in items:
-            prod_id = item["product_id"]
-            qty = float(item["quantity"])
-            prod_info = db_prods.get(prod_id)
-            if not prod_info:
-                continue
-            sku = prod_info["sku"]
-            if sku in inv_map:
-                current_st = float(inv_map[sku].get("stock", 0.0) or 0.0)
-                inv_map[sku]["stock"] = current_st + qty
-                min_st = float(inv_map[sku].get("min_stock", 10) or 10)
-                inv_map[sku]["status"] = "Normal" if inv_map[sku]["stock"] >= min_st else "Stock Bajo"
-            else:
-                inventory_items.append({
-                    "code": sku,
-                    "name": prod_info["name"],
-                    "desc": prod_info["description"] or "",
-                    "category": prod_info["category"] or "Insumos",
-                    "stock": qty,
-                    "min_stock": 10,
-                    "price": float(prod_info["cost"] or item.get("unit_price") or 0.0),
-                    "status": "Normal" if qty >= 10 else "Stock Bajo",
-                    "stock_percent": 100
-                })
-        set_page_data("inventory_items", inventory_items)
-    except Exception as e:
-        print(f"Error al actualizar inventory_items en register_inventory_entry: {e}")
+                cur.execute("SELECT id, sku, name, category, description, cost FROM products")
+                db_prods = {p["id"]: p for p in cur.fetchall()}
 
-    return entry_id
+                for item in sorted_items:
+                    prod_id = item["product_id"]
+                    qty = float(item["quantity"])
+                    prod_info = db_prods.get(prod_id)
+                    if not prod_info:
+                        continue
+                    sku = prod_info["sku"]
+                    if sku in inv_map:
+                        current_st = float(inv_map[sku].get("stock", 0.0) or 0.0)
+                        inv_map[sku]["stock"] = current_st + qty
+                        min_st = float(inv_map[sku].get("min_stock", 10) or 10)
+                        inv_map[sku]["status"] = "Normal" if inv_map[sku]["stock"] >= min_st else "Stock Bajo"
+                    else:
+                        inventory_items.append({
+                            "code": sku,
+                            "name": prod_info["name"],
+                            "desc": prod_info["description"] or "",
+                            "category": prod_info["category"] or "Insumos",
+                            "stock": qty,
+                            "min_stock": 10,
+                            "price": float(prod_info["cost"] or item.get("unit_price") or 0.0),
+                            "status": "Normal" if qty >= 10 else "Stock Bajo",
+                            "stock_percent": 100
+                        })
+
+                cur.execute(
+                    """
+                    INSERT INTO page_data (key, json) VALUES ('inventory_items', %s)
+                    ON CONFLICT (key) DO UPDATE SET json = EXCLUDED.json
+                    """,
+                    (json.dumps(inventory_items, ensure_ascii=False),)
+                )
+            except Exception as e:
+                print(f"Error al actualizar inventory_items en register_inventory_entry: {e}")
+
+            conn.commit()
+            return entry_id
 
 
 def get_lot_stock_by_product(product_id: int) -> list[dict]:
@@ -3632,40 +3714,47 @@ def get_all_lot_stock() -> list[dict]:
             return [dict(row) for row in cur.fetchall()]
 
 
-def consume_lots_for_sale(sale_id: int, lot_consumptions: list[dict]) -> None:
+def consume_lots_for_sale(sale_id: int, lot_consumptions: list[dict], conn=None) -> None:
     """
     Descuenta unidades de los lotes utilizados en una venta y registra la trazabilidad.
     lot_consumptions: lista de dicts con keys: product_id, lot_number, quantity
     """
-    with get_connection() as conn:
+    def _execute(cur):
+        now_iso = datetime.utcnow().isoformat(timespec='seconds')
+        for item in lot_consumptions:
+            pid = item.get("product_id")
+            lot = (item.get("lot_number") or "").strip()
+            qty = int(item.get("quantity") or 0)
+            if not pid or not lot or qty <= 0:
+                continue
+
+            # Descontar de lot_stock bloqueando la fila
+            cur.execute(
+                """
+                UPDATE lot_stock
+                SET available_qty = GREATEST(0, available_qty - %s)
+                WHERE product_id = %s AND lot_number = %s
+                """,
+                (qty, pid, lot)
+            )
+
+            # Registrar movimiento
+            cur.execute(
+                """
+                INSERT INTO sale_lot_movements (sale_id, product_id, lot_number, quantity, moved_at)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (sale_id, pid, lot, qty, now_iso)
+            )
+
+    if conn is not None:
         with conn.cursor() as cur:
-            now_iso = datetime.utcnow().isoformat(timespec='seconds')
-            for item in lot_consumptions:
-                pid = item.get("product_id")
-                lot = (item.get("lot_number") or "").strip()
-                qty = int(item.get("quantity") or 0)
-                if not pid or not lot or qty <= 0:
-                    continue
-
-                # Descontar de lot_stock
-                cur.execute(
-                    """
-                    UPDATE lot_stock
-                    SET available_qty = GREATEST(0, available_qty - %s)
-                    WHERE product_id = %s AND lot_number = %s
-                    """,
-                    (qty, pid, lot)
-                )
-
-                # Registrar movimiento
-                cur.execute(
-                    """
-                    INSERT INTO sale_lot_movements (sale_id, product_id, lot_number, quantity, moved_at)
-                    VALUES (%s, %s, %s, %s, %s)
-                    """,
-                    (sale_id, pid, lot, qty, now_iso)
-                )
-        conn.commit()
+            _execute(cur)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                _execute(cur)
+            c.commit()
 
 
 def get_sale_lot_movements(sale_id: int) -> list[dict]:
@@ -3766,8 +3855,8 @@ def record_inventory_movement(
         raise ValueError("INV-002: Toda salida de inventario debe tener un documento o referencia de origen identificable")
 
     def _execute(cursor):
-        # Validar existencia del producto
-        cursor.execute("SELECT id, sku, name FROM products WHERE id = %s", (product_id,))
+        # Validar existencia del producto y adquirir bloqueo exclusivo sobre el producto
+        cursor.execute("SELECT id, sku, name FROM products WHERE id = %s FOR UPDATE", (product_id,))
         prod = cursor.fetchone()
         if not prod:
             raise ValueError(f"Producto con ID {product_id} no encontrado en catálogo")
@@ -3868,7 +3957,8 @@ def consume_fifo_lots(product_id: int, quantity: float, sale_id: int = None, ot_
             SELECT id, lot_number, available_qty, entry_id, entry_date
             FROM lot_stock
             WHERE product_id = %s AND available_qty > 0
-            ORDER BY entry_date ASC, id ASC;
+            ORDER BY entry_date ASC, id ASC
+            FOR UPDATE;
             """,
             (product_id,)
         )
@@ -4018,14 +4108,17 @@ def get_product_available_stock(product_id_or_sku, lot_number: str = None) -> fl
     if requires_lot:
         return total_lot
 
+    # Si no tiene lot_stock ni page_data, consultar fuente de verdad relacional (inventory_movements)
+    rel_stock = get_relational_stock(product_id)
+
     if total_lot > 0 and inv_stock > 0:
-        return max(total_lot, inv_stock)
+        return max(total_lot, inv_stock, rel_stock)
     elif total_lot > 0:
-        return total_lot
+        return max(total_lot, rel_stock)
     elif found_in_inv:
-        return inv_stock
+        return max(inv_stock, rel_stock)
     else:
-        return 0.0
+        return rel_stock
 
 
 def validate_stock_for_sale(products_list: list) -> tuple[bool, str, dict]:
@@ -4062,96 +4155,107 @@ def validate_stock_for_sale(products_list: list) -> tuple[bool, str, dict]:
     return True, "", {}
 
 
-def discount_stock_for_sale(sale_id: int, products_list: list) -> None:
+def discount_stock_for_sale(sale_id: int, products_list: list, conn=None) -> None:
     """
     Descuenta las existencias en bodega para los productos de una venta emitida.
-    Descuenta tanto en lot_stock (con trazabilidad) como en inventory_items (stock general).
+    Descuenta tanto en lot_stock (con trazabilidad) como en inventory_items (stock general)
+    y registra los movimientos en Kardex relacional (inventory_movements).
+    Soporta conn opcional para ejecutarse dentro de la transacción de la venta.
     """
-    # 1. Descuento de lotes
-    lot_consumptions = []
-    for prod in products_list:
-        if isinstance(prod, dict) and prod.get("lot_number"):
-            lot_consumptions.append({
-                "product_id": prod.get("product_id"),
-                "lot_number": prod.get("lot_number"),
-                "quantity": int(prod.get("quantity", 0) or 0)
-            })
-    if lot_consumptions:
-        consume_lots_for_sale(sale_id, lot_consumptions)
-
-    # 2. Descuento en inventory_items (stock general de inventario)
-    inventory_items = get_page_data("inventory_items") or []
-    if inventory_items:
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT id, sku, name FROM products")
-                db_prods = cur.fetchall()
-                id_to_sku = {p["id"]: p["sku"] for p in db_prods}
-                name_to_sku = {p["name"].strip().lower(): p["sku"] for p in db_prods}
-
-        inv_map = {item.get("code"): item for item in inventory_items if item.get("code")}
-        changed = False
-
+    def _execute(cur, active_conn):
+        # 1. Descuento de lotes
+        lot_consumptions = []
         for prod in products_list:
-            if not isinstance(prod, dict):
-                continue
-            qty = int(prod.get("quantity", 0) or 0)
-            if qty <= 0:
-                continue
+            if isinstance(prod, dict) and prod.get("lot_number"):
+                lot_consumptions.append({
+                    "product_id": prod.get("product_id"),
+                    "lot_number": prod.get("lot_number"),
+                    "quantity": int(prod.get("quantity", 0) or 0)
+                })
+        if lot_consumptions:
+            consume_lots_for_sale(sale_id, lot_consumptions, conn=active_conn)
 
-            pid = prod.get("product_id")
-            pname = (prod.get("product_name") or prod.get("name") or "").strip().lower()
-            sku = prod.get("sku") or id_to_sku.get(pid) or name_to_sku.get(pname)
+        # 2. Descuento en inventory_items (stock general de inventario) dentro de la misma transacción
+        cur.execute("SELECT json FROM page_data WHERE key = 'inventory_items' FOR UPDATE")
+        pd_row = cur.fetchone()
+        inventory_items = json.loads(pd_row["json"]) if pd_row and pd_row["json"] else []
 
-            if sku and sku in inv_map:
-                current_st = float(inv_map[sku].get("stock", 0.0) or 0.0)
-                inv_map[sku]["stock"] = max(0.0, current_st - qty)
-                changed = True
+        cur.execute("SELECT id, sku, name FROM products")
+        db_prods = cur.fetchall()
+        id_to_sku = {p["id"]: p["sku"] for p in db_prods}
+        sku_to_id = {p["sku"]: p["id"] for p in db_prods}
+        name_to_sku = {p["name"].strip().lower(): p["sku"] for p in db_prods}
+        name_to_id = {p["name"].strip().lower(): p["id"] for p in db_prods}
 
-        if changed:
-            set_page_data("inventory_items", inventory_items)
-
-    # 3. Fase 2: Registrar movimientos de salida por venta en Kardex universal (inventory_movements)
-    try:
-        with get_connection() as conn_mov:
-            with conn_mov.cursor() as cur_m:
-                cur_m.execute("SELECT id, sku, name FROM products")
-                db_prods_m = cur_m.fetchall()
-                id_to_sku_m = {p["id"]: p["sku"] for p in db_prods_m}
-                sku_to_id_m = {p["sku"]: p["id"] for p in db_prods_m}
-                name_to_id_m = {p["name"].strip().lower(): p["id"] for p in db_prods_m}
-
+        if inventory_items:
+            inv_map = {item.get("code"): item for item in inventory_items if item.get("code")}
+            changed = False
             for prod in products_list:
                 if not isinstance(prod, dict):
                     continue
                 qty = int(prod.get("quantity", 0) or 0)
                 if qty <= 0:
                     continue
+
                 pid = prod.get("product_id")
                 pname = (prod.get("product_name") or prod.get("name") or "").strip().lower()
-                sku = prod.get("sku") or id_to_sku_m.get(pid)
-                if not pid:
-                    pid = sku_to_id_m.get(sku) or name_to_id_m.get(pname)
-                if not pid:
-                    continue
+                sku = prod.get("sku") or id_to_sku.get(pid) or name_to_sku.get(pname)
 
-                lot_num = (prod.get("lot_number") or "").strip() or None
-                price = float(prod.get("unit_price") or prod.get("price") or 0.0)
-                record_inventory_movement(
-                    product_id=pid,
-                    movement_type="SALE",
-                    quantity=-qty,
-                    unit_cost=price,
-                    lot_number=lot_num,
-                    reference_type="sale",
-                    reference_id=sale_id,
-                    notes=f"Despacho/Venta #{sale_id}",
-                    conn=conn_mov
+                if sku and sku in inv_map:
+                    current_st = float(inv_map[sku].get("stock", 0.0) or 0.0)
+                    inv_map[sku]["stock"] = max(0.0, current_st - qty)
+                    changed = True
+
+            if changed:
+                cur.execute(
+                    """
+                    INSERT INTO page_data (key, json) VALUES ('inventory_items', %s)
+                    ON CONFLICT (key) DO UPDATE SET json = EXCLUDED.json
+                    """,
+                    (json.dumps(inventory_items, ensure_ascii=False),)
                 )
-            conn_mov.commit()
-    except Exception as e:
-        from security import security_logger
-        security_logger.error(f"Error al registrar inventory_movements para venta #{sale_id}: {e}")
+
+        # 3. Fase 2: Registrar movimientos de salida por venta en Kardex universal (inventory_movements)
+        # Ordenar productos por product_id para prevenir deadlocks
+        sorted_prods = sorted(
+            [p for p in products_list if isinstance(p, dict)],
+            key=lambda x: int(x.get("product_id") or sku_to_id.get(x.get("sku")) or name_to_id.get((x.get("product_name") or x.get("name") or "").strip().lower()) or 0)
+        )
+
+        for prod in sorted_prods:
+            qty = int(prod.get("quantity", 0) or 0)
+            if qty <= 0:
+                continue
+            pid = prod.get("product_id")
+            pname = (prod.get("product_name") or prod.get("name") or "").strip().lower()
+            sku = prod.get("sku") or id_to_sku.get(pid)
+            if not pid:
+                pid = sku_to_id.get(sku) or name_to_id.get(pname)
+            if not pid:
+                continue
+
+            lot_num = (prod.get("lot_number") or "").strip() or None
+            price = float(prod.get("unit_price") or prod.get("price") or 0.0)
+            record_inventory_movement(
+                product_id=pid,
+                movement_type="SALE",
+                quantity=-qty,
+                unit_cost=price,
+                lot_number=lot_num,
+                reference_type="sale",
+                reference_id=sale_id,
+                notes=f"Despacho/Venta #{sale_id}",
+                conn=active_conn
+            )
+
+    if conn is not None:
+        with conn.cursor() as cur:
+            _execute(cur, conn)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                _execute(cur, c)
+            c.commit()
 
 
 def get_product_calculated_cost(product_id: int) -> float | None:
@@ -4883,31 +4987,58 @@ def update_invoice_payment_status() -> int:
             return cur.rowcount
 
 
-def register_purchase_payment(invoice_id: int, data: dict) -> bool:
-    """Registra el pago de una factura de proveedor indicando cuenta bancaria de egreso."""
-    with get_connection() as conn:
+def register_purchase_payment(invoice_id: int, data: dict, conn=None) -> bool:
+    """Registra el pago de una factura de proveedor indicando cuenta bancaria de egreso de forma atómica e idempotente."""
+    def _execute(cur):
+        # 1. Bloquear la factura de compra
+        cur.execute(
+            """
+            SELECT id, invoice_number, invoice_amount, payment_status, payment_amount
+            FROM purchase_invoices
+            WHERE id = %s
+            FOR UPDATE
+            """,
+            (invoice_id,)
+        )
+        inv = cur.fetchone()
+        if not inv:
+            return False
+
+        # Si ya está pagada, rechazar pago duplicado (idempotencia defensiva)
+        if inv["payment_status"] == 'Pagada':
+            return False
+
+        # 2. Actualizar estado y registrar pago
+        cur.execute("""
+            UPDATE purchase_invoices SET
+                payment_status     = 'Pagada',
+                payment_date       = %s,
+                payment_amount     = %s,
+                payment_method     = %s,
+                bank_account_id    = %s,
+                payment_proof_file = %s,
+                notes              = COALESCE(notes, '') || %s
+            WHERE id = %s
+        """, (
+            data.get('payment_date', ''),
+            data.get('payment_amount', 0),
+            data.get('payment_method', ''),
+            data.get('bank_account_id'),
+            data.get('payment_proof_file'),
+            ('\nPago: ' + data.get('payment_notes', '')) if data.get('payment_notes') else '',
+            invoice_id,
+        ))
+        return cur.rowcount > 0
+
+    if conn is not None:
         with conn.cursor() as cur:
-            cur.execute("""
-                UPDATE purchase_invoices SET
-                    payment_status     = 'Pagada',
-                    payment_date       = %s,
-                    payment_amount     = %s,
-                    payment_method     = %s,
-                    bank_account_id    = %s,
-                    payment_proof_file = %s,
-                    notes              = COALESCE(notes, '') || %s
-                WHERE id = %s
-            """, (
-                data.get('payment_date', ''),
-                data.get('payment_amount', 0),
-                data.get('payment_method', ''),
-                data.get('bank_account_id'),
-                data.get('payment_proof_file'),
-                ('\nPago: ' + data.get('payment_notes', '')) if data.get('payment_notes') else '',
-                invoice_id,
-            ))
-            conn.commit()
-            return cur.rowcount > 0
+            return _execute(cur)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                res = _execute(cur)
+            c.commit()
+            return res
 
 
 def list_pending_invoice_alerts(days_ahead: int = 7) -> list:

@@ -110,10 +110,9 @@ def nueva_ot():
                     flash(f"No se puede solicitar fabricación porque falta stock de insumos: {', '.join(insufficient)}", "danger")
                     return redirect(url_for('produccion.nueva_ot'))
 
-                # Generar ot_number
-                cur.execute("SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM production_orders")
-                next_id = cur.fetchone()["next_id"]
-                ot_number = f"OT-{next_id:05d}"
+                # Generar ot_number con secuencia atómica
+                from db import get_next_ot_number
+                ot_number = get_next_ot_number(conn=conn)
                 
                 # Insertar OT
                 cur.execute(
@@ -269,13 +268,14 @@ def finalizar_ot(ot_id):
     
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # 1. Cargar datos de la OT
+            # 1. Cargar datos de la OT con bloqueo exclusivo
             cur.execute(
                 """
                 SELECT po.id, po.ot_number, po.quantity, po.status, po.final_product_id, p.sku as final_sku
                 FROM production_orders po
                 JOIN products p ON po.final_product_id = p.id
                 WHERE po.id = %s
+                FOR UPDATE
                 """,
                 (ot_id,)
             )
@@ -287,20 +287,46 @@ def finalizar_ot(ot_id):
             # 2. Cargar insumos requeridos
             cur.execute(
                 """
-                SELECT poi.id, poi.quantity_required, p.sku as input_sku, p.cost as input_cost
+                SELECT poi.id, poi.input_product_id, poi.quantity_required, p.sku as input_sku, p.cost as input_cost
                 FROM production_order_items poi
                 JOIN products p ON poi.input_product_id = p.id
                 WHERE poi.production_order_id = %s
+                ORDER BY poi.input_product_id ASC
                 """,
                 (ot_id,)
             )
             items = cur.fetchall()
-            
-            # 3. Descontar stock e incrementar stock en inventory_items
-            inventory_items = get_page_data("inventory_items") or []
-            
-            # Mapear inventario por código para facilitar acceso
-            inv_map = {item["code"]: item for item in inventory_items}
+
+            # Cargar insumos adicionales
+            cur.execute(
+                """
+                SELECT poai.id, poai.input_product_id, poai.quantity, p.sku as input_sku, p.cost as input_cost
+                FROM production_order_additional_items poai
+                JOIN products p ON poai.input_product_id = p.id
+                WHERE poai.production_order_id = %s
+                ORDER BY poai.input_product_id ASC
+                """,
+                (ot_id,)
+            )
+            add_items = cur.fetchall()
+
+            # Bloquear todos los productos involucrados en orden consistente id ASC
+            all_involved_ids = sorted(list(set(
+                [ot["final_product_id"]] +
+                [it["input_product_id"] for it in items] +
+                [ait["input_product_id"] for ait in add_items]
+            )))
+            if all_involved_ids:
+                cur.execute(
+                    "SELECT id FROM products WHERE id = ANY(%s) ORDER BY id ASC FOR UPDATE",
+                    (all_involved_ids,)
+                )
+
+            # 3. Descontar stock e incrementar stock en inventory_items (dentro de la misma transacción)
+            cur.execute("SELECT json FROM page_data WHERE key = 'inventory_items' FOR UPDATE")
+            pd_row = cur.fetchone()
+            inventory_items = json.loads(pd_row["json"]) if pd_row and pd_row["json"] else []
+            inv_map = {item["code"]: item for item in inventory_items if item.get("code")}
             
             total_manufacturing_cost = 0.0
             
@@ -309,46 +335,32 @@ def finalizar_ot(ot_id):
                 sku = item["input_sku"]
                 qty = item["quantity_required"]
                 if sku in inv_map:
-                    # Rebaja física definitiva
                     inv_map[sku]["stock"] = max(0.0, inv_map[sku]["stock"] - qty)
-                    cost_unit = float(item["input_cost"] or 0.0)
-                    total_manufacturing_cost += cost_unit * qty
-                    # Registrar costo histórico
-                    cur.execute(
-                        "UPDATE production_order_items SET unit_cost = %s WHERE id = %s",
-                        (cost_unit, item["id"])
-                    )
+                cost_unit = float(item["input_cost"] or 0.0)
+                total_manufacturing_cost += cost_unit * qty
+                cur.execute(
+                    "UPDATE production_order_items SET unit_cost = %s WHERE id = %s",
+                    (cost_unit, item["id"])
+                )
                     
             # Descontar insumos adicionales
-            cur.execute(
-                """
-                SELECT poai.id, poai.quantity, p.sku as input_sku, p.cost as input_cost
-                FROM production_order_additional_items poai
-                JOIN products p ON poai.input_product_id = p.id
-                WHERE poai.production_order_id = %s
-                """,
-                (ot_id,)
-            )
-            add_items = cur.fetchall()
             for item in add_items:
                 sku = item["input_sku"]
                 qty = item["quantity"]
                 if sku in inv_map:
                     inv_map[sku]["stock"] = max(0.0, inv_map[sku]["stock"] - qty)
-                    cost_unit = float(item["input_cost"] or 0.0)
-                    total_manufacturing_cost += cost_unit * qty
-                    # Registrar costo histórico
-                    cur.execute(
-                        "UPDATE production_order_additional_items SET unit_cost = %s WHERE id = %s",
-                        (cost_unit, item["id"])
-                    )
+                cost_unit = float(item["input_cost"] or 0.0)
+                total_manufacturing_cost += cost_unit * qty
+                cur.execute(
+                    "UPDATE production_order_additional_items SET unit_cost = %s WHERE id = %s",
+                    (cost_unit, item["id"])
+                )
                     
             # Incrementar producto terminado
             final_sku = ot["final_sku"]
             if final_sku in inv_map:
                 inv_map[final_sku]["stock"] = inv_map[final_sku]["stock"] + ot["quantity"]
             else:
-                # Si no existía en el listado de inventario, lo agregamos
                 cur.execute("SELECT name, category, description FROM products WHERE sku = %s", (final_sku,))
                 prod_info = cur.fetchone()
                 if prod_info:
@@ -364,8 +376,14 @@ def finalizar_ot(ot_id):
                         "stock_percent": 100
                     })
             
-            # Guardar inventario
-            set_page_data("inventory_items", inventory_items)
+            # Guardar inventario en page_data dentro de la transacción
+            cur.execute(
+                """
+                INSERT INTO page_data (key, json) VALUES ('inventory_items', %s)
+                ON CONFLICT (key) DO UPDATE SET json = EXCLUDED.json
+                """,
+                (json.dumps(inventory_items, ensure_ascii=False),)
+            )
             
             # 3.8. Registrar el ingreso en el historial de entradas con el costo real recalculado
             actual_unit_price = total_manufacturing_cost / ot["quantity"] if ot["quantity"] > 0 else 0.0
@@ -450,7 +468,7 @@ def finalizar_ot(ot_id):
                 notes=f"Fabricación finalizada OT {ot['ot_number']}",
                 conn=conn
             )
-        conn.commit()
+            conn.commit()
         
     flash("Orden de Trabajo finalizada. Insumos rebajados y producto terminado ingresado al stock.", "success")
     return redirect(url_for('produccion.list_ots'))
