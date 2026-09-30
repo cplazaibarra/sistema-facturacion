@@ -1,0 +1,185 @@
+{% extends 'operario/base_operario.html' %}
+
+{% block title %}Recibir {{ po.oc_number }}{% endblock %}
+
+{% block content %}
+<header class="operario-header">
+  <div class="title-area">
+    <a href="/operario/recepcion" style="color: #64748B; text-decoration: none; font-size: 14px; font-weight: 700; display: block; margin-bottom: 2px;">
+      <i class="fa-solid fa-chevron-left"></i> Órdenes
+    </a>
+    <h1>{{ po.oc_number }}</h1>
+  </div>
+</header>
+
+<main class="operario-container">
+
+  <div class="card-item-box" style="margin-bottom: 16px;">
+    <div style="font-size: 14px; color: #64748B; font-weight: 600;">Proveedor</div>
+    <div style="font-size: 17px; font-weight: 800; color: #0F172A;">{{ po.supplier_name }}</div>
+  </div>
+
+  <!-- Flash Messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="card-item-box" style="border-left: 5px solid {% if category == 'success' %}#10B981{% elif category == 'danger' %}#EF4444{% else %}#F59E0B{% endif %}; margin-bottom: 14px;">
+          <div style="font-weight: 700; font-size: 14px; color: {% if category == 'success' %}#065F46{% elif category == 'danger' %}#991B1B{% else %}#92400E{% endif %};">
+            {{ message }}
+          </div>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <!-- Formulario de Recepción -->
+  <form method="POST" action="/operario/recepcion/{{ po.id }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="touch-input-group">
+      <label>1. Seleccionar Producto a Recibir</label>
+      <select name="product_id" id="product_select" class="touch-select" required onchange="onProductChange()">
+        <option value="">-- Seleccione un ítem pendiente --</option>
+        {% for item in items %}
+          {% set pending = item.quantity_ordered - item.quantity_received %}
+          {% if pending > 0 %}
+            <option value="{{ item.product_id }}" 
+                    data-requires-lot="{{ '1' if item.requires_lot else '0' }}"
+                    data-pending="{{ pending }}"
+                    data-unit-price="{{ item.unit_price }}"
+                    data-name="{{ item.product_name }}"
+                    data-sku="{{ item.product_sku }}">
+              {{ item.product_name }} (Pendiente: {{ pending }})
+            </option>
+          {% endif %}
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Indicador de Requerimiento de Lote -->
+    <div id="lot_required_badge" style="display: none; background: #FEF3C7; border: 1px solid #F59E0B; padding: 10px 14px; border-radius: 12px; margin-bottom: 14px; color: #B45309; font-size: 13px; font-weight: 700;">
+      <i class="fa-solid fa-triangle-exclamation"></i> Este producto requiere Lote Obligatorio para trazabilidad.
+    </div>
+
+    <div class="touch-input-group">
+      <label>2. Cantidad a Recibir</label>
+      <input type="number" step="any" min="0.01" name="quantity" id="quantity_input" class="touch-input" placeholder="0" required>
+      <div id="pending_hint" style="font-size: 13px; color: #64748B; margin-top: 4px; font-weight: 600;"></div>
+    </div>
+
+    <div class="touch-input-group" id="lot_group">
+      <label style="display: flex; justify-content: space-between; align-items: center;">
+        <span>3. Número de Lote <span id="lot_asterisk" style="color: #EF4444;">*</span></span>
+        <button type="button" onclick="openScannerModal()" style="background: none; border: none; color: #2563EB; font-weight: 700; font-size: 13px; cursor: pointer;">
+          <i class="fa-solid fa-barcode"></i> Escanear
+        </button>
+      </label>
+      <input type="text" name="lot_number" id="lot_number_input" class="touch-input" placeholder="Ej: LOT-2026-001">
+    </div>
+
+    <div class="touch-input-group">
+      <label>4. Fecha de Vencimiento (opcional)</label>
+      <input type="date" name="expiry_date" class="touch-input">
+    </div>
+
+    <div class="touch-input-group">
+      <label>5. Bodega de Destino</label>
+      <select name="warehouse" class="touch-select">
+        <option value="Principal" selected>Bodega Principal</option>
+        <option value="Secundaria">Bodega Secundaria</option>
+      </select>
+    </div>
+
+    <div class="touch-input-group">
+      <label>Guía de Despacho / Factura (opcional)</label>
+      <input type="text" name="document_number" class="touch-input" placeholder="N° Documento">
+    </div>
+
+    <button type="submit" class="btn-big btn-green">
+      <i class="fa-solid fa-check" style="margin-right: 8px;"></i> CONFIRMAR RECEPCIÓN
+    </button>
+  </form>
+
+</main>
+
+<!-- Modal simple para escaneo rápido -->
+<div id="scannerModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 1000; padding: 20px;">
+  <div style="background: #FFFFFF; border-radius: 20px; padding: 20px; text-align: center;">
+    <h3 style="margin-bottom: 12px; font-size: 18px; font-weight: 800;">Escanear Código de Lote</h3>
+    <div class="scanner-viewport">
+      <video id="modalVideo" class="scanner-video" playsinline></video>
+      <div class="scanner-overlay"></div>
+    </div>
+    <div style="margin-bottom: 12px;">
+      <input type="text" id="manualScanInput" class="touch-input" placeholder="O ingrese lote manualmente...">
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button type="button" class="btn-big btn-secondary" style="flex: 1; min-height: 48px; margin: 0;" onclick="closeScannerModal()">Cancelar</button>
+      <button type="button" class="btn-big btn-green" style="flex: 1; min-height: 48px; margin: 0;" onclick="applyManualScan()">Usar Lote</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/operario_scanner.js') }}"></script>
+<script>
+  let scannerInstance = null;
+
+  function onProductChange() {
+    const sel = document.getElementById('product_select');
+    const opt = sel.options[sel.selectedIndex];
+    const badge = document.getElementById('lot_required_badge');
+    const asterisk = document.getElementById('lot_asterisk');
+    const lotInput = document.getElementById('lot_number_input');
+    const qtyInput = document.getElementById('quantity_input');
+    const hint = document.getElementById('pending_hint');
+
+    if (opt && opt.value) {
+      const isLot = opt.getAttribute('data-requires-lot') === '1';
+      const pending = opt.getAttribute('data-pending');
+      
+      badge.style.display = isLot ? 'block' : 'none';
+      asterisk.style.display = isLot ? 'inline' : 'none';
+      lotInput.required = isLot;
+      
+      qtyInput.max = pending;
+      qtyInput.value = pending;
+      hint.innerText = `Cantidad pendiente: ${pending} un`;
+    } else {
+      badge.style.display = 'none';
+      asterisk.style.display = 'none';
+      lotInput.required = false;
+      hint.innerText = '';
+    }
+  }
+
+  function openScannerModal() {
+    document.getElementById('scannerModal').style.display = 'block';
+    scannerInstance = new OperarioScanner('modalVideo', (code) => {
+      document.getElementById('lot_number_input').value = code;
+      closeScannerModal();
+    });
+    scannerInstance.start();
+  }
+
+  function closeScannerModal() {
+    if (scannerInstance) {
+      scannerInstance.stop();
+      scannerInstance = null;
+    }
+    document.getElementById('scannerModal').style.display = 'none';
+  }
+
+  function applyManualScan() {
+    const val = document.getElementById('manualScanInput').value.trim();
+    if (val) {
+      document.getElementById('lot_number_input').value = val;
+      closeScannerModal();
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', onProductChange);
+</script>
+{% endblock %}

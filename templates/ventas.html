@@ -13,7 +13,7 @@
     border-color: #93c5fd !important;
 }
 </style>
-<!-- Barra de acciones superior estilo Salesforce -->
+<!-- Barra de acciones superior -->
 <div class="sf-action-bar">
     <div class="sf-action-left">
         <div class="sf-view-selector">
@@ -25,15 +25,17 @@
                 <option value="{{ url_for('ventas.ventas') }}?filter=Ventas%20Hoy" {% if active_filter == 'Ventas Hoy' %}selected{% endif %}>Ventas Hoy</option>
             </select>
         </div>
-        <button class="sf-btn-icon" title="Actualizar">🔄</button>
+        <button class="sf-btn-icon" title="Actualizar" onclick="window.location.reload();">
+            <i class="fa-solid fa-rotate-right"></i>
+        </button>
     </div>
     <div class="sf-action-right">
-        <button class="sf-btn-secondary" onclick="window.location.href='{{ url_for('ventas.ventas_reportes') }}'">
-            <span>📊</span>
+        <button class="btn-secondary btn-sm" onclick="window.location.href='{{ url_for('ventas.ventas_reportes') }}'">
+            <i class="fa-solid fa-chart-pie" style="color: var(--primary-blue);"></i>
             <span>Reportes</span>
         </button>
-        <a href="{{ url_for('ventas.nueva_cotizacion') }}" class="sf-btn-primary" style="background-color: #ED8936; border: none; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
-            <span>📋</span>
+        <a href="{{ url_for('ventas.nueva_cotizacion') }}" class="btn btn-primary btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+            <i class="fa-solid fa-plus"></i>
             <span>Nueva Cotización</span>
         </a>
     </div>
@@ -76,30 +78,26 @@
 
 <!-- Barra de herramientas de la tabla -->
 <div class="sf-table-toolbar" style="flex-wrap: wrap; gap: 12px; padding: 12px 16px;">
-    <div class="sf-toolbar-left" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; flex: 1;">
-        <div class="sf-search-box" style="min-width: 220px;">
+    <form method="GET" action="{{ url_for('ventas.ventas') }}" id="sf-ventas-filter-form" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; flex: 1; margin: 0;">
+        {% if active_filter %}
+        <input type="hidden" name="filter" value="{{ active_filter }}">
+        {% endif %}
+        <input type="hidden" name="sort" value="{{ request.args.get('sort', 'date') }}">
+        <input type="hidden" name="direction" value="{{ request.args.get('direction', 'desc') }}">
+        <input type="hidden" name="per_page" id="per_page_hidden" value="{{ per_page or 25 }}">
+
+        <div class="sf-search-box" style="min-width: 220px; position: relative;">
             <span class="sf-search-icon">🔍</span>
-            <input type="text" id="sf-search-input" placeholder="Buscar ventas..." class="sf-search-input" onkeyup="filterVentasTable()">
+            <input type="text" name="search" id="sf-search-input" value="{{ search_query or '' }}" placeholder="Buscar por N°, Cliente, Factura, RUT..." class="sf-search-input">
         </div>
 
         <!-- Filtro por Cliente -->
         <div style="display: flex; align-items: center; gap: 6px;">
             <label style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">👤 Cliente:</label>
-            <select id="sf-client-filter" onchange="filterVentasTable()" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; max-width: 180px;">
+            <select name="client" id="sf-client-filter" onchange="document.getElementById('sf-ventas-filter-form').submit();" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; max-width: 180px;">
                 <option value="">-- Todos los Clientes --</option>
                 {% for client_name in all_clients %}
-                <option value="{{ client_name }}">{{ client_name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <!-- Filtro por Producto -->
-        <div style="display: flex; align-items: center; gap: 6px;">
-            <label style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">📦 Producto:</label>
-            <select id="sf-product-filter" onchange="filterVentasTable()" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; max-width: 200px;">
-                <option value="">-- Todos los Productos --</option>
-                {% for prod_name in all_products %}
-                <option value="{{ prod_name }}">{{ prod_name }}</option>
+                <option value="{{ client_name }}" {% if client_filter == client_name %}selected{% endif %}>{{ client_name }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -107,25 +105,41 @@
         <!-- Filtro por Estado de Venta -->
         <div style="display: flex; align-items: center; gap: 6px;">
             <label style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">📊 Estado Venta:</label>
-            <select id="sf-status-filter" onchange="filterVentasTable()" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; max-width: 170px;">
+            <select name="status" id="sf-status-filter" onchange="document.getElementById('sf-ventas-filter-form').submit();" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; max-width: 170px;">
                 <option value="">-- Todos los Estados --</option>
                 {% for st in all_statuses %}
-                <option value="{{ st }}">{{ st }}</option>
+                <option value="{{ st }}" {% if status_filter == st %}selected{% endif %}>{{ st }}</option>
                 {% endfor %}
             </select>
         </div>
 
-        <button type="button" onclick="clearVentasFilters()" title="Limpiar Filtros" style="padding: 6px 12px; background: #e2e8f0; border: none; border-radius: 6px; font-size: 13px; color: #475569; font-weight: 600; cursor: pointer;">
-            ✕ Limpiar
+        <button type="submit" class="sf-btn-primary" style="padding: 6px 14px; border: none; background: #3182ce; color: white; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+            Buscar
         </button>
-    </div>
-    <div class="sf-toolbar-right">
-        <span class="sf-record-count" id="sf-record-count-display">{{ ventas_records|length }} registros</span>
+
+        {% if search_query or client_filter or status_filter or product_filter %}
+        <a href="{{ url_for('ventas.ventas', filter=active_filter, per_page=per_page) }}" title="Limpiar Filtros" style="text-decoration: none; padding: 6px 12px; background: #e2e8f0; border: none; border-radius: 6px; font-size: 13px; color: #475569; font-weight: 600; display: inline-flex; align-items: center;">
+            ✕ Limpiar
+        </a>
+        {% endif %}
+    </form>
+
+    <div class="sf-toolbar-right" style="display: flex; align-items: center; gap: 14px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <label for="per_page_select" style="font-size: 13px; color: #475569; font-weight: 600;">Mostrar:</label>
+            <select id="per_page_select" onchange="changePerPage(this.value)" style="padding: 5px 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 600; background: white; color: #1e293b; cursor: pointer;">
+                <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+            </select>
+        </div>
+        <span class="sf-record-count" id="sf-record-count-display">{{ total_sales or ventas_records|length }} registros totales</span>
     </div>
 </div>
 
 <!-- Tabla estilo Salesforce -->
-<div class="sf-table-container">
+<div id="sales-alternate-view" hidden></div>
+<div class="sf-table-container sales-table-scroll" id="sales-list-view">
     <table class="sf-table">
         <thead>
             <tr>
@@ -134,7 +148,7 @@
                 </th>
                 <th class="sf-th-sortable">
                     <div class="sf-th-content">
-                        <span>N° Venta</span>
+                        <span>N° Pedido</span>
                         <span class="sf-sort-icon">⇅</span>
                     </div>
                 </th>
@@ -216,7 +230,7 @@
                     <div class="sf-product-pills">
                         {% for product in sale.products %}
                             {% if product is mapping %}
-                                <span class="sf-pill">{{ product.product_name }} ({{ product.quantity }})</span>
+                                <span class="sf-pill">{{ product | product_label }} ({{ product.quantity }})</span>
                             {% else %}
                                 <span class="sf-pill">{{ product }}</span>
                             {% endif %}
@@ -224,7 +238,7 @@
                     </div>
                 </td>
                 <td>
-                    <div class="sf-amount">{{ sale.total }}</div>
+                    <div class="sf-amount">{{ sale.total_raw | money_cl }}</div>
                 </td>
                   <td>
                       <span class="sf-badge sf-badge-{{ sale.status.level }}" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Haz clic para actualizar el estado de la venta" data-id="{{ sale.id }}" data-number="{{ sale.sale_number }}" data-status="{{ sale.status.label }}" data-invoice-number="{{ sale.invoice_number }}" data-invoice-file="{{ sale.invoice_file }}" data-history='{{ sale.history | tojson | safe }}' onclick="openEditSaleStatusModal(this)">
@@ -265,7 +279,7 @@
                       </div>
 
                       <!-- Estado del Pago Abajo -->
-                      <div class="status-badge-container" style="position: relative; display: inline-block; cursor: pointer;" data-id="{{ sale.id }}" data-number="{{ sale.sale_number }}" data-total="{{ sale.total }}" data-status="{{ sale.payment_status }}" data-due="{{ sale.invoice_due_date }}" data-payment-date="{{ sale.payment_date }}" data-proof="{{ sale.payment_proof_file }}" data-invoice-number="{{ sale.invoice_number }}" data-payment-history='{{ sale.payment_history | tojson | safe }}' data-bank-account-id="{{ sale.bank_account_id or '' }}" onclick="openEditPaymentModal(this)" title="Haz clic para actualizar el pago de la factura">
+                      <div class="status-badge-container" style="position: relative; display: inline-block; cursor: pointer;" data-id="{{ sale.id }}" data-number="{{ sale.sale_number }}" data-customer="{{ sale.customer.name }}" data-method="{{ sale.payment_method }}" data-total="{{ sale.total_raw | money_cl }}" data-total-raw="{{ sale.total_raw }}" data-pending="{{ sale.payment_pending or sale.total_raw }}" data-status="{{ sale.payment_status }}" data-due="{{ sale.invoice_due_date }}" data-payment-date="{{ sale.payment_date }}" data-proof="{{ sale.payment_proof_file }}" data-invoice-number="{{ sale.invoice_number }}" data-payment-history='{{ sale.payment_history | tojson | safe }}' data-payment-detail='{{ sale.payment_detail | tojson | safe }}' data-bank-account-id="{{ sale.bank_account_id or '' }}" onclick="openEditPaymentModal(this)" title="Haz clic para registrar o consultar el pago">
                            {% if sale.payment_status == 'Pagado' %}
                            <span class="sf-badge sf-badge-success" style="background-color: rgba(72, 187, 120, 0.1); color: #48BB78; border: 1px solid rgba(72, 187, 120, 0.2);">
                                 <span class="sf-badge-dot" style="background-color: #48BB78;"></span>
@@ -356,22 +370,47 @@
     </table>
 </div>
 
-<!-- Paginación estilo Salesforce -->
-<div class="sf-pagination">
-    <div class="sf-pagination-info">
-        Mostrando 1-{{ ventas_records|length }} de {{ ventas_records|length }} registros
+<div id="sales-floating-scrollbar" class="sales-floating-scrollbar" aria-label="Desplazamiento horizontal de ventas" aria-hidden="true"><div id="sales-floating-scrollbar-content"></div></div>
+
+<!-- Paginación estilo Salesforce (Server-Side) -->
+<div class="sf-pagination" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 16px; background: white; border-top: 1px solid #e2e8f0;">
+    <div class="sf-pagination-info" style="font-size: 13px; color: #64748b;">
+        {% if total_sales and total_sales > 0 %}
+            Mostrando <strong>{{ ((current_page - 1) * per_page) + 1 }}</strong> a <strong>{{ [current_page * per_page, total_sales]|min }}</strong> de <strong>{{ total_sales }}</strong> ventas
+        {% else %}
+            Mostrando 0 registros
+        {% endif %}
     </div>
-    <div class="sf-pagination-controls">
-        <button class="sf-page-btn" disabled>◀ Anterior</button>
-        <button class="sf-page-btn active">1</button>
-        <button class="sf-page-btn">2</button>
-        <button class="sf-page-btn">3</button>
-        <button class="sf-page-btn">4</button>
-        <button class="sf-page-btn">5</button>
-        <span class="sf-page-dots">...</span>
-        <button class="sf-page-btn">16</button>
-        <button class="sf-page-btn">Siguiente ▶</button>
+    
+    {% if total_pages and total_pages > 1 %}
+    <div class="sf-pagination-controls" style="display: flex; gap: 6px; align-items: center;">
+        {% if current_page > 1 %}
+        <a href="{{ url_for('ventas.ventas', page=current_page - 1, per_page=per_page, filter=active_filter, search=search_query, client=client_filter, status=status_filter, product=product_filter, sort=request.args.get('sort', 'date'), direction=request.args.get('direction', 'desc'), view=request.args.get('view', 'lista')) }}" 
+           class="sf-page-btn" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">
+            ◀ Anterior
+        </a>
+        {% else %}
+        <button class="sf-page-btn" disabled style="opacity: 0.5; cursor: not-allowed;">◀ Anterior</button>
+        {% endif %}
+
+        {% for p in range([1, current_page - 2]|max, [total_pages + 1, current_page + 3]|min) %}
+        <a href="{{ url_for('ventas.ventas', page=p, per_page=per_page, filter=active_filter, search=search_query, client=client_filter, status=status_filter, product=product_filter, sort=request.args.get('sort', 'date'), direction=request.args.get('direction', 'desc'), view=request.args.get('view', 'lista')) }}" 
+           class="sf-page-btn {% if p == current_page %}active{% endif %}" 
+           style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; {% if p == current_page %}background: #3182ce; color: white; border-color: #3182ce;{% endif %}">
+            {{ p }}
+        </a>
+        {% endfor %}
+
+        {% if current_page < total_pages %}
+        <a href="{{ url_for('ventas.ventas', page=current_page + 1, per_page=per_page, filter=active_filter, search=search_query, client=client_filter, status=status_filter, product=product_filter, sort=request.args.get('sort', 'date'), direction=request.args.get('direction', 'desc'), view=request.args.get('view', 'lista')) }}" 
+           class="sf-page-btn" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">
+            Siguiente ▶
+        </a>
+        {% else %}
+        <button class="sf-page-btn" disabled style="opacity: 0.5; cursor: not-allowed;">Siguiente ▶</button>
+        {% endif %}
     </div>
+    {% endif %}
 </div>
 
 <!-- Modal para nueva venta (oculto por defecto) -->
@@ -466,21 +505,22 @@
     </div>
 </div>
 
-<!-- Modal para editar pago de venta (oculto por defecto) -->
+<!-- Modal para registrar/consultar pago de venta -->
 <div id="editPaymentModal" class="sf-modal" style="display: none; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000;">
     <div class="sf-modal-backdrop" onclick="closeEditPaymentModal()" style="position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.5);"></div>
     <div class="sf-modal-content" style="position: relative; background: #fff; padding: 25px; border-radius: 8px; width: 450px; max-width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
         <div class="sf-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0; font-size: 18px; font-weight: 600; color: #2d3748;">Actualizar Pago de Factura</h3>
+            <h3 id="payment-modal-title" style="margin: 0; font-size: 18px; font-weight: 600; color: #2d3748;">Registrar Pago</h3>
             <button class="sf-modal-close" onclick="closeEditPaymentModal()" style="border: none; background: none; font-size: 20px; cursor: pointer; color: #a0aec0;">✕</button>
         </div>
         <div class="sf-modal-body">
             <form id="editPaymentForm" method="POST" action="{{ url_for('ventas.registrar_pago_venta') }}" enctype="multipart/form-data">
                 <input type="hidden" id="edit_sale_id" name="sale_id">
+                <input type="hidden" id="payment_idempotency_key" name="idempotency_key">
                 
                 <div style="margin-bottom: 15px; background: #f7fafc; padding: 12px; border-radius: 6px; border: 1px dashed #e2e8f0;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                        <span style="color: #718096; font-size: 13px;">Venta N°:</span>
+                        <span style="color: #718096; font-size: 13px;">N° Venta:</span>
                         <strong id="label_sale_number" style="color: #2d3748;">-</strong>
                     </div>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
@@ -488,30 +528,39 @@
                         <strong id="label_sale_total" style="color: #2d3748;">-</strong>
                     </div>
                     <div style="display: flex; justify-content: space-between;">
-                        <span style="color: #718096; font-size: 13px;">Factura / Doc:</span>
+                        <span style="color: #718096; font-size: 13px;">Cliente:</span>
+                        <strong id="label_payment_customer" style="color: #1e40af;">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: #718096; font-size: 13px;">Monto pendiente:</span>
+                        <strong id="label_payment_pending" style="color: #b45309;">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: #718096; font-size: 13px;">Documento:</span>
                         <strong id="label_sale_invoice_number" style="color: #1e40af;">-</strong>
                     </div>
                 </div>
 
                 <div class="sf-form-group" style="margin-bottom: 15px;">
-                    <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Estado de Pago</label>
-                    <select class="sf-select" id="edit_payment_status" name="payment_status" onchange="togglePaymentFields(this.value)" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
-                        <option value="Pendiente">Pendiente</option>
-                        <option value="Pagado">Pagado</option>
+                    <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Medio de pago *</label>
+                    <select class="sf-select" id="edit_payment_method" name="payment_method" onchange="togglePaymentFields(this.value)" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;">
+                        <option value="">-- Seleccionar --</option>
+                        <option value="Transferencia">Transferencia bancaria</option>
+                        <option value="Efectivo">Efectivo</option>
                     </select>
                 </div>
 
                 <div class="sf-form-group" style="margin-bottom: 15px;">
-                    <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Fecha de Vencimiento (Cobro)</label>
-                    <input type="date" class="sf-input" id="edit_due_date" name="invoice_due_date" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                    <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Fecha del pago *</label>
+                    <input type="date" class="sf-input" id="edit_payment_date" name="payment_date" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;">
+                </div>
+
+                <div class="sf-form-group" style="margin-bottom: 15px;">
+                    <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Monto pagado *</label>
+                    <input type="number" step="0.01" min="0.01" class="sf-input" id="edit_payment_amount" name="payment_amount" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;">
                 </div>
 
                 <div id="paid_fields" style="display: none;">
-                    <div class="sf-form-group" style="margin-bottom: 15px;">
-                        <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Fecha Real de Pago</label>
-                        <input type="date" class="sf-input" id="edit_payment_date" name="payment_date" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
-                    </div>
-
                     <div class="sf-form-group" style="margin-bottom: 15px;">
                         <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Cuenta de Destino (Empresa) *</label>
                         <select class="sf-select" id="edit_bank_account_id" name="bank_account_id" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
@@ -523,7 +572,7 @@
                     </div>
 
                     <div class="sf-form-group" style="margin-bottom: 15px;">
-                        <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Comprobante de Pago (Foto / PDF)</label>
+                        <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Evidencia / Comprobante *</label>
                         <input type="file" class="sf-input" id="edit_payment_file" name="payment_file" accept="image/*,application/pdf" style="width: 100%; padding: 6px; font-size: 13px; margin-bottom: 8px;">
                         
                         <!-- Miniatura previa dentro del modal -->
@@ -535,8 +584,13 @@
                         </div>
                     </div>
                 </div>
+                <div class="sf-form-group" style="margin-top: 15px;">
+                    <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Observación</label>
+                    <textarea class="sf-input" id="edit_payment_notes" name="payment_notes" rows="2" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;"></textarea>
+                </div>
                 <!-- Historial de cobros y comprobantes dentro del modal de pagos -->
                 <div class="sf-form-group" style="margin-top: 20px;">
+                    <div id="payment-detail-summary" style="display:none; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:10px; margin-bottom:12px; font-size:12px;"></div>
                     <label class="sf-label" style="display: block; font-weight: 600; font-size: 13px; color: #2d3748; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Historial de Cobros y Comprobantes</label>
                     <div id="modal_payment_history_list" style="max-height: 185px; overflow-y: auto; background: #f7fafc; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e0;">
                         <!-- Rellenado dinámicamente con JS -->
@@ -544,7 +598,7 @@
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px;">
                     <button type="button" class="sf-btn-secondary" onclick="closeEditPaymentModal()" style="padding: 8px 16px; border: 1px solid #cbd5e0; background: #fff; color: #4a5568; border-radius: 4px; cursor: pointer;">Cancelar</button>
-                    <button type="submit" class="sf-btn-primary" style="padding: 8px 16px; border: none; background: #0070d2; color: #fff; border-radius: 4px; cursor: pointer; font-weight: 500;">Actualizar Pago</button>
+                    <button id="payment-submit-button" type="submit" class="sf-btn-primary" style="padding: 8px 16px; border: none; background: #0070d2; color: #fff; border-radius: 4px; cursor: pointer; font-weight: 500;">Registrar Pago</button>
                 </div>
             </form>
         </div>
@@ -587,7 +641,44 @@
                     <div id="completada-warning-note" style="display: none; background: #fffaf0; border: 1px solid #feebc8; color: #c05621; padding: 10px; border-radius: 6px; font-size: 12px; margin-top: 8px;">
                         ⚠️ <strong>Requisito obligatorio:</strong> Para marcar la venta como <strong>Completada</strong> es obligatorio adjuntar el archivo de la Factura o Boleta.
                     </div>
+                    <div id="modal-status-stock-warning" style="display: none; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 10px 12px; border-radius: 6px; font-size: 12px; margin-top: 8px;">
+                        <strong>⚠️ Stock Insuficiente:</strong> Esta venta no puede avanzar a este estado porque presenta déficit de inventario disponible.
+                        <div id="modal-status-stock-warning-details" style="margin-top: 4px; font-size: 11.5px;"></div>
+                    </div>
                 </div>
+
+                <!-- SECCIÓN DINÁMICA: CAJAS / EMBALAJE UTILIZADAS EN EL DESPACHO -->
+                <div id="modal-packaging-section" style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h4 style="margin: 0; font-size: 13px; font-weight: 600; color: #166534; text-transform: uppercase;">
+                            📦 Cajas Utilizadas en el Despacho
+                        </h4>
+                    </div>
+
+                    <!-- Mensaje si la venta ya tiene cajas registradas -->
+                    <div id="modal-packaging-existing-msg" style="display: none; font-size: 12px; color: #15803d; background: #dcfce7; padding: 8px 10px; border-radius: 6px; border: 1px solid #86efac; margin-bottom: 8px;">
+                        ✅ <strong>Embalaje ya registrado:</strong> Esta venta ya cuenta con cajas asociadas en inventario. No se solicitarán nuevamente.
+                    </div>
+
+                    <!-- Formulario dinámico para seleccionar cajas si no tiene -->
+                    <div id="modal-packaging-selector-container">
+                        <p style="margin: 0 0 10px 0; font-size: 12px; color: #374151;">
+                            Indique los tipos de cajas de inventario y cantidades utilizadas para despachar esta venta:
+                        </p>
+                        <div id="packaging-rows-container">
+                            <!-- Filas dinámicas agregadas con JS -->
+                        </div>
+                        <div style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center;">
+                            <button type="button" onclick="addPackagingRow()" style="background: #fff; border: 1px dashed #16a34a; color: #15803d; padding: 4px 10px; font-size: 12px; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                                + Agregar otra caja
+                            </button>
+                            <div style="font-size: 12px; font-weight: 600; color: #166534;">
+                                Costo embalaje estimado: <span id="modal-packaging-total-cost">$0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
 
                 <!-- Campo para el Número de Factura -->
                 <div class="sf-form-group" style="margin-bottom: 15px;">
@@ -641,7 +732,7 @@
         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
             <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">DATOS CLIENTE Y VENTA</h4>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px;">
-                <div><strong>N° Folio Venta:</strong> <span id="modal-vta-number">-</span></div>
+                <div><strong>N° Pedido:</strong> <span id="modal-vta-number">-</span></div>
                 <div><strong>Cotización Origen:</strong> <span id="modal-vta-origin-cot" style="font-weight: 600; color: #3182ce;">-</span></div>
                 <div><strong>Fecha Emitida:</strong> <span id="modal-vta-date">-</span></div>
                 <div><strong>Vencimiento (Pago):</strong> <span id="modal-vta-due-date" style="font-weight: 600; color: #dd6b20;">-</span></div>
@@ -695,6 +786,30 @@
             </div>
         </div>
 
+        <!-- SECCIÓN DE ABASTECIMIENTO Y STOCK -->
+        <div id="modal-vta-stock-section" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #1e293b; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between;">
+                <span>📦 Estado de Abastecimiento e Inventario</span>
+                <span id="modal-vta-stock-badge" style="font-size: 11.5px; padding: 3px 8px; border-radius: 4px; font-weight: 600;"></span>
+            </h4>
+            <div id="modal-vta-stock-alert" style="display: none; padding: 10px 12px; border-radius: 6px; font-size: 13px; margin-bottom: 10px;"></div>
+            <div id="modal-vta-stock-table-wrapper" style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <thead>
+                        <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1; text-align: left;">
+                            <th style="padding: 6px 10px;">Producto</th>
+                            <th style="padding: 6px 10px; text-align: center;">Solicitado</th>
+                            <th style="padding: 6px 10px; text-align: center;">Disponible Bodega</th>
+                            <th style="padding: 6px 10px; text-align: center;">Faltante</th>
+                            <th style="padding: 6px 10px; text-align: center;">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal-vta-stock-body">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- SECCIÓN 3: LOTES UTILIZADOS (TRAZABILIDAD) -->
         <div id="modal-vta-lots-section" style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px; display: none;">
             <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #1e40af; text-transform: uppercase; display: flex; align-items: center; gap: 6px;">
@@ -704,6 +819,62 @@
                 <!-- Cargado dinámicamente -->
             </div>
         </div>
+
+        <!-- SECCIÓN 4: COSTOS DE DESPACHO / EMBALAJE -->
+        <div id="modal-vta-packaging-section" style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px; display: none;">
+            <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #166534; text-transform: uppercase; display: flex; align-items: center; gap: 6px;">
+                <span>📦 Costos de Despacho / Embalaje Utilizado</span>
+            </h4>
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 8px;">
+                <thead>
+                    <tr style="background: #dcfce7; border-bottom: 1px solid #86efac; text-align: left;">
+                        <th style="padding: 6px 10px;">Caja / Material</th>
+                        <th style="padding: 6px 10px; text-align: center;">Cantidad</th>
+                        <th style="padding: 6px 10px; text-align: right;">Costo Unit. (Snapshot)</th>
+                        <th style="padding: 6px 10px; text-align: right;">Subtotal Costo</th>
+                    </tr>
+                </thead>
+                <tbody id="modal-vta-packaging-body">
+                </tbody>
+            </table>
+            <div style="display: flex; justify-content: flex-end; font-size: 13px; font-weight: 600; color: #166534;">
+                <span>Total Costo Embalaje: <span id="modal-vta-packaging-total">$0</span></span>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 5: RESUMEN FINANCIERO Y MARGEN REAL -->
+        <div id="modal-vta-financial-section" style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #1e293b; text-transform: uppercase;">
+                📊 Resumen Financiero y Margen Real
+            </h4>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 13px;">
+                <div style="background: #fff; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <div style="color: #64748b; font-size: 11px;">Venta Neta (Sin IVA):</div>
+                    <strong id="modal-fin-neto" style="font-size: 14px; color: #0f172a;">$0</strong>
+                </div>
+                <div style="background: #fff; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <div style="color: #64748b; font-size: 11px;">Costo Productos:</div>
+                    <strong id="modal-fin-prod-cost" style="font-size: 14px; color: #dc2626;">$0</strong>
+                </div>
+                <div style="background: #fff; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <div style="color: #64748b; font-size: 11px;">Costo Embalaje:</div>
+                    <strong id="modal-fin-pkg-cost" style="font-size: 14px; color: #d97706;">$0</strong>
+                </div>
+                <div style="background: #fff; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <div style="color: #64748b; font-size: 11px;">Costo Total Real:</div>
+                    <strong id="modal-fin-total-cost" style="font-size: 14px; color: #7f1d1d;">$0</strong>
+                </div>
+                <div style="background: #fff; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <div style="color: #64748b; font-size: 11px;">Margen Real ($):</div>
+                    <strong id="modal-fin-margin-val" style="font-size: 14px; color: #16a34a;">$0</strong>
+                </div>
+                <div style="background: #fff; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <div style="color: #64748b; font-size: 11px;">Margen Real (%):</div>
+                    <strong id="modal-fin-margin-pct" style="font-size: 14px; color: #15803d;">0%</strong>
+                </div>
+            </div>
+        </div>
+
 
         <!-- ACCIONES -->
         <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 16px;">
@@ -716,9 +887,7 @@
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
+    
 <script>
     function openVentaDetailModal(sale) {
         const modal = document.getElementById('modal-view-venta');
@@ -764,7 +933,7 @@
                 const tr = document.createElement('tr');
                 tr.style.borderBottom = '1px solid #e2e8f0';
 
-                const pName = p.product_name || p.name || 'Producto';
+                const pName = p.product_name || p.name || p.sku || 'Producto sin identificación';
                 const pQty = p.quantity || 1;
                 const pPrice = p.price || p.unit_price || 0;
                 const pDisc = p.discount || 0;
@@ -812,6 +981,149 @@
             lotsSec.style.display = 'none';
         }
 
+        // Cargar embalaje y resumen financiero para esta venta
+        const pkgSec = document.getElementById('modal-vta-packaging-section');
+        const pkgBody = document.getElementById('modal-vta-packaging-body');
+        if (sale.id) {
+            fetch(`/api/ventas/${sale.id}/packaging`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data && data.packaging_items && data.packaging_items.length > 0) {
+                        pkgBody.innerHTML = '';
+                        data.packaging_items.forEach(item => {
+                            const tr = document.createElement('tr');
+                            tr.style.borderBottom = '1px solid #bbf7d0';
+                            tr.innerHTML = `
+                                <td style="padding: 6px 10px; font-weight: 500;">${item.product_name}</td>
+                                <td style="padding: 6px 10px; text-align: center;">${item.quantity}</td>
+                                <td style="padding: 6px 10px; text-align: right;">$${Math.round(item.unit_cost).toLocaleString('es-CL')}</td>
+                                <td style="padding: 6px 10px; text-align: right; font-weight: 600;">$${Math.round(item.total_cost).toLocaleString('es-CL')}</td>
+                            `;
+                            pkgBody.appendChild(tr);
+                        });
+                        document.getElementById('modal-vta-packaging-total').textContent = '$' + Math.round(data.financial_summary.packaging_cost || 0).toLocaleString('es-CL');
+                        pkgSec.style.display = 'block';
+                    } else {
+                        pkgSec.style.display = 'none';
+                    }
+
+                    if (data && data.financial_summary) {
+                        const fin = data.financial_summary;
+                        document.getElementById('modal-fin-neto').textContent = '$' + Math.round(fin.neto || 0).toLocaleString('es-CL');
+                        document.getElementById('modal-fin-prod-cost').textContent = '$' + Math.round(fin.products_cost || 0).toLocaleString('es-CL');
+                        document.getElementById('modal-fin-pkg-cost').textContent = '$' + Math.round(fin.packaging_cost || 0).toLocaleString('es-CL');
+                        document.getElementById('modal-fin-total-cost').textContent = '$' + Math.round(fin.real_total_cost || 0).toLocaleString('es-CL');
+                        document.getElementById('modal-fin-margin-val').textContent = '$' + Math.round(fin.real_margin || 0).toLocaleString('es-CL');
+                        document.getElementById('modal-fin-margin-pct').textContent = `${(fin.real_margin_pct || 0).toFixed(1)}%`;
+                    }
+                })
+                .catch(() => {
+                    pkgSec.style.display = 'none';
+                });
+        } else {
+            pkgSec.style.display = 'none';
+        }
+
+        // Cargar estado de abastecimiento y verificación de stock para esta venta
+        const stockSection = document.getElementById('modal-vta-stock-section');
+        const stockBadge = document.getElementById('modal-vta-stock-badge');
+        const stockAlert = document.getElementById('modal-vta-stock-alert');
+        const stockBody = document.getElementById('modal-vta-stock-body');
+
+        if (sale.id) {
+            stockSection.style.display = 'block';
+            stockBody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 12px; color: #64748b;">Consultando inventario en tiempo real...</td></tr>';
+            stockAlert.style.display = 'none';
+
+            fetch(`/api/ventas/${sale.id}/stock-check`)
+                .then(r => r.json())
+                .then(check => {
+                    stockBody.innerHTML = '';
+                    if (check.is_discounted) {
+                        stockBadge.textContent = '✅ Stock Descontado';
+                        stockBadge.style.background = '#dcfce7';
+                        stockBadge.style.color = '#15803d';
+
+                        stockAlert.style.display = 'block';
+                        stockAlert.style.background = '#f0fdf4';
+                        stockAlert.style.border = '1px solid #bbf7d0';
+                        stockAlert.style.color = '#166534';
+                        stockAlert.innerHTML = '✅ <strong>Existencias Físicas ya Descontadas:</strong> Los productos de esta venta ya fueron rebajados del inventario y registrados en Kardex.';
+
+                        if (Array.isArray(sale.products)) {
+                            sale.products.forEach(p => {
+                                const tr = document.createElement('tr');
+                                tr.style.borderBottom = '1px solid #e2e8f0';
+                                const pName = p.product_name || p.name || 'Producto';
+                                const qty = p.quantity || 1;
+                                tr.innerHTML = `
+                                    <td style="padding: 6px 10px; font-weight: 500;">${pName}</td>
+                                    <td style="padding: 6px 10px; text-align: center;">${qty}</td>
+                                    <td style="padding: 6px 10px; text-align: center; color: #16a34a;">Asignado</td>
+                                    <td style="padding: 6px 10px; text-align: center; color: #64748b;">0</td>
+                                    <td style="padding: 6px 10px; text-align: center;"><span style="background: #dcfce7; color: #15803d; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;">Cubierto</span></td>
+                                `;
+                                stockBody.appendChild(tr);
+                            });
+                        }
+                    } else if (check.has_deficit) {
+                        stockBadge.textContent = '⚠️ Stock Pendiente';
+                        stockBadge.style.background = '#fef2f2';
+                        stockBadge.style.color = '#991b1b';
+
+                        stockAlert.style.display = 'block';
+                        stockAlert.style.background = '#fef2f2';
+                        stockAlert.style.border = '1px solid #fecaca';
+                        stockAlert.style.color = '#991b1b';
+                        stockAlert.innerHTML = '⚠️ <strong>Déficit de Inventario:</strong> No hay stock suficiente para cubrir el pedido completo. La venta no podrá avanzar a <em>En Preparación</em>, <em>Para Despacho</em> o <em>Completada</em> hasta el ingreso de mercadería.';
+
+                        (check.items || []).forEach(item => {
+                            const tr = document.createElement('tr');
+                            tr.style.borderBottom = '1px solid #e2e8f0';
+                            const hasDef = item.has_deficit;
+                            tr.innerHTML = `
+                                <td style="padding: 6px 10px; font-weight: 500;">${item.product_name}</td>
+                                <td style="padding: 6px 10px; text-align: center; font-weight: 600;">${item.requested}</td>
+                                <td style="padding: 6px 10px; text-align: center; color: ${item.available > 0 ? '#15803d' : '#dc2626'};">${item.available}</td>
+                                <td style="padding: 6px 10px; text-align: center; font-weight: 700; color: ${hasDef ? '#dc2626' : '#64748b'};">${hasDef ? item.deficit : '0'}</td>
+                                <td style="padding: 6px 10px; text-align: center;">
+                                    ${hasDef 
+                                        ? `<span style="background: #fee2e2; color: #dc2626; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;">Faltante (-${item.deficit})</span>` 
+                                        : `<span style="background: #dcfce7; color: #15803d; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;">Disponible</span>`}
+                                </td>
+                            `;
+                            stockBody.appendChild(tr);
+                        });
+                    } else {
+                        stockBadge.textContent = '✅ Stock Disponible';
+                        stockBadge.style.background = '#dcfce7';
+                        stockBadge.style.color = '#15803d';
+
+                        stockAlert.style.display = 'block';
+                        stockAlert.style.background = '#f0fdf4';
+                        stockAlert.style.border = '1px solid #bbf7d0';
+                        stockAlert.style.color = '#166534';
+                        stockAlert.innerHTML = '✅ <strong>Abastecimiento Completo:</strong> Existe stock suficiente en bodega para abastecer todos los productos solicitados en este pedido.';
+
+                        (check.items || []).forEach(item => {
+                            const tr = document.createElement('tr');
+                            tr.style.borderBottom = '1px solid #e2e8f0';
+                            tr.innerHTML = `
+                                <td style="padding: 6px 10px; font-weight: 500;">${item.product_name}</td>
+                                <td style="padding: 6px 10px; text-align: center; font-weight: 600;">${item.requested}</td>
+                                <td style="padding: 6px 10px; text-align: center; color: #15803d;">${item.available}</td>
+                                <td style="padding: 6px 10px; text-align: center; color: #64748b;">0</td>
+                                <td style="padding: 6px 10px; text-align: center;"><span style="background: #dcfce7; color: #15803d; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;">Disponible</span></td>
+                            `;
+                            stockBody.appendChild(tr);
+                        });
+                    }
+                })
+                .catch(err => {
+                    stockBody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 8px; color: #94a3b8;">No se pudo verificar el stock.</td></tr>';
+                });
+        }
+
         modal.style.display = 'flex';
     }
 
@@ -819,7 +1131,7 @@
         document.getElementById('modal-view-venta').style.display = 'none';
     }
     function switchTab(tabName) {
-        console.log('Switching to tab:', tabName);
+        window.renderSalesView(tabName);
     }
     
     function openNewSaleModal() {
@@ -831,43 +1143,45 @@
     }
 
     function openEditPaymentModal(element) {
+        const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
         const saleId = element.getAttribute('data-id');
         const saleNumber = element.getAttribute('data-number');
         const total = element.getAttribute('data-total');
+        const totalRaw = parseFloat(element.getAttribute('data-total-raw') || '0');
+        const pending = parseFloat(element.getAttribute('data-pending') || element.getAttribute('data-total-raw') || '0');
+        const customer = element.getAttribute('data-customer') || '-';
         const paymentStatus = element.getAttribute('data-status');
-        const dueDate = element.getAttribute('data-due');
         const paymentDate = element.getAttribute('data-payment-date');
         const proofFile = element.getAttribute('data-proof');
+        const saleMethod = element.getAttribute('data-method') || '';
         const bankAccountId = element.getAttribute('data-bank-account-id');
-        const rawHistory = element.getAttribute('data-payment-history') || '[]';
-
-        const invoiceNumber = element.getAttribute('data-invoice-number') || '';
-
+        const invoiceNumber = element.getAttribute('data-invoice-number');
+        const rawHistory = element.getAttribute('data-history') || '[]';
+        let paymentDetail = {};
+        try { paymentDetail = JSON.parse(element.getAttribute('data-payment-detail') || '{}'); } catch (_) {}
+        
         document.getElementById('edit_sale_id').value = saleId;
         document.getElementById('label_sale_number').innerText = saleNumber;
         document.getElementById('label_sale_total').innerText = total;
-        const invLabel = document.getElementById('label_sale_invoice_number');
+        document.getElementById('label_payment_customer').innerText = customer;
+        document.getElementById('label_payment_pending').innerText = '$' + Math.round(pending).toLocaleString('es-CL');
+        
+        const invLabel = document.getElementById('label_payment_invoice_number');
         if (invLabel) {
             invLabel.innerText = invoiceNumber ? invoiceNumber : 'Sin Factura asignada';
         }
         
-        // El estado en BD puede ser 'Retrasada' pero mapea a 'Pendiente' en el select
-        const cleanStatus = (paymentStatus === 'Retrasada') ? 'Pendiente' : paymentStatus;
-        document.getElementById('edit_payment_status').value = cleanStatus;
-        
-        // Fechas por defecto
-        document.getElementById('edit_due_date').value = (dueDate && dueDate !== '-') ? dueDate : '';
-        document.getElementById('edit_payment_date').value = (paymentDate && paymentDate !== '-') ? paymentDate : new Date().toISOString().substring(0, 10);
-        
-        // Cargar cuenta bancaria
+        const isPaid = paymentStatus === 'Pagado';
+        document.getElementById('payment-modal-title').textContent = isPaid ? 'Detalle del Pago' : 'Registrar Pago';
+        document.getElementById('edit_payment_method').value = paymentDetail.payment_method || saleMethod || '';
+        document.getElementById('edit_payment_date').value = paymentDetail.payment_date || ((paymentDate && paymentDate !== '-') ? paymentDate : new Date().toISOString().substring(0, 10));
+        document.getElementById('edit_payment_amount').value = isPaid ? (paymentDetail.payment_amount || totalRaw) : pending.toFixed(2);
         document.getElementById('edit_bank_account_id').value = bankAccountId || '';
-        
-        togglePaymentFields(cleanStatus);
-        
-        // Limpiar input file
+        document.getElementById('edit_payment_notes').value = paymentDetail.payment_notes || '';
         document.getElementById('edit_payment_file').value = '';
+        document.getElementById('payment_idempotency_key').value = (window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+        togglePaymentFields(document.getElementById('edit_payment_method').value);
 
-        // Vista previa del comprobante existente
         const container = document.getElementById('modal_payment_proof_preview_container');
         const preview = document.getElementById('modal_payment_proof_preview');
         if (proofFile && proofFile !== '' && proofFile !== 'None') {
@@ -884,7 +1198,27 @@
             preview.innerHTML = '';
         }
 
-        // Renderizar historial de cobros/comprobantes dentro del modal
+        const form = document.getElementById('editPaymentForm');
+        form.dataset.submitting = 'false';
+        const submit = document.getElementById('payment-submit-button');
+        submit.style.display = isPaid ? 'none' : 'inline-block';
+        form.querySelectorAll('input, select, textarea').forEach(field => {
+            if (field.id !== 'edit_sale_id' && field.id !== 'payment_idempotency_key') field.disabled = isPaid;
+        });
+        if (isPaid) {
+            document.getElementById('edit_payment_notes').value = paymentDetail.payment_notes || 'Información de pago registrada';
+        }
+        const detailSummary = document.getElementById('payment-detail-summary');
+        if (isPaid) {
+            const methodLabel = paymentDetail.payment_method || saleMethod || 'Información no disponible';
+            const bankLabel = paymentDetail.bank_name_snapshot ? `${paymentDetail.bank_name_snapshot} · ${paymentDetail.account_number_snapshot || ''}` : 'No aplica / no informado';
+            detailSummary.innerHTML = `<strong>Estado: PAGADO</strong><br>Medio: ${escapeHtml(methodLabel)}<br>Fecha: ${escapeHtml(paymentDetail.payment_date || paymentDate || 'No informado')}<br>Monto: $${Math.round(paymentDetail.payment_amount || totalRaw).toLocaleString('es-CL')}<br>Registrado por: ${escapeHtml(paymentDetail.registered_by || 'No informado')}<br>${methodLabel === 'Transferencia' ? `Banco / cuenta: ${escapeHtml(bankLabel)}<br>` : ''}${proofFile ? `<a href="${escapeHtml(proofFile)}" target="_blank">Ver comprobante</a>` : ''}`;
+            detailSummary.style.display = 'block';
+        } else {
+            detailSummary.style.display = 'none';
+            detailSummary.innerHTML = '';
+        }
+
         const historyList = document.getElementById('modal_payment_history_list');
         historyList.innerHTML = '';
         
@@ -925,19 +1259,28 @@
 
     function togglePaymentFields(status) {
         const fields = document.getElementById('paid_fields');
-        if (status === 'Pagado') {
+        const transfer = status === 'Transferencia';
+        if (transfer) {
             fields.style.display = 'block';
-            document.getElementById('edit_payment_date').required = true;
+            document.getElementById('edit_bank_account_id').required = true;
+            document.getElementById('edit_payment_file').required = true;
         } else {
             fields.style.display = 'none';
-            document.getElementById('edit_payment_date').required = false;
+            document.getElementById('edit_bank_account_id').required = false;
+            document.getElementById('edit_payment_file').required = false;
         }
     }
 
-    // Funciones para Lightbox de Imagen
+    document.getElementById('editPaymentForm')?.addEventListener('submit', function(event) {
+        if (this.dataset.submitting === 'true') { event.preventDefault(); return; }
+        this.dataset.submitting = 'true';
+        const button = document.getElementById('payment-submit-button');
+        button.disabled = true;
+        button.textContent = 'Registrando pago…';
+    });
+
     function zoomPaymentImage(imgSrc) {
         if (!imgSrc || imgSrc.toLowerCase().endsWith('.pdf')) {
-            // Si es PDF y el usuario hace doble clic, abrimos en pestaña nueva para su visor nativo
             window.open(imgSrc, '_blank');
             return;
         }
@@ -948,6 +1291,177 @@
     function closeImageLightbox() {
         document.getElementById('imageLightboxModal').style.display = 'none';
         document.getElementById('lightbox_img').src = '';
+    }
+
+    // Cache global de cajas disponibles
+    let availablePackagingCatalog = [];
+
+    function fetchPackagingCatalog(callback) {
+        if (availablePackagingCatalog.length > 0) {
+            if (callback) callback(availablePackagingCatalog);
+            return;
+        }
+        fetch('/api/packaging/disponibles')
+            .then(r => r.json())
+            .then(data => {
+                availablePackagingCatalog = data || [];
+                if (callback) callback(availablePackagingCatalog);
+            })
+            .catch(err => {
+                console.error("Error fetching packaging catalog:", err);
+                if (callback) callback([]);
+            });
+    }
+
+    function addPackagingRow(selectedId = null, qty = 1) {
+        const container = document.getElementById('packaging-rows-container');
+        if (!container) return;
+
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'packaging-item-row';
+        rowDiv.style.display = 'flex';
+        rowDiv.style.alignItems = 'center';
+        rowDiv.style.gap = '8px';
+        rowDiv.style.marginBottom = '8px';
+
+        let optionsHtml = '<option value="">-- Seleccionar Caja --</option>';
+        availablePackagingCatalog.forEach(p => {
+            const isSel = (selectedId && Number(p.id) === Number(selectedId)) ? 'selected' : '';
+            optionsHtml += `<option value="${p.id}" data-stock="${p.available_stock}" data-cost="${p.calculated_cost}" ${isSel}>${p.name} (Stock: ${p.available_stock} un. | $${Math.round(p.calculated_cost)})</option>`;
+        });
+
+        rowDiv.innerHTML = `
+            <select name="packaging_product_id[]" class="sf-select pkg-select" style="flex: 2; padding: 6px 8px; font-size: 13px; border: 1px solid #cbd5e0; border-radius: 4px;" onchange="updatePackagingStockInfo(this); calculateTotalPackagingCost();">
+                ${optionsHtml}
+            </select>
+            <div style="flex: 1; display: flex; align-items: center; gap: 4px;">
+                <input type="number" name="packaging_quantity[]" class="sf-input pkg-qty" min="1" value="${qty}" style="width: 70px; padding: 6px; font-size: 13px; border: 1px solid #cbd5e0; border-radius: 4px; text-align: center;" oninput="validateRowQty(this); calculateTotalPackagingCost();">
+                <span class="pkg-stock-badge" style="font-size: 11px; color: #64748b; white-space: nowrap;"></span>
+            </div>
+            <button type="button" onclick="removePackagingRow(this)" style="background: none; border: none; color: #ef4444; font-size: 16px; cursor: pointer; padding: 0 4px;" title="Eliminar caja">✕</button>
+        `;
+
+        container.appendChild(rowDiv);
+        const selElem = rowDiv.querySelector('.pkg-select');
+        updatePackagingStockInfo(selElem);
+        calculateTotalPackagingCost();
+    }
+
+    function removePackagingRow(btn) {
+        const row = btn.closest('.packaging-item-row');
+        if (row) {
+            row.remove();
+            calculateTotalPackagingCost();
+        }
+    }
+
+    function updatePackagingStockInfo(selectElem) {
+        const row = selectElem.closest('.packaging-item-row');
+        if (!row) return;
+        const badge = row.querySelector('.pkg-stock-badge');
+        const qtyInput = row.querySelector('.pkg-qty');
+        const opt = selectElem.options[selectElem.selectedIndex];
+        if (opt && opt.value) {
+            const stock = parseFloat(opt.getAttribute('data-stock') || '0');
+            badge.textContent = `Disp: ${stock}`;
+            qtyInput.max = stock;
+            if (parseFloat(qtyInput.value) > stock) {
+                qtyInput.style.borderColor = '#ef4444';
+                badge.style.color = '#ef4444';
+                badge.textContent = `¡Máx: ${stock}!`;
+            } else {
+                qtyInput.style.borderColor = '#cbd5e0';
+                badge.style.color = '#15803d';
+            }
+        } else {
+            badge.textContent = '';
+            qtyInput.style.borderColor = '#cbd5e0';
+        }
+    }
+
+    function validateRowQty(qtyInput) {
+        const row = qtyInput.closest('.packaging-item-row');
+        if (!row) return;
+        const selectElem = row.querySelector('.pkg-select');
+        updatePackagingStockInfo(selectElem);
+    }
+
+    function calculateTotalPackagingCost() {
+        let total = 0;
+        const rows = document.querySelectorAll('.packaging-item-row');
+        rows.forEach(r => {
+            const sel = r.querySelector('.pkg-select');
+            const qtyInput = r.querySelector('.pkg-qty');
+            if (sel && sel.selectedIndex > 0) {
+                const opt = sel.options[sel.selectedIndex];
+                const cost = parseFloat(opt.getAttribute('data-cost') || '0');
+                const qty = parseInt(qtyInput.value || '0', 10);
+                if (qty > 0) {
+                    total += (cost * qty);
+                }
+            }
+        });
+        const totalElem = document.getElementById('modal-packaging-total-cost');
+        if (totalElem) {
+            totalElem.textContent = '$' + Math.round(total).toLocaleString('es-CL');
+        }
+    }
+
+    let currentModalSaleHasPackaging = false;
+    let currentModalSaleStockCheck = null;
+
+    function handleSaleStatusChange() {
+        const statusVal = document.getElementById('edit_sale_status_val').value;
+        const pkgSection = document.getElementById('modal-packaging-section');
+        const existingMsg = document.getElementById('modal-packaging-existing-msg');
+        const selectorContainer = document.getElementById('modal-packaging-selector-container');
+        const stockWarn = document.getElementById('modal-status-stock-warning');
+        const stockWarnDetails = document.getElementById('modal-status-stock-warning-details');
+        const submitBtn = document.querySelector('#editSaleStatusForm button[type="submit"]');
+
+        toggleCompletadaWarning();
+
+        const isOperational = (statusVal === 'En Preparación' || statusVal === 'Para Despacho' || statusVal === 'Completada');
+
+        if (isOperational && currentModalSaleStockCheck && currentModalSaleStockCheck.has_deficit) {
+            stockWarn.style.display = 'block';
+            const deficitItems = (currentModalSaleStockCheck.items || []).filter(it => it.has_deficit);
+            stockWarnDetails.innerHTML = 'Faltantes: ' + deficitItems.map(it => `<strong>${it.product_name}</strong> (Faltan ${it.deficit} un. | Solicitado: ${it.requested}, Disp: ${it.available})`).join(', ');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.style.opacity = '0.5';
+                submitBtn.style.cursor = 'not-allowed';
+                submitBtn.title = 'No es posible guardar: stock insuficiente para estados operacionales.';
+            }
+        } else {
+            stockWarn.style.display = 'none';
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+                submitBtn.style.cursor = 'pointer';
+                submitBtn.title = '';
+            }
+        }
+
+        if (statusVal === 'Para Despacho' || statusVal === 'Completada') {
+            pkgSection.style.display = 'block';
+            if (currentModalSaleHasPackaging) {
+                existingMsg.style.display = 'block';
+                selectorContainer.style.display = 'none';
+            } else {
+                existingMsg.style.display = 'none';
+                selectorContainer.style.display = 'block';
+                // Si el contenedor no tiene filas, precargar catálogo y añadir una fila inicial
+                const container = document.getElementById('packaging-rows-container');
+                if (container && container.children.length === 0) {
+                    fetchPackagingCatalog(() => {
+                        addPackagingRow();
+                    });
+                }
+            }
+        } else {
+            pkgSection.style.display = 'none';
+        }
     }
 
     // Funciones para actualizar el estado general de la venta
@@ -964,10 +1478,8 @@
         document.getElementById('edit_sale_status_val').value = currentStatus;
         document.getElementById('edit_sale_invoice_number').value = invoiceNumber;
 
-        // Limpiar input file
         document.getElementById('edit_sale_invoice_file').value = '';
 
-        // Previsualización de factura física
         const container = document.getElementById('modal_invoice_preview_container');
         const preview = document.getElementById('modal_invoice_preview');
         if (invoiceFile && invoiceFile !== '' && invoiceFile !== 'None') {
@@ -984,7 +1496,6 @@
             preview.innerHTML = '';
         }
 
-        // Renderizar el historial de cambios de estado dentro del modal
         const historyContainer = document.getElementById('modal_status_history_list');
         historyContainer.innerHTML = '';
         
@@ -1016,8 +1527,41 @@
             console.error("Error parsing history:", e);
             historyContainer.innerHTML = '<span style="color: #e53e3e; font-size: 12px;">Error al cargar el historial.</span>';
         }
-        
-        toggleCompletadaWarning();
+
+        // Limpiar filas de packaging previas y resetear stock check
+        const pkgContainer = document.getElementById('packaging-rows-container');
+        if (pkgContainer) pkgContainer.innerHTML = '';
+        currentModalSaleHasPackaging = false;
+        currentModalSaleStockCheck = null;
+
+        // Consultar stock check en tiempo real
+        fetch(`/api/ventas/${saleId}/stock-check`)
+            .then(r => r.json())
+            .then(check => {
+                currentModalSaleStockCheck = check;
+                handleSaleStatusChange();
+            })
+            .catch(() => {
+                currentModalSaleStockCheck = null;
+                handleSaleStatusChange();
+            });
+
+        // Consultar si la venta ya tiene cajas asociadas
+        fetch(`/api/ventas/${saleId}/packaging`)
+            .then(r => r.json())
+            .then(data => {
+                currentModalSaleHasPackaging = Boolean(data && data.has_packaging);
+                handleSaleStatusChange();
+            })
+            .catch(() => {
+                currentModalSaleHasPackaging = false;
+                handleSaleStatusChange();
+            });
+
+        // Asegurar que el select invoque handleSaleStatusChange
+        const selectElem = document.getElementById('edit_sale_status_val');
+        selectElem.onchange = handleSaleStatusChange;
+
         document.getElementById('editSaleStatusModal').style.display = 'flex';
     }
 
@@ -1043,6 +1587,30 @@
                     e.preventDefault();
                     alert('⚠️ Para marcar la venta como Completada es obligatorio adjuntar el archivo de la Factura o Boleta.');
                     return false;
+                }
+
+                // Validación de cajas de embalaje si se despacha o completa y no tenía cajas previas
+                if ((val === 'Para Despacho' || val === 'Completada') && !currentModalSaleHasPackaging) {
+                    const rows = document.querySelectorAll('.packaging-item-row');
+                    let hasInvalidQty = false;
+                    rows.forEach(r => {
+                        const sel = r.querySelector('.pkg-select');
+                        const qtyInput = r.querySelector('.pkg-qty');
+                        if (sel && sel.value) {
+                            const opt = sel.options[sel.selectedIndex];
+                            const stock = parseFloat(opt.getAttribute('data-stock') || '0');
+                            const qty = parseInt(qtyInput.value || '0', 10);
+                            if (qty <= 0 || qty > stock) {
+                                hasInvalidQty = true;
+                            }
+                        }
+                    });
+
+                    if (hasInvalidQty) {
+                        e.preventDefault();
+                        alert('⚠️ Una o más cajas seleccionadas tienen una cantidad inválida o superior al stock disponible.');
+                        return false;
+                    }
                 }
             });
         }
@@ -1109,6 +1677,13 @@
         document.getElementById('editSaleStatusModal').style.display = 'none';
     }
 
+    function changePerPage(val) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('per_page', val);
+        url.searchParams.set('page', 1);
+        window.location.href = url.toString();
+    }
+
     function filterVentasTable() {
         const searchInput = document.getElementById('sf-search-input');
         const clientSelect = document.getElementById('sf-client-filter');
@@ -1167,6 +1742,7 @@
         document.getElementById('edit_client_tipo_compra').value = customer.tipo_compra || 'Del Giro';
         document.getElementById('edit_client_category_id').value = customer.category_id || '';
         document.getElementById('edit_client_direccion').value = customer.direccion || '';
+        document.getElementById('edit_client_delivery_address').value = customer.delivery_address || '';
         document.getElementById('edit_client_giro').value = customer.giro || '';
 
         document.getElementById('modal-edit-client').style.display = 'flex';
@@ -1259,6 +1835,10 @@
                     <input type="text" id="edit_client_direccion" name="direccion" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
                 </div>
                 <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Dirección de despacho</label>
+                    <input type="text" id="edit_client_delivery_address" name="delivery_address" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                </div>
+                <div>
                     <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Giro Comercial</label>
                     <input type="text" id="edit_client_giro" name="giro" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
                 </div>
@@ -1271,4 +1851,56 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script id="sales-view-data" type="application/json">{{ ventas_records | tojson }}</script>
+<script src="{{ url_for('static', filename='js/sales_views.js') }}"></script>
+<script>
+(function () {
+    const tableViewport = document.getElementById('sales-list-view');
+    const floating = document.getElementById('sales-floating-scrollbar');
+    const floatingContent = document.getElementById('sales-floating-scrollbar-content');
+    if (!tableViewport || !floating || !floatingContent) return;
+
+    let syncing = false;
+    function refreshFloatingScrollbar() {
+        const rect = tableViewport.getBoundingClientRect();
+        const left = Math.max(0, rect.left);
+        const right = Math.min(window.innerWidth, rect.right);
+        floating.style.left = left + 'px';
+        floating.style.width = Math.max(0, right - left) + 'px';
+        floatingContent.style.width = tableViewport.scrollWidth + 'px';
+        floating.classList.toggle('is-visible', tableViewport.scrollWidth > tableViewport.clientWidth && rect.bottom > 0 && rect.top < window.innerHeight);
+        floating.setAttribute('aria-hidden', floating.classList.contains('is-visible') ? 'false' : 'true');
+    }
+    function maxScroll(element) {
+        return Math.max(0, element.scrollWidth - element.clientWidth);
+    }
+    function mapScroll(source, target) {
+        const sourceMax = maxScroll(source);
+        const targetMax = maxScroll(target);
+        target.scrollLeft = sourceMax && targetMax
+            ? (source.scrollLeft / sourceMax) * targetMax
+            : 0;
+    }
+    floating.addEventListener('scroll', function () {
+        if (syncing) return;
+        syncing = true;
+        mapScroll(floating, tableViewport);
+        syncing = false;
+    });
+    tableViewport.addEventListener('scroll', function () {
+        if (syncing) return;
+        syncing = true;
+        mapScroll(tableViewport, floating);
+        syncing = false;
+    });
+    window.addEventListener('scroll', refreshFloatingScrollbar, {passive: true});
+    window.addEventListener('resize', refreshFloatingScrollbar);
+    if (window.ResizeObserver) new ResizeObserver(refreshFloatingScrollbar).observe(tableViewport);
+    if (window.MutationObserver) new MutationObserver(refreshFloatingScrollbar).observe(tableViewport, {childList: true, subtree: true});
+    refreshFloatingScrollbar();
+})();
+</script>
 {% endblock %}

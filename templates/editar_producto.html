@@ -3,16 +3,30 @@
 {% block title %}Editar Producto - Facturación Bodega Miel{% endblock %}
 {% block page_title %}Editar Producto{% endblock %}
 
+{% block breadcrumbs %}
+<nav class="breadcrumb-nav">
+    <a href="{{ url_for('dashboard.dashboard') }}"><i class="fa-solid fa-house"></i></a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{{ url_for('inventario.productos') }}">Productos</a>
+    <span class="breadcrumb-separator">/</span>
+    <span class="breadcrumb-current">{{ product.sku }}</span>
+</nav>
+{% endblock %}
+
 {% block content %}
 <!-- Barra superior de navegación y acciones -->
-<div class="sf-action-bar" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 14px 20px; border-radius: 8px; border-left: 4px solid #3182ce; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+<div class="sf-action-bar" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 14px 20px; border-radius: 8px; border-left: 4px solid var(--primary-blue); box-shadow: var(--shadow-sm);">
     <div class="sf-action-left">
-        <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #2d3748;">Editar Producto: {{ product.name }}</h3>
+        <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: var(--text-dark);">Editar Producto: {{ product.name }}</h3>
     </div>
-    <div class="sf-action-right">
-        <a href="{{ url_for('inventario.productos') }}" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 8px 16px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fff; color: #4a5568; font-weight: 600;">
-            <span>⬅️</span>
-            <span>Volver a la Lista de Productos</span>
+    <div class="sf-action-right" style="display: flex; gap: 8px;">
+        <a href="{{ url_for('inventario.ver_kardex_producto', product_id=product.id) }}" class="btn-secondary btn-sm" style="color: #15803d; border-color: #10b981; background: #f0fdf4;">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Kardex / PPP</span>
+        </a>
+        <a href="{{ url_for('inventario.productos') }}" class="btn-back">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Volver a Productos</span>
         </a>
     </div>
 </div>
@@ -26,198 +40,240 @@
         </div>
         
         <form class="settings-form" method="POST" enctype="multipart/form-data">
-            <div class="form-row">
-                <div class="form-group">
-                    <label>SKU *</label>
-                    <input type="text" name="sku" class="form-control" value="{{ product.sku }}" required>
+            <!-- SECCIÓN 1: IDENTIFICACIÓN PRINCIPAL -->
+            <div class="form-section">
+                <div class="form-section-header">
+                    <span class="form-section-badge">1</span>
+                    <div>
+                        <h4 class="form-section-title">Identificación y Códigos</h4>
+                        <p class="form-section-subtitle">SKU, nombre del producto y códigos de barras</p>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Nombre del Producto *</label>
-                    <input type="text" name="name" class="form-control" value="{{ product.name }}" required>
+
+                <div class="form-grid-2">
+                    <div class="form-group-field">
+                        <label>SKU (Código Único) <span class="req-star">*</span></label>
+                        <input type="text" name="sku" class="form-control" value="{{ product.sku }}" required>
+                    </div>
+                    <div class="form-group-field">
+                        <label>Nombre del Producto <span class="req-star">*</span></label>
+                        <input type="text" name="name" class="form-control" value="{{ product.name }}" required>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group-field">
+                        <label>Código Interno</label>
+                        <input type="text" name="internal_code" class="form-control" value="{{ product.internal_code or '' }}" placeholder="Ej. MIEL-001">
+                        <span class="form-help">Código alternativo para búsqueda interna o almacén.</span>
+                    </div>
+                    <div class="form-group-field">
+                        <label>Código de Barras (EAN)</label>
+                        <input type="text" name="barcode" class="form-control" value="{{ product.barcode or '' }}" placeholder="1234567890">
+                        <span class="form-help">Para lectura con pistola de código de barras.</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label style="font-weight: bold; color: #2b6cb0;">Tipo de Producto *</label>
-                    <select name="product_type" class="form-control" required style="font-weight: bold;">
-                        <option value="Producto Terminado" {% if product.product_type in ['Producto Terminado', 'Final'] %}selected{% endif %}>Producto Terminado (Vendible)</option>
-                        <option value="Insumo" {% if product.product_type == 'Insumo' %}selected{% endif %}>Insumo (Materia Prima / Envase)</option>
-                        <option value="Servicio" {% if product.product_type == 'Servicio' %}selected{% endif %}>Servicio</option>
-                    </select>
+            <!-- SECCIÓN 2: CLASIFICACIÓN TÉCNICA Y COMERCIAL -->
+            <div class="form-section">
+                <div class="form-section-header">
+                    <span class="form-section-badge">2</span>
+                    <div>
+                        <h4 class="form-section-title">Clasificación Técnica y Comercial</h4>
+                        <p class="form-section-subtitle">Tipo de producto, categoría, variedad y formatos</p>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Categoría</label>
-                    <select name="category" class="form-control" id="editar-producto-categoria-select">
-                        <option value="">Seleccionar categoría</option>
-                        {% for category in categories %}
-                        <option value="{{ category }}" {% if product.category == category %}selected{% endif %}>{{ category }}</option>
-                        {% endfor %}
-                        {% if product.category and product.category not in categories %}
-                        <option value="{{ product.category }}" selected>{{ product.category }}</option>
-                        {% endif %}
-                    </select>
+
+                <div class="form-grid-2">
+                    <div class="form-group-field">
+                        <label>Tipo de Producto <span class="req-star">*</span></label>
+                        <select name="product_type" class="form-control" required style="font-weight: 600;">
+                            <option value="Producto Terminado" {% if product.product_type in ['Producto Terminado', 'Final'] %}selected{% endif %}>Producto Terminado (Vendible)</option>
+                            <option value="Insumo" {% if product.product_type == 'Insumo' %}selected{% endif %}>Insumo (Materia Prima / Envase)</option>
+                            <option value="Servicio" {% if product.product_type == 'Servicio' %}selected{% endif %}>Servicio</option>
+                        </select>
+                    </div>
+                    <div class="form-group-field">
+                        <label>Categoría</label>
+                        <select name="category" class="form-control" id="editar-producto-categoria-select">
+                            <option value="">-- Seleccionar categoría --</option>
+                            {% for category in categories %}
+                            <option value="{{ category }}" {% if product.category == category %}selected{% endif %}>{{ category }}</option>
+                            {% endfor %}
+                            {% if product.category and product.category not in categories %}
+                            <option value="{{ product.category }}" selected>{{ product.category }}</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group-field">
+                        <label>Subcategoría / Material</label>
+                        <input type="text" name="subcategory_material" class="form-control" value="{{ product.subcategory_material or '' }}" placeholder="Ej. Vidrio, PET - Tineta, Miel Cruda">
+                    </div>
+                    <div class="form-group-field">
+                        <label>Formato o Capacidad</label>
+                        <input type="text" name="format_capacity" class="form-control" value="{{ product.format_capacity or '' }}" placeholder="Ej. 500 g, 1 Kg, Grande, A granel">
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group-field">
+                        <label>Línea Comercial</label>
+                        <input type="text" name="line" class="form-control" value="{{ product.line or '' }}" placeholder="Ej. Clásica, Selva Valdiviana, Granel">
+                    </div>
+                    <div class="form-group-field">
+                        <label>Variedad Botánica / Floral</label>
+                        <input type="text" name="variety" class="form-control" value="{{ product.variety or '' }}" placeholder="Ej. Ulmo, Multiflora, Tiaca, Tineo">
+                    </div>
                 </div>
             </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Subcategoría / Material</label>
-                    <input type="text" name="subcategory_material" class="form-control" value="{{ product.subcategory_material or '' }}" placeholder="Ej. Vidrio, PET - Tineta, Miel Cruda">
+            <!-- SECCIÓN 3: UNIDAD, INVENTARIO Y COSTO BASE -->
+            <div class="form-section">
+                <div class="form-section-header">
+                    <span class="form-section-badge">3</span>
+                    <div>
+                        <h4 class="form-section-title">Unidades, Control de Stock y Costo</h4>
+                        <p class="form-section-subtitle">Unidad física de medida, umbral de reposición y exigencia de trazabilidad</p>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Formato o Capacidad</label>
-                    <input type="text" name="format_capacity" class="form-control" value="{{ product.format_capacity or '' }}" placeholder="Ej. 500 g, 1 Kg, Grande, A granel">
-                </div>
-            </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Línea</label>
-                    <input type="text" name="line" class="form-control" value="{{ product.line or '' }}" placeholder="Ej. Clásica, Selva Valdiviana, Granel">
+                <div class="form-grid-3">
+                    <div class="form-group-field">
+                        <label>Unidad de Medida</label>
+                        <select name="unit_of_measure" class="form-control">
+                            <option value="UN" {% if (product.unit_of_measure or 'UN') == 'UN' %}selected{% endif %}>UN (Unidad)</option>
+                            <option value="KG" {% if product.unit_of_measure == 'KG' %}selected{% endif %}>KG (Kilogramo)</option>
+                            <option value="LT" {% if product.unit_of_measure == 'LT' %}selected{% endif %}>LT (Litro)</option>
+                            <option value="MT" {% if product.unit_of_measure == 'MT' %}selected{% endif %}>MT (Metro)</option>
+                            <option value="Viaje" {% if product.unit_of_measure == 'Viaje' %}selected{% endif %}>Viaje</option>
+                        </select>
+                    </div>
+                    <div class="form-group-field">
+                        <label>Kilos Netos por Unidad (Kg)</label>
+                        <input type="number" name="associated_kg" class="form-control" step="0.001" min="0" value="{{ '{:g}'.format(product.associated_kg) if product.associated_kg is not none else (product.weight_kg or '') }}" placeholder="Ej. 0.5, 1.0">
+                    </div>
+                    <div class="form-group-field">
+                        <label>Stock Mínimo de Seguridad</label>
+                        <input type="number" name="min_stock" class="form-control" step="1" min="0" value="{{ '{:g}'.format(product.min_stock) if product.min_stock is not none else '0' }}">
+                        <span class="form-help">Alerta cuando el stock físico baje de este valor.</span>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Variedad</label>
-                    <input type="text" name="variety" class="form-control" value="{{ product.variety or '' }}" placeholder="Ej. Ulmo, Multiflora, Tiaca, Tineo">
-                </div>
-            </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Kilos Asociados (Kg)</label>
-                    <input type="number" name="associated_kg" class="form-control" step="0.001" min="0" value="{{ '{:g}'.format(product.associated_kg) if product.associated_kg is not none else (product.weight_kg or '') }}" placeholder="Ej. 0.5, 1.0">
+                <div class="form-grid-3">
+                    <div class="form-group-field">
+                        <label>Costo Unitario Ficha ($)</label>
+                        <input type="number" name="cost" class="form-control" step="0.01" min="0" value="{{ product.cost if product.cost is not none else '0' }}">
+                        <span class="form-help">El costo contable real opera mediante PPP en Kardex.</span>
+                    </div>
+                    <div class="form-group-field">
+                        <label>Estado del Producto</label>
+                        <select name="status" class="form-control">
+                            <option value="Activo" {% if (product.status or 'Activo') == 'Activo' %}selected{% endif %}>Activo</option>
+                            <option value="Inactivo" {% if product.status == 'Inactivo' %}selected{% endif %}>Inactivo</option>
+                            <option value="No producido 2026" {% if product.status == 'No producido 2026' %}selected{% endif %}>No producido 2026</option>
+                            <option value="No confirmado" {% if product.status == 'No confirmado' %}selected{% endif %}>No confirmado</option>
+                        </select>
+                    </div>
+                    <div class="form-group-field">
+                        <label>Etiquetado</label>
+                        <select name="labeling" class="form-control">
+                            <option value="" {% if not product.labeling %}selected{% endif %}>-- Sin especificar --</option>
+                            <option value="Nuevo" {% if product.labeling == 'Nuevo' %}selected{% endif %}>Nuevo</option>
+                            <option value="Antiguo" {% if product.labeling == 'Antiguo' %}selected{% endif %}>Antiguo</option>
+                            <option value="N/A" {% if product.labeling == 'N/A' %}selected{% endif %}>N/A</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Unidad de Medida</label>
-                    <select name="unit_of_measure" class="form-control">
-                        <option value="UN" {% if (product.unit_of_measure or 'UN') == 'UN' %}selected{% endif %}>UN (Unidad)</option>
-                        <option value="KG" {% if product.unit_of_measure == 'KG' %}selected{% endif %}>KG (Kilogramo)</option>
-                        <option value="LT" {% if product.unit_of_measure == 'LT' %}selected{% endif %}>LT (Litro)</option>
-                        <option value="MT" {% if product.unit_of_measure == 'MT' %}selected{% endif %}>MT (Metro)</option>
-                        <option value="Viaje" {% if product.unit_of_measure == 'Viaje' %}selected{% endif %}>Viaje</option>
-                    </select>
-                </div>
-            </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Receta BOM</label>
+                <div class="form-group-field">
+                    <label>Fórmula / Receta BOM Asociada</label>
                     <input type="text" name="bom_recipe" class="form-control" value="{{ product.bom_recipe or '' }}" placeholder="Ej. REC-CLA-001">
+                    <input type="hidden" name="line_variety" value="{{ product.line_variety or '' }}">
                 </div>
-                <div class="form-group">
-                    <label>Etiquetado</label>
-                    <select name="labeling" class="form-control">
-                        <option value="" {% if not product.labeling %}selected{% endif %}>Seleccionar etiquetado</option>
-                        <option value="Nuevo" {% if product.labeling == 'Nuevo' %}selected{% endif %}>Nuevo</option>
-                        <option value="Antiguo" {% if product.labeling == 'Antiguo' %}selected{% endif %}>Antiguo</option>
-                        <option value="N/A" {% if product.labeling == 'N/A' %}selected{% endif %}>N/A</option>
-                    </select>
+
+                <!-- Trazabilidad por Lote Físico -->
+                <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px; margin-top: 14px;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; font-weight: 600; color: var(--text-dark);">
+                        <input type="checkbox" name="requires_lot" value="1" {% if product.requires_lot %}checked{% endif %} style="width: 18px; height: 18px; accent-color: var(--primary-blue); cursor: pointer;">
+                        <span><i class="fa-solid fa-barcode" style="color: var(--primary-blue); margin-right: 4px;"></i> Exigir Número de Lote obligatorio en Recepción</span>
+                    </label>
+                    <small style="color: var(--text-muted); display: block; margin-top: 4px; margin-left: 28px;">
+                        Si se activa, el personal de bodega estará obligado a ingresar el LOTE físico al recibir este producto.
+                    </small>
                 </div>
             </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Stock Mínimo</label>
-                    <input type="number" name="min_stock" class="form-control" step="1" min="0" value="{{ '{:g}'.format(product.min_stock) if product.min_stock is not none else '0' }}">
-                </div>
-                <div class="form-group">
-                    <label>Estado</label>
-                    <select name="status" class="form-control">
-                        <option value="Activo" {% if (product.status or 'Activo') == 'Activo' %}selected{% endif %}>Activo</option>
-                        <option value="Inactivo" {% if product.status == 'Inactivo' %}selected{% endif %}>Inactivo</option>
-                        <option value="No producido 2026" {% if product.status == 'No producido 2026' %}selected{% endif %}>No producido 2026</option>
-                        <option value="No confirmado" {% if product.status == 'No confirmado' %}selected{% endif %}>No confirmado</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Costo Unitario ($)</label>
-                    <input type="number" name="cost" class="form-control" step="0.01" min="0" value="{{ product.cost if product.cost is not none else '0' }}">
-                </div>
-                <div class="form-group">
-                    <label>Línea / Variedad (Legacy)</label>
-                    <input type="text" name="line_variety" class="form-control" value="{{ product.line_variety or '' }}" placeholder="Ej. Ulmo, Tiaca, Multiflora, N/A">
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Código Interno</label>
-                    <input type="text" name="internal_code" class="form-control" value="{{ product.internal_code or '' }}" placeholder="Ej. MIEL-001">
-                </div>
-                <div class="form-group">
-                    <label>Código de Barra</label>
-                    <input type="text" name="barcode" class="form-control" value="{{ product.barcode or '' }}" placeholder="1234567890">
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Descripción</label>
-                <textarea name="description" class="form-control" rows="2">{{ product.description or '' }}</textarea>
-            </div>
-
-            <div class="form-group">
-                <label>Observaciones</label>
-                <textarea name="notes" class="form-control" rows="2" placeholder="Notas de trazabilidad, compras, empaque...">{{ product.notes or '' }}</textarea>
-            </div>
-
-            <div class="form-group" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;">
-                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; font-weight: 600; color: #1e293b;">
-                    <input type="checkbox" name="requires_lot" value="1" {% if product.requires_lot %}checked{% endif %} style="width: 18px; height: 18px; accent-color: #2563eb; cursor: pointer;">
-                    <span>🏷️ ¿Requiere número de lote obligatorio al ingresar mercadería?</span>
-                </label>
-                <small style="color: #64748b; display: block; margin-top: 4px; margin-left: 28px;">
-                    Si se activa, el personal de bodega estará obligado a ingresar el LOTE físico al recibir este producto. Si es No, es opcional.
-                </small>
-            </div>
-
-            <div class="form-group">
-                <label>Foto o Archivo Adjunto</label>
-                {% if product.photo_url and product.photo_url.startswith('/uploads/') %}
-                    <div class="current-photo">
-                        <img src="{{ product.photo_url }}" alt="Foto actual" style="max-width: 150px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                        <p><small>Foto actual</small></p>
+            <!-- SECCIÓN 4: DETALLES, DIMENSIONES Y ADJUNTOS -->
+            <div class="form-section">
+                <div class="form-section-header">
+                    <span class="form-section-badge">4</span>
+                    <div>
+                        <h4 class="form-section-title">Detalles Logísticos y Documentación</h4>
+                        <p class="form-section-subtitle">Descripción, observaciones, dimensiones de bulto y fotografía</p>
                     </div>
-                {% elif product.photo_url %}
-                    <div class="current-photo">
-                        <p><small>URL: <a href="{{ product.photo_url }}" target="_blank">{{ product.photo_url }}</a></small></p>
+                </div>
+
+                <div class="form-group-field">
+                    <label>Descripción Comercial</label>
+                    <textarea name="description" class="form-control" rows="2">{{ product.description or '' }}</textarea>
+                </div>
+
+                <div class="form-group-field">
+                    <label>Observaciones de Trazabilidad y Calidad</label>
+                    <textarea name="notes" class="form-control" rows="2" placeholder="Notas de trazabilidad, compras, empaque...">{{ product.notes or '' }}</textarea>
+                </div>
+
+                <div class="form-grid-3">
+                    <div class="form-group-field">
+                        <label>Ancho (cm)</label>
+                        <input type="number" name="width_cm" class="form-control" step="0.01" min="0" value="{{ product.width_cm or '' }}">
                     </div>
-                {% endif %}
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Subir archivo</label>
-                        <input type="file" name="photo_file" class="form-control" accept="image/*,.pdf">
+                    <div class="form-group-field">
+                        <label>Alto (cm)</label>
+                        <input type="number" name="height_cm" class="form-control" step="0.01" min="0" value="{{ product.height_cm or '' }}">
                     </div>
-                    <div class="form-group">
-                        <label>O URL de imagen / archivo</label>
-                        <input type="text" name="photo_url" class="form-control" value="{{ product.photo_url or '' }}" placeholder="https://ejemplo.com/archivo.pdf">
+                    <div class="form-group-field">
+                        <label>Profundidad (cm)</label>
+                        <input type="number" name="depth_cm" class="form-control" step="0.01" min="0" value="{{ product.depth_cm or '' }}">
+                    </div>
+                </div>
+
+                <div class="form-group-field">
+                    <label><i class="fa-solid fa-camera"></i> Foto o Archivo Adjunto</label>
+                    {% if product.photo_url and product.photo_url.startswith('/uploads/') %}
+                        <div class="current-photo" style="margin-bottom: 10px;">
+                            <img src="{{ product.photo_url }}" alt="Foto actual" style="max-width: 150px; border-radius: 6px; border: 1px solid var(--border-color);">
+                            <p style="margin: 4px 0 0 0; font-size: 11px; color: var(--text-muted);">Foto actual del producto</p>
+                        </div>
+                    {% elif product.photo_url %}
+                        <div class="current-photo" style="margin-bottom: 10px;">
+                            <p style="margin: 0; font-size: 12px; color: var(--text-muted);">URL actual: <a href="{{ product.photo_url }}" target="_blank">{{ product.photo_url }}</a></p>
+                        </div>
+                    {% endif %}
+                    <div class="form-grid-2">
+                        <div>
+                            <label style="font-size: 12px; color: var(--text-muted);">Subir nuevo archivo</label>
+                            <input type="file" name="photo_file" class="form-control" accept="image/*,.pdf">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: var(--text-muted);">O URL de imagen / archivo</label>
+                            <input type="text" name="photo_url" class="form-control" value="{{ product.photo_url or '' }}" placeholder="https://ejemplo.com/archivo.pdf">
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="form-row" style="margin-bottom: 16px;">
-                <div class="form-group">
-                    <label>Ancho (cm)</label>
-                    <input type="number" name="width_cm" class="form-control" step="0.01" min="0" value="{{ product.width_cm or '' }}">
-                </div>
-                <div class="form-group">
-                    <label>Alto (cm)</label>
-                    <input type="number" name="height_cm" class="form-control" step="0.01" min="0" value="{{ product.height_cm or '' }}">
-                </div>
-                <div class="form-group">
-                    <label>Profundidad (cm)</label>
-                    <input type="number" name="depth_cm" class="form-control" step="0.01" min="0" value="{{ product.depth_cm or '' }}">
-                </div>
-            </div>
-
-            <div class="form-actions" style="display: flex; gap: 12px; margin-top: 20px;">
-                <a href="{{ url_for('inventario.productos') }}" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 10px 18px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fff; color: #4a5568; font-weight: 600;">
+            <!-- BOTONES DE ACCIÓN -->
+            <div class="form-actions" style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                <a href="{{ url_for('inventario.productos') }}" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
                     <i class="fa-solid fa-arrow-left"></i>
                     <span>Volver sin Guardar</span>
                 </a>
-                <button type="submit" class="btn-primary" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 6px; background: #0070d2; color: #fff; border: none; font-weight: 600; cursor: pointer;">
+                <button type="submit" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-floppy-disk"></i>
                     <span>Guardar Cambios</span>
                 </button>

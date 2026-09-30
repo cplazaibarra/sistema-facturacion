@@ -34,3 +34,6 @@ cookies.txt
 /uploads/
 backups/
 static/uploads/
+*.sql
+.~lock.*
+

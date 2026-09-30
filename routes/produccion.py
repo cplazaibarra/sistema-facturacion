@@ -2,25 +2,97 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from datetime import datetime, timezone
 import json
 from db import get_connection, get_page_data, set_page_data, list_products, list_production_orders
+from security import require_permission
 
 produccion_bp = Blueprint('produccion', __name__)
 
+
+@produccion_bp.before_request
+def _require_inventory_permission_for_production():
+    @require_permission('inventario')
+    def _authorized():
+        return None
+    return _authorized()
+
 @produccion_bp.route('/produccion')
 def list_ots():
-    """Listar órdenes de trabajo (OT)"""
-    ots = list_production_orders()
+    """Listar órdenes de trabajo (OT) con paginación server-side, búsqueda y disponibilidad de materiales en lote."""
+    from db import get_production_orders_paginated, get_material_availability_for_orders
+
+    status_filter = request.args.get('status', 'all').strip()
+    search_query = request.args.get('search', '').strip()
+    
+    try:
+        page = int(request.args.get('page', 1))
+    except (ValueError, TypeError):
+        page = 1
+
+    try:
+        per_page = int(request.args.get('per_page', 25))
+    except (ValueError, TypeError):
+        per_page = 25
+
+    # 1. Obtener OTs paginadas server-side
+    paginated_result = get_production_orders_paginated(
+        page=page,
+        per_page=per_page,
+        search=search_query,
+        status=status_filter
+    )
+    ots = paginated_result["items"]
+
+    # 2. Identificar OTs en 'Borrador' de la página activa para calcular disponibilidad en BATCH (0 N+1)
+    draft_ot_ids = [ot['id'] for ot in ots if ot.get('status') == 'Borrador']
+    availabilities = {}
+    if draft_ot_ids:
+        availabilities = get_material_availability_for_orders(draft_ot_ids)
+
+    # 3. Enriquecer las OTs de la página activa
+    for ot in ots:
+        if ot.get('status') == 'Borrador':
+            avail = availabilities.get(ot['id'], {
+                "is_complete": True,
+                "status_label": "Stock disponible",
+                "materials": [],
+                "missing_materials": []
+            })
+            ot['is_complete'] = avail['is_complete']
+            ot['status_label'] = avail['status_label']
+            ot['missing_materials'] = avail.get('missing_materials', [])
+            ot['materials_availability'] = avail.get('materials', [])
+        else:
+            ot['is_complete'] = True
+            ot['status_label'] = 'Stock disponible'
+            ot['missing_materials'] = []
+            ot['materials_availability'] = []
+
     products = list_products()
     input_products = [p for p in products if p.get('product_type', 'Final') == 'Insumo']
-    return render_template('produccion.html', ots=ots, input_products=input_products)
+    return render_template(
+        'produccion.html',
+        ots=ots,
+        pagination=paginated_result,
+        total_ots=paginated_result["total"],
+        all_ots_count=paginated_result["total"],
+        current_status=status_filter,
+        search_query=search_query,
+        per_page=paginated_result["per_page"],
+        current_page=paginated_result["page"],
+        total_pages=paginated_result["total_pages"],
+        input_products=input_products
+    )
 
 @produccion_bp.route('/produccion/nueva', methods=['GET', 'POST'])
 def nueva_ot():
-    """Crear una nueva Orden de Trabajo"""
-    from db import get_connection
+    """Crear una nueva Orden de Trabajo (en estado Solicitada o Borrador)."""
+    from db import get_connection, create_production_order
+    from repositories.inventory_repo import get_relational_stock
+
     if request.method == 'POST':
-        final_product_id = int(request.form.get('final_product_id'))
+        final_product_id = int(request.form.get('final_product_id', 0))
         quantity = int(request.form.get('quantity', 0))
         notes = request.form.get('notes', '').strip()
+        action_type = request.form.get('action', 'solicitar').strip()  # 'draft' | 'solicitar'
         
         if not final_product_id or quantity <= 0:
             flash("Debe seleccionar un producto final y una cantidad válida.", "danger")
@@ -36,6 +108,7 @@ def nueva_ot():
                     JOIN product_recipes pr ON pri.recipe_id = pr.id
                     JOIN products p ON pri.input_product_id = p.id
                     WHERE pr.final_product_id = %s
+                    ORDER BY pri.id ASC
                     """,
                     (final_product_id,)
                 )
@@ -44,58 +117,35 @@ def nueva_ot():
                     flash("El producto seleccionado no tiene una receta definida.", "danger")
                     return redirect(url_for('produccion.nueva_ot'))
 
-                # Validar stock disponible de insumos
-                inventory_items = get_page_data("inventory_items") or []
-                stock_map = {item.get("code"): float(item.get("stock", 0.0) or 0.0) for item in inventory_items if item.get("code")}
-                insufficient = []
-                for row in recipe_items:
-                    req_qty = float(row["quantity_required"]) * quantity
-                    avail_qty = stock_map.get(row["sku"], 0.0)
-                    if avail_qty < req_qty:
-                        faltan = req_qty - avail_qty
-                        insufficient.append(f"{row['name']} (Faltan {faltan:g} un)")
+                # Si es para SOLICITAR fabricación inmediata, validar stock disponible oficial
+                if action_type != 'draft':
+                    insufficient = []
+                    for row in recipe_items:
+                        req_qty = float(row["quantity_required"]) * quantity
+                        avail_qty = get_relational_stock(row["input_product_id"], conn=conn)
+                        if avail_qty < req_qty:
+                            faltan = req_qty - avail_qty
+                            insufficient.append(f"{row['name']} (Faltan {faltan:g} un)")
 
-                if insufficient:
-                    flash(f"No se puede solicitar fabricación porque falta stock de insumos: {', '.join(insufficient)}", "danger")
-                    return redirect(url_for('produccion.nueva_ot'))
+                    if insufficient:
+                        flash(f"No se puede solicitar fabricación porque falta stock de insumos: {', '.join(insufficient)}. Puede guardarla como Borrador para planificarla.", "danger")
+                        return redirect(url_for('produccion.nueva_ot'))
 
-                # Generar ot_number con secuencia atómica
-                from db import get_next_ot_number
-                ot_number = get_next_ot_number(conn=conn)
-                
-                # Insertar OT
-                cur.execute(
-                    """
-                    INSERT INTO production_orders (ot_number, final_product_id, quantity, status, notes, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                    """,
-                    (
-                        ot_number,
-                        final_product_id,
-                        quantity,
-                        "Solicitada",
-                        notes,
-                        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    )
-                )
-                ot_id = cur.fetchone()["id"]
-                
-                # Insertar insumos requeridos basados en receta
-                for row in recipe_items:
-                    inp_id = row["input_product_id"]
-                    unit_qty = row["quantity_required"]
-                    total_qty_req = unit_qty * quantity
-                    cur.execute(
-                        """
-                        INSERT INTO production_order_items (production_order_id, input_product_id, quantity_required)
-                        VALUES (%s, %s, %s)
-                        """,
-                        (ot_id, inp_id, total_qty_req)
-                    )
-            conn.commit()
-            
-        flash(f"Solicitud de Fabricación {ot_number} creada correctamente.", "success")
+        # Crear OT usando repositorio unificado
+        target_status = "Borrador" if action_type == 'draft' else "Solicitada"
+        scheduled_date_raw = request.form.get('scheduled_date', '').strip() or None
+        ot_id, ot_number = create_production_order(
+            final_product_id=final_product_id,
+            quantity=quantity,
+            notes=notes,
+            status=target_status,
+            scheduled_date=scheduled_date_raw
+        )
+
+        if target_status == "Borrador":
+            flash(f"Orden de Trabajo {ot_number} guardada como Borrador correctamente.", "success")
+        else:
+            flash(f"Solicitud de Fabricación {ot_number} creada correctamente.", "success")
         return redirect(url_for('produccion.list_ots'))
         
     # Cargar sólo productos finales que tienen receta definida
@@ -192,7 +242,238 @@ def crear_producto_rapido():
             return jsonify({"status": "error", "message": f"El SKU '{sku}' ya está registrado en la base de datos."}), 400
         return jsonify({"status": "error", "message": f"Error al guardar producto: {err_msg}"}), 400
 
+@produccion_bp.route('/produccion/ot/<int:ot_id>/activar', methods=['POST'])
+def activar_ot(ot_id):
+    """Activar una Orden de Trabajo en estado Borrador si cuenta con stock real suficiente."""
+    from db import activate_draft_production_order
+
+    ok, msg, detail = activate_draft_production_order(ot_id)
+    if ok:
+        flash(msg, "success")
+    else:
+        flash(f"⚠️ {msg}", "danger")
+    return redirect(url_for('produccion.list_ots'))
+
+
+@produccion_bp.route('/produccion/ot/<int:ot_id>/editar', methods=['GET', 'POST'])
+def editar_ot(ot_id):
+    """Editar una Orden de Trabajo en estado Borrador."""
+    from db import (
+        get_production_order_by_id,
+        update_draft_production_order,
+        get_ot_material_availability,
+        get_connection,
+        list_products
+    )
+
+    ot = get_production_order_by_id(ot_id)
+    if not ot:
+        flash("Orden de Trabajo no encontrada.", "danger")
+        return redirect(url_for('produccion.list_ots'))
+
+    if ot["status"] != "Borrador":
+        flash(f"Solo se pueden editar Órdenes de Trabajo en estado Borrador. Estado actual: {ot['status']}", "warning")
+        return redirect(url_for('produccion.list_ots'))
+
+    if request.method == 'POST':
+        final_product_id = int(request.form.get('final_product_id', ot["final_product_id"]))
+        quantity = int(request.form.get('quantity', 0))
+        notes = request.form.get('notes', '').strip()
+        scheduled_date_raw = request.form.get('scheduled_date', '').strip() or None
+        schedule_order_raw = request.form.get('schedule_order', '').strip()
+        order_val = int(schedule_order_raw) if schedule_order_raw and schedule_order_raw.isdigit() else None
+
+        ok, msg = update_draft_production_order(
+            ot_id=ot_id,
+            final_product_id=final_product_id,
+            quantity=quantity,
+            notes=notes,
+            scheduled_date=scheduled_date_raw,
+            schedule_order=order_val,
+            update_schedule=True
+        )
+        if ok:
+            flash(f"Orden de Trabajo {ot['ot_number']} actualizada exitosamente.", "success")
+            return redirect(url_for('produccion.list_ots'))
+        else:
+            flash(f"Error al actualizar la OT: {msg}", "danger")
+
+    # Cargar disponibilidad dinámica actual de materiales
+    avail = get_ot_material_availability(ot_id)
+    ot["materials_availability"] = avail["materials"]
+    ot["is_complete"] = avail["is_complete"]
+    ot["status_label"] = avail["status_label"]
+
+    # Cargar productos finales con receta
+    final_products = []
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT p.id, p.sku, p.name
+                FROM products p
+                JOIN product_recipes pr ON p.id = pr.final_product_id
+                WHERE p.product_type IN ('Final', 'Producto Terminado')
+                """
+            )
+            final_products = [dict(row) for row in cur.fetchall()]
+
+    return render_template('editar_ot.html', ot=ot, final_products=final_products)
+
+
+@produccion_bp.route('/produccion/ot/<int:ot_id>/eliminar', methods=['POST'])
+def eliminar_ot(ot_id):
+    """Eliminar o cancelar una Orden de Trabajo en estado Borrador."""
+    from db import cancel_draft_production_order
+
+    ok, msg = cancel_draft_production_order(ot_id)
+    if ok:
+        flash(msg, "success")
+    else:
+        flash(f"⚠️ {msg}", "danger")
+    return redirect(url_for('produccion.list_ots'))
+
+
+@produccion_bp.route('/api/produccion/ot/<int:ot_id>/disponibilidad')
+def api_ot_disponibilidad(ot_id):
+    """API para consultar disponibilidad dinámica de materiales de una OT."""
+    from db import get_ot_material_availability, get_production_order_by_id
+
+    ot = get_production_order_by_id(ot_id)
+    if not ot:
+        return jsonify({"error": "Orden de Trabajo no encontrada"}), 404
+
+    avail = get_ot_material_availability(ot_id)
+    return jsonify({
+        "ot_id": ot_id,
+        "ot_number": ot["ot_number"],
+        "status": ot["status"],
+        "is_complete": avail["is_complete"],
+        "status_label": avail["status_label"],
+        "materials": avail["materials"]
+    })
+
+
+@produccion_bp.route('/produccion/calendario')
+def calendario_produccion():
+    """Vista de Calendario y Programación Semanal de Órdenes de Trabajo."""
+    from datetime import datetime, timedelta
+    from db import list_scheduled_production_orders, list_unscheduled_production_orders
+
+    # Obtener fecha de referencia (?date=YYYY-MM-DD), default hoy
+    ref_date_str = request.args.get('date', '').strip()
+    try:
+        if ref_date_str:
+            ref_date = datetime.strptime(ref_date_str, "%Y-%m-%d").date()
+        else:
+            ref_date = datetime.now().date()
+    except ValueError:
+        ref_date = datetime.now().date()
+
+    # Calcular lunes y domingo de la semana (ISO 8601: lunes=0 ... domingo=6)
+    start_of_week = ref_date - timedelta(days=ref_date.weekday())
+    end_of_week = start_of_week + timedelta(days=6)
+
+    # Navegación
+    prev_week_date = start_of_week - timedelta(days=7)
+    next_week_date = start_of_week + timedelta(days=7)
+    today_date = datetime.now().date()
+
+    # Meses en español
+    MESES_ES = [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ]
+    DIAS_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+
+    # Etiqueta de la semana: ej "21 - 27 Septiembre 2026"
+    if start_of_week.month == end_of_week.month:
+        week_label = f"{start_of_week.day} - {end_of_week.day} {MESES_ES[start_of_week.month - 1]} {start_of_week.year}"
+    else:
+        week_label = f"{start_of_week.day} {MESES_ES[start_of_week.month - 1]} - {end_of_week.day} {MESES_ES[end_of_week.month - 1]} {end_of_week.year}"
+
+    start_str = start_of_week.strftime("%Y-%m-%d")
+    end_str = end_of_week.strftime("%Y-%m-%d")
+
+    # Obtener OTs programadas de esa semana con filtrado backend SQL
+    scheduled_ots = list_scheduled_production_orders(start_str, end_str)
+
+    # Agrupar por día de la semana
+    days_data = []
+    for i in range(7):
+        current_day = start_of_week + timedelta(days=i)
+        day_iso = current_day.strftime("%Y-%m-%d")
+        day_ots = [ot for ot in scheduled_ots if str(ot.get("scheduled_date")) == day_iso]
+        days_data.append({
+            "date_iso": day_iso,
+            "day_name": DIAS_ES[i],
+            "day_number": current_day.day,
+            "is_today": (current_day == today_date),
+            "is_weekend": (i >= 5),
+            "ots": day_ots
+        })
+
+    # OTs sin programar
+    unscheduled_ots = list_unscheduled_production_orders()
+
+    status_filter = request.args.get('status', 'all').strip()
+    availability_filter = request.args.get('availability', 'all').strip()
+
+    return render_template(
+        'calendario_produccion.html',
+        days_data=days_data,
+        unscheduled_ots=unscheduled_ots,
+        week_label=week_label,
+        start_date=start_str,
+        end_date=end_str,
+        prev_week=prev_week_date.strftime("%Y-%m-%d"),
+        next_week=next_week_date.strftime("%Y-%m-%d"),
+        today=today_date.strftime("%Y-%m-%d"),
+        current_date_str=ref_date.strftime("%Y-%m-%d"),
+        status_filter=status_filter,
+        availability_filter=availability_filter
+    )
+
+
+@produccion_bp.route('/api/produccion/ot/<int:ot_id>/programar', methods=['POST'])
+def api_programar_ot(ot_id):
+    """
+    API para programar, reprogramar o desprogramar una OT.
+    Acepta JSON o form data:
+    {
+        "scheduled_date": "YYYY-MM-DD" | null,
+        "schedule_order": integer | null
+    }
+    """
+    from db import set_production_order_schedule
+
+    data = request.get_json(silent=True) or request.form
+    scheduled_date = data.get("scheduled_date")
+    schedule_order = data.get("schedule_order")
+
+    if schedule_order is not None and str(schedule_order).strip() != "":
+        try:
+            schedule_order = int(schedule_order)
+        except (ValueError, TypeError):
+            schedule_order = None
+    else:
+        schedule_order = None
+
+    ok, msg, detail = set_production_order_schedule(
+        ot_id=ot_id,
+        scheduled_date=scheduled_date,
+        schedule_order=schedule_order
+    )
+
+    if not ok:
+        return jsonify({"success": False, "message": msg}), 400
+
+    return jsonify({"success": True, "message": msg, "detail": detail})
+
+
+
 @produccion_bp.route('/produccion/ot/<int:ot_id>/aprobar', methods=['POST'])
+@require_permission('aprobar_registros')
 def aprobar_ot(ot_id):
     """Aprobar Orden de Trabajo y Reservar Stock"""
     from db import get_connection
@@ -213,6 +494,17 @@ def aprobar_ot(ot_id):
 @produccion_bp.route('/produccion/ot/<int:ot_id>/finalizar', methods=['POST'])
 def finalizar_ot(ot_id):
     """Finalizar Orden de Trabajo: Descontar insumos e incrementar producto terminado"""
+    try:
+        return _finalizar_ot_transaction(ot_id)
+    except ValueError as exc:
+        # La conexión transaccional ya hizo rollback, incluso si otra OT
+        # agotó un lote mientras esta operación esperaba el lock FIFO.
+        flash(f"No se pudo finalizar la Orden de Trabajo: {exc}", "danger")
+        return redirect(url_for('produccion.list_ots'))
+
+
+def _finalizar_ot_transaction(ot_id):
+    """Unidad atómica: consumos FIFO, genealogía, costos y producto terminado."""
     from db import get_connection
     
     with get_connection() as conn:
@@ -277,28 +569,35 @@ def finalizar_ot(ot_id):
             inventory_items = json.loads(pd_row["json"]) if pd_row and pd_row["json"] else []
             inv_map = {item["code"]: item for item in inventory_items if item.get("code")}
             
+            from db import get_current_ppp
             total_manufacturing_cost = 0.0
-            
-            # Descontar insumos planificados
+
+            # Descontar insumos planificados al PPP vigente previo a la salida
             for item in items:
                 sku = item["input_sku"]
                 qty = item["quantity_required"]
+                input_pid = item["input_product_id"]
                 if sku in inv_map:
                     inv_map[sku]["stock"] = max(0.0, inv_map[sku]["stock"] - qty)
-                cost_unit = float(item["input_cost"] or 0.0)
+                ppp_val = get_current_ppp(input_pid, conn=conn)
+                cost_unit = float(ppp_val if ppp_val is not None and ppp_val > 0 else (item.get("input_cost") or 0.0))
+                item["effective_unit_cost"] = cost_unit
                 total_manufacturing_cost += cost_unit * qty
                 cur.execute(
                     "UPDATE production_order_items SET unit_cost = %s WHERE id = %s",
                     (cost_unit, item["id"])
                 )
-                    
-            # Descontar insumos adicionales
+
+            # Descontar insumos adicionales al PPP vigente previo a la salida
             for item in add_items:
                 sku = item["input_sku"]
                 qty = item["quantity"]
+                input_pid = item["input_product_id"]
                 if sku in inv_map:
                     inv_map[sku]["stock"] = max(0.0, inv_map[sku]["stock"] - qty)
-                cost_unit = float(item["input_cost"] or 0.0)
+                ppp_val = get_current_ppp(input_pid, conn=conn)
+                cost_unit = float(ppp_val if ppp_val is not None and ppp_val > 0 else (item.get("input_cost") or 0.0))
+                item["effective_unit_cost"] = cost_unit
                 total_manufacturing_cost += cost_unit * qty
                 cur.execute(
                     "UPDATE production_order_additional_items SET unit_cost = %s WHERE id = %s",
@@ -385,7 +684,7 @@ def finalizar_ot(ot_id):
             for item in items:
                 input_pid = item["input_product_id"]
                 qty_needed = float(item["quantity_required"])
-                cost_u = float(item["input_cost"] or 0.0)
+                cost_u = float(item.get("effective_unit_cost") if item.get("effective_unit_cost") is not None else (item.get("input_cost") or 0.0))
 
                 cur.execute("SELECT requires_lot, name FROM products WHERE id = %s", (input_pid,))
                 p_info = cur.fetchone()
@@ -434,7 +733,7 @@ def finalizar_ot(ot_id):
             for item in add_items:
                 input_pid = item["input_product_id"]
                 qty_needed = float(item["quantity"])
-                cost_u = float(item["input_cost"] or 0.0)
+                cost_u = float(item.get("effective_unit_cost") if item.get("effective_unit_cost") is not None else (item.get("input_cost") or 0.0))
 
                 cur.execute("SELECT requires_lot, name FROM products WHERE id = %s", (input_pid,))
                 p_info = cur.fetchone()
@@ -589,39 +888,39 @@ def adicionar_insumo(ot_id):
 
 @produccion_bp.route('/produccion/recetas')
 def list_recetas():
-    """Listar recetas de producción"""
-    from db import get_connection
-    recipes = []
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT pr.id, pr.created_at, pr.recipe_code, p.sku as final_sku, p.name as final_name,
-                       p.line, p.variety, p.format_capacity
-                FROM product_recipes pr
-                JOIN products p ON pr.final_product_id = p.id
-                ORDER BY pr.id ASC
-                """
-            )
-            rows = cur.fetchall()
-            for r in rows:
-                recipe_id = r["id"]
-                cur.execute(
-                    """
-                    SELECT pri.quantity_required, pri.unit, pri.notes, p.sku as input_sku, p.name as input_name
-                    FROM product_recipe_items pri
-                    JOIN products p ON pri.input_product_id = p.id
-                    WHERE pri.recipe_id = %s
-                    ORDER BY pri.id ASC
-                    """,
-                    (recipe_id,)
-                )
-                items = [dict(row) for row in cur.fetchall()]
-                r_dict = dict(r)
-                r_dict["items"] = items
-                recipes.append(r_dict)
-                
-    return render_template('recetas.html', recipes=recipes)
+    """Listar recetas de producción con paginación server-side y carga batch (0 consultas N+1)"""
+    from db import get_recipes_paginated
+
+    search_query = request.args.get('search', '').strip()
+    try:
+        current_page = int(request.args.get('page', 1))
+        if current_page < 1:
+            current_page = 1
+    except (ValueError, TypeError):
+        current_page = 1
+
+    try:
+        per_page = int(request.args.get('per_page', 25))
+        if per_page not in (25, 50, 100):
+            per_page = 25
+    except (ValueError, TypeError):
+        per_page = 25
+
+    paginated = get_recipes_paginated(
+        page=current_page,
+        per_page=per_page,
+        search=search_query
+    )
+
+    return render_template(
+        'recetas.html',
+        recipes=paginated["items"],
+        current_page=paginated["page"],
+        per_page=paginated["per_page"],
+        total_pages=paginated["total_pages"],
+        total_recipes=paginated["total"],
+        search_query=search_query
+    )
 
 @produccion_bp.route('/produccion/recetas/nueva', methods=['GET', 'POST'])
 def nueva_receta():
@@ -821,7 +1120,7 @@ def get_product_recipe(product_id):
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT pri.quantity_required, pri.unit, pri.notes, p.sku as input_sku, p.name as input_name
+                SELECT pri.input_product_id, pri.quantity_required, pri.unit, pri.notes, p.sku as input_sku, p.name as input_name
                 FROM product_recipe_items pri
                 JOIN product_recipes pr ON pri.recipe_id = pr.id
                 JOIN products p ON pri.input_product_id = p.id
@@ -835,10 +1134,8 @@ def get_product_recipe(product_id):
     if not items:
         return jsonify({"error": "Receta no encontrada"}), 404
         
-    # Obtener stock físico actual y calcular distribución por bodegas
-    inventory_items = get_page_data("inventory_items") or []
-    stock_map = {item["code"]: float(item.get("stock", 0.0)) for item in inventory_items}
-    
+    from repositories.inventory_repo import get_relational_stock
+
     # Obtener distribución histórica por bodega
     warehouse_distribution = {}
     with get_connection() as conn:
@@ -860,10 +1157,18 @@ def get_product_recipe(product_id):
                     warehouse_distribution[sku] = {}
                 warehouse_distribution[sku][warehouse] = qty
     
+    from repositories.kardex_repo import get_current_ppp
+
     for item in items:
         sku = item["input_sku"]
-        current_stock = stock_map.get(sku, 0.0)
+        current_stock = get_relational_stock(item["input_product_id"])
         item["stock"] = current_stock
+
+        # PPP vigente del insumo (para estimación de costo en vista previa de OT)
+        try:
+            item["ppp_actual"] = get_current_ppp(item["input_product_id"])
+        except Exception:
+            item["ppp_actual"] = 0.0
         
         # Calcular distribución para el insumo
         dist_map = warehouse_distribution.get(sku, {})

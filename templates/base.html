@@ -14,11 +14,12 @@
     {% block extra_css %}{% endblock %}
     <script>
         (function() {
-            if (localStorage.getItem("sidebar-collapsed") === "true") {
+            if (window.matchMedia("(max-width: 768px)").matches || localStorage.getItem("sidebar-collapsed") === "true") {
                 document.documentElement.classList.add("sidebar-collapsed");
             }
         })();
     </script>
+    <script defer src="{{ url_for('static', filename='js/navigation_search.js') }}"></script>
 </head>
 <body>
     <div class="container">
@@ -30,10 +31,16 @@
             </div>
             
             <nav class="nav-menu">
+                <!-- Dashboard -->
+                {% if session.get('permissions', {}).get('dashboard') %}
                 <a href="{{ url_for('dashboard.dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}">
                     <span class="icon"><i class="fa-solid fa-chart-pie"></i></span>
                     <span>Dashboard</span>
                 </a>
+                {% endif %}
+
+                <!-- 1. Ventas y Clientes -->
+                {% if session.get('permissions', {}).get('ventas') %}
                 <div class="nav-section">
                     <button class="nav-item nav-toggle {% if request.endpoint in ['ventas.ventas', 'ventas.cotizaciones', 'usuarios.listas_precios', 'ventas.clientes'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
                         <span class="icon"><i class="fa-solid fa-hand-holding-dollar"></i></span>
@@ -42,7 +49,7 @@
                     </button>
                     <div class="nav-submenu {% if request.endpoint in ['ventas.ventas', 'ventas.cotizaciones', 'usuarios.listas_precios', 'ventas.clientes'] %}open{% endif %}">
                         <a href="{{ url_for('ventas.ventas') }}" class="nav-item nav-subitem {% if request.endpoint == 'ventas.ventas' %}active{% endif %}">
-                            <span>Ventas</span>
+                            <span>Ventas Realizadas</span>
                         </a>
                         <a href="{{ url_for('ventas.cotizaciones') }}" class="nav-item nav-subitem {% if request.endpoint == 'ventas.cotizaciones' %}active{% endif %}">
                             <span>Cotizaciones</span>
@@ -55,34 +62,39 @@
                         </a>
                     </div>
                 </div>
+                {% endif %}
+
+                <!-- 2. Bodega & Inventario -->
+                {% if session.get('permissions', {}).get('inventario') %}
                 <div class="nav-section">
-                    <button class="nav-item nav-toggle {% if request.endpoint in ['inventario.inventario', 'inventario.productos', 'inventario.nuevo_producto', 'inventario.editar_producto', 'produccion.list_ots', 'produccion.nueva_ot', 'inventario.ingreso_mercaderia'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['inventario.inventario', 'inventario.ingreso_mercaderia', 'inventario.ajustes_inventario', 'inventario.nuevo_ajuste_inventario', 'inventario.detalle_ajuste_inventario', 'trazabilidad.view_trazabilidad'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
                         <span class="icon"><i class="fa-solid fa-boxes-stacked"></i></span>
                         <span>Bodega</span>
                         <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
-                    <div class="nav-submenu {% if request.endpoint in ['inventario.inventario', 'inventario.productos', 'inventario.nuevo_producto', 'inventario.editar_producto', 'produccion.list_ots', 'produccion.nueva_ot', 'inventario.ingreso_mercaderia'] %}open{% endif %}">
+                    <div class="nav-submenu {% if request.endpoint in ['inventario.inventario', 'inventario.ingreso_mercaderia', 'inventario.ajustes_inventario', 'inventario.nuevo_ajuste_inventario', 'inventario.detalle_ajuste_inventario', 'trazabilidad.view_trazabilidad'] %}open{% endif %}">
                         <a href="{{ url_for('inventario.inventario') }}" class="nav-item nav-subitem {% if request.endpoint == 'inventario.inventario' %}active{% endif %}">
                             <span>Stock / Inventario</span>
                         </a>
-                        <a href="{{ url_for('inventario.productos') }}" class="nav-item nav-subitem {% if request.endpoint in ['inventario.productos', 'inventario.nuevo_producto', 'inventario.editar_producto'] %}active{% endif %}">
-                            <span>Productos</span>
-                        </a>
-                        <a href="{{ url_for('produccion.list_ots') }}" class="nav-item nav-subitem {% if request.endpoint in ['produccion.list_ots', 'produccion.nueva_ot'] %}active{% endif %}">
-                            <span>Fabricación</span>
-                        </a>
                         <a href="{{ url_for('inventario.ingreso_mercaderia') }}" class="nav-item nav-subitem {% if request.endpoint == 'inventario.ingreso_mercaderia' %}active{% endif %}">
                             <span>Ingreso Mercadería</span>
+                        </a>
+                        <a href="/inventario/ajustes" class="nav-item nav-subitem {% if request.endpoint in ['inventario.ajustes_inventario', 'inventario.nuevo_ajuste_inventario', 'inventario.detalle_ajuste_inventario'] %}active{% endif %}">
+                            <span>Ajustes de Inventario</span>
                         </a>
                         <a href="{{ url_for('trazabilidad.view_trazabilidad') }}" class="nav-item nav-subitem {% if request.endpoint == 'trazabilidad.view_trazabilidad' %}active{% endif %}">
                             <span>Trazabilidad de Lotes</span>
                         </a>
                     </div>
                 </div>
+                {% endif %}
+
+                <!-- 3. Compras -->
+                {% if session.get('permissions', {}).get('inventario') %}
                 <div class="nav-section">
                     <button class="nav-item nav-toggle {% if request.endpoint in ['compras.list_oc', 'compras.nueva_oc', 'compras.editar_oc', 'compras.cuentas_por_pagar', 'compras.productos_comprados', 'proveedores.proveedores', 'proveedores.ver_proveedor', 'proveedores.editar_proveedor', 'proveedores.agregar_contacto', 'proveedores.editar_contacto'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
                         <span class="icon"><i class="fa-solid fa-cart-shopping"></i></span>
-                        <span>Compra</span>
+                        <span>Compras</span>
                         <span id="badge-facturas" style="display:none;background:#e53e3e;color:#fff;border-radius:12px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:4px;min-width:18px;text-align:center;"></span>
                         <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
@@ -102,32 +114,73 @@
                         </a>
                     </div>
                 </div>
+                {% endif %}
+
+                <!-- 4. Catálogo de Productos -->
+                {% if session.get('permissions', {}).get('productos') %}
                 <div class="nav-section">
-                    <button class="nav-item nav-toggle {% if request.endpoint in ['usuarios.cuentas_bancarias', 'usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
-                        <span class="icon"><i class="fa-solid fa-sliders"></i></span>
-                        <span>Administración</span>
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['inventario.productos', 'inventario.nuevo_producto', 'inventario.editar_producto', 'inventario.ver_kardex', 'inventario.ver_kardex_producto'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                        <span class="icon"><i class="fa-solid fa-box-open"></i></span>
+                        <span>Productos</span>
                         <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
-                    <div class="nav-submenu {% if request.endpoint in ['usuarios.cuentas_bancarias', 'usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol'] %}open{% endif %}">
-                        <a href="{{ url_for('usuarios.cuentas_bancarias') }}" class="nav-item nav-subitem {% if request.endpoint == 'usuarios.cuentas_bancarias' %}active{% endif %}">
-                            <span>Cuentas Bancarias</span>
+                    <div class="nav-submenu {% if request.endpoint in ['inventario.productos', 'inventario.nuevo_producto', 'inventario.editar_producto', 'inventario.ver_kardex', 'inventario.ver_kardex_producto'] %}open{% endif %}">
+                        <a href="{{ url_for('inventario.productos') }}" class="nav-item nav-subitem {% if request.endpoint in ['inventario.productos', 'inventario.nuevo_producto', 'inventario.editar_producto'] %}active{% endif %}">
+                            <span>Catálogo de Productos</span>
                         </a>
-                        <a href="{{ url_for('usuarios.usuarios') }}" class="nav-item nav-subitem {% if request.endpoint in ['usuarios.usuarios', 'usuarios.crear_usuario', 'usuarios.editar_usuario'] %}active{% endif %}">
-                            <span>Usuarios</span>
-                        </a>
-                        <a href="{{ url_for('usuarios.roles') }}" class="nav-item nav-subitem {% if request.endpoint in ['usuarios.roles', 'usuarios.crear_rol', 'usuarios.editar_rol'] %}active{% endif %}">
-                            <span>Roles y Permisos</span>
+                        <a href="{{ url_for('inventario.ver_kardex') }}" class="nav-item nav-subitem {% if request.endpoint in ['inventario.ver_kardex', 'inventario.ver_kardex_producto'] %}active{% endif %}">
+                            <span>Kardex Valorizado / PPP</span>
                         </a>
                     </div>
                 </div>
-                
+                {% endif %}
+
+                <!-- 5. Producción / Fabricación -->
+                {% if session.get('permissions', {}).get('inventario') %}
                 <div class="nav-section">
-                    <button class="nav-item nav-toggle {% if request.endpoint in ['ventas.proyeccion_ventas', 'reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos', 'reportes.reportes_flujo_caja', 'reportes.reportes_inventario_lotes'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
-                        <span class="icon"><i class="fa-solid fa-chart-column"></i></span>
-                        <span>Reportería</span>
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['produccion.list_ots', 'produccion.nueva_ot', 'produccion.editar_ot', 'produccion.calendario_produccion', 'produccion.list_recetas'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                        <span class="icon"><i class="fa-solid fa-industry"></i></span>
+                        <span>Producción</span>
                         <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
-                    <div class="nav-submenu {% if request.endpoint in ['ventas.proyeccion_ventas', 'reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos', 'reportes.reportes_flujo_caja', 'reportes.reportes_inventario_lotes'] %}open{% endif %}">
+                    <div class="nav-submenu {% if request.endpoint in ['produccion.list_ots', 'produccion.nueva_ot', 'produccion.editar_ot', 'produccion.calendario_produccion', 'produccion.list_recetas'] %}open{% endif %}">
+                        <a href="{{ url_for('produccion.list_ots') }}" class="nav-item nav-subitem {% if request.endpoint in ['produccion.list_ots', 'produccion.nueva_ot', 'produccion.editar_ot'] %}active{% endif %}">
+                            <span>Órdenes de Trabajo (OT)</span>
+                        </a>
+                        <a href="{{ url_for('produccion.calendario_produccion') }}" class="nav-item nav-subitem {% if request.endpoint == 'produccion.calendario_produccion' %}active{% endif %}">
+                            <span>Programación / Calendario</span>
+                        </a>
+                        <a href="{{ url_for('produccion.list_recetas') }}" class="nav-item nav-subitem {% if request.endpoint == 'produccion.list_recetas' %}active{% endif %}">
+                            <span>Recetas / Fórmulas (BOM)</span>
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 6. Reportería y Análisis -->
+                {% if session.get('permissions', {}).get('reportes') %}
+                <div class="nav-section">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['ventas.proyeccion_ventas', 'reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos', 'reportes.reportes_flujo_caja', 'reportes.reportes_inventario_lotes', 'reportes.reportes_facturas_compras_gastos', 'reportes.reportes_cuentas_por_pagar', 'reportes.reportes_cuentas_por_cobrar', 'reportes.conciliacion_bancaria', 'reportes.finanzas_deudas', 'reportes.detalle_deuda'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                        <span class="icon"><i class="fa-solid fa-chart-column"></i></span>
+                        <span>Finanzas</span>
+                        <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
+                    </button>
+                    <div class="nav-submenu {% if request.endpoint in ['ventas.proyeccion_ventas', 'reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos', 'reportes.reportes_flujo_caja', 'reportes.reportes_inventario_lotes', 'reportes.reportes_facturas_compras_gastos', 'reportes.reportes_cuentas_por_pagar', 'reportes.reportes_cuentas_por_cobrar', 'reportes.conciliacion_bancaria', 'reportes.finanzas_deudas', 'reportes.detalle_deuda'] %}open{% endif %}">
+                        <a href="{{ url_for('reportes.finanzas_deudas') }}" class="nav-item nav-subitem {% if request.endpoint in ['reportes.finanzas_deudas', 'reportes.detalle_deuda'] %}active{% endif %}">
+                            <span>Deudas</span>
+                        </a>
+                        <a href="{{ url_for('reportes.conciliacion_bancaria') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.conciliacion_bancaria' %}active{% endif %}">
+                            <span>Conciliación Bancaria</span>
+                        </a>
+                        <a href="{{ url_for('reportes.reportes_cuentas_por_cobrar') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_cuentas_por_cobrar' %}active{% endif %}">
+                            <span>Cuentas por Cobrar</span>
+                        </a>
+                        <a href="{{ url_for('reportes.reportes_cuentas_por_pagar') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_cuentas_por_pagar' %}active{% endif %}">
+                            <span>Cuentas por Pagar</span>
+                        </a>
+                        <a href="{{ url_for('reportes.reportes_facturas_compras_gastos') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_facturas_compras_gastos' %}active{% endif %}">
+                            <span>Facturas y Gastos</span>
+                        </a>
                         <a href="{{ url_for('reportes.reportes_inventario_lotes') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_inventario_lotes' %}active{% endif %}">
                             <span>Inventario por Lotes</span>
                         </a>
@@ -146,11 +199,34 @@
                         <a href="{{ url_for('reportes.reportes_compras') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_compras' %}active{% endif %}">
                             <span>Compras</span>
                         </a>
-                        <a href="{{ url_for('reportes.reportes_gastos') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_gastos' %}active{% endif %}">
-                            <span>Gastos</span>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 7. Administración y Seguridad -->
+                {% if session.get('permissions', {}).get('administracion') or session.get('permissions', {}).get('usuarios') %}
+                <div class="nav-section">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['usuarios.cuentas_bancarias', 'usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol', 'usuarios.gastos_operacionales', 'usuarios.editar_gasto_operacional', 'usuarios.cambiar_estado_gasto_operacional', 'usuarios.eliminar_gasto_operacional'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                        <span class="icon"><i class="fa-solid fa-sliders"></i></span>
+                        <span>Administración</span>
+                        <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
+                    </button>
+                    <div class="nav-submenu {% if request.endpoint in ['usuarios.cuentas_bancarias', 'usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol', 'usuarios.gastos_operacionales', 'usuarios.editar_gasto_operacional', 'usuarios.cambiar_estado_gasto_operacional', 'usuarios.eliminar_gasto_operacional'] %}open{% endif %}">
+                        <a href="{{ url_for('usuarios.cuentas_bancarias') }}" class="nav-item nav-subitem {% if request.endpoint == 'usuarios.cuentas_bancarias' %}active{% endif %}">
+                            <span>Cuentas Bancarias</span>
+                        </a>
+                        <a href="{{ url_for('usuarios.gastos_operacionales') }}" class="nav-item nav-subitem {% if request.endpoint in ['usuarios.gastos_operacionales', 'usuarios.editar_gasto_operacional', 'usuarios.cambiar_estado_gasto_operacional', 'usuarios.eliminar_gasto_operacional'] %}active{% endif %}">
+                            <span>Gastos Operacionales</span>
+                        </a>
+                        <a href="{{ url_for('usuarios.usuarios') }}" class="nav-item nav-subitem {% if request.endpoint in ['usuarios.usuarios', 'usuarios.crear_usuario', 'usuarios.editar_usuario'] %}active{% endif %}">
+                            <span>Usuarios</span>
+                        </a>
+                        <a href="{{ url_for('usuarios.roles') }}" class="nav-item nav-subitem {% if request.endpoint in ['usuarios.roles', 'usuarios.crear_rol', 'usuarios.editar_rol'] %}active{% endif %}">
+                            <span>Roles y Permisos</span>
                         </a>
                     </div>
                 </div>
+                {% endif %}
             </nav>
             
             <div class="sidebar-footer">
@@ -173,12 +249,18 @@
                     <button class="toggle-sidebar-btn" onclick="toggleSidebar()" title="Ocultar/Mostrar barra lateral">
                         <i class="fa-solid fa-bars"></i>
                     </button>
-                    <h2>{% block page_title %}Dashboard{% endblock %}</h2>
+                    <div>
+                        <div class="breadcrumb-container">
+                            {% block breadcrumbs %}{% endblock %}
+                        </div>
+                        <h2>{% block page_title %}Dashboard{% endblock %}</h2>
+                    </div>
                 </div>
                 <div class="header-right" style="display: flex; align-items: center; gap: 15px;">
-                    <div class="search-box">
-                        <input type="text" placeholder="Buscar...">
-                        <span class="search-icon">🔍</span>
+                    <div class="search-box global-search">
+                        <input id="global-menu-search" type="search" placeholder="Buscar módulo..." aria-label="Buscar módulo" aria-controls="global-menu-results" autocomplete="off">
+                        <span class="search-icon" aria-hidden="true">🔍</span>
+                        <div id="global-menu-results" hidden aria-live="polite"></div>
                     </div>
                     <div class="notification-container">
                         <button class="notification-btn" id="notification-btn" onclick="toggleNotificationDropdown(event)" title="Alertas y Notificaciones">
@@ -205,13 +287,24 @@
             <div class="content">
                 {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
-                <div class="toast-flash-wrapper" id="toast-flash-container">
+                <div class="toast-flash-wrapper" id="toast-flash-container" role="region" aria-live="polite" aria-label="Notificaciones del sistema">
                     {% for category, message in messages %}
-                    <div class="toast-flash-item toast-{{ category }}">
+                    <div class="toast-flash-item toast-{{ category }}" data-category="{{ category }}">
                         <span class="toast-icon">
-                            {% if category == 'success' %}✓{% elif category == 'warning' %}⚠️{% elif category == 'danger' %}✕{% else %}ℹ️{% endif %}
+                            {% if category == 'success' %}
+                                <i class="fa-solid fa-circle-check"></i>
+                            {% elif category == 'warning' %}
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            {% elif category == 'danger' %}
+                                <i class="fa-solid fa-circle-xmark"></i>
+                            {% else %}
+                                <i class="fa-solid fa-circle-info"></i>
+                            {% endif %}
                         </span>
                         <span class="toast-text">{{ message|safe }}</span>
+                        <button type="button" class="toast-close-btn" onclick="this.closest('.toast-flash-item').remove()" title="Cerrar notificación" aria-label="Cerrar">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
                     </div>
                     {% endfor %}
                 </div>
@@ -232,24 +325,54 @@
             flex-direction: column;
             gap: 10px;
             pointer-events: none;
+            max-width: 480px;
         }
         .toast-flash-item {
             pointer-events: auto;
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 12px 20px;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 18px;
             border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
+            font-size: 13.5px;
+            font-weight: 500;
             color: white;
             box-shadow: 0 10px 25px rgba(0,0,0,0.15);
             animation: toastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            line-height: 1.4;
         }
-        .toast-success { background: #10B981; }
-        .toast-warning { background: #F59E0B; }
-        .toast-danger { background: #EF4444; }
-        .toast-info { background: #3B82F6; }
+        .toast-flash-item .toast-icon {
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .toast-flash-item .toast-text {
+            flex-grow: 1;
+        }
+        .toast-flash-item .toast-close-btn {
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.75);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: color 0.15s, background 0.15s;
+            flex-shrink: 0;
+        }
+        .toast-flash-item .toast-close-btn:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.15);
+        }
+        .toast-success { background: #059669; }
+        .toast-warning { background: #d97706; }
+        .toast-danger { background: #dc2626; }
+        .toast-info { background: #2563eb; }
         @keyframes toastSlideIn {
             from { opacity: 0; transform: translateY(-20px) scale(0.95); }
             to { opacity: 1; transform: translateY(0) scale(1); }
@@ -257,25 +380,28 @@
     </style>
 
     <script>
-        // Auto-desvanecer notificaciones toast después de 2.2 segundos sin requerir clic
+        // Auto-desvanecer notificaciones toast respetando criticidad
         (function() {
-            const toastContainer = document.getElementById("toast-flash-container");
-            if (toastContainer) {
-                setTimeout(function() {
-                    toastContainer.style.transition = "opacity 0.4s ease, transform 0.4s ease";
-                    toastContainer.style.opacity = "0";
-                    toastContainer.style.transform = "translateY(-15px)";
-                    setTimeout(function() {
-                        toastContainer.remove();
-                    }, 400);
-                }, 2200);
-            }
+            const toastItems = document.querySelectorAll(".toast-flash-item");
+            toastItems.forEach(item => {
+                const category = item.getAttribute("data-category");
+                let duration = 3500; // Success/Info: 3.5 segundos
+                if (category === 'warning') duration = 6000; // Warning: 6 segundos
+                if (category === 'danger') return; // Errores no desaparecen solos (requieren acción del usuario)
+
+                setTimeout(() => {
+                    item.style.transition = "opacity 0.4s ease, transform 0.4s ease";
+                    item.style.opacity = "0";
+                    item.style.transform = "translateY(-10px)";
+                    setTimeout(() => item.remove(), 400);
+                }, duration);
+            });
         })();
 
         // Inicializar el estado de la barra lateral de forma inmediata
         (function() {
             const sidebarState = localStorage.getItem("sidebar-collapsed");
-            if (sidebarState === "true") {
+            if (document.documentElement.classList.contains("sidebar-collapsed")) {
                 document.querySelector(".sidebar").classList.add("collapsed");
                 document.querySelector(".main-content").classList.add("collapsed");
             }
@@ -294,7 +420,9 @@
             } else {
                 document.documentElement.classList.remove("sidebar-collapsed");
             }
-            localStorage.setItem("sidebar-collapsed", isCollapsed);
+            if (!window.matchMedia('(max-width: 768px)').matches) {
+                localStorage.setItem("sidebar-collapsed", isCollapsed);
+            }
         }
 
         function toggleSubmenu(button) {
@@ -447,26 +575,6 @@
                     }
                 });
 
-                // Anti double-click y feedback visual de procesamiento en formularios
-                document.querySelectorAll('form').forEach(form => {
-                    form.addEventListener('submit', function(e) {
-                        if (form.dataset.submitting === 'true') {
-                            e.preventDefault();
-                            return false;
-                        }
-                        const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
-                        if (submitBtn) {
-                            form.dataset.submitting = 'true';
-                            setTimeout(() => {
-                                submitBtn.disabled = true;
-                                submitBtn.style.opacity = '0.75';
-                                submitBtn.style.cursor = 'wait';
-                                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px;"></i> Procesando...';
-                            }, 10);
-                        }
-                    });
-                });
-
                 // Interceptar peticiones fetch para adjuntar cabecera X-CSRFToken
                 const originalFetch = window.fetch;
                 window.fetch = function(resource, init = {}) {
@@ -505,6 +613,61 @@
                     return origSend.apply(this, arguments);
                 };
             }
+
+            // UX: Protección global contra doble submit en formularios POST
+            document.addEventListener('submit', (e) => {
+                const form = e.target;
+                if (!form || form.tagName !== 'FORM') return;
+
+                // Algunas pantallas tienen validaciones y protección de envío
+                // propias. No volver a interceptar esos formularios: si el
+                // listener local ya marcó `submitting`, este listener global
+                // interpretaría el mismo evento como un segundo envío y
+                // cancelaría el POST legítimo.
+                if (form.dataset.localSubmitHandler === 'true') return;
+
+                const method = (form.getAttribute('method') || 'GET').toUpperCase();
+                if (method !== 'POST') return;
+
+                // Si el formulario ya está en proceso de envío, bloquear el reintento
+                if (form.dataset.submitting === 'true') {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Identificar el botón que accionó el envío
+                const submitButtons = form.querySelectorAll('button[type="submit"], input[type="submit"]');
+                const clickedBtn = e.submitter || submitButtons[0];
+
+                // Marcar formulario como en envío activo
+                form.dataset.submitting = 'true';
+
+                // Deshabilitar botón presionado y mostrar feedback visual
+                if (clickedBtn && clickedBtn.tagName === 'BUTTON') {
+                    clickedBtn.classList.add('btn-submitting');
+                    clickedBtn.dataset.originalHtml = clickedBtn.innerHTML;
+                    clickedBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Procesando...';
+                }
+
+                const restoreForm = () => {
+                    form.dataset.submitting = 'false';
+                    submitButtons.forEach(btn => {
+                        btn.classList.remove('btn-submitting');
+                        if (btn.tagName === 'BUTTON' && btn.dataset.originalHtml) {
+                            btn.innerHTML = btn.dataset.originalHtml;
+                        }
+                    });
+                };
+
+                // Si hay validación HTML5 que falle tras el evento submit, restaurar
+                form.addEventListener('invalid', restoreForm, { capture: true, once: true });
+
+                // Timeout de seguridad (8 segundos) por si la respuesta no descarga la página ni redirige
+                setTimeout(restoreForm, 8000);
+
+                // Si la respuesta del servidor es una descarga o vuelve desde caché, restaurar
+                window.addEventListener('pageshow', restoreForm, { once: true });
+            }, false);
         });
     </script>
     {% block scripts %}{% endblock %}

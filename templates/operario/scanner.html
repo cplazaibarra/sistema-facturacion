@@ -1,0 +1,88 @@
+{% extends 'operario/base_operario.html' %}
+
+{% block title %}Escanear Código{% endblock %}
+
+{% block content %}
+<header class="operario-header">
+  <div class="title-area">
+    <a href="/operario" style="color: #64748B; text-decoration: none; font-size: 14px; font-weight: 700; display: block; margin-bottom: 2px;">
+      <i class="fa-solid fa-chevron-left"></i> Inicio
+    </a>
+    <h1>Escanear</h1>
+  </div>
+</header>
+
+<main class="operario-container">
+
+  <!-- Visor de Escáner -->
+  <div class="scanner-viewport">
+    <video id="scannerVideo" class="scanner-video" playsinline></video>
+    <div class="scanner-overlay"></div>
+  </div>
+
+  <!-- Estado de Escaneo -->
+  <div id="scanStatus" style="text-align: center; margin-bottom: 16px; font-size: 14px; font-weight: 700; color: #64748B;">
+    <i class="fa-solid fa-camera"></i> Apunte la cámara hacia un código de barras o QR
+  </div>
+
+  <!-- Formulario de Entrada Manual / Fallback siempre disponible -->
+  <div class="card-item-box">
+    <div style="font-size: 14px; font-weight: 800; color: #0F172A; margin-bottom: 8px;">
+      <i class="fa-solid fa-keyboard"></i> ¿No funciona la cámara? Ingrese el código:
+    </div>
+    <form id="scanForm" onsubmit="handleCodeSubmit(event)">
+      <div style="display: flex; gap: 8px;">
+        <input type="text" id="manualCodeInput" class="touch-input" placeholder="Ej: OC-00015, OT-00023, LOT-001..." style="flex: 1;" required>
+        <button type="submit" class="btn-big btn-secondary" style="width: 54px; min-height: 54px; margin-top: 0; padding: 0;">
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+    </form>
+  </div>
+
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/operario_scanner.js') }}"></script>
+<script>
+  let scanner = null;
+
+  async function resolveCode(code) {
+    const statusDiv = document.getElementById('scanStatus');
+    statusDiv.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Identificando código <strong>${code}</strong>...`;
+    
+    try {
+      const res = await fetch(`/operario/api/resolver-codigo?code=${encodeURIComponent(code)}`);
+      const data = await res.json();
+      if (data.found && data.redirect_url) {
+        window.location.href = data.redirect_url;
+      } else {
+        statusDiv.innerHTML = `<span style="color: #EF4444;"><i class="fa-solid fa-triangle-exclamation"></i> ${data.message || 'Código no reconocido'}</span>`;
+        if (scanner) scanner.start();
+      }
+    } catch (e) {
+      statusDiv.innerHTML = `<span style="color: #EF4444;"><i class="fa-solid fa-circle-xmark"></i> Error de conexión con el servidor.</span>`;
+    }
+  }
+
+  function handleCodeSubmit(e) {
+    e.preventDefault();
+    const code = document.getElementById('manualCodeInput').value.trim();
+    if (code) {
+      resolveCode(code);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    scanner = new OperarioScanner('scannerVideo', (code) => {
+      resolveCode(code);
+    });
+    const statusDiv = document.getElementById('scanStatus');
+    const ok = await scanner.start();
+    if (!ok && statusDiv) {
+      statusDiv.innerHTML = `<span style="color: #D97706;"><i class="fa-solid fa-triangle-exclamation"></i> No se pudo activar la cámara. Por favor autoriza el permiso de cámara en el navegador o escribe el código abajo.</span>`;
+    }
+  });
+</script>
+{% endblock %}

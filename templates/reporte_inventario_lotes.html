@@ -39,25 +39,50 @@
 
 <!-- Filtros y Tabla -->
 <div style="background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-            <input type="text" id="reporte-search" oninput="aplicarFiltrosReporte()" placeholder="Buscar SKU, producto o lote..." style="padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; width: 260px;">
-            <select id="reporte-bodega" onchange="aplicarFiltrosReporte()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white;">
+    <form method="GET" action="{{ url_for('reportes.reportes_inventario_lotes') }}" id="lotes-filter-form" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+        <input type="hidden" name="per_page" id="lotes_per_page_input" value="{{ per_page }}">
+        <input type="hidden" name="page" value="1">
+
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; flex: 1;">
+            <input type="text" name="search" value="{{ search_query }}" placeholder="Buscar SKU, producto o lote..." style="padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; width: 260px;">
+            <select name="warehouse" onchange="this.form.submit()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white; cursor: pointer;">
                 <option value="">Todas las bodegas</option>
                 {% for wh in warehouses_list %}
-                <option value="{{ wh }}">{{ wh }}</option>
+                <option value="{{ wh }}" {% if selected_warehouse == wh %}selected{% endif %}>{{ wh }}</option>
                 {% endfor %}
             </select>
-            <select id="reporte-estado" onchange="aplicarFiltrosReporte()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white;">
+            <select name="status" onchange="this.form.submit()" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white; cursor: pointer;">
                 <option value="">Todos los estados</option>
-                <option value="disponible">Solo Disponibles</option>
-                <option value="agotado">Solo Agotados</option>
+                <option value="disponible" {% if selected_status == 'disponible' %}selected{% endif %}>Solo Disponibles</option>
+                <option value="agotado" {% if selected_status == 'agotado' %}selected{% endif %}>Solo Agotados</option>
             </select>
+
+            <button type="submit" style="padding: 8px 14px; background: #3182ce; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                Filtrar
+            </button>
+
+            {% if search_query or selected_warehouse or selected_status %}
+            <a href="{{ url_for('reportes.reportes_inventario_lotes') }}" title="Limpiar Filtros"
+               style="text-decoration: none; padding: 7px 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #475569; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                <i class="fa-solid fa-rotate-left" style="font-size: 11px;"></i> Limpiar
+            </a>
+            {% endif %}
         </div>
-        <div style="font-size: 13px; color: #64748b; font-weight: 500;">
-            Mostrando <span id="contador-filas" style="font-weight: 700; color: #0f172a;">{{ lot_stock_list|length }}</span> registros
+
+        <div style="display: flex; align-items: center; gap: 14px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <label for="lotes_per_page_select" style="font-size: 13px; color: #475569; font-weight: 600;">Mostrar:</label>
+                <select id="lotes_per_page_select" onchange="changeLotesPerPage(this.value)" style="padding: 5px 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 600; background: white; color: #1e293b; cursor: pointer;">
+                    <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                </select>
+            </div>
+            <div style="font-size: 13px; color: #64748b; font-weight: 500;">
+                Total: <span id="contador-filas" style="font-weight: 700; color: #0f172a;">{{ total_records }}</span> lotes
+            </div>
         </div>
-    </div>
+    </form>
 
     <div class="table-responsive" style="overflow-x: auto;">
         <table class="data-table" id="tabla-reporte-lotes" style="width: 100%; border-collapse: collapse; min-width: 950px; font-size: 13px;">
@@ -117,42 +142,61 @@
                 {% else %}
                 <tr>
                     <td colspan="11" style="text-align: center; color: #64748b; padding: 40px;">
-                        No hay lotes registrados actualmente en el inventario.
+                        No hay lotes que coincidan con los filtros actuales. Limpia los filtros para ver todos los lotes.
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+
+    <!-- Paginación Server-Side -->
+    <div class="sf-pagination" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 16px; background: white; border-top: 1px solid #e2e8f0; border-radius: 0 0 8px 8px; margin-top: 12px;">
+        <div class="sf-pagination-info" style="font-size: 13px; color: #64748b;">
+            {% if total_records and total_records > 0 %}
+                Mostrando <strong>{{ ((current_page - 1) * per_page) + 1 }}</strong> a <strong>{{ [current_page * per_page, total_records]|min }}</strong> de <strong>{{ total_records }}</strong> lotes
+            {% else %}
+                Mostrando 0 registros
+            {% endif %}
+        </div>
+        
+        {% if total_pages and total_pages > 1 %}
+        <div class="sf-pagination-controls" style="display: flex; gap: 6px; align-items: center;">
+            {% if current_page > 1 %}
+            <a href="{{ url_for('reportes.reportes_inventario_lotes', warehouse=selected_warehouse, status=selected_status, search=search_query, page=current_page - 1, per_page=per_page) }}" 
+               style="text-decoration: none; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; font-weight: 600; background: white;">
+                ◀ Anterior
+            </a>
+            {% else %}
+            <button disabled style="opacity: 0.5; cursor: not-allowed; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #94a3b8; background: white;">◀ Anterior</button>
+            {% endif %}
+
+            {% for p in range([1, current_page - 2]|max, [total_pages + 1, current_page + 3]|min) %}
+            <a href="{{ url_for('reportes.reportes_inventario_lotes', warehouse=selected_warehouse, status=selected_status, search=search_query, page=p, per_page=per_page) }}" 
+               style="text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; {% if p == current_page %}background: #3182ce; color: white; border: 1px solid #3182ce;{% else %}background: white; color: #334155; border: 1px solid #cbd5e1;{% endif %}">
+                {{ p }}
+            </a>
+            {% endfor %}
+
+            {% if current_page < total_pages %}
+            <a href="{{ url_for('reportes.reportes_inventario_lotes', warehouse=selected_warehouse, status=selected_status, search=search_query, page=current_page + 1, per_page=per_page) }}" 
+               style="text-decoration: none; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; font-weight: 600; background: white;">
+                Siguiente ▶
+            </a>
+            {% else %}
+            <button disabled style="opacity: 0.5; cursor: not-allowed; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #94a3b8; background: white;">Siguiente ▶</button>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
 </div>
 
 <script>
-function aplicarFiltrosReporte() {
-    const q = (document.getElementById('reporte-search').value || '').toLowerCase().trim();
-    const bodega = (document.getElementById('reporte-bodega').value || '').toLowerCase().trim();
-    const estado = (document.getElementById('reporte-estado').value || '').toLowerCase().trim();
-
-    const rows = document.querySelectorAll('.reporte-lote-row');
-    let visibleCount = 0;
-
-    rows.forEach(r => {
-        const txt = r.getAttribute('data-search') || '';
-        const wh = r.getAttribute('data-warehouse') || '';
-        const est = r.getAttribute('data-estado') || '';
-
-        const matchQ = !q || txt.includes(q);
-        const matchWh = !bodega || wh.includes(bodega);
-        const matchEst = !estado || est === estado;
-
-        if (matchQ && matchWh && matchEst) {
-            r.style.display = '';
-            visibleCount++;
-        } else {
-            r.style.display = 'none';
-        }
-    });
-
-    document.getElementById('contador-filas').textContent = visibleCount;
+function changeLotesPerPage(val) {
+    const input = document.getElementById('lotes_per_page_input');
+    if (input) input.value = val;
+    const form = document.getElementById('lotes-filter-form');
+    if (form) form.submit();
 }
 
 function exportarReporteLotes() {

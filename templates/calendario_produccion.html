@@ -1,0 +1,774 @@
+{% extends "base.html" %}
+
+{% block title %}Programación de Producción - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Programación de Producción / Calendario Semanal{% endblock %}
+
+{% block content %}
+<style>
+/* Estilos responsivos del Calendario Semanal */
+.cal-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.cal-header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fff;
+    padding: 16px 20px;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.cal-nav-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cal-week-label {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a202c;
+    min-width: 240px;
+    text-align: center;
+}
+
+.cal-filters-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f8fafc;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    font-size: 13px;
+    flex-wrap: wrap;
+}
+
+/* Grid de la semana: 7 columnas en escritorio, colapsable en pantallas angostas */
+.cal-week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 12px;
+    min-height: 520px;
+}
+
+@media (max-width: 1024px) {
+    .cal-week-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .cal-week-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.cal-day-col {
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.cal-day-col.is-today {
+    border: 2px solid #3182ce;
+    background-color: #f0f7ff;
+}
+
+.cal-day-col.drag-over {
+    background-color: #e6fffa !important;
+    border: 2px dashed #319795 !important;
+}
+
+.cal-day-header {
+    padding: 12px;
+    border-bottom: 1px solid #edf2f7;
+    background: #f7fafc;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cal-day-col.is-today .cal-day-header {
+    background: #ebf8ff;
+    color: #2b6cb0;
+}
+
+.cal-day-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #2d3748;
+}
+
+.cal-day-col.is-today .cal-day-title {
+    color: #2b6cb0;
+}
+
+.cal-day-badge {
+    font-size: 12px;
+    font-weight: 700;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #edf2f7;
+    color: #4a5568;
+}
+
+.cal-day-col.is-today .cal-day-badge {
+    background: #3182ce;
+    color: #fff;
+}
+
+.cal-day-body {
+    padding: 10px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 120px;
+}
+
+/* Tarjeta de Orden de Trabajo */
+.ot-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    cursor: grab;
+    transition: transform 0.15s, box-shadow 0.15s;
+    position: relative;
+    user-select: none;
+}
+
+.ot-card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+    border-color: #cbd5e0;
+}
+
+.ot-card.dragging {
+    opacity: 0.4;
+    cursor: grabbing;
+}
+
+.ot-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.ot-card-number {
+    font-weight: 700;
+    font-size: 13px;
+    color: #2b6cb0;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.ot-order-badge {
+    background: #edf2f7;
+    color: #4a5568;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 12px;
+}
+
+.ot-card-prod {
+    font-size: 12px;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ot-card-qty {
+    font-size: 11px;
+    color: #718096;
+    margin-bottom: 6px;
+}
+
+.ot-card-tags {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.status-tag {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    width: fit-content;
+}
+
+.avail-tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    width: fit-content;
+}
+
+.avail-ok {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #86efac;
+}
+
+.avail-missing {
+    background: #fff5f5;
+    color: #c53030;
+    border: 1px solid #feb2b2;
+}
+
+/* OTs Sin Programar Panel */
+.unscheduled-panel {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.unscheduled-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+}
+
+/* Dropzone placeholder */
+.drop-placeholder {
+    border: 2px dashed #cbd5e0;
+    border-radius: 6px;
+    height: 48px;
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: #a0aec0;
+}
+</style>
+
+<div class="cal-container">
+    <!-- Header de Navegación Semanal -->
+    <div class="cal-header-bar">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <a href="/produccion" class="btn-secondary" style="text-decoration: none; padding: 8px 14px; border-radius: 6px; font-weight: 500; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+                ⬅️ Lista OT
+            </a>
+            <a href="/produccion/nueva" class="btn-primary" style="text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+                ➕ Nueva OT
+            </a>
+        </div>
+
+        <div class="cal-nav-group">
+            <a href="/produccion/calendario?date={{ prev_week }}" class="btn-secondary" style="text-decoration: none; padding: 8px 14px; border-radius: 6px; font-weight: 600; font-size: 13px;">
+                ◀ Semana anterior
+            </a>
+            <a href="/produccion/calendario?date={{ today }}" class="btn-secondary" style="text-decoration: none; padding: 8px 14px; border-radius: 6px; font-weight: 600; font-size: 13px; background: {% if current_date_str == today %}#edf2f7{% else %}#fff{% endif %};">
+                Hoy
+            </a>
+            <a href="/produccion/calendario?date={{ next_week }}" class="btn-secondary" style="text-decoration: none; padding: 8px 14px; border-radius: 6px; font-weight: 600; font-size: 13px;">
+                Semana siguiente ▶
+            </a>
+        </div>
+
+        <div class="cal-week-label">
+            📅 {{ week_label }}
+        </div>
+    </div>
+
+    <!-- Barra de Filtros Rápidos -->
+    <div class="cal-filters-bar">
+        <span style="font-weight: 600; color: #4a5568;">Filtros:</span>
+        <div>
+            <label style="color: #718096; margin-right: 4px;">Estado:</label>
+            <select id="filter-status" onchange="applyFilters()" style="padding: 4px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 12px;">
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos</option>
+                <option value="Borrador" {% if status_filter == 'Borrador' %}selected{% endif %}>Borrador</option>
+                <option value="Solicitada" {% if status_filter == 'Solicitada' %}selected{% endif %}>Solicitada</option>
+                <option value="Aprobada" {% if status_filter == 'Aprobada' %}selected{% endif %}>En Proceso (Aprobada)</option>
+                <option value="Finalizada" {% if status_filter == 'Finalizada' %}selected{% endif %}>Finalizada</option>
+            </select>
+        </div>
+
+        <div>
+            <label style="color: #718096; margin-right: 4px;">Disponibilidad Stock:</label>
+            <select id="filter-avail" onchange="applyFilters()" style="padding: 4px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 12px;">
+                <option value="all" {% if availability_filter == 'all' %}selected{% endif %}>Todos</option>
+                <option value="ok" {% if availability_filter == 'ok' %}selected{% endif %}>✓ Stock disponible</option>
+                <option value="missing" {% if availability_filter == 'missing' %}selected{% endif %}>⚠️ Faltan materiales</option>
+            </select>
+        </div>
+
+        <div style="margin-left: auto; font-size: 12px; color: #718096;">
+            💡 <em>Arrastra las OTs entre días o usa el botón 📅 para reprogramar.</em>
+        </div>
+    </div>
+
+    <!-- Grid Semanal de 7 Días -->
+    <div class="cal-week-grid">
+        {% for day in days_data %}
+        <div class="cal-day-col {% if day.is_today %}is-today{% endif %}" 
+             data-date="{{ day.date_iso }}"
+             ondragover="handleDragOver(event)" 
+             ondragleave="handleDragLeave(event)" 
+             ondrop="handleDrop(event, '{{ day.date_iso }}')">
+            
+            <div class="cal-day-header">
+                <div>
+                    <div class="cal-day-title">{{ day.day_name }}</div>
+                    <small style="font-size: 10px; color: #718096;">{{ day.date_iso }}</small>
+                </div>
+                <div class="cal-day-badge">{{ day.day_number }}</div>
+            </div>
+
+            <div class="cal-day-body" id="day-body-{{ day.date_iso }}">
+                {% if day.ots %}
+                    {% for ot in day.ots %}
+                    <div class="ot-card" 
+                         id="ot-card-{{ ot.id }}" 
+                         draggable="true" 
+                         ondragstart="handleDragStart(event, {{ ot.id }})" 
+                         ondragend="handleDragEnd(event)"
+                         data-ot-id="{{ ot.id }}"
+                         data-status="{{ ot.status }}"
+                         data-is-complete="{{ 'true' if ot.is_complete else 'false' }}"
+                         data-scheduled-date="{{ ot.scheduled_date }}"
+                         data-schedule-order="{{ ot.schedule_order or 1 }}"
+                         style="{% if ot.status == 'Finalizada' %}opacity: 0.75; background: #fafafa; border-style: dashed;{% elif ot.status == 'Cancelada' %}opacity: 0.5; text-decoration: line-through; background: #fff5f5;{% endif %}">
+                        
+                        <div class="ot-card-header">
+                            <span class="ot-card-number" onclick="verDetalleOTModal({{ ot.id }})" title="Ver detalles y materiales">
+                                {{ ot.ot_number }}
+                            </span>
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <span class="ot-order-badge" title="Orden de fabricación en el día">#{{ ot.schedule_order or loop.index }}</span>
+                                <button type="button" onclick="openScheduleModal({{ ot.id }}, '{{ ot.ot_number }}', '{{ ot.scheduled_date }}', {{ ot.schedule_order or loop.index }})" 
+                                        style="border: none; background: transparent; cursor: pointer; font-size: 12px; padding: 2px;" title="Reprogramar fecha y orden">
+                                    📅
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="ot-card-prod" title="{{ ot.final_product_name }}">
+                            {{ ot.final_product_name }}
+                        </div>
+                        <div class="ot-card-qty">
+                            <strong>{{ ot.quantity }}</strong> unidades
+                        </div>
+
+                        <div class="ot-card-tags">
+                            <!-- Tag de Estado -->
+                            {% if ot.status == 'Borrador' %}
+                                <span class="status-tag" style="background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0;">📝 Borrador</span>
+                            {% elif ot.status == 'Solicitada' %}
+                                <span class="status-tag" style="background: #fefcbf; color: #744210; border: 1px solid #faf089;">⏳ Solicitada</span>
+                            {% elif ot.status == 'Aprobada' %}
+                                <span class="status-tag" style="background: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8;">⚙️ En Proceso</span>
+                            {% elif ot.status == 'Finalizada' %}
+                                <span class="status-tag" style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0;">✅ Finalizada</span>
+                            {% elif ot.status == 'Cancelada' %}
+                                <span class="status-tag" style="background: #fff5f5; color: #c53030; border: 1px solid #feb2b2;">🚫 Cancelada</span>
+                            {% endif %}
+
+                            <!-- Tag de Disponibilidad Dinámica -->
+                            {% if ot.is_complete %}
+                                <span class="avail-tag avail-ok" title="Todos los materiales disponibles">✓ Stock disponible</span>
+                            {% else %}
+                                <span class="avail-tag avail-missing" title="Faltan materiales en inventario">⚠️ Faltan materiales</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="drop-placeholder" id="placeholder-{{ day.date_iso }}">
+                        Sin OTs programadas
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Sección OBLIGATORIA: OTs SIN PROGRAMAR -->
+    <div class="unscheduled-panel" 
+         id="unscheduled-panel"
+         ondragover="handleDragOver(event)" 
+         ondragleave="handleDragLeave(event)" 
+         ondrop="handleDrop(event, null)">
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #edf2f7; padding-bottom: 12px;">
+            <div>
+                <h3 style="margin: 0; color: #2d3748; display: flex; align-items: center; gap: 8px;">
+                    📋 OTs Sin Programar
+                    <span style="font-size: 12px; background: #e2e8f0; color: #4a5568; padding: 2px 8px; border-radius: 12px; font-weight: bold;">
+                        {{ unscheduled_ots | length }}
+                    </span>
+                </h3>
+                <p style="margin: 4px 0 0 0; font-size: 12px; color: #718096;">
+                    Órdenes de Trabajo activas pendientes de asignación de fecha. Arrastra al calendario o pulsa <strong>Programar</strong>.
+                </p>
+            </div>
+        </div>
+
+        {% if unscheduled_ots %}
+        <div class="unscheduled-grid" id="unscheduled-container">
+            {% for ot in unscheduled_ots %}
+            <div class="ot-card" 
+                 id="ot-card-{{ ot.id }}" 
+                 draggable="true" 
+                 ondragstart="handleDragStart(event, {{ ot.id }})" 
+                 ondragend="handleDragEnd(event)"
+                 data-ot-id="{{ ot.id }}"
+                 data-status="{{ ot.status }}"
+                 data-is-complete="{{ 'true' if ot.is_complete else 'false' }}"
+                 data-scheduled-date=""
+                 data-schedule-order="">
+                
+                <div class="ot-card-header">
+                    <span class="ot-card-number" onclick="verDetalleOTModal({{ ot.id }})">
+                        {{ ot.ot_number }}
+                    </span>
+                    <button type="button" class="btn-secondary" onclick="openScheduleModal({{ ot.id }}, '{{ ot.ot_number }}', '', 1)" 
+                            style="padding: 3px 8px; font-size: 11px; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                        📅 Programar
+                    </button>
+                </div>
+
+                <div class="ot-card-prod" title="{{ ot.final_product_name }}">
+                    {{ ot.final_product_name }}
+                </div>
+                <div class="ot-card-qty">
+                    <strong>{{ ot.quantity }}</strong> unidades
+                </div>
+
+                <div class="ot-card-tags">
+                    {% if ot.status == 'Borrador' %}
+                        <span class="status-tag" style="background: #edf2f7; color: #4a5568; border: 1px solid #cbd5e0;">📝 Borrador</span>
+                    {% elif ot.status == 'Solicitada' %}
+                        <span class="status-tag" style="background: #fefcbf; color: #744210; border: 1px solid #faf089;">⏳ Solicitada</span>
+                    {% elif ot.status == 'Aprobada' %}
+                        <span class="status-tag" style="background: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8;">⚙️ En Proceso</span>
+                    {% endif %}
+
+                    {% if ot.is_complete %}
+                        <span class="avail-tag avail-ok">✓ Stock disponible</span>
+                    {% else %}
+                        <span class="avail-tag avail-missing">⚠️ Faltan materiales</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="padding: 24px; text-align: center; color: #a0aec0; font-size: 13px;">
+            🎉 ¡Excelente! No hay órdenes de trabajo pendientes sin programar.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal Accesible para Reprogramación Manual -->
+<div id="schedule-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); backdrop-filter: blur(4px); align-items: center; justify-content: center;">
+    <div style="background-color: #fefefe; padding: 24px; border: 1px solid #e2e8f0; width: 90%; max-width: 420px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); position: relative; margin: auto;">
+        <h3 style="margin-top: 0; margin-bottom: 6px; color: #2d3748;" id="modal-ot-title">Programar Orden de Trabajo</h3>
+        <p style="font-size: 12px; color: #718096; margin-bottom: 18px;" id="modal-ot-subtitle">-</p>
+
+        <form id="schedule-form" onsubmit="submitScheduleForm(event)">
+            <input type="hidden" id="modal-ot-id" value="">
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #4a5568; margin-bottom: 4px;">Fecha Programada</label>
+                <input type="date" id="modal-scheduled-date" class="form-control" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px;">
+                <small style="color: #718096; font-size: 11px; display: block; margin-top: 4px;">Dejar vacío para mover a "OTs Sin Programar".</small>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #4a5568; margin-bottom: 4px;">Orden de Fabricación en el Día</label>
+                <input type="number" id="modal-schedule-order" min="1" class="form-control" placeholder="Ej: 1" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 6px;">
+                <small style="color: #718096; font-size: 11px; display: block; margin-top: 4px;">1 = Primero del día, 2 = Segundo, etc.</small>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" onclick="closeScheduleModal()" style="padding: 8px 16px; border: 1px solid #cbd5e0; border-radius: 6px; background: #fff; cursor: pointer; color: #4a5568; font-weight: 600;">
+                    Cancelar
+                </button>
+                <button type="submit" id="btn-save-schedule" style="padding: 8px 20px; border: none; border-radius: 6px; background: #3182ce; color: #fff; cursor: pointer; font-weight: bold;">
+                    Guardar Programación
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Detalle OT (Reutilizado) -->
+<div id="ot-detail-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); backdrop-filter: blur(4px); align-items: center; justify-content: center;">
+    <div style="background-color: #fefefe; padding: 24px; border: 1px solid #e2e8f0; width: 90%; max-width: 750px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); position: relative; margin: auto; max-height: 90vh; overflow-y: auto;">
+        <h3 style="margin-top: 0; margin-bottom: 6px; color: #2d3748;" id="detail-ot-title">Detalle de Orden de Trabajo</h3>
+        <span id="detail-ot-status" style="position: absolute; right: 24px; top: 24px; color: white; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: bold;">-</span>
+        
+        <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 15px 0;">
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px; margin-bottom: 20px; line-height: 1.5; color: #4a5568;">
+            <div>
+                <strong>Producto Final:</strong> <span id="detail-product-name">-</span><br>
+                <strong>Cantidad:</strong> <span id="detail-qty">-</span> unidades<br>
+                <strong>Fecha Programada:</strong> <span id="detail-scheduled-date">-</span>
+            </div>
+            <div>
+                <strong>Orden en el Día:</strong> <span id="detail-schedule-order">-</span><br>
+                <strong>Disponibilidad Stock:</strong> <span id="detail-availability-label">-</span><br>
+                <strong>Fecha Creación:</strong> <span id="detail-created">-</span>
+            </div>
+        </div>
+
+        <h4 style="margin-bottom: 10px; color: #2d3748; border-bottom: 1px solid #edf2f7; padding-bottom: 6px; font-size: 14px;">Materiales Requeridos y Disponibilidad Actual</h4>
+        <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <thead>
+                <tr style="background: #f7fafc; text-align: left; font-size: 10px; text-transform: uppercase; color: #718096; border-bottom: 1px solid #edf2f7;">
+                    <th style="padding: 8px;">Material Requerido</th>
+                    <th style="padding: 8px; text-align: center;">Cantidad Necesaria</th>
+                    <th style="padding: 8px; text-align: center;">Stock Disponible</th>
+                    <th style="padding: 8px; text-align: center;">Faltante</th>
+                    <th style="padding: 8px; text-align: center;">Estado</th>
+                </tr>
+            </thead>
+            <tbody id="detail-ingredients-tbody">
+            </tbody>
+        </table>
+        
+        <div style="display: flex; justify-content: flex-end; margin-top: 24px;">
+            <button type="button" onclick="closeOTDetailModal()" style="padding: 10px 24px; border: none; border-radius: 6px; background: #4a5568; color: #fff; cursor: pointer; font-weight: bold;">
+                Cerrar Detalle
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+let draggedOTId = null;
+
+// ========================================================
+// DRAG & DROP LOGIC
+// ========================================================
+function handleDragStart(e, otId) {
+    draggedOTId = otId;
+    e.dataTransfer.setData('text/plain', otId);
+    e.dataTransfer.effectAllowed = 'move';
+    const card = document.getElementById(`ot-card-${otId}`);
+    if (card) {
+        setTimeout(() => card.classList.add('dragging'), 0);
+    }
+}
+
+function handleDragEnd(e) {
+    const card = document.getElementById(`ot-card-${draggedOTId}`);
+    if (card) {
+        card.classList.remove('dragging');
+    }
+    document.querySelectorAll('.cal-day-col').forEach(col => col.classList.remove('drag-over'));
+    draggedOTId = null;
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const targetCol = e.currentTarget;
+    if (targetCol && targetCol.classList.contains('cal-day-col')) {
+        targetCol.classList.add('drag-over');
+    }
+}
+
+function handleDragLeave(e) {
+    const targetCol = e.currentTarget;
+    if (targetCol && targetCol.classList.contains('cal-day-col')) {
+        targetCol.classList.remove('drag-over');
+    }
+}
+
+async function handleDrop(e, targetDate) {
+    e.preventDefault();
+    document.querySelectorAll('.cal-day-col').forEach(col => col.classList.remove('drag-over'));
+    
+    const otId = e.dataTransfer.getData('text/plain') || draggedOTId;
+    if (!otId) return;
+
+    await updateOTSchedule(otId, targetDate, null);
+}
+
+// ========================================================
+// MODAL DE REPROGRAMACIÓN MANUAL ACCESIBLE
+// ========================================================
+function openScheduleModal(otId, otNumber, currentDate, currentOrder) {
+    document.getElementById('modal-ot-id').value = otId;
+    document.getElementById('modal-ot-title').innerText = "Programar " + otNumber;
+    document.getElementById('modal-ot-subtitle').innerText = "Asignar fecha y prioridad de fabricación";
+    document.getElementById('modal-scheduled-date').value = currentDate || '';
+    document.getElementById('modal-schedule-order').value = currentOrder || 1;
+    document.getElementById('schedule-modal').style.display = 'flex';
+}
+
+function closeScheduleModal() {
+    document.getElementById('schedule-modal').style.display = 'none';
+}
+
+async function submitScheduleForm(e) {
+    e.preventDefault();
+    const otId = document.getElementById('modal-ot-id').value;
+    const scheduledDate = document.getElementById('modal-scheduled-date').value || null;
+    const scheduleOrder = document.getElementById('modal-schedule-order').value || null;
+
+    await updateOTSchedule(otId, scheduledDate, scheduleOrder);
+    closeScheduleModal();
+}
+
+// ========================================================
+// LLAMADA AL BACKEND PARA PERSISTIR PROGRAMACIÓN
+// ========================================================
+async function updateOTSchedule(otId, scheduledDate, scheduleOrder) {
+    const payload = {
+        scheduled_date: scheduledDate ? scheduledDate : null,
+        schedule_order: scheduleOrder ? parseInt(scheduleOrder) : null
+    };
+
+    try {
+        const response = await fetch(`/api/produccion/ot/${otId}/programar`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        if (response.ok && data.success) {
+            // Recargar la vista limpia conservando la fecha de navegación actual
+            window.location.reload();
+        } else {
+            alert('Error al programar OT: ' + (data.message || 'Error desconocido'));
+        }
+    } catch (err) {
+        console.error('Error de red al programar OT:', err);
+        alert('Error de conexión al programar la OT.');
+    }
+}
+
+function getCsrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : '';
+}
+
+// ========================================================
+// MODAL DE DETALLE DE LA OT
+// ========================================================
+async function verDetalleOTModal(otId) {
+    try {
+        const res = await fetch(`/api/produccion/ot/${otId}/disponibilidad`);
+        if (!res.ok) {
+            alert('No se pudo cargar el detalle de la OT.');
+            return;
+        }
+        const data = await res.json();
+
+        document.getElementById('detail-ot-title').innerText = "Orden de Trabajo: " + data.ot_number;
+        const statusEl = document.getElementById('detail-ot-status');
+        statusEl.innerText = data.status;
+        if (data.status === 'Borrador') statusEl.style.backgroundColor = '#718096';
+        else if (data.status === 'Solicitada') statusEl.style.backgroundColor = '#eebc63';
+        else if (data.status === 'Aprobada') statusEl.style.backgroundColor = '#3182ce';
+        else if (data.status === 'Finalizada') statusEl.style.backgroundColor = '#48bb78';
+        else statusEl.style.backgroundColor = '#e53e3e';
+
+        const card = document.getElementById(`ot-card-${otId}`);
+        const sDate = card ? card.dataset.scheduledDate : '';
+        const sOrder = card ? card.dataset.scheduleOrder : '';
+
+        document.getElementById('detail-scheduled-date').innerText = sDate || 'Sin programar';
+        document.getElementById('detail-schedule-order').innerText = sOrder ? `#${sOrder}` : 'N/A';
+        document.getElementById('detail-availability-label').innerHTML = data.is_complete
+            ? `<span style="color:#166534; font-weight:bold;">✓ Stock disponible</span>`
+            : `<span style="color:#c53030; font-weight:bold;">⚠️ Faltan materiales</span>`;
+
+        const tbody = document.getElementById('detail-ingredients-tbody');
+        tbody.innerHTML = '';
+
+        (data.materials || []).forEach(m => {
+            const isMissing = m.missing_stock > 1e-6;
+            const row = document.createElement('tr');
+            row.style.borderBottom = '1px solid #edf2f7';
+            row.innerHTML = `
+                <td style="padding: 8px;"><strong>${m.name}</strong><br><small style="color:#718096;">SKU: ${m.sku}</small></td>
+                <td style="padding: 8px; text-align: center; font-weight: bold;">${m.quantity_required}</td>
+                <td style="padding: 8px; text-align: center; color: ${isMissing ? '#e53e3e' : '#28a745'}; font-weight: 600;">${m.available_stock}</td>
+                <td style="padding: 8px; text-align: center; font-weight: bold; color: ${isMissing ? '#e53e3e' : '#718096'};">${m.missing_stock > 0 ? m.missing_stock : 0}</td>
+                <td style="padding: 8px; text-align: center;">
+                    ${isMissing ? '<span style="background:#fff5f5;color:#c53030;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:bold;">Insuficiente</span>' : '<span style="background:#dcfce7;color:#166534;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:bold;">Disponible</span>'}
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        document.getElementById('ot-detail-modal').style.display = 'flex';
+    } catch (err) {
+        console.error('Error cargando detalle OT:', err);
+    }
+}
+
+function closeOTDetailModal() {
+    document.getElementById('ot-detail-modal').style.display = 'none';
+}
+
+// ========================================================
+// FILTROS EN CLIENTE
+// ========================================================
+function applyFilters() {
+    const statusVal = document.getElementById('filter-status').value;
+    const availVal = document.getElementById('filter-avail').value;
+
+    document.querySelectorAll('.ot-card').forEach(card => {
+        const cardStatus = card.dataset.status;
+        const cardIsComplete = card.dataset.isComplete === 'true';
+
+        let showStatus = (statusVal === 'all' || cardStatus === statusVal);
+        let showAvail = true;
+        if (availVal === 'ok') showAvail = cardIsComplete;
+        if (availVal === 'missing') showAvail = !cardIsComplete;
+
+        if (showStatus && showAvail) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+</script>
+{% endblock %}

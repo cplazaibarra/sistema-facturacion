@@ -1,0 +1,177 @@
+{% extends 'operario/base_operario.html' %}
+
+{% block title %}Operar {{ ot.ot_number }}{% endblock %}
+
+{% block content %}
+<header class="operario-header">
+  <div class="title-area">
+    <a href="/operario/ot" style="color: #64748B; text-decoration: none; font-size: 14px; font-weight: 700; display: block; margin-bottom: 2px;">
+      <i class="fa-solid fa-chevron-left"></i> Órdenes de Trabajo
+    </a>
+    <h1>{{ ot.ot_number }}</h1>
+  </div>
+  <a href="/operario/ot/{{ ot.id }}/finalizar" class="header-action-btn" title="Finalizar Fabricación" style="color: #6366F1;">
+    <i class="fa-solid fa-flag-checkered"></i>
+  </a>
+</header>
+
+<main class="operario-container">
+
+  <!-- Resumen de Producto a Fabricar -->
+  <div class="card-item-box" style="border-left: 5px solid #F97316; margin-bottom: 16px;">
+    <div style="font-size: 13px; color: #64748B; font-weight: 700;">PRODUCTO A FABRICAR</div>
+    <div style="font-size: 18px; font-weight: 800; color: #0F172A; margin: 2px 0;">{{ ot.final_product_name }}</div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+      <span style="font-size: 14px; font-weight: 700; color: #EA580C;">Meta: {{ ot.quantity }} unidades</span>
+      <span style="background: #FEF3C7; color: #B45309; font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px;">{{ ot.status }}</span>
+    </div>
+  </div>
+
+  <!-- Flash Messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="card-item-box" style="border-left: 5px solid {% if category == 'success' %}#10B981{% elif category == 'danger' %}#EF4444{% else %}#F59E0B{% endif %}; margin-bottom: 14px;">
+          <div style="font-weight: 700; font-size: 14px; color: {% if category == 'success' %}#065F46{% elif category == 'danger' %}#991B1B{% else %}#92400E{% endif %};">
+            {{ message }}
+          </div>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <!-- Insumos Planificados -->
+  <div class="section-header">
+    <h2>Insumos Necesarios</h2>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+    {% for item in ot.plan_items %}
+      <div class="card-item-box">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <div style="font-size: 16px; font-weight: 800; color: #1E293B;">{{ item.input_name }}</div>
+            <div style="font-size: 13px; color: #64748B;">SKU: {{ item.input_sku }}</div>
+          </div>
+          <span style="background: #F1F5F9; color: #334155; font-size: 13px; font-weight: 800; padding: 4px 8px; border-radius: 8px;">
+            Requerido: {{ item.quantity_required }}
+          </span>
+        </div>
+
+        <!-- Lote Recomendado FIFO si aplica -->
+        {% set fifo = recommended_lots.get(item.input_product_id) %}
+        {% if fifo %}
+          <div style="background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 10px; padding: 8px 12px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <span style="font-size: 11px; font-weight: 800; color: #0284C7; display: block;">LOTE RECOMENDADO (FIFO)</span>
+              <span style="font-size: 14px; font-weight: 800; color: #0F172A;">{{ fifo.lot_number }}</span>
+            </div>
+            <span style="font-size: 12px; font-weight: 700; color: #64748B;">Saldo: {{ fifo.available_qty }}</span>
+          </div>
+        {% endif %}
+
+        <!-- Botón para Registrar Consumo de este insumo -->
+        <button type="button" 
+                class="btn-big btn-orange" 
+                style="min-height: 48px; font-size: 15px; margin-top: 12px;"
+                onclick="openConsumptionModal({{ item.input_product_id }}, '{{ item.input_name }}', '{{ fifo.lot_number if fifo else '' }}')">
+          <i class="fa-solid fa-barcode" style="margin-right: 8px;"></i> ESCANEAR / CONSUMIR LOTE
+        </button>
+      </div>
+    {% endfor %}
+  </div>
+
+  <!-- Consumos ya registrados en esta OT -->
+  <div class="section-header">
+    <h2>Lotes Consumidos ({{ ot.consumptions|length }})</h2>
+  </div>
+
+  <div class="card-item-box" style="padding: 10px 14px; margin-bottom: 20px;">
+    {% if ot.consumptions %}
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        {% for c in ot.consumptions %}
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #F1F5F9; padding: 6px 0;">
+            <div>
+              <div style="font-size: 14px; font-weight: 700; color: #0F172A;">{{ c.product_name }}</div>
+              <div style="font-size: 12px; color: #2563EB; font-weight: 600;">Lote: {{ c.lot_number }}</div>
+            </div>
+            <span style="font-size: 14px; font-weight: 800; color: #059669;">
+              ✓ {{ c.quantity_consumed }} un
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div style="text-align: center; color: #94A3B8; padding: 12px; font-size: 14px;">
+        Aún no se registran consumos para esta orden.
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Botón grande para Finalizar Fabricación -->
+  <a href="/operario/ot/{{ ot.id }}/finalizar" class="btn-big btn-purple" style="margin-bottom: 20px;">
+    <i class="fa-solid fa-flag-checkered" style="margin-right: 8px;"></i> TERMINAR FABRICACIÓN
+  </a>
+
+</main>
+
+<!-- Modal para Registrar Consumo de Lote -->
+<div id="consumptionModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 1000; padding: 20px; overflow-y: auto;">
+  <div style="background: #FFFFFF; border-radius: 20px; padding: 20px;">
+    <h3 id="modalProductName" style="font-size: 17px; font-weight: 800; margin-bottom: 14px; color: #0F172A;">Consumir Insumo</h3>
+    
+    <div class="scanner-viewport" style="height: 200px; margin-bottom: 12px;">
+      <video id="modalVideo" class="scanner-video" playsinline></video>
+      <div class="scanner-overlay"></div>
+    </div>
+
+    <form method="POST" action="/operario/ot/{{ ot.id }}/consumo">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="input_product_id" id="modal_product_id">
+
+      <div class="touch-input-group">
+        <label>Lote Físico (Escaneado o Manual)</label>
+        <input type="text" name="lot_number" id="modal_lot_input" class="touch-input" placeholder="Lote del insumo" required>
+      </div>
+
+      <div class="touch-input-group">
+        <label>Cantidad a Consumir</label>
+        <input type="number" step="any" min="0.01" name="quantity" class="touch-input" placeholder="0" required>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 16px;">
+        <button type="button" class="btn-big btn-secondary" style="flex: 1; min-height: 50px; margin: 0;" onclick="closeConsumptionModal()">Cancelar</button>
+        <button type="submit" class="btn-big btn-orange" style="flex: 1; min-height: 50px; margin: 0;">Confirmar Consumo</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/operario_scanner.js') }}"></script>
+<script>
+  let scannerInstance = null;
+
+  function openConsumptionModal(productId, productName, defaultLot) {
+    document.getElementById('modal_product_id').value = productId;
+    document.getElementById('modalProductName').innerText = "Consumir: " + productName;
+    document.getElementById('modal_lot_input').value = defaultLot || '';
+    document.getElementById('consumptionModal').style.display = 'block';
+
+    scannerInstance = new OperarioScanner('modalVideo', (code) => {
+      document.getElementById('modal_lot_input').value = code;
+    });
+    scannerInstance.start();
+  }
+
+  function closeConsumptionModal() {
+    if (scannerInstance) {
+      scannerInstance.stop();
+      scannerInstance = null;
+    }
+    document.getElementById('consumptionModal').style.display = 'none';
+  }
+</script>
+{% endblock %}

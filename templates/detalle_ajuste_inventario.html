@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Detalle de Ajuste #{{ adjustment.id }} - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Detalle de Ajuste{% endblock %}
+{% block content %}
+{% set status = (adjustment.status or 'PENDING')|upper %}
+{% set status_label = {'PENDING':'PENDIENTE','APPLIED':'APROBADO','REJECTED':'RECHAZADO'}.get(status, status) %}
+<div style="max-width:900px;margin:0 auto;">
+ <div style="margin-bottom:18px;"><a href="/inventario/ajustes" class="btn-secondary btn-sm"><i class="fa-solid fa-arrow-left"></i> Volver a ajustes</a></div>
+ <div class="card" style="padding:24px;">
+  <div style="display:flex;justify-content:space-between;gap:14px;align-items:start;flex-wrap:wrap;"><div><h2 style="margin:0;color:#1e293b;">Ajuste #{{ adjustment.id }}</h2><p style="margin:5px 0;color:#64748b;font-size:13px;">Solicitud de conteo físico auditable</p></div><span class="badge {% if status == 'REJECTED' %}badge-danger{% elif status == 'APPLIED' %}badge-success{% else %}badge-warning{% endif %}" style="font-size:13px;">{{ status_label|title }}</span></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-top:24px;">
+   <div><small>Producto</small><strong style="display:block;">{{ adjustment.product_name|default('-') }}</strong><small>{{ adjustment.sku|default('') }}</small></div>
+   <div><small>Bodega</small><strong style="display:block;">{{ adjustment.warehouse|default('-') }}</strong></div>
+   <div><small>Stock al solicitar</small><strong style="display:block;" class="tabular-nums">{{ adjustment.system_stock|default(adjustment.stock_snapshot, true)|default(0) }}</strong></div>
+   <div><small>Stock actual</small><strong style="display:block;" class="tabular-nums">{{ adjustment.current_stock|default(adjustment.stock_snapshot, true)|default(0) }}</strong></div>
+   <div><small>Conteo físico</small><strong style="display:block;" class="tabular-nums">{{ adjustment.counted_quantity|default(0) }}</strong></div>
+   <div><small>Diferencia</small><strong style="display:block;color:{% if adjustment.difference|default(0) > 0 %}#15803d{% elif adjustment.difference|default(0) < 0 %}#b91c1c{% endif %};" class="tabular-nums">{% if adjustment.difference|default(0) > 0 %}+{% endif %}{{ adjustment.difference|default(0) }}</strong></div>
+   <div><small>Stock resultante</small><strong style="display:block;" class="tabular-nums">{{ adjustment.resulting_stock|default(0) }}</strong></div>
+  </div>
+  {% if adjustment.inventory_changed|default(false) %}<div role="alert" style="margin-top:20px;padding:13px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:7px;"><strong>El inventario cambió desde que se realizó el conteo.</strong><br>La solicitud requiere revisión antes de aplicar.</div>{% endif %}
+  <dl style="display:grid;grid-template-columns:140px 1fr;gap:10px 18px;margin-top:24px;font-size:14px;"><dt style="color:#64748b;">Motivo</dt><dd style="margin:0;">{{ adjustment.reason|default('-') }}</dd><dt style="color:#64748b;">Observación</dt><dd style="margin:0;white-space:pre-wrap;">{{ adjustment.observation|default(adjustment.notes|default('-')) }}</dd><dt style="color:#64748b;">Solicitado por</dt><dd style="margin:0;">{{ adjustment.requested_by_name|default(adjustment.requested_by|default('-')) }} · {{ adjustment.requested_at|default(adjustment.created_at|default('-')) }}</dd>{% if adjustment.approved_by %}<dt style="color:#64748b;">Aprobado por</dt><dd style="margin:0;">{{ adjustment.approved_by }} · {{ adjustment.approved_at|default('-') }}</dd>{% endif %}{% if adjustment.rejection_comment %}<dt style="color:#64748b;">Comentario de rechazo</dt><dd style="margin:0;">{{ adjustment.rejection_comment }}</dd>{% endif %}</dl>
+  {% if status == 'PENDING' %}
+  <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:28px;border-top:1px solid #e2e8f0;padding-top:20px;flex-wrap:wrap;">
+   <form method="post" action="/inventario/ajustes/{{ adjustment.id }}/rechazar" id="reject-adjustment-form" data-local-submit-handler="true"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="text" name="approver_comment" required maxlength="1000" class="form-control" placeholder="Comentario obligatorio al rechazar" aria-label="Comentario de rechazo"><button class="btn-danger" type="submit"><i class="fa-solid fa-xmark"></i> Rechazar</button></form>
+   <form method="post" action="/inventario/ajustes/{{ adjustment.id }}/aprobar" class="approval-form" data-local-submit-handler="true" onsubmit="return confirm('¿Aprobar ajuste de inventario?\n\nProducto: {{ adjustment.product_name|e }}\nBodega: {{ adjustment.warehouse|e }}\nStock actual: {{ adjustment.current_stock|default(0) }}\nAjuste: {% if adjustment.difference|default(0) > 0 %}+{% endif %}{{ adjustment.difference|default(0) }}\nStock resultante: {{ adjustment.resulting_stock|default(0) }}');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn-primary" type="submit"><i class="fa-solid fa-check"></i> Aprobar ajuste</button></form>
+  </div>
+  {% endif %}
+ </div>
+</div>
+<script>(function(){document.querySelectorAll('form.approval-form, #reject-adjustment-form').forEach(function(form){form.addEventListener('submit',function(e){if(form.dataset.submitting==='true'){e.preventDefault();return;}form.dataset.submitting='true';form.querySelectorAll('button').forEach(function(b){b.disabled=true;b.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Procesando…';});});});})();</script>
+{% endblock %}

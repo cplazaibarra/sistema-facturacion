@@ -71,7 +71,9 @@ def get_lot(lot_id: int, conn=None) -> Optional[Dict[str, Any]]:
             """
             SELECT l.*, p.name as product_name, p.sku, p.category, p.product_type,
                    s.name as supplier_name, po.oc_number, ie.order_number as entry_order_number,
-                   pro.ot_number as production_ot_number
+                   pro.ot_number as production_ot_number,
+                   (SELECT COALESCE(SUM(ls.available_qty), 0.0)
+                    FROM lot_stock ls WHERE ls.lot_id = l.id) as available_qty
             FROM lots l
             JOIN products p ON p.id = l.product_id
             LEFT JOIN suppliers s ON s.id = l.supplier_id
@@ -478,3 +480,32 @@ def search_lots(query_str: str = "", limit: int = 50, conn=None) -> List[Dict[st
         with get_connection() as c:
             with c.cursor() as cur:
                 return _execute(cur)
+
+
+def get_lot_by_number(lot_number: str, conn=None) -> Optional[Dict[str, Any]]:
+    """Obtiene un lote por su número de lote sin requerir product_id."""
+    clean_lot = (lot_number or "").strip()
+    def _execute(cur):
+        cur.execute(
+            """
+            SELECT l.*, p.name as product_name, p.sku, COALESCE(ls.available_qty, 0.0) as available_qty
+            FROM lots l
+            JOIN products p ON p.id = l.product_id
+            LEFT JOIN lot_stock ls ON ls.lot_id = l.id
+            WHERE l.lot_number = %s
+            ORDER BY l.id DESC
+            LIMIT 1;
+            """,
+            (clean_lot,)
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+    if conn is not None:
+        with conn.cursor() as cur:
+            return _execute(cur)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                return _execute(cur)
+

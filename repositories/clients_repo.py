@@ -53,8 +53,9 @@ def insert_client(data: dict) -> int:
                 """
                 INSERT INTO clients (
                     rut, dv, razon_social, tipo_compra, direccion, comuna, ciudad,
-                    giro, contacto, rut_solicita, dv_solicita, email, phone, category_id
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    giro, contacto, rut_solicita, dv_solicita, email, phone, category_id,
+                    delivery_address
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
@@ -72,6 +73,7 @@ def insert_client(data: dict) -> int:
                     data.get("email", "").strip(),
                     data.get("phone", "").strip(),
                     str(data["category_id"]).strip() if data.get("category_id") else None,
+                    data.get("delivery_address", "").strip(),
                 ),
             )
             client_id = cur.fetchone()["id"]
@@ -92,7 +94,7 @@ def update_client(client_id: int, data: dict) -> None:
                     rut = %s, dv = %s, razon_social = %s, tipo_compra = %s,
                     direccion = %s, comuna = %s, ciudad = %s, giro = %s,
                     contacto = %s, rut_solicita = %s, dv_solicita = %s,
-                    email = %s, phone = %s, category_id = %s
+                    email = %s, phone = %s, category_id = %s, delivery_address = %s
                 WHERE id = %s
                 """,
                 (
@@ -110,6 +112,7 @@ def update_client(client_id: int, data: dict) -> None:
                     data.get("email", "").strip(),
                     data.get("phone", "").strip(),
                     str(data["category_id"]).strip() if data.get("category_id") else None,
+                    data.get("delivery_address", "").strip(),
                     client_id,
                 ),
             )
@@ -161,7 +164,8 @@ def search_clients(query: str, limit: int = 10) -> list[dict]:
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT id, rut, dv, razon_social, tipo_compra, direccion, comuna, ciudad,
-                       giro, contacto, rut_solicita, dv_solicita, email, phone, category_id
+                       giro, contacto, rut_solicita, dv_solicita, email, phone, category_id,
+                       delivery_address
                 FROM clients
                 WHERE razon_social ILIKE %s
                    OR contacto ILIKE %s
@@ -208,7 +212,8 @@ def upsert_client_by_rut(data: dict) -> int:
             "dv_solicita": data.get("dv_solicita") or existing.get("dv_solicita") or "",
             "email": email or existing.get("email", ""),
             "phone": data.get("phone") or existing.get("phone") or "",
-            "category_id": category_id or existing.get("category_id")
+            "category_id": category_id or existing.get("category_id"),
+            "delivery_address": data.get("delivery_address") or existing.get("delivery_address") or "",
         }
         update_client(client_id, update_data)
         return client_id
@@ -227,7 +232,7 @@ def upsert_client_by_rut(data: dict) -> int:
             "dv_solicita": data.get("dv_solicita", ""),
             "email": email,
             "phone": data.get("phone", ""),
-            "category_id": category_id
+            "category_id": category_id,
+            "delivery_address": data.get("delivery_address", ""),
         }
         return insert_client(new_client)
-

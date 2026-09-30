@@ -505,7 +505,7 @@ def test_depleted_lot_history_preserved(genealogy_fixture):
     # En lot_stock la fila permanece con available_qty = 0 (no se borra)
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT available_qty FROM lot_stock WHERE id = %s", (lot_id,))
+            cur.execute("SELECT available_qty FROM lot_stock WHERE lot_id = %s", (lot_id,))
             row = cur.fetchone()
             if row:
                 assert row["available_qty"] == 0

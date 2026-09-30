@@ -1,0 +1,5392 @@
+{
+  "tag": "E2E-DISPATCH-20260929",
+  "steps": [
+    {
+      "label": "B_FIRST selected",
+      "before": {
+        "sale": {
+          "id": 14259,
+          "sale_number": "P-04189",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 7500.0,
+          "products_json": "[{\"product_id\": 39572, \"product_name\": \"E2E-DISPATCH-20260929 B_FIRST\", \"quantity\": 5, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 7500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39572": {
+            "physical_stock": 10.0,
+            "reserved_stock": 13.0,
+            "physical_reserved_stock": 10.0,
+            "available_stock": 0.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2134,
+            "sale_id": 14259,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:43+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04188 (Ganada)"
+          }
+        ]
+      },
+      "target": "En Preparaci\u00f3n",
+      "after": {
+        "sale": {
+          "id": 14259,
+          "sale_number": "P-04189",
+          "status": "En Preparaci\u00f3n",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 7500.0,
+          "products_json": "[{\"product_id\": 39572, \"product_name\": \"E2E-DISPATCH-20260929 B_FIRST\", \"quantity\": 5, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 7500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39572": {
+            "physical_stock": 5.0,
+            "reserved_stock": 8.0,
+            "physical_reserved_stock": 5.0,
+            "available_stock": 0.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56176,
+            "product_id": 39572,
+            "movement_type": "SALE",
+            "quantity": -5.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14259
+          }
+        ],
+        "items": [
+          {
+            "id": 844,
+            "sale_id": 14259,
+            "product_id": 39572,
+            "quantity": 5,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 5000.0,
+            "created_at": "2026-09-29T05:47:44+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2134,
+            "sale_id": 14259,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:43+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04188 (Ganada)"
+          },
+          {
+            "id": 2135,
+            "sale_id": 14259,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:44",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "B_FIRST blocked",
+      "before": {
+        "sale": {
+          "id": 14257,
+          "sale_number": "P-04187",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 12000.0,
+          "products_json": "[{\"product_id\": 39572, \"product_name\": \"E2E-DISPATCH-20260929 B_FIRST\", \"quantity\": 8, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 12000.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39572": {
+            "physical_stock": 5.0,
+            "reserved_stock": 8.0,
+            "physical_reserved_stock": 5.0,
+            "available_stock": 0.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2133,
+            "sale_id": 14257,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:42+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04186 (Ganada)"
+          }
+        ]
+      },
+      "target": "En Preparaci\u00f3n",
+      "after": {
+        "sale": {
+          "id": 14257,
+          "sale_number": "P-04187",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 12000.0,
+          "products_json": "[{\"product_id\": 39572, \"product_name\": \"E2E-DISPATCH-20260929 B_FIRST\", \"quantity\": 8, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 12000.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39572": {
+            "physical_stock": 5.0,
+            "reserved_stock": 8.0,
+            "physical_reserved_stock": 5.0,
+            "available_stock": 0.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2133,
+            "sale_id": 14257,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:42+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04186 (Ganada)"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "B_FIRST retry",
+      "before": {
+        "sale": {
+          "id": 14259,
+          "sale_number": "P-04189",
+          "status": "En Preparaci\u00f3n",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 7500.0,
+          "products_json": "[{\"product_id\": 39572, \"product_name\": \"E2E-DISPATCH-20260929 B_FIRST\", \"quantity\": 5, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 7500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39572": {
+            "physical_stock": 5.0,
+            "reserved_stock": 8.0,
+            "physical_reserved_stock": 5.0,
+            "available_stock": 0.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56176,
+            "product_id": 39572,
+            "movement_type": "SALE",
+            "quantity": -5.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14259
+          }
+        ],
+        "items": [
+          {
+            "id": 844,
+            "sale_id": 14259,
+            "product_id": 39572,
+            "quantity": 5,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 5000.0,
+            "created_at": "2026-09-29T05:47:44+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2134,
+            "sale_id": 14259,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:43+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04188 (Ganada)"
+          },
+          {
+            "id": 2135,
+            "sale_id": 14259,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:44",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          }
+        ]
+      },
+      "target": "En Preparaci\u00f3n",
+      "after": {
+        "sale": {
+          "id": 14259,
+          "sale_number": "P-04189",
+          "status": "En Preparaci\u00f3n",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 7500.0,
+          "products_json": "[{\"product_id\": 39572, \"product_name\": \"E2E-DISPATCH-20260929 B_FIRST\", \"quantity\": 5, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 7500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39572": {
+            "physical_stock": 5.0,
+            "reserved_stock": 8.0,
+            "physical_reserved_stock": 5.0,
+            "available_stock": 0.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56176,
+            "product_id": 39572,
+            "movement_type": "SALE",
+            "quantity": -5.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14259
+          }
+        ],
+        "items": [
+          {
+            "id": 844,
+            "sale_id": 14259,
+            "product_id": 39572,
+            "quantity": 5,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 5000.0,
+            "created_at": "2026-09-29T05:47:44+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2134,
+            "sale_id": 14259,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:43+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04188 (Ganada)"
+          },
+          {
+            "id": 2135,
+            "sale_id": 14259,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:44",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2136,
+            "sale_id": 14259,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:45",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "A_FIRST selected",
+      "before": {
+        "sale": {
+          "id": 14261,
+          "sale_number": "P-04191",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 12000.0,
+          "products_json": "[{\"product_id\": 39573, \"product_name\": \"E2E-DISPATCH-20260929 A_FIRST\", \"quantity\": 8, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 12000.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39573": {
+            "physical_stock": 10.0,
+            "reserved_stock": 13.0,
+            "physical_reserved_stock": 10.0,
+            "available_stock": 0.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2137,
+            "sale_id": 14261,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:46+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04190 (Ganada)"
+          }
+        ]
+      },
+      "target": "En Preparaci\u00f3n",
+      "after": {
+        "sale": {
+          "id": 14261,
+          "sale_number": "P-04191",
+          "status": "En Preparaci\u00f3n",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 12000.0,
+          "products_json": "[{\"product_id\": 39573, \"product_name\": \"E2E-DISPATCH-20260929 A_FIRST\", \"quantity\": 8, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 12000.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39573": {
+            "physical_stock": 2.0,
+            "reserved_stock": 5.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 0.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56177,
+            "product_id": 39573,
+            "movement_type": "SALE",
+            "quantity": -8.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14261
+          }
+        ],
+        "items": [
+          {
+            "id": 845,
+            "sale_id": 14261,
+            "product_id": 39573,
+            "quantity": 8,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 8000.0,
+            "created_at": "2026-09-29T05:47:47+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2137,
+            "sale_id": 14261,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:46+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04190 (Ganada)"
+          },
+          {
+            "id": 2139,
+            "sale_id": 14261,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:47",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "A_FIRST blocked",
+      "before": {
+        "sale": {
+          "id": 14263,
+          "sale_number": "P-04193",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 7500.0,
+          "products_json": "[{\"product_id\": 39573, \"product_name\": \"E2E-DISPATCH-20260929 A_FIRST\", \"quantity\": 5, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 7500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39573": {
+            "physical_stock": 2.0,
+            "reserved_stock": 5.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 0.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2138,
+            "sale_id": 14263,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:46+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04192 (Ganada)"
+          }
+        ]
+      },
+      "target": "En Preparaci\u00f3n",
+      "after": {
+        "sale": {
+          "id": 14263,
+          "sale_number": "P-04193",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 7500.0,
+          "products_json": "[{\"product_id\": 39573, \"product_name\": \"E2E-DISPATCH-20260929 A_FIRST\", \"quantity\": 5, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 7500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39573": {
+            "physical_stock": 2.0,
+            "reserved_stock": 5.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 0.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2138,
+            "sale_id": 14263,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:46+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04192 (Ganada)"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "A_FIRST retry",
+      "before": {
+        "sale": {
+          "id": 14261,
+          "sale_number": "P-04191",
+          "status": "En Preparaci\u00f3n",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 12000.0,
+          "products_json": "[{\"product_id\": 39573, \"product_name\": \"E2E-DISPATCH-20260929 A_FIRST\", \"quantity\": 8, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 12000.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39573": {
+            "physical_stock": 2.0,
+            "reserved_stock": 5.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 0.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56177,
+            "product_id": 39573,
+            "movement_type": "SALE",
+            "quantity": -8.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14261
+          }
+        ],
+        "items": [
+          {
+            "id": 845,
+            "sale_id": 14261,
+            "product_id": 39573,
+            "quantity": 8,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 8000.0,
+            "created_at": "2026-09-29T05:47:47+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2137,
+            "sale_id": 14261,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:46+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04190 (Ganada)"
+          },
+          {
+            "id": 2139,
+            "sale_id": 14261,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:47",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          }
+        ]
+      },
+      "target": "En Preparaci\u00f3n",
+      "after": {
+        "sale": {
+          "id": 14261,
+          "sale_number": "P-04191",
+          "status": "En Preparaci\u00f3n",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 12000.0,
+          "products_json": "[{\"product_id\": 39573, \"product_name\": \"E2E-DISPATCH-20260929 A_FIRST\", \"quantity\": 8, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 12000.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39573": {
+            "physical_stock": 2.0,
+            "reserved_stock": 5.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 0.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56177,
+            "product_id": 39573,
+            "movement_type": "SALE",
+            "quantity": -8.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14261
+          }
+        ],
+        "items": [
+          {
+            "id": 845,
+            "sale_id": 14261,
+            "product_id": 39573,
+            "quantity": 8,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 8000.0,
+            "created_at": "2026-09-29T05:47:47+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2137,
+            "sale_id": 14261,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:46+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04190 (Ganada)"
+          },
+          {
+            "id": 2139,
+            "sale_id": 14261,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:47",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2140,
+            "sale_id": 14261,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:48",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "workflow En Preparaci\u00f3n",
+      "before": {
+        "sale": {
+          "id": 14265,
+          "sale_number": "P-04195",
+          "status": "En Preparaci\u00f3n",
+          "payment_status": "Pagado",
+          "reversal_applied": false,
+          "total_amount": 4500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 3, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 4500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 0.0,
+            "physical_reserved_stock": 0.0,
+            "available_stock": 7.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56178,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -3.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14265
+          }
+        ],
+        "items": [
+          {
+            "id": 846,
+            "sale_id": 14265,
+            "product_id": 39574,
+            "quantity": 3,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 3000.0,
+            "created_at": "2026-09-29T05:47:51+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2141,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:49+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04194 (Ganada)"
+          },
+          {
+            "id": 2142,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:50+00:00",
+            "comment": "Pago total registrado. Venta permanece pendiente de preparaci\u00f3n f\u00edsica."
+          },
+          {
+            "id": 2143,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2144,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          }
+        ]
+      },
+      "target": "En Preparaci\u00f3n",
+      "after": {
+        "sale": {
+          "id": 14265,
+          "sale_number": "P-04195",
+          "status": "En Preparaci\u00f3n",
+          "payment_status": "Pagado",
+          "reversal_applied": false,
+          "total_amount": 4500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 3, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 4500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 0.0,
+            "physical_reserved_stock": 0.0,
+            "available_stock": 7.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56178,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -3.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14265
+          }
+        ],
+        "items": [
+          {
+            "id": 846,
+            "sale_id": 14265,
+            "product_id": 39574,
+            "quantity": 3,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 3000.0,
+            "created_at": "2026-09-29T05:47:51+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2141,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:49+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04194 (Ganada)"
+          },
+          {
+            "id": 2142,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:50+00:00",
+            "comment": "Pago total registrado. Venta permanece pendiente de preparaci\u00f3n f\u00edsica."
+          },
+          {
+            "id": 2143,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2144,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2145,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "workflow Para Despacho",
+      "before": {
+        "sale": {
+          "id": 14265,
+          "sale_number": "P-04195",
+          "status": "En Preparaci\u00f3n",
+          "payment_status": "Pagado",
+          "reversal_applied": false,
+          "total_amount": 4500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 3, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 4500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 0.0,
+            "physical_reserved_stock": 0.0,
+            "available_stock": 7.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56178,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -3.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14265
+          }
+        ],
+        "items": [
+          {
+            "id": 846,
+            "sale_id": 14265,
+            "product_id": 39574,
+            "quantity": 3,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 3000.0,
+            "created_at": "2026-09-29T05:47:51+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2141,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:49+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04194 (Ganada)"
+          },
+          {
+            "id": 2142,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:50+00:00",
+            "comment": "Pago total registrado. Venta permanece pendiente de preparaci\u00f3n f\u00edsica."
+          },
+          {
+            "id": 2143,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2144,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2145,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          }
+        ]
+      },
+      "target": "Para Despacho",
+      "after": {
+        "sale": {
+          "id": 14265,
+          "sale_number": "P-04195",
+          "status": "Para Despacho",
+          "payment_status": "Pagado",
+          "reversal_applied": false,
+          "total_amount": 4500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 3, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 4500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 0.0,
+            "physical_reserved_stock": 0.0,
+            "available_stock": 7.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56178,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -3.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14265
+          }
+        ],
+        "items": [
+          {
+            "id": 846,
+            "sale_id": 14265,
+            "product_id": 39574,
+            "quantity": 3,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 3000.0,
+            "created_at": "2026-09-29T05:47:51+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2141,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:49+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04194 (Ganada)"
+          },
+          {
+            "id": 2142,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:50+00:00",
+            "comment": "Pago total registrado. Venta permanece pendiente de preparaci\u00f3n f\u00edsica."
+          },
+          {
+            "id": 2143,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2144,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2145,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2146,
+            "sale_id": 14265,
+            "status": "Para Despacho",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:52",
+            "comment": "Estado cambiado manualmente a Para Despacho"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "workflow Para Despacho",
+      "before": {
+        "sale": {
+          "id": 14265,
+          "sale_number": "P-04195",
+          "status": "Para Despacho",
+          "payment_status": "Pagado",
+          "reversal_applied": false,
+          "total_amount": 4500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 3, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 4500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 0.0,
+            "physical_reserved_stock": 0.0,
+            "available_stock": 7.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56178,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -3.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14265
+          }
+        ],
+        "items": [
+          {
+            "id": 846,
+            "sale_id": 14265,
+            "product_id": 39574,
+            "quantity": 3,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 3000.0,
+            "created_at": "2026-09-29T05:47:51+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2141,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:49+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04194 (Ganada)"
+          },
+          {
+            "id": 2142,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:50+00:00",
+            "comment": "Pago total registrado. Venta permanece pendiente de preparaci\u00f3n f\u00edsica."
+          },
+          {
+            "id": 2143,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2144,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2145,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2146,
+            "sale_id": 14265,
+            "status": "Para Despacho",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:52",
+            "comment": "Estado cambiado manualmente a Para Despacho"
+          }
+        ]
+      },
+      "target": "Para Despacho",
+      "after": {
+        "sale": {
+          "id": 14265,
+          "sale_number": "P-04195",
+          "status": "Para Despacho",
+          "payment_status": "Pagado",
+          "reversal_applied": false,
+          "total_amount": 4500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 3, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 4500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 0.0,
+            "physical_reserved_stock": 0.0,
+            "available_stock": 7.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56178,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -3.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14265
+          }
+        ],
+        "items": [
+          {
+            "id": 846,
+            "sale_id": 14265,
+            "product_id": 39574,
+            "quantity": 3,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 3000.0,
+            "created_at": "2026-09-29T05:47:51+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2141,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:49+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04194 (Ganada)"
+          },
+          {
+            "id": 2142,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:50+00:00",
+            "comment": "Pago total registrado. Venta permanece pendiente de preparaci\u00f3n f\u00edsica."
+          },
+          {
+            "id": 2143,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2144,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2145,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2146,
+            "sale_id": 14265,
+            "status": "Para Despacho",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:52",
+            "comment": "Estado cambiado manualmente a Para Despacho"
+          },
+          {
+            "id": 2147,
+            "sale_id": 14265,
+            "status": "Para Despacho",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:52",
+            "comment": "Estado cambiado manualmente a Para Despacho"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "workflow Completada",
+      "before": {
+        "sale": {
+          "id": 14265,
+          "sale_number": "P-04195",
+          "status": "Para Despacho",
+          "payment_status": "Pagado",
+          "reversal_applied": false,
+          "total_amount": 4500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 3, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 4500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 0.0,
+            "physical_reserved_stock": 0.0,
+            "available_stock": 7.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56178,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -3.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14265
+          }
+        ],
+        "items": [
+          {
+            "id": 846,
+            "sale_id": 14265,
+            "product_id": 39574,
+            "quantity": 3,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 3000.0,
+            "created_at": "2026-09-29T05:47:51+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2141,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:49+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04194 (Ganada)"
+          },
+          {
+            "id": 2142,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:50+00:00",
+            "comment": "Pago total registrado. Venta permanece pendiente de preparaci\u00f3n f\u00edsica."
+          },
+          {
+            "id": 2143,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2144,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2145,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2146,
+            "sale_id": 14265,
+            "status": "Para Despacho",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:52",
+            "comment": "Estado cambiado manualmente a Para Despacho"
+          },
+          {
+            "id": 2147,
+            "sale_id": 14265,
+            "status": "Para Despacho",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:52",
+            "comment": "Estado cambiado manualmente a Para Despacho"
+          }
+        ]
+      },
+      "target": "Completada",
+      "after": {
+        "sale": {
+          "id": 14265,
+          "sale_number": "P-04195",
+          "status": "Completada",
+          "payment_status": "Pagado",
+          "reversal_applied": false,
+          "total_amount": 4500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 3, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 4500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 0.0,
+            "physical_reserved_stock": 0.0,
+            "available_stock": 7.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56178,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -3.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14265
+          }
+        ],
+        "items": [
+          {
+            "id": 846,
+            "sale_id": 14265,
+            "product_id": 39574,
+            "quantity": 3,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 3000.0,
+            "created_at": "2026-09-29T05:47:51+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2141,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:49+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04194 (Ganada)"
+          },
+          {
+            "id": 2142,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:50+00:00",
+            "comment": "Pago total registrado. Venta permanece pendiente de preparaci\u00f3n f\u00edsica."
+          },
+          {
+            "id": 2143,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2144,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2145,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2146,
+            "sale_id": 14265,
+            "status": "Para Despacho",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:52",
+            "comment": "Estado cambiado manualmente a Para Despacho"
+          },
+          {
+            "id": 2147,
+            "sale_id": 14265,
+            "status": "Para Despacho",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:52",
+            "comment": "Estado cambiado manualmente a Para Despacho"
+          },
+          {
+            "id": 2148,
+            "sale_id": 14265,
+            "status": "Completada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:53",
+            "comment": "Estado cambiado manualmente a Completada"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "workflow Completada",
+      "before": {
+        "sale": {
+          "id": 14265,
+          "sale_number": "P-04195",
+          "status": "Completada",
+          "payment_status": "Pagado",
+          "reversal_applied": false,
+          "total_amount": 4500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 3, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 4500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 0.0,
+            "physical_reserved_stock": 0.0,
+            "available_stock": 7.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56178,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -3.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14265
+          }
+        ],
+        "items": [
+          {
+            "id": 846,
+            "sale_id": 14265,
+            "product_id": 39574,
+            "quantity": 3,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 3000.0,
+            "created_at": "2026-09-29T05:47:51+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2141,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:49+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04194 (Ganada)"
+          },
+          {
+            "id": 2142,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:50+00:00",
+            "comment": "Pago total registrado. Venta permanece pendiente de preparaci\u00f3n f\u00edsica."
+          },
+          {
+            "id": 2143,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2144,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2145,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2146,
+            "sale_id": 14265,
+            "status": "Para Despacho",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:52",
+            "comment": "Estado cambiado manualmente a Para Despacho"
+          },
+          {
+            "id": 2147,
+            "sale_id": 14265,
+            "status": "Para Despacho",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:52",
+            "comment": "Estado cambiado manualmente a Para Despacho"
+          },
+          {
+            "id": 2148,
+            "sale_id": 14265,
+            "status": "Completada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:53",
+            "comment": "Estado cambiado manualmente a Completada"
+          }
+        ]
+      },
+      "target": "Completada",
+      "after": {
+        "sale": {
+          "id": 14265,
+          "sale_number": "P-04195",
+          "status": "Completada",
+          "payment_status": "Pagado",
+          "reversal_applied": false,
+          "total_amount": 4500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 3, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 4500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 0.0,
+            "physical_reserved_stock": 0.0,
+            "available_stock": 7.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56178,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -3.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14265
+          }
+        ],
+        "items": [
+          {
+            "id": 846,
+            "sale_id": 14265,
+            "product_id": 39574,
+            "quantity": 3,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 3000.0,
+            "created_at": "2026-09-29T05:47:51+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2141,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:49+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04194 (Ganada)"
+          },
+          {
+            "id": 2142,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:50+00:00",
+            "comment": "Pago total registrado. Venta permanece pendiente de preparaci\u00f3n f\u00edsica."
+          },
+          {
+            "id": 2143,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2144,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2145,
+            "sale_id": 14265,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:51",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2146,
+            "sale_id": 14265,
+            "status": "Para Despacho",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:52",
+            "comment": "Estado cambiado manualmente a Para Despacho"
+          },
+          {
+            "id": 2147,
+            "sale_id": 14265,
+            "status": "Para Despacho",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:52",
+            "comment": "Estado cambiado manualmente a Para Despacho"
+          },
+          {
+            "id": 2148,
+            "sale_id": 14265,
+            "status": "Completada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:53",
+            "comment": "Estado cambiado manualmente a Completada"
+          },
+          {
+            "id": 2149,
+            "sale_id": 14265,
+            "status": "Completada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:53",
+            "comment": "Estado cambiado manualmente a Completada"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "lot direct dispatch",
+      "before": {
+        "sale": {
+          "id": 14267,
+          "sale_number": "P-04197",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 9000.0,
+          "products_json": "[{\"product_id\": 39575, \"product_name\": \"E2E-DISPATCH-20260929 LOT\", \"quantity\": 6, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 9000.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39575": {
+            "physical_stock": 10.0,
+            "reserved_stock": 6.0,
+            "physical_reserved_stock": 6.0,
+            "available_stock": 4.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2150,
+            "sale_id": 14267,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:54+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04196 (Ganada)"
+          }
+        ]
+      },
+      "target": "Para Despacho",
+      "after": {
+        "sale": {
+          "id": 14267,
+          "sale_number": "P-04197",
+          "status": "Para Despacho",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 9000.0,
+          "products_json": "[{\"product_id\": 39575, \"product_name\": \"E2E-DISPATCH-20260929 LOT\", \"quantity\": 6, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 9000.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39575": {
+            "physical_stock": 4.0,
+            "reserved_stock": 0.0,
+            "physical_reserved_stock": 0.0,
+            "available_stock": 4.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56179,
+            "product_id": 39575,
+            "movement_type": "SALE",
+            "quantity": -4.0,
+            "unit_cost": 1120.0,
+            "lot_id": 5438,
+            "lot_number": "E2E-DISPATCH-20260929-LOT-A",
+            "reference_type": "sale",
+            "reference_id": 14267
+          },
+          {
+            "id": 56180,
+            "product_id": 39575,
+            "movement_type": "SALE",
+            "quantity": -2.0,
+            "unit_cost": 1120.0,
+            "lot_id": 5439,
+            "lot_number": "E2E-DISPATCH-20260929-LOT-B",
+            "reference_type": "sale",
+            "reference_id": 14267
+          }
+        ],
+        "items": [
+          {
+            "id": 847,
+            "sale_id": 14267,
+            "product_id": 39575,
+            "quantity": 6,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1120.0,
+            "total_cost_at_sale": 6720.0,
+            "created_at": "2026-09-29T05:47:55+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2150,
+            "sale_id": 14267,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:54+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04196 (Ganada)"
+          },
+          {
+            "id": 2151,
+            "sale_id": 14267,
+            "status": "Para Despacho",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:55",
+            "comment": "Estado cambiado manualmente a Para Despacho"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "lot retry",
+      "before": {
+        "sale": {
+          "id": 14267,
+          "sale_number": "P-04197",
+          "status": "Para Despacho",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 9000.0,
+          "products_json": "[{\"product_id\": 39575, \"product_name\": \"E2E-DISPATCH-20260929 LOT\", \"quantity\": 6, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 9000.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39575": {
+            "physical_stock": 4.0,
+            "reserved_stock": 0.0,
+            "physical_reserved_stock": 0.0,
+            "available_stock": 4.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56179,
+            "product_id": 39575,
+            "movement_type": "SALE",
+            "quantity": -4.0,
+            "unit_cost": 1120.0,
+            "lot_id": 5438,
+            "lot_number": "E2E-DISPATCH-20260929-LOT-A",
+            "reference_type": "sale",
+            "reference_id": 14267
+          },
+          {
+            "id": 56180,
+            "product_id": 39575,
+            "movement_type": "SALE",
+            "quantity": -2.0,
+            "unit_cost": 1120.0,
+            "lot_id": 5439,
+            "lot_number": "E2E-DISPATCH-20260929-LOT-B",
+            "reference_type": "sale",
+            "reference_id": 14267
+          }
+        ],
+        "items": [
+          {
+            "id": 847,
+            "sale_id": 14267,
+            "product_id": 39575,
+            "quantity": 6,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1120.0,
+            "total_cost_at_sale": 6720.0,
+            "created_at": "2026-09-29T05:47:55+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2150,
+            "sale_id": 14267,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:54+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04196 (Ganada)"
+          },
+          {
+            "id": 2151,
+            "sale_id": 14267,
+            "status": "Para Despacho",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:55",
+            "comment": "Estado cambiado manualmente a Para Despacho"
+          }
+        ]
+      },
+      "target": "Para Despacho",
+      "after": {
+        "sale": {
+          "id": 14267,
+          "sale_number": "P-04197",
+          "status": "Para Despacho",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 9000.0,
+          "products_json": "[{\"product_id\": 39575, \"product_name\": \"E2E-DISPATCH-20260929 LOT\", \"quantity\": 6, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 9000.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39575": {
+            "physical_stock": 4.0,
+            "reserved_stock": 0.0,
+            "physical_reserved_stock": 0.0,
+            "available_stock": 4.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56179,
+            "product_id": 39575,
+            "movement_type": "SALE",
+            "quantity": -4.0,
+            "unit_cost": 1120.0,
+            "lot_id": 5438,
+            "lot_number": "E2E-DISPATCH-20260929-LOT-A",
+            "reference_type": "sale",
+            "reference_id": 14267
+          },
+          {
+            "id": 56180,
+            "product_id": 39575,
+            "movement_type": "SALE",
+            "quantity": -2.0,
+            "unit_cost": 1120.0,
+            "lot_id": 5439,
+            "lot_number": "E2E-DISPATCH-20260929-LOT-B",
+            "reference_type": "sale",
+            "reference_id": 14267
+          }
+        ],
+        "items": [
+          {
+            "id": 847,
+            "sale_id": 14267,
+            "product_id": 39575,
+            "quantity": 6,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1120.0,
+            "total_cost_at_sale": 6720.0,
+            "created_at": "2026-09-29T05:47:55+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2150,
+            "sale_id": 14267,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:54+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04196 (Ganada)"
+          },
+          {
+            "id": 2151,
+            "sale_id": 14267,
+            "status": "Para Despacho",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:55",
+            "comment": "Estado cambiado manualmente a Para Despacho"
+          },
+          {
+            "id": 2152,
+            "sale_id": 14267,
+            "status": "Para Despacho",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:56",
+            "comment": "Estado cambiado manualmente a Para Despacho"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "atomic insufficient",
+      "before": {
+        "sale": {
+          "id": 14269,
+          "sale_number": "P-04199",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 4500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 2, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 3000.0, \"lot_number\": \"\"}, {\"product_id\": 39576, \"product_name\": \"E2E-DISPATCH-20260929 EMPTY\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 2.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 5.0
+          },
+          "39576": {
+            "physical_stock": 0.0,
+            "reserved_stock": 1.0,
+            "physical_reserved_stock": 0.0,
+            "available_stock": 0.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2153,
+            "sale_id": 14269,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:57+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04198 (Ganada). Creada con stock pendiente de abastecimiento."
+          }
+        ]
+      },
+      "target": "En Preparaci\u00f3n",
+      "after": {
+        "sale": {
+          "id": 14269,
+          "sale_number": "P-04199",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 4500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 2, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 3000.0, \"lot_number\": \"\"}, {\"product_id\": 39576, \"product_name\": \"E2E-DISPATCH-20260929 EMPTY\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 2.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 5.0
+          },
+          "39576": {
+            "physical_stock": 0.0,
+            "reserved_stock": 1.0,
+            "physical_reserved_stock": 0.0,
+            "available_stock": 0.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2153,
+            "sale_id": 14269,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:57+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04198 (Ganada). Creada con stock pendiente de abastecimiento."
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "cancel before",
+      "before": {
+        "sale": {
+          "id": 14271,
+          "sale_number": "P-04201",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 3.0,
+            "physical_reserved_stock": 3.0,
+            "available_stock": 4.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2154,
+            "sale_id": 14271,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:58+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04200 (Ganada)"
+          }
+        ]
+      },
+      "target": "Cancelada",
+      "after": {
+        "sale": {
+          "id": 14271,
+          "sale_number": "P-04201",
+          "status": "Cancelada",
+          "payment_status": "Pendiente",
+          "reversal_applied": true,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 2.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 5.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2154,
+            "sale_id": 14271,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:58+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04200 (Ganada)"
+          },
+          {
+            "id": 2155,
+            "sale_id": 14271,
+            "status": "Cancelada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:59",
+            "comment": "Estado cambiado manualmente a Cancelada"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "cancel before retry",
+      "before": {
+        "sale": {
+          "id": 14271,
+          "sale_number": "P-04201",
+          "status": "Cancelada",
+          "payment_status": "Pendiente",
+          "reversal_applied": true,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 2.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 5.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2154,
+            "sale_id": 14271,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:58+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04200 (Ganada)"
+          },
+          {
+            "id": 2155,
+            "sale_id": 14271,
+            "status": "Cancelada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:59",
+            "comment": "Estado cambiado manualmente a Cancelada"
+          }
+        ]
+      },
+      "target": "Cancelada",
+      "after": {
+        "sale": {
+          "id": 14271,
+          "sale_number": "P-04201",
+          "status": "Cancelada",
+          "payment_status": "Pendiente",
+          "reversal_applied": true,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 2.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 5.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2154,
+            "sale_id": 14271,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:58+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04200 (Ganada)"
+          },
+          {
+            "id": 2155,
+            "sale_id": 14271,
+            "status": "Cancelada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:47:59",
+            "comment": "Estado cambiado manualmente a Cancelada"
+          },
+          {
+            "id": 2156,
+            "sale_id": 14271,
+            "status": "Cancelada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:00",
+            "comment": "Estado cambiado manualmente a Cancelada"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "complete missing document",
+      "before": {
+        "sale": {
+          "id": 14273,
+          "sale_number": "P-04203",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 3.0,
+            "physical_reserved_stock": 3.0,
+            "available_stock": 4.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2157,
+            "sale_id": 14273,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:48:00+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04202 (Ganada)"
+          }
+        ]
+      },
+      "target": "Completada",
+      "after": {
+        "sale": {
+          "id": 14273,
+          "sale_number": "P-04203",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 3.0,
+            "physical_reserved_stock": 3.0,
+            "available_stock": 4.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2157,
+            "sale_id": 14273,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:48:00+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04202 (Ganada)"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "direct complete",
+      "before": {
+        "sale": {
+          "id": 14273,
+          "sale_number": "P-04203",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 3.0,
+            "physical_reserved_stock": 3.0,
+            "available_stock": 4.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2157,
+            "sale_id": 14273,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:48:00+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04202 (Ganada)"
+          }
+        ]
+      },
+      "target": "Completada",
+      "after": {
+        "sale": {
+          "id": 14273,
+          "sale_number": "P-04203",
+          "status": "Completada",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 6.0,
+            "reserved_stock": 2.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 4.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56181,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -1.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14273
+          }
+        ],
+        "items": [
+          {
+            "id": 848,
+            "sale_id": 14273,
+            "product_id": 39574,
+            "quantity": 1,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 1000.0,
+            "created_at": "2026-09-29T05:48:02+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2157,
+            "sale_id": 14273,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:48:00+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04202 (Ganada)"
+          },
+          {
+            "id": 2158,
+            "sale_id": 14273,
+            "status": "Completada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:02",
+            "comment": "Estado cambiado manualmente a Completada"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "cancel after complete",
+      "before": {
+        "sale": {
+          "id": 14273,
+          "sale_number": "P-04203",
+          "status": "Completada",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 6.0,
+            "reserved_stock": 2.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 4.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56181,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -1.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14273
+          }
+        ],
+        "items": [
+          {
+            "id": 848,
+            "sale_id": 14273,
+            "product_id": 39574,
+            "quantity": 1,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 1000.0,
+            "created_at": "2026-09-29T05:48:02+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2157,
+            "sale_id": 14273,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:48:00+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04202 (Ganada)"
+          },
+          {
+            "id": 2158,
+            "sale_id": 14273,
+            "status": "Completada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:02",
+            "comment": "Estado cambiado manualmente a Completada"
+          }
+        ]
+      },
+      "target": "Cancelada",
+      "after": {
+        "sale": {
+          "id": 14273,
+          "sale_number": "P-04203",
+          "status": "Cancelada",
+          "payment_status": "Pendiente",
+          "reversal_applied": true,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 2.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 5.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56181,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -1.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14273
+          },
+          {
+            "id": 56182,
+            "product_id": 39574,
+            "movement_type": "SALE_REVERSAL",
+            "quantity": 1.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale_cancellation",
+            "reference_id": 14273
+          }
+        ],
+        "items": [
+          {
+            "id": 848,
+            "sale_id": 14273,
+            "product_id": 39574,
+            "quantity": 1,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 1000.0,
+            "created_at": "2026-09-29T05:48:02+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2157,
+            "sale_id": 14273,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:48:00+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04202 (Ganada)"
+          },
+          {
+            "id": 2158,
+            "sale_id": 14273,
+            "status": "Completada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:02",
+            "comment": "Estado cambiado manualmente a Completada"
+          },
+          {
+            "id": 2159,
+            "sale_id": 14273,
+            "status": "Cancelada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:02",
+            "comment": "Estado cambiado manualmente a Cancelada"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "cancel after retry",
+      "before": {
+        "sale": {
+          "id": 14273,
+          "sale_number": "P-04203",
+          "status": "Cancelada",
+          "payment_status": "Pendiente",
+          "reversal_applied": true,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 2.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 5.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56181,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -1.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14273
+          },
+          {
+            "id": 56182,
+            "product_id": 39574,
+            "movement_type": "SALE_REVERSAL",
+            "quantity": 1.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale_cancellation",
+            "reference_id": 14273
+          }
+        ],
+        "items": [
+          {
+            "id": 848,
+            "sale_id": 14273,
+            "product_id": 39574,
+            "quantity": 1,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 1000.0,
+            "created_at": "2026-09-29T05:48:02+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2157,
+            "sale_id": 14273,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:48:00+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04202 (Ganada)"
+          },
+          {
+            "id": 2158,
+            "sale_id": 14273,
+            "status": "Completada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:02",
+            "comment": "Estado cambiado manualmente a Completada"
+          },
+          {
+            "id": 2159,
+            "sale_id": 14273,
+            "status": "Cancelada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:02",
+            "comment": "Estado cambiado manualmente a Cancelada"
+          }
+        ]
+      },
+      "target": "Cancelada",
+      "after": {
+        "sale": {
+          "id": 14273,
+          "sale_number": "P-04203",
+          "status": "Cancelada",
+          "payment_status": "Pendiente",
+          "reversal_applied": true,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 2.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 5.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56181,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -1.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14273
+          },
+          {
+            "id": 56182,
+            "product_id": 39574,
+            "movement_type": "SALE_REVERSAL",
+            "quantity": 1.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale_cancellation",
+            "reference_id": 14273
+          }
+        ],
+        "items": [
+          {
+            "id": 848,
+            "sale_id": 14273,
+            "product_id": 39574,
+            "quantity": 1,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 1000.0,
+            "created_at": "2026-09-29T05:48:02+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2157,
+            "sale_id": 14273,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:48:00+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04202 (Ganada)"
+          },
+          {
+            "id": 2158,
+            "sale_id": 14273,
+            "status": "Completada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:02",
+            "comment": "Estado cambiado manualmente a Completada"
+          },
+          {
+            "id": 2159,
+            "sale_id": 14273,
+            "status": "Cancelada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:02",
+            "comment": "Estado cambiado manualmente a Cancelada"
+          },
+          {
+            "id": 2160,
+            "sale_id": 14273,
+            "status": "Cancelada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:03",
+            "comment": "Estado cambiado manualmente a Cancelada"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "cancelled reactivation probe",
+      "before": {
+        "sale": {
+          "id": 14273,
+          "sale_number": "P-04203",
+          "status": "Cancelada",
+          "payment_status": "Pendiente",
+          "reversal_applied": true,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 2.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 5.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56181,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -1.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14273
+          },
+          {
+            "id": 56182,
+            "product_id": 39574,
+            "movement_type": "SALE_REVERSAL",
+            "quantity": 1.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale_cancellation",
+            "reference_id": 14273
+          }
+        ],
+        "items": [
+          {
+            "id": 848,
+            "sale_id": 14273,
+            "product_id": 39574,
+            "quantity": 1,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 1000.0,
+            "created_at": "2026-09-29T05:48:02+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2157,
+            "sale_id": 14273,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:48:00+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04202 (Ganada)"
+          },
+          {
+            "id": 2158,
+            "sale_id": 14273,
+            "status": "Completada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:02",
+            "comment": "Estado cambiado manualmente a Completada"
+          },
+          {
+            "id": 2159,
+            "sale_id": 14273,
+            "status": "Cancelada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:02",
+            "comment": "Estado cambiado manualmente a Cancelada"
+          },
+          {
+            "id": 2160,
+            "sale_id": 14273,
+            "status": "Cancelada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:03",
+            "comment": "Estado cambiado manualmente a Cancelada"
+          }
+        ]
+      },
+      "target": "En Preparaci\u00f3n",
+      "after": {
+        "sale": {
+          "id": 14273,
+          "sale_number": "P-04203",
+          "status": "En Preparaci\u00f3n",
+          "payment_status": "Pendiente",
+          "reversal_applied": true,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 2.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 5.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56181,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -1.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14273
+          },
+          {
+            "id": 56182,
+            "product_id": 39574,
+            "movement_type": "SALE_REVERSAL",
+            "quantity": 1.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale_cancellation",
+            "reference_id": 14273
+          }
+        ],
+        "items": [
+          {
+            "id": 848,
+            "sale_id": 14273,
+            "product_id": 39574,
+            "quantity": 1,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 1000.0,
+            "created_at": "2026-09-29T05:48:02+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2157,
+            "sale_id": 14273,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:48:00+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04202 (Ganada)"
+          },
+          {
+            "id": 2158,
+            "sale_id": 14273,
+            "status": "Completada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:02",
+            "comment": "Estado cambiado manualmente a Completada"
+          },
+          {
+            "id": 2159,
+            "sale_id": 14273,
+            "status": "Cancelada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:02",
+            "comment": "Estado cambiado manualmente a Cancelada"
+          },
+          {
+            "id": 2160,
+            "sale_id": 14273,
+            "status": "Cancelada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:03",
+            "comment": "Estado cambiado manualmente a Cancelada"
+          },
+          {
+            "id": 2161,
+            "sale_id": 14273,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:52",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    },
+    {
+      "label": "return cancelled after probe",
+      "before": {
+        "sale": {
+          "id": 14273,
+          "sale_number": "P-04203",
+          "status": "En Preparaci\u00f3n",
+          "payment_status": "Pendiente",
+          "reversal_applied": true,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 2.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 5.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56181,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -1.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14273
+          },
+          {
+            "id": 56182,
+            "product_id": 39574,
+            "movement_type": "SALE_REVERSAL",
+            "quantity": 1.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale_cancellation",
+            "reference_id": 14273
+          }
+        ],
+        "items": [
+          {
+            "id": 848,
+            "sale_id": 14273,
+            "product_id": 39574,
+            "quantity": 1,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 1000.0,
+            "created_at": "2026-09-29T05:48:02+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2157,
+            "sale_id": 14273,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:48:00+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04202 (Ganada)"
+          },
+          {
+            "id": 2158,
+            "sale_id": 14273,
+            "status": "Completada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:02",
+            "comment": "Estado cambiado manualmente a Completada"
+          },
+          {
+            "id": 2159,
+            "sale_id": 14273,
+            "status": "Cancelada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:02",
+            "comment": "Estado cambiado manualmente a Cancelada"
+          },
+          {
+            "id": 2160,
+            "sale_id": 14273,
+            "status": "Cancelada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:03",
+            "comment": "Estado cambiado manualmente a Cancelada"
+          },
+          {
+            "id": 2161,
+            "sale_id": 14273,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:52",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          }
+        ]
+      },
+      "target": "Cancelada",
+      "after": {
+        "sale": {
+          "id": 14273,
+          "sale_number": "P-04203",
+          "status": "Cancelada",
+          "payment_status": "Pendiente",
+          "reversal_applied": true,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 2.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 5.0
+          }
+        },
+        "movements": [
+          {
+            "id": 56181,
+            "product_id": 39574,
+            "movement_type": "SALE",
+            "quantity": -1.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale",
+            "reference_id": 14273
+          },
+          {
+            "id": 56182,
+            "product_id": 39574,
+            "movement_type": "SALE_REVERSAL",
+            "quantity": 1.0,
+            "unit_cost": 1000.0,
+            "lot_id": null,
+            "lot_number": null,
+            "reference_type": "sale_cancellation",
+            "reference_id": 14273
+          }
+        ],
+        "items": [
+          {
+            "id": 848,
+            "sale_id": 14273,
+            "product_id": 39574,
+            "quantity": 1,
+            "unit_price": 1500.0,
+            "unit_cost_at_sale": 1000.0,
+            "total_cost_at_sale": 1000.0,
+            "created_at": "2026-09-29T05:48:02+00:00"
+          }
+        ],
+        "history": [
+          {
+            "id": 2157,
+            "sale_id": 14273,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:48:00+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04202 (Ganada)"
+          },
+          {
+            "id": 2158,
+            "sale_id": 14273,
+            "status": "Completada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:02",
+            "comment": "Estado cambiado manualmente a Completada"
+          },
+          {
+            "id": 2159,
+            "sale_id": 14273,
+            "status": "Cancelada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:02",
+            "comment": "Estado cambiado manualmente a Cancelada"
+          },
+          {
+            "id": 2160,
+            "sale_id": 14273,
+            "status": "Cancelada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:03",
+            "comment": "Estado cambiado manualmente a Cancelada"
+          },
+          {
+            "id": 2161,
+            "sale_id": 14273,
+            "status": "En Preparaci\u00f3n",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:52",
+            "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+          },
+          {
+            "id": 2162,
+            "sale_id": 14273,
+            "status": "Cancelada",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29 02:48:53",
+            "comment": "Estado cambiado manualmente a Cancelada"
+          }
+        ]
+      },
+      "http": 200,
+      "insufficient_message": true
+    }
+  ],
+  "products": {
+    "B_FIRST": 39572,
+    "A_FIRST": 39573,
+    "WORKFLOW": 39574,
+    "LOT": 39575,
+    "EMPTY": 39576
+  },
+  "sales": {
+    "B_FIRST-A": {
+      "quote": {
+        "id": 14256,
+        "sale_number": "COT-04186"
+      },
+      "sale_id": 14257,
+      "sale_number": "P-04187",
+      "created": {
+        "sale": {
+          "id": 14257,
+          "sale_number": "P-04187",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 12000.0,
+          "products_json": "[{\"product_id\": 39572, \"product_name\": \"E2E-DISPATCH-20260929 B_FIRST\", \"quantity\": 8, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 12000.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39572": {
+            "physical_stock": 10.0,
+            "reserved_stock": 8.0,
+            "physical_reserved_stock": 8.0,
+            "available_stock": 2.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2133,
+            "sale_id": 14257,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:42+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04186 (Ganada)"
+          }
+        ]
+      }
+    },
+    "B_FIRST-B": {
+      "quote": {
+        "id": 14258,
+        "sale_number": "COT-04188"
+      },
+      "sale_id": 14259,
+      "sale_number": "P-04189",
+      "created": {
+        "sale": {
+          "id": 14259,
+          "sale_number": "P-04189",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 7500.0,
+          "products_json": "[{\"product_id\": 39572, \"product_name\": \"E2E-DISPATCH-20260929 B_FIRST\", \"quantity\": 5, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 7500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39572": {
+            "physical_stock": 10.0,
+            "reserved_stock": 13.0,
+            "physical_reserved_stock": 10.0,
+            "available_stock": 0.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2134,
+            "sale_id": 14259,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:43+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04188 (Ganada)"
+          }
+        ]
+      }
+    },
+    "A_FIRST-A": {
+      "quote": {
+        "id": 14260,
+        "sale_number": "COT-04190"
+      },
+      "sale_id": 14261,
+      "sale_number": "P-04191",
+      "created": {
+        "sale": {
+          "id": 14261,
+          "sale_number": "P-04191",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 12000.0,
+          "products_json": "[{\"product_id\": 39573, \"product_name\": \"E2E-DISPATCH-20260929 A_FIRST\", \"quantity\": 8, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 12000.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39573": {
+            "physical_stock": 10.0,
+            "reserved_stock": 8.0,
+            "physical_reserved_stock": 8.0,
+            "available_stock": 2.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2137,
+            "sale_id": 14261,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:46+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04190 (Ganada)"
+          }
+        ]
+      }
+    },
+    "A_FIRST-B": {
+      "quote": {
+        "id": 14262,
+        "sale_number": "COT-04192"
+      },
+      "sale_id": 14263,
+      "sale_number": "P-04193",
+      "created": {
+        "sale": {
+          "id": 14263,
+          "sale_number": "P-04193",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 7500.0,
+          "products_json": "[{\"product_id\": 39573, \"product_name\": \"E2E-DISPATCH-20260929 A_FIRST\", \"quantity\": 5, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 7500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39573": {
+            "physical_stock": 10.0,
+            "reserved_stock": 13.0,
+            "physical_reserved_stock": 10.0,
+            "available_stock": 0.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2138,
+            "sale_id": 14263,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:46+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04192 (Ganada)"
+          }
+        ]
+      }
+    },
+    "WORKFLOW": {
+      "quote": {
+        "id": 14264,
+        "sale_number": "COT-04194"
+      },
+      "sale_id": 14265,
+      "sale_number": "P-04195",
+      "created": {
+        "sale": {
+          "id": 14265,
+          "sale_number": "P-04195",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 4500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 3, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 4500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 10.0,
+            "reserved_stock": 3.0,
+            "physical_reserved_stock": 3.0,
+            "available_stock": 7.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2141,
+            "sale_id": 14265,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:49+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04194 (Ganada)"
+          }
+        ]
+      }
+    },
+    "LOT": {
+      "quote": {
+        "id": 14266,
+        "sale_number": "COT-04196"
+      },
+      "sale_id": 14267,
+      "sale_number": "P-04197",
+      "created": {
+        "sale": {
+          "id": 14267,
+          "sale_number": "P-04197",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 9000.0,
+          "products_json": "[{\"product_id\": 39575, \"product_name\": \"E2E-DISPATCH-20260929 LOT\", \"quantity\": 6, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 9000.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39575": {
+            "physical_stock": 10.0,
+            "reserved_stock": 6.0,
+            "physical_reserved_stock": 6.0,
+            "available_stock": 4.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2150,
+            "sale_id": 14267,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:54+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04196 (Ganada)"
+          }
+        ]
+      }
+    },
+    "ATOMIC": {
+      "quote": {
+        "id": 14268,
+        "sale_number": "COT-04198"
+      },
+      "sale_id": 14269,
+      "sale_number": "P-04199",
+      "created": {
+        "sale": {
+          "id": 14269,
+          "sale_number": "P-04199",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 4500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 2, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 3000.0, \"lot_number\": \"\"}, {\"product_id\": 39576, \"product_name\": \"E2E-DISPATCH-20260929 EMPTY\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 2.0,
+            "physical_reserved_stock": 2.0,
+            "available_stock": 5.0
+          },
+          "39576": {
+            "physical_stock": 0.0,
+            "reserved_stock": 1.0,
+            "physical_reserved_stock": 0.0,
+            "available_stock": 0.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2153,
+            "sale_id": 14269,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:57+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04198 (Ganada). Creada con stock pendiente de abastecimiento."
+          }
+        ]
+      }
+    },
+    "CANCEL-BEFORE": {
+      "quote": {
+        "id": 14270,
+        "sale_number": "COT-04200"
+      },
+      "sale_id": 14271,
+      "sale_number": "P-04201",
+      "created": {
+        "sale": {
+          "id": 14271,
+          "sale_number": "P-04201",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 3.0,
+            "physical_reserved_stock": 3.0,
+            "available_stock": 4.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2154,
+            "sale_id": 14271,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:47:58+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04200 (Ganada)"
+          }
+        ]
+      }
+    },
+    "DIRECT-COMPLETE": {
+      "quote": {
+        "id": 14272,
+        "sale_number": "COT-04202"
+      },
+      "sale_id": 14273,
+      "sale_number": "P-04203",
+      "created": {
+        "sale": {
+          "id": 14273,
+          "sale_number": "P-04203",
+          "status": "Pendiente",
+          "payment_status": "Pendiente",
+          "reversal_applied": false,
+          "total_amount": 1500.0,
+          "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+        },
+        "balances": {
+          "39574": {
+            "physical_stock": 7.0,
+            "reserved_stock": 3.0,
+            "physical_reserved_stock": 3.0,
+            "available_stock": 4.0
+          }
+        },
+        "movements": [],
+        "items": [],
+        "history": [
+          {
+            "id": 2157,
+            "sale_id": 14273,
+            "status": "Pendiente",
+            "user_name": "Administrador",
+            "changed_at": "2026-09-29T05:48:00+00:00",
+            "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04202 (Ganada)"
+          }
+        ]
+      }
+    }
+  },
+  "receipts": [
+    {
+      "key": "BASE",
+      "po": 4082,
+      "number": "OC-05757",
+      "entry": 2476
+    },
+    {
+      "key": "LOT-A",
+      "po": 4083,
+      "number": "OC-05758",
+      "entry": 2477
+    },
+    {
+      "key": "LOT-B",
+      "po": 4084,
+      "number": "OC-05759",
+      "entry": 2478
+    }
+  ],
+  "before_counts": {
+    "products": 72,
+    "sales": 4,
+    "purchase_orders": 5,
+    "inventory_entries": 7,
+    "inventory_movements": 16,
+    "lots": 8,
+    "lot_stock": 8,
+    "sale_items": 1,
+    "sale_lot_movements": 0,
+    "sale_payments": 2,
+    "sale_payment_items": 2,
+    "sales_status_history": 5,
+    "inventory_cost_revaluations": 1
+  },
+  "actor": {
+    "id": 1,
+    "username": "admin",
+    "full_name": "Administrador"
+  },
+  "customer": {
+    "id": 1,
+    "razon_social": "Clinete 10"
+  },
+  "supplier": {
+    "id": 11,
+    "name": "Proveedor Miel Sur"
+  },
+  "stock_ready": {
+    "B_FIRST": {
+      "balance": {
+        "physical_stock": 10.0,
+        "reserved_stock": 0.0,
+        "physical_reserved_stock": 0.0,
+        "available_stock": 10.0
+      },
+      "ppp": 1000.0
+    },
+    "A_FIRST": {
+      "balance": {
+        "physical_stock": 10.0,
+        "reserved_stock": 0.0,
+        "physical_reserved_stock": 0.0,
+        "available_stock": 10.0
+      },
+      "ppp": 1000.0
+    },
+    "WORKFLOW": {
+      "balance": {
+        "physical_stock": 10.0,
+        "reserved_stock": 0.0,
+        "physical_reserved_stock": 0.0,
+        "available_stock": 10.0
+      },
+      "ppp": 1000.0
+    },
+    "LOT": {
+      "balance": {
+        "physical_stock": 10.0,
+        "reserved_stock": 0.0,
+        "physical_reserved_stock": 0.0,
+        "available_stock": 10.0
+      },
+      "ppp": 1120.0
+    },
+    "EMPTY": {
+      "balance": {
+        "physical_stock": 0.0,
+        "reserved_stock": 0.0,
+        "physical_reserved_stock": 0.0,
+        "available_stock": 0.0
+      },
+      "ppp": 0.0
+    }
+  },
+  "setup_done": true,
+  "B_FIRST": {
+    "initial": {
+      "physical_stock": 10.0,
+      "reserved_stock": 13.0,
+      "physical_reserved_stock": 10.0,
+      "available_stock": 0.0
+    },
+    "deficit": {
+      "sale_id": 14257,
+      "has_deficit": true,
+      "is_discounted": false,
+      "items": [
+        {
+          "product_id": 39572,
+          "sku": "E2E-DISPATCH-20260929-B_FIRST",
+          "product_name": "E2E-DISPATCH-20260929 B_FIRST",
+          "requested": 8.0,
+          "available": 5.0,
+          "deficit": 3.0,
+          "has_deficit": true
+        }
+      ],
+      "total_deficit_lines": 1
+    }
+  },
+  "A_FIRST": {
+    "initial": {
+      "physical_stock": 10.0,
+      "reserved_stock": 13.0,
+      "physical_reserved_stock": 10.0,
+      "available_stock": 0.0
+    },
+    "deficit": {
+      "sale_id": 14263,
+      "has_deficit": true,
+      "is_discounted": false,
+      "items": [
+        {
+          "product_id": 39573,
+          "sku": "E2E-DISPATCH-20260929-A_FIRST",
+          "product_name": "E2E-DISPATCH-20260929 A_FIRST",
+          "requested": 5.0,
+          "available": 2.0,
+          "deficit": 3.0,
+          "has_deficit": true
+        }
+      ],
+      "total_deficit_lines": 1
+    }
+  },
+  "payment": {
+    "before": {
+      "sale": {
+        "id": 14265,
+        "sale_number": "P-04195",
+        "status": "Pendiente",
+        "payment_status": "Pendiente",
+        "reversal_applied": false,
+        "total_amount": 4500.0,
+        "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 3, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 4500.0, \"lot_number\": \"\"}]"
+      },
+      "balances": {
+        "39574": {
+          "physical_stock": 10.0,
+          "reserved_stock": 3.0,
+          "physical_reserved_stock": 3.0,
+          "available_stock": 7.0
+        }
+      },
+      "movements": [],
+      "items": [],
+      "history": [
+        {
+          "id": 2141,
+          "sale_id": 14265,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:47:49+00:00",
+          "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04194 (Ganada)"
+        }
+      ]
+    },
+    "after": {
+      "sale": {
+        "id": 14265,
+        "sale_number": "P-04195",
+        "status": "Pendiente",
+        "payment_status": "Pagado",
+        "reversal_applied": false,
+        "total_amount": 4500.0,
+        "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 3, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 4500.0, \"lot_number\": \"\"}]"
+      },
+      "balances": {
+        "39574": {
+          "physical_stock": 10.0,
+          "reserved_stock": 3.0,
+          "physical_reserved_stock": 3.0,
+          "available_stock": 7.0
+        }
+      },
+      "movements": [],
+      "items": [],
+      "history": [
+        {
+          "id": 2141,
+          "sale_id": 14265,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:47:49+00:00",
+          "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04194 (Ganada)"
+        },
+        {
+          "id": 2142,
+          "sale_id": 14265,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:47:50+00:00",
+          "comment": "Pago total registrado. Venta permanece pendiente de preparaci\u00f3n f\u00edsica."
+        }
+      ]
+    },
+    "items": [
+      {
+        "id": 2201,
+        "sale_id": 14265,
+        "payment_amount": 4500.0,
+        "payment_date": "2026-09-29",
+        "payment_proof_file": null,
+        "created_at": "2026-09-29T05:47:50+00:00",
+        "accounting_approved": 1,
+        "accounting_approved_by": "Administrador",
+        "accounting_approved_at": "2026-09-29T05:47:50+00:00",
+        "accounting_comment": "Pago registrado",
+        "bank_account_id": null,
+        "payment_method": "Efectivo",
+        "registered_by": "Administrador",
+        "registered_at": "2026-09-29T05:47:50+00:00",
+        "bank_name_snapshot": null,
+        "account_number_snapshot": null,
+        "payment_notes": "E2E-DISPATCH-20260929 prepaid",
+        "idempotency_key": "E2E-DISPATCH-20260929-PAY"
+      }
+    ]
+  },
+  "concurrent_same_sale": {
+    "before": {
+      "sale": {
+        "id": 14265,
+        "sale_number": "P-04195",
+        "status": "Pendiente",
+        "payment_status": "Pagado",
+        "reversal_applied": false,
+        "total_amount": 4500.0,
+        "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 3, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 4500.0, \"lot_number\": \"\"}]"
+      },
+      "balances": {
+        "39574": {
+          "physical_stock": 10.0,
+          "reserved_stock": 3.0,
+          "physical_reserved_stock": 3.0,
+          "available_stock": 7.0
+        }
+      },
+      "movements": [],
+      "items": [],
+      "history": [
+        {
+          "id": 2141,
+          "sale_id": 14265,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:47:49+00:00",
+          "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04194 (Ganada)"
+        },
+        {
+          "id": 2142,
+          "sale_id": 14265,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:47:50+00:00",
+          "comment": "Pago total registrado. Venta permanece pendiente de preparaci\u00f3n f\u00edsica."
+        }
+      ]
+    },
+    "after": {
+      "sale": {
+        "id": 14265,
+        "sale_number": "P-04195",
+        "status": "En Preparaci\u00f3n",
+        "payment_status": "Pagado",
+        "reversal_applied": false,
+        "total_amount": 4500.0,
+        "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 3, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 4500.0, \"lot_number\": \"\"}]"
+      },
+      "balances": {
+        "39574": {
+          "physical_stock": 7.0,
+          "reserved_stock": 0.0,
+          "physical_reserved_stock": 0.0,
+          "available_stock": 7.0
+        }
+      },
+      "movements": [
+        {
+          "id": 56178,
+          "product_id": 39574,
+          "movement_type": "SALE",
+          "quantity": -3.0,
+          "unit_cost": 1000.0,
+          "lot_id": null,
+          "lot_number": null,
+          "reference_type": "sale",
+          "reference_id": 14265
+        }
+      ],
+      "items": [
+        {
+          "id": 846,
+          "sale_id": 14265,
+          "product_id": 39574,
+          "quantity": 3,
+          "unit_price": 1500.0,
+          "unit_cost_at_sale": 1000.0,
+          "total_cost_at_sale": 3000.0,
+          "created_at": "2026-09-29T05:47:51+00:00"
+        }
+      ],
+      "history": [
+        {
+          "id": 2141,
+          "sale_id": 14265,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:47:49+00:00",
+          "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04194 (Ganada)"
+        },
+        {
+          "id": 2142,
+          "sale_id": 14265,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:47:50+00:00",
+          "comment": "Pago total registrado. Venta permanece pendiente de preparaci\u00f3n f\u00edsica."
+        },
+        {
+          "id": 2143,
+          "sale_id": 14265,
+          "status": "En Preparaci\u00f3n",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:47:51",
+          "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+        },
+        {
+          "id": 2144,
+          "sale_id": 14265,
+          "status": "En Preparaci\u00f3n",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:47:51",
+          "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+        }
+      ]
+    },
+    "responses": [
+      200,
+      200
+    ]
+  },
+  "lot_before": [
+    {
+      "id": 5566,
+      "product_id": 39575,
+      "lot_number": "E2E-DISPATCH-20260929-LOT-A",
+      "entry_id": 2477,
+      "entry_date": "2026-09-28",
+      "initial_qty": 4,
+      "available_qty": 4,
+      "warehouse": "Principal",
+      "lot_id": 5438
+    },
+    {
+      "id": 5567,
+      "product_id": 39575,
+      "lot_number": "E2E-DISPATCH-20260929-LOT-B",
+      "entry_id": 2478,
+      "entry_date": "2026-09-29",
+      "initial_qty": 6,
+      "available_qty": 6,
+      "warehouse": "Principal",
+      "lot_id": 5439
+    }
+  ],
+  "lot_after": [
+    {
+      "id": 5566,
+      "product_id": 39575,
+      "lot_number": "E2E-DISPATCH-20260929-LOT-A",
+      "entry_id": 2477,
+      "entry_date": "2026-09-28",
+      "initial_qty": 4,
+      "available_qty": 0,
+      "warehouse": "Principal",
+      "lot_id": 5438
+    },
+    {
+      "id": 5567,
+      "product_id": 39575,
+      "lot_number": "E2E-DISPATCH-20260929-LOT-B",
+      "entry_id": 2478,
+      "entry_date": "2026-09-29",
+      "initial_qty": 6,
+      "available_qty": 4,
+      "warehouse": "Principal",
+      "lot_id": 5439
+    }
+  ],
+  "lot_genealogy": [
+    {
+      "id": 385,
+      "sale_id": 14267,
+      "product_id": 39575,
+      "lot_number": "E2E-DISPATCH-20260929-LOT-A",
+      "quantity": 4,
+      "moved_at": "2026-09-29T05:47:55+00:00",
+      "lot_id": 5438
+    },
+    {
+      "id": 386,
+      "sale_id": 14267,
+      "product_id": 39575,
+      "lot_number": "E2E-DISPATCH-20260929-LOT-B",
+      "quantity": 2,
+      "moved_at": "2026-09-29T05:47:55+00:00",
+      "lot_id": 5439
+    }
+  ],
+  "run_done": true,
+  "cancel_probe": {
+    "before": {
+      "sale": {
+        "id": 14273,
+        "sale_number": "P-04203",
+        "status": "Cancelada",
+        "payment_status": "Pendiente",
+        "reversal_applied": true,
+        "total_amount": 1500.0,
+        "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+      },
+      "balances": {
+        "39574": {
+          "physical_stock": 7.0,
+          "reserved_stock": 2.0,
+          "physical_reserved_stock": 2.0,
+          "available_stock": 5.0
+        }
+      },
+      "movements": [
+        {
+          "id": 56181,
+          "product_id": 39574,
+          "movement_type": "SALE",
+          "quantity": -1.0,
+          "unit_cost": 1000.0,
+          "lot_id": null,
+          "lot_number": null,
+          "reference_type": "sale",
+          "reference_id": 14273
+        },
+        {
+          "id": 56182,
+          "product_id": 39574,
+          "movement_type": "SALE_REVERSAL",
+          "quantity": 1.0,
+          "unit_cost": 1000.0,
+          "lot_id": null,
+          "lot_number": null,
+          "reference_type": "sale_cancellation",
+          "reference_id": 14273
+        }
+      ],
+      "items": [
+        {
+          "id": 848,
+          "sale_id": 14273,
+          "product_id": 39574,
+          "quantity": 1,
+          "unit_price": 1500.0,
+          "unit_cost_at_sale": 1000.0,
+          "total_cost_at_sale": 1000.0,
+          "created_at": "2026-09-29T05:48:02+00:00"
+        }
+      ],
+      "history": [
+        {
+          "id": 2157,
+          "sale_id": 14273,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:48:00+00:00",
+          "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04202 (Ganada)"
+        },
+        {
+          "id": 2158,
+          "sale_id": 14273,
+          "status": "Completada",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:48:02",
+          "comment": "Estado cambiado manualmente a Completada"
+        },
+        {
+          "id": 2159,
+          "sale_id": 14273,
+          "status": "Cancelada",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:48:02",
+          "comment": "Estado cambiado manualmente a Cancelada"
+        },
+        {
+          "id": 2160,
+          "sale_id": 14273,
+          "status": "Cancelada",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:48:03",
+          "comment": "Estado cambiado manualmente a Cancelada"
+        }
+      ]
+    },
+    "after": {
+      "sale": {
+        "id": 14273,
+        "sale_number": "P-04203",
+        "status": "En Preparaci\u00f3n",
+        "payment_status": "Pendiente",
+        "reversal_applied": true,
+        "total_amount": 1500.0,
+        "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+      },
+      "balances": {
+        "39574": {
+          "physical_stock": 7.0,
+          "reserved_stock": 2.0,
+          "physical_reserved_stock": 2.0,
+          "available_stock": 5.0
+        }
+      },
+      "movements": [
+        {
+          "id": 56181,
+          "product_id": 39574,
+          "movement_type": "SALE",
+          "quantity": -1.0,
+          "unit_cost": 1000.0,
+          "lot_id": null,
+          "lot_number": null,
+          "reference_type": "sale",
+          "reference_id": 14273
+        },
+        {
+          "id": 56182,
+          "product_id": 39574,
+          "movement_type": "SALE_REVERSAL",
+          "quantity": 1.0,
+          "unit_cost": 1000.0,
+          "lot_id": null,
+          "lot_number": null,
+          "reference_type": "sale_cancellation",
+          "reference_id": 14273
+        }
+      ],
+      "items": [
+        {
+          "id": 848,
+          "sale_id": 14273,
+          "product_id": 39574,
+          "quantity": 1,
+          "unit_price": 1500.0,
+          "unit_cost_at_sale": 1000.0,
+          "total_cost_at_sale": 1000.0,
+          "created_at": "2026-09-29T05:48:02+00:00"
+        }
+      ],
+      "history": [
+        {
+          "id": 2157,
+          "sale_id": 14273,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:48:00+00:00",
+          "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04202 (Ganada)"
+        },
+        {
+          "id": 2158,
+          "sale_id": 14273,
+          "status": "Completada",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:48:02",
+          "comment": "Estado cambiado manualmente a Completada"
+        },
+        {
+          "id": 2159,
+          "sale_id": 14273,
+          "status": "Cancelada",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:48:02",
+          "comment": "Estado cambiado manualmente a Cancelada"
+        },
+        {
+          "id": 2160,
+          "sale_id": 14273,
+          "status": "Cancelada",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:48:03",
+          "comment": "Estado cambiado manualmente a Cancelada"
+        },
+        {
+          "id": 2161,
+          "sale_id": 14273,
+          "status": "En Preparaci\u00f3n",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:48:52",
+          "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+        }
+      ]
+    }
+  },
+  "security": {
+    "rbac": 403,
+    "csrf": 400,
+    "anonymous_get": 302,
+    "unchanged": true
+  },
+  "reconciler": {
+    "products_analyzed": 77,
+    "soft_deleted_excluded": 0,
+    "snapshot_present": 74,
+    "snapshot_missing": 3,
+    "snapshot_value_absent_or_invalid": 0,
+    "snapshot_coverage_pct": 96.104,
+    "snapshot_duplicate_sku_products": 0,
+    "ledger_vs_lots": 0,
+    "ledger_vs_lots_absolute_delta": 0.0,
+    "snapshot_vs_ledger": 5,
+    "snapshot_vs_ledger_absolute_delta": 17.0,
+    "snapshot_vs_lots": 2,
+    "snapshot_vs_lots_absolute_delta": 8.0,
+    "reservation_inconsistent": 0,
+    "uncovered_demand_products": 4,
+    "uncovered_demand_units": 8.0,
+    "reservation_lines_unresolved": 0,
+    "reservation_lines_ambiguous": 0,
+    "reservation_match_methods": {
+      "product_id": 5
+    },
+    "operational_integrity": "OK",
+    "legacy_status": "LEGACY_WARNING",
+    "quantity_investigation_candidates": 0,
+    "traceability_products": 0,
+    "products_requiring_review_union": 0,
+    "legacy_warning_products_count": 8,
+    "classifications": {
+      "ALERTA_LEGACY": 8,
+      "OK": 69,
+      "RESERVA_INCONSISTENTE": 0,
+      "SNAPSHOT_AUSENTE": 3,
+      "SNAPSHOT_VS_LEDGER": 5,
+      "SNAPSHOT_VS_LOTES": 2
+    },
+    "invalid_lot_stock_rows": 0,
+    "zero_quantity_movements": 0,
+    "reference_orphan_movements": 0,
+    "reference_missing_type_or_id": 0,
+    "reference_generic_movements": 0,
+    "references": {
+      "by_type": [
+        {
+          "reference_type": "purchase_order",
+          "movements": 11,
+          "valid_references": 11,
+          "references_absent": 0,
+          "orphan_references": 0,
+          "legacy_generic": 0,
+          "unverifiable": 0
+        },
+        {
+          "reference_type": "production_order",
+          "movements": 8,
+          "valid_references": 8,
+          "references_absent": 0,
+          "orphan_references": 0,
+          "legacy_generic": 0,
+          "unverifiable": 0
+        },
+        {
+          "reference_type": "sale",
+          "movements": 7,
+          "valid_references": 7,
+          "references_absent": 0,
+          "orphan_references": 0,
+          "legacy_generic": 0,
+          "unverifiable": 0
+        },
+        {
+          "reference_type": "inventory_adjustment",
+          "movements": 1,
+          "valid_references": 1,
+          "references_absent": 0,
+          "orphan_references": 0,
+          "legacy_generic": 0,
+          "unverifiable": 0
+        },
+        {
+          "reference_type": "sale_cancellation",
+          "movements": 1,
+          "valid_references": 1,
+          "references_absent": 0,
+          "orphan_references": 0,
+          "legacy_generic": 0,
+          "unverifiable": 0
+        }
+      ],
+      "movements": 28,
+      "valid": 28,
+      "references_absent": 0,
+      "references_missing_type_or_id": 0,
+      "orphan": 0,
+      "legacy_generic": 0,
+      "unverifiable": 0
+    },
+    "automatic_quantity_corrections_identified": 0
+  },
+  "final_states": {
+    "B_FIRST-A": {
+      "sale": {
+        "id": 14257,
+        "sale_number": "P-04187",
+        "status": "Pendiente",
+        "payment_status": "Pendiente",
+        "reversal_applied": false,
+        "total_amount": 12000.0,
+        "products_json": "[{\"product_id\": 39572, \"product_name\": \"E2E-DISPATCH-20260929 B_FIRST\", \"quantity\": 8, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 12000.0, \"lot_number\": \"\"}]"
+      },
+      "balances": {
+        "39572": {
+          "physical_stock": 5.0,
+          "reserved_stock": 8.0,
+          "physical_reserved_stock": 5.0,
+          "available_stock": 0.0
+        }
+      },
+      "movements": [],
+      "items": [],
+      "history": [
+        {
+          "id": 2133,
+          "sale_id": 14257,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:47:42+00:00",
+          "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04186 (Ganada)"
+        }
+      ]
+    },
+    "B_FIRST-B": {
+      "sale": {
+        "id": 14259,
+        "sale_number": "P-04189",
+        "status": "En Preparaci\u00f3n",
+        "payment_status": "Pendiente",
+        "reversal_applied": false,
+        "total_amount": 7500.0,
+        "products_json": "[{\"product_id\": 39572, \"product_name\": \"E2E-DISPATCH-20260929 B_FIRST\", \"quantity\": 5, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 7500.0, \"lot_number\": \"\"}]"
+      },
+      "balances": {
+        "39572": {
+          "physical_stock": 5.0,
+          "reserved_stock": 8.0,
+          "physical_reserved_stock": 5.0,
+          "available_stock": 0.0
+        }
+      },
+      "movements": [
+        {
+          "id": 56176,
+          "product_id": 39572,
+          "movement_type": "SALE",
+          "quantity": -5.0,
+          "unit_cost": 1000.0,
+          "lot_id": null,
+          "lot_number": null,
+          "reference_type": "sale",
+          "reference_id": 14259
+        }
+      ],
+      "items": [
+        {
+          "id": 844,
+          "sale_id": 14259,
+          "product_id": 39572,
+          "quantity": 5,
+          "unit_price": 1500.0,
+          "unit_cost_at_sale": 1000.0,
+          "total_cost_at_sale": 5000.0,
+          "created_at": "2026-09-29T05:47:44+00:00"
+        }
+      ],
+      "history": [
+        {
+          "id": 2134,
+          "sale_id": 14259,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:47:43+00:00",
+          "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04188 (Ganada)"
+        },
+        {
+          "id": 2135,
+          "sale_id": 14259,
+          "status": "En Preparaci\u00f3n",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:47:44",
+          "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+        },
+        {
+          "id": 2136,
+          "sale_id": 14259,
+          "status": "En Preparaci\u00f3n",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:47:45",
+          "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+        }
+      ]
+    },
+    "A_FIRST-A": {
+      "sale": {
+        "id": 14261,
+        "sale_number": "P-04191",
+        "status": "En Preparaci\u00f3n",
+        "payment_status": "Pendiente",
+        "reversal_applied": false,
+        "total_amount": 12000.0,
+        "products_json": "[{\"product_id\": 39573, \"product_name\": \"E2E-DISPATCH-20260929 A_FIRST\", \"quantity\": 8, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 12000.0, \"lot_number\": \"\"}]"
+      },
+      "balances": {
+        "39573": {
+          "physical_stock": 2.0,
+          "reserved_stock": 5.0,
+          "physical_reserved_stock": 2.0,
+          "available_stock": 0.0
+        }
+      },
+      "movements": [
+        {
+          "id": 56177,
+          "product_id": 39573,
+          "movement_type": "SALE",
+          "quantity": -8.0,
+          "unit_cost": 1000.0,
+          "lot_id": null,
+          "lot_number": null,
+          "reference_type": "sale",
+          "reference_id": 14261
+        }
+      ],
+      "items": [
+        {
+          "id": 845,
+          "sale_id": 14261,
+          "product_id": 39573,
+          "quantity": 8,
+          "unit_price": 1500.0,
+          "unit_cost_at_sale": 1000.0,
+          "total_cost_at_sale": 8000.0,
+          "created_at": "2026-09-29T05:47:47+00:00"
+        }
+      ],
+      "history": [
+        {
+          "id": 2137,
+          "sale_id": 14261,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:47:46+00:00",
+          "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04190 (Ganada)"
+        },
+        {
+          "id": 2139,
+          "sale_id": 14261,
+          "status": "En Preparaci\u00f3n",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:47:47",
+          "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+        },
+        {
+          "id": 2140,
+          "sale_id": 14261,
+          "status": "En Preparaci\u00f3n",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:47:48",
+          "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+        }
+      ]
+    },
+    "A_FIRST-B": {
+      "sale": {
+        "id": 14263,
+        "sale_number": "P-04193",
+        "status": "Pendiente",
+        "payment_status": "Pendiente",
+        "reversal_applied": false,
+        "total_amount": 7500.0,
+        "products_json": "[{\"product_id\": 39573, \"product_name\": \"E2E-DISPATCH-20260929 A_FIRST\", \"quantity\": 5, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 7500.0, \"lot_number\": \"\"}]"
+      },
+      "balances": {
+        "39573": {
+          "physical_stock": 2.0,
+          "reserved_stock": 5.0,
+          "physical_reserved_stock": 2.0,
+          "available_stock": 0.0
+        }
+      },
+      "movements": [],
+      "items": [],
+      "history": [
+        {
+          "id": 2138,
+          "sale_id": 14263,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:47:46+00:00",
+          "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04192 (Ganada)"
+        }
+      ]
+    },
+    "WORKFLOW": {
+      "sale": {
+        "id": 14265,
+        "sale_number": "P-04195",
+        "status": "Completada",
+        "payment_status": "Pagado",
+        "reversal_applied": false,
+        "total_amount": 4500.0,
+        "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 3, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 4500.0, \"lot_number\": \"\"}]"
+      },
+      "balances": {
+        "39574": {
+          "physical_stock": 7.0,
+          "reserved_stock": 2.0,
+          "physical_reserved_stock": 2.0,
+          "available_stock": 5.0
+        }
+      },
+      "movements": [
+        {
+          "id": 56178,
+          "product_id": 39574,
+          "movement_type": "SALE",
+          "quantity": -3.0,
+          "unit_cost": 1000.0,
+          "lot_id": null,
+          "lot_number": null,
+          "reference_type": "sale",
+          "reference_id": 14265
+        }
+      ],
+      "items": [
+        {
+          "id": 846,
+          "sale_id": 14265,
+          "product_id": 39574,
+          "quantity": 3,
+          "unit_price": 1500.0,
+          "unit_cost_at_sale": 1000.0,
+          "total_cost_at_sale": 3000.0,
+          "created_at": "2026-09-29T05:47:51+00:00"
+        }
+      ],
+      "history": [
+        {
+          "id": 2141,
+          "sale_id": 14265,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:47:49+00:00",
+          "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04194 (Ganada)"
+        },
+        {
+          "id": 2142,
+          "sale_id": 14265,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:47:50+00:00",
+          "comment": "Pago total registrado. Venta permanece pendiente de preparaci\u00f3n f\u00edsica."
+        },
+        {
+          "id": 2143,
+          "sale_id": 14265,
+          "status": "En Preparaci\u00f3n",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:47:51",
+          "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+        },
+        {
+          "id": 2144,
+          "sale_id": 14265,
+          "status": "En Preparaci\u00f3n",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:47:51",
+          "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+        },
+        {
+          "id": 2145,
+          "sale_id": 14265,
+          "status": "En Preparaci\u00f3n",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:47:51",
+          "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+        },
+        {
+          "id": 2146,
+          "sale_id": 14265,
+          "status": "Para Despacho",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:47:52",
+          "comment": "Estado cambiado manualmente a Para Despacho"
+        },
+        {
+          "id": 2147,
+          "sale_id": 14265,
+          "status": "Para Despacho",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:47:52",
+          "comment": "Estado cambiado manualmente a Para Despacho"
+        },
+        {
+          "id": 2148,
+          "sale_id": 14265,
+          "status": "Completada",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:47:53",
+          "comment": "Estado cambiado manualmente a Completada"
+        },
+        {
+          "id": 2149,
+          "sale_id": 14265,
+          "status": "Completada",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:47:53",
+          "comment": "Estado cambiado manualmente a Completada"
+        }
+      ]
+    },
+    "LOT": {
+      "sale": {
+        "id": 14267,
+        "sale_number": "P-04197",
+        "status": "Para Despacho",
+        "payment_status": "Pendiente",
+        "reversal_applied": false,
+        "total_amount": 9000.0,
+        "products_json": "[{\"product_id\": 39575, \"product_name\": \"E2E-DISPATCH-20260929 LOT\", \"quantity\": 6, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 9000.0, \"lot_number\": \"\"}]"
+      },
+      "balances": {
+        "39575": {
+          "physical_stock": 4.0,
+          "reserved_stock": 0.0,
+          "physical_reserved_stock": 0.0,
+          "available_stock": 4.0
+        }
+      },
+      "movements": [
+        {
+          "id": 56179,
+          "product_id": 39575,
+          "movement_type": "SALE",
+          "quantity": -4.0,
+          "unit_cost": 1120.0,
+          "lot_id": 5438,
+          "lot_number": "E2E-DISPATCH-20260929-LOT-A",
+          "reference_type": "sale",
+          "reference_id": 14267
+        },
+        {
+          "id": 56180,
+          "product_id": 39575,
+          "movement_type": "SALE",
+          "quantity": -2.0,
+          "unit_cost": 1120.0,
+          "lot_id": 5439,
+          "lot_number": "E2E-DISPATCH-20260929-LOT-B",
+          "reference_type": "sale",
+          "reference_id": 14267
+        }
+      ],
+      "items": [
+        {
+          "id": 847,
+          "sale_id": 14267,
+          "product_id": 39575,
+          "quantity": 6,
+          "unit_price": 1500.0,
+          "unit_cost_at_sale": 1120.0,
+          "total_cost_at_sale": 6720.0,
+          "created_at": "2026-09-29T05:47:55+00:00"
+        }
+      ],
+      "history": [
+        {
+          "id": 2150,
+          "sale_id": 14267,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:47:54+00:00",
+          "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04196 (Ganada)"
+        },
+        {
+          "id": 2151,
+          "sale_id": 14267,
+          "status": "Para Despacho",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:47:55",
+          "comment": "Estado cambiado manualmente a Para Despacho"
+        },
+        {
+          "id": 2152,
+          "sale_id": 14267,
+          "status": "Para Despacho",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:47:56",
+          "comment": "Estado cambiado manualmente a Para Despacho"
+        }
+      ]
+    },
+    "ATOMIC": {
+      "sale": {
+        "id": 14269,
+        "sale_number": "P-04199",
+        "status": "Pendiente",
+        "payment_status": "Pendiente",
+        "reversal_applied": false,
+        "total_amount": 4500.0,
+        "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 2, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 3000.0, \"lot_number\": \"\"}, {\"product_id\": 39576, \"product_name\": \"E2E-DISPATCH-20260929 EMPTY\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+      },
+      "balances": {
+        "39574": {
+          "physical_stock": 7.0,
+          "reserved_stock": 2.0,
+          "physical_reserved_stock": 2.0,
+          "available_stock": 5.0
+        },
+        "39576": {
+          "physical_stock": 0.0,
+          "reserved_stock": 1.0,
+          "physical_reserved_stock": 0.0,
+          "available_stock": 0.0
+        }
+      },
+      "movements": [],
+      "items": [],
+      "history": [
+        {
+          "id": 2153,
+          "sale_id": 14269,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:47:57+00:00",
+          "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04198 (Ganada). Creada con stock pendiente de abastecimiento."
+        }
+      ]
+    },
+    "CANCEL-BEFORE": {
+      "sale": {
+        "id": 14271,
+        "sale_number": "P-04201",
+        "status": "Cancelada",
+        "payment_status": "Pendiente",
+        "reversal_applied": true,
+        "total_amount": 1500.0,
+        "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+      },
+      "balances": {
+        "39574": {
+          "physical_stock": 7.0,
+          "reserved_stock": 2.0,
+          "physical_reserved_stock": 2.0,
+          "available_stock": 5.0
+        }
+      },
+      "movements": [],
+      "items": [],
+      "history": [
+        {
+          "id": 2154,
+          "sale_id": 14271,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:47:58+00:00",
+          "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04200 (Ganada)"
+        },
+        {
+          "id": 2155,
+          "sale_id": 14271,
+          "status": "Cancelada",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:47:59",
+          "comment": "Estado cambiado manualmente a Cancelada"
+        },
+        {
+          "id": 2156,
+          "sale_id": 14271,
+          "status": "Cancelada",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:48:00",
+          "comment": "Estado cambiado manualmente a Cancelada"
+        }
+      ]
+    },
+    "DIRECT-COMPLETE": {
+      "sale": {
+        "id": 14273,
+        "sale_number": "P-04203",
+        "status": "Cancelada",
+        "payment_status": "Pendiente",
+        "reversal_applied": true,
+        "total_amount": 1500.0,
+        "products_json": "[{\"product_id\": 39574, \"product_name\": \"E2E-DISPATCH-20260929 WORKFLOW\", \"quantity\": 1, \"price\": 1500.0, \"discount\": 0.0, \"subtotal\": 1500.0, \"lot_number\": \"\"}]"
+      },
+      "balances": {
+        "39574": {
+          "physical_stock": 7.0,
+          "reserved_stock": 2.0,
+          "physical_reserved_stock": 2.0,
+          "available_stock": 5.0
+        }
+      },
+      "movements": [
+        {
+          "id": 56181,
+          "product_id": 39574,
+          "movement_type": "SALE",
+          "quantity": -1.0,
+          "unit_cost": 1000.0,
+          "lot_id": null,
+          "lot_number": null,
+          "reference_type": "sale",
+          "reference_id": 14273
+        },
+        {
+          "id": 56182,
+          "product_id": 39574,
+          "movement_type": "SALE_REVERSAL",
+          "quantity": 1.0,
+          "unit_cost": 1000.0,
+          "lot_id": null,
+          "lot_number": null,
+          "reference_type": "sale_cancellation",
+          "reference_id": 14273
+        }
+      ],
+      "items": [
+        {
+          "id": 848,
+          "sale_id": 14273,
+          "product_id": 39574,
+          "quantity": 1,
+          "unit_price": 1500.0,
+          "unit_cost_at_sale": 1000.0,
+          "total_cost_at_sale": 1000.0,
+          "created_at": "2026-09-29T05:48:02+00:00"
+        }
+      ],
+      "history": [
+        {
+          "id": 2157,
+          "sale_id": 14273,
+          "status": "Pendiente",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29T05:48:00+00:00",
+          "comment": "Venta creada autom\u00e1ticamente a partir de Cotizaci\u00f3n COT-04202 (Ganada)"
+        },
+        {
+          "id": 2158,
+          "sale_id": 14273,
+          "status": "Completada",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:48:02",
+          "comment": "Estado cambiado manualmente a Completada"
+        },
+        {
+          "id": 2159,
+          "sale_id": 14273,
+          "status": "Cancelada",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:48:02",
+          "comment": "Estado cambiado manualmente a Cancelada"
+        },
+        {
+          "id": 2160,
+          "sale_id": 14273,
+          "status": "Cancelada",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:48:03",
+          "comment": "Estado cambiado manualmente a Cancelada"
+        },
+        {
+          "id": 2161,
+          "sale_id": 14273,
+          "status": "En Preparaci\u00f3n",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:48:52",
+          "comment": "Estado cambiado manualmente a En Preparaci\u00f3n"
+        },
+        {
+          "id": 2162,
+          "sale_id": 14273,
+          "status": "Cancelada",
+          "user_name": "Administrador",
+          "changed_at": "2026-09-29 02:48:53",
+          "comment": "Estado cambiado manualmente a Cancelada"
+        }
+      ]
+    }
+  },
+  "kardex": {
+    "B_FIRST": {
+      "product": {
+        "id": 39572,
+        "sku": "E2E-DISPATCH-20260929-B_FIRST",
+        "name": "E2E-DISPATCH-20260929 B_FIRST",
+        "description": null,
+        "category": "Miel",
+        "product_type": "Final",
+        "unit_of_measure": "UN",
+        "cost": 0.0
+      },
+      "current_stock": 5.0,
+      "current_ppp": 1000.0,
+      "current_inventory_value": 5000.0,
+      "total_movements": 2,
+      "filtered_movements": 2,
+      "page": 1,
+      "per_page": 2,
+      "total_pages": 1,
+      "rows": [
+        {
+          "id": 56171,
+          "created_at": "2026-09-29T05:44:43+00:00",
+          "date": "2026-09-29",
+          "time": "05:44:43",
+          "movement_type": "PURCHASE_RECEIPT",
+          "movement_type_label": "Ingreso Compra",
+          "reference_type": "purchase_order",
+          "reference_id": 4082,
+          "document_label": "OC-05757",
+          "document_url": "/compras/oc?search=OC-05757",
+          "lot_number": "-",
+          "warehouse": "Principal",
+          "notes": "Recepci\u00f3n de compra OC-05757 (Entrada #2476)",
+          "in_qty": 10.0,
+          "out_qty": 0.0,
+          "balance_qty": 10.0,
+          "unit_cost_applied": 1000.0,
+          "in_amount": 10000.0,
+          "out_amount": 0.0,
+          "balance_amount": 10000.0,
+          "ppp": 1000.0,
+          "original_unit_cost": 1000.0,
+          "is_revalued": false,
+          "revaluation": null,
+          "audit": {
+            "before": {
+              "qty": 0.0,
+              "value": 0.0,
+              "ppp": 0.0
+            },
+            "movement": {
+              "type": "Ingreso Compra",
+              "qty": 10.0,
+              "unit_cost": 1000.0,
+              "total_cost": 10000.0
+            },
+            "after": {
+              "qty": 10.0,
+              "value": 10000.0,
+              "ppp": 1000.0
+            }
+          }
+        },
+        {
+          "id": 56176,
+          "created_at": "2026-09-29T05:47:44+00:00",
+          "date": "2026-09-29",
+          "time": "05:47:44",
+          "movement_type": "SALE",
+          "movement_type_label": "Salida Venta",
+          "reference_type": "sale",
+          "reference_id": 14259,
+          "document_label": "P-04189",
+          "document_url": "/ventas/detalle/14259",
+          "lot_number": "-",
+          "warehouse": "Almac\u00e9n Principal",
+          "notes": "Despacho/Venta #14259",
+          "in_qty": 0.0,
+          "out_qty": 5.0,
+          "balance_qty": 5.0,
+          "unit_cost_applied": 1000.0,
+          "in_amount": 0.0,
+          "out_amount": 5000.0,
+          "balance_amount": 5000.0,
+          "ppp": 1000.0,
+          "original_unit_cost": 1000.0,
+          "is_revalued": false,
+          "revaluation": null,
+          "audit": {
+            "before": {
+              "qty": 10.0,
+              "value": 10000.0,
+              "ppp": 1000.0
+            },
+            "movement": {
+              "type": "Salida Venta",
+              "qty": -5.0,
+              "unit_cost": 1000.0,
+              "total_cost": 5000.0
+            },
+            "after": {
+              "qty": 5.0,
+              "value": 5000.0,
+              "ppp": 1000.0
+            }
+          }
+        }
+      ],
+      "order_asc": true,
+      "start_date": "",
+      "end_date": "",
+      "movement_type_filter": ""
+    },
+    "A_FIRST": {
+      "product": {
+        "id": 39573,
+        "sku": "E2E-DISPATCH-20260929-A_FIRST",
+        "name": "E2E-DISPATCH-20260929 A_FIRST",
+        "description": null,
+        "category": "Miel",
+        "product_type": "Final",
+        "unit_of_measure": "UN",
+        "cost": 0.0
+      },
+      "current_stock": 2.0,
+      "current_ppp": 1000.0,
+      "current_inventory_value": 2000.0,
+      "total_movements": 2,
+      "filtered_movements": 2,
+      "page": 1,
+      "per_page": 2,
+      "total_pages": 1,
+      "rows": [
+        {
+          "id": 56172,
+          "created_at": "2026-09-29T05:44:43+00:00",
+          "date": "2026-09-29",
+          "time": "05:44:43",
+          "movement_type": "PURCHASE_RECEIPT",
+          "movement_type_label": "Ingreso Compra",
+          "reference_type": "purchase_order",
+          "reference_id": 4082,
+          "document_label": "OC-05757",
+          "document_url": "/compras/oc?search=OC-05757",
+          "lot_number": "-",
+          "warehouse": "Principal",
+          "notes": "Recepci\u00f3n de compra OC-05757 (Entrada #2476)",
+          "in_qty": 10.0,
+          "out_qty": 0.0,
+          "balance_qty": 10.0,
+          "unit_cost_applied": 1000.0,
+          "in_amount": 10000.0,
+          "out_amount": 0.0,
+          "balance_amount": 10000.0,
+          "ppp": 1000.0,
+          "original_unit_cost": 1000.0,
+          "is_revalued": false,
+          "revaluation": null,
+          "audit": {
+            "before": {
+              "qty": 0.0,
+              "value": 0.0,
+              "ppp": 0.0
+            },
+            "movement": {
+              "type": "Ingreso Compra",
+              "qty": 10.0,
+              "unit_cost": 1000.0,
+              "total_cost": 10000.0
+            },
+            "after": {
+              "qty": 10.0,
+              "value": 10000.0,
+              "ppp": 1000.0
+            }
+          }
+        },
+        {
+          "id": 56177,
+          "created_at": "2026-09-29T05:47:47+00:00",
+          "date": "2026-09-29",
+          "time": "05:47:47",
+          "movement_type": "SALE",
+          "movement_type_label": "Salida Venta",
+          "reference_type": "sale",
+          "reference_id": 14261,
+          "document_label": "P-04191",
+          "document_url": "/ventas/detalle/14261",
+          "lot_number": "-",
+          "warehouse": "Almac\u00e9n Principal",
+          "notes": "Despacho/Venta #14261",
+          "in_qty": 0.0,
+          "out_qty": 8.0,
+          "balance_qty": 2.0,
+          "unit_cost_applied": 1000.0,
+          "in_amount": 0.0,
+          "out_amount": 8000.0,
+          "balance_amount": 2000.0,
+          "ppp": 1000.0,
+          "original_unit_cost": 1000.0,
+          "is_revalued": false,
+          "revaluation": null,
+          "audit": {
+            "before": {
+              "qty": 10.0,
+              "value": 10000.0,
+              "ppp": 1000.0
+            },
+            "movement": {
+              "type": "Salida Venta",
+              "qty": -8.0,
+              "unit_cost": 1000.0,
+              "total_cost": 8000.0
+            },
+            "after": {
+              "qty": 2.0,
+              "value": 2000.0,
+              "ppp": 1000.0
+            }
+          }
+        }
+      ],
+      "order_asc": true,
+      "start_date": "",
+      "end_date": "",
+      "movement_type_filter": ""
+    },
+    "WORKFLOW": {
+      "product": {
+        "id": 39574,
+        "sku": "E2E-DISPATCH-20260929-WORKFLOW",
+        "name": "E2E-DISPATCH-20260929 WORKFLOW",
+        "description": null,
+        "category": "Miel",
+        "product_type": "Final",
+        "unit_of_measure": "UN",
+        "cost": 0.0
+      },
+      "current_stock": 7.0,
+      "current_ppp": 1000.0,
+      "current_inventory_value": 7000.0,
+      "total_movements": 4,
+      "filtered_movements": 4,
+      "page": 1,
+      "per_page": 4,
+      "total_pages": 1,
+      "rows": [
+        {
+          "id": 56173,
+          "created_at": "2026-09-29T05:44:43+00:00",
+          "date": "2026-09-29",
+          "time": "05:44:43",
+          "movement_type": "PURCHASE_RECEIPT",
+          "movement_type_label": "Ingreso Compra",
+          "reference_type": "purchase_order",
+          "reference_id": 4082,
+          "document_label": "OC-05757",
+          "document_url": "/compras/oc?search=OC-05757",
+          "lot_number": "-",
+          "warehouse": "Principal",
+          "notes": "Recepci\u00f3n de compra OC-05757 (Entrada #2476)",
+          "in_qty": 10.0,
+          "out_qty": 0.0,
+          "balance_qty": 10.0,
+          "unit_cost_applied": 1000.0,
+          "in_amount": 10000.0,
+          "out_amount": 0.0,
+          "balance_amount": 10000.0,
+          "ppp": 1000.0,
+          "original_unit_cost": 1000.0,
+          "is_revalued": false,
+          "revaluation": null,
+          "audit": {
+            "before": {
+              "qty": 0.0,
+              "value": 0.0,
+              "ppp": 0.0
+            },
+            "movement": {
+              "type": "Ingreso Compra",
+              "qty": 10.0,
+              "unit_cost": 1000.0,
+              "total_cost": 10000.0
+            },
+            "after": {
+              "qty": 10.0,
+              "value": 10000.0,
+              "ppp": 1000.0
+            }
+          }
+        },
+        {
+          "id": 56178,
+          "created_at": "2026-09-29T05:47:51+00:00",
+          "date": "2026-09-29",
+          "time": "05:47:51",
+          "movement_type": "SALE",
+          "movement_type_label": "Salida Venta",
+          "reference_type": "sale",
+          "reference_id": 14265,
+          "document_label": "P-04195",
+          "document_url": "/ventas/detalle/14265",
+          "lot_number": "-",
+          "warehouse": "Almac\u00e9n Principal",
+          "notes": "Despacho/Venta #14265",
+          "in_qty": 0.0,
+          "out_qty": 3.0,
+          "balance_qty": 7.0,
+          "unit_cost_applied": 1000.0,
+          "in_amount": 0.0,
+          "out_amount": 3000.0,
+          "balance_amount": 7000.0,
+          "ppp": 1000.0,
+          "original_unit_cost": 1000.0,
+          "is_revalued": false,
+          "revaluation": null,
+          "audit": {
+            "before": {
+              "qty": 10.0,
+              "value": 10000.0,
+              "ppp": 1000.0
+            },
+            "movement": {
+              "type": "Salida Venta",
+              "qty": -3.0,
+              "unit_cost": 1000.0,
+              "total_cost": 3000.0
+            },
+            "after": {
+              "qty": 7.0,
+              "value": 7000.0,
+              "ppp": 1000.0
+            }
+          }
+        },
+        {
+          "id": 56181,
+          "created_at": "2026-09-29T05:48:02+00:00",
+          "date": "2026-09-29",
+          "time": "05:48:02",
+          "movement_type": "SALE",
+          "movement_type_label": "Salida Venta",
+          "reference_type": "sale",
+          "reference_id": 14273,
+          "document_label": "P-04203",
+          "document_url": "/ventas/detalle/14273",
+          "lot_number": "-",
+          "warehouse": "Almac\u00e9n Principal",
+          "notes": "Despacho/Venta #14273",
+          "in_qty": 0.0,
+          "out_qty": 1.0,
+          "balance_qty": 6.0,
+          "unit_cost_applied": 1000.0,
+          "in_amount": 0.0,
+          "out_amount": 1000.0,
+          "balance_amount": 6000.0,
+          "ppp": 1000.0,
+          "original_unit_cost": 1000.0,
+          "is_revalued": false,
+          "revaluation": null,
+          "audit": {
+            "before": {
+              "qty": 7.0,
+              "value": 7000.0,
+              "ppp": 1000.0
+            },
+            "movement": {
+              "type": "Salida Venta",
+              "qty": -1.0,
+              "unit_cost": 1000.0,
+              "total_cost": 1000.0
+            },
+            "after": {
+              "qty": 6.0,
+              "value": 6000.0,
+              "ppp": 1000.0
+            }
+          }
+        },
+        {
+          "id": 56182,
+          "created_at": "2026-09-29T05:48:02+00:00",
+          "date": "2026-09-29",
+          "time": "05:48:02",
+          "movement_type": "SALE_REVERSAL",
+          "movement_type_label": "Reversa Venta (+)",
+          "reference_type": "sale_cancellation",
+          "reference_id": 14273,
+          "document_label": "Reversi\u00f3n de venta #14273",
+          "document_url": null,
+          "lot_number": "-",
+          "warehouse": "Almac\u00e9n Principal",
+          "notes": "Reversi\u00f3n de venta #14273",
+          "in_qty": 1.0,
+          "out_qty": 0.0,
+          "balance_qty": 7.0,
+          "unit_cost_applied": 1000.0,
+          "in_amount": 1000.0,
+          "out_amount": 0.0,
+          "balance_amount": 7000.0,
+          "ppp": 1000.0,
+          "original_unit_cost": 1000.0,
+          "is_revalued": false,
+          "revaluation": null,
+          "audit": {
+            "before": {
+              "qty": 6.0,
+              "value": 6000.0,
+              "ppp": 1000.0
+            },
+            "movement": {
+              "type": "Reversa Venta (+)",
+              "qty": 1.0,
+              "unit_cost": 1000.0,
+              "total_cost": 1000.0
+            },
+            "after": {
+              "qty": 7.0,
+              "value": 7000.0,
+              "ppp": 1000.0
+            }
+          }
+        }
+      ],
+      "order_asc": true,
+      "start_date": "",
+      "end_date": "",
+      "movement_type_filter": ""
+    },
+    "LOT": {
+      "product": {
+        "id": 39575,
+        "sku": "E2E-DISPATCH-20260929-LOT",
+        "name": "E2E-DISPATCH-20260929 LOT",
+        "description": null,
+        "category": "Miel",
+        "product_type": "Final",
+        "unit_of_measure": "UN",
+        "cost": 1000.0
+      },
+      "current_stock": 4.0,
+      "current_ppp": 1120.0,
+      "current_inventory_value": 4480.0,
+      "total_movements": 4,
+      "filtered_movements": 4,
+      "page": 1,
+      "per_page": 4,
+      "total_pages": 1,
+      "rows": [
+        {
+          "id": 56174,
+          "created_at": "2026-09-29T05:44:43+00:00",
+          "date": "2026-09-29",
+          "time": "05:44:43",
+          "movement_type": "PURCHASE_RECEIPT",
+          "movement_type_label": "Ingreso Compra",
+          "reference_type": "purchase_order",
+          "reference_id": 4083,
+          "document_label": "OC-05758",
+          "document_url": "/compras/oc?search=OC-05758",
+          "lot_number": "E2E-DISPATCH-20260929-LOT-A",
+          "warehouse": "Principal",
+          "notes": "Recepci\u00f3n de compra OC-05758 (Entrada #2477)",
+          "in_qty": 4.0,
+          "out_qty": 0.0,
+          "balance_qty": 4.0,
+          "unit_cost_applied": 1000.0,
+          "in_amount": 4000.0,
+          "out_amount": 0.0,
+          "balance_amount": 4000.0,
+          "ppp": 1000.0,
+          "original_unit_cost": 1000.0,
+          "is_revalued": false,
+          "revaluation": null,
+          "audit": {
+            "before": {
+              "qty": 0.0,
+              "value": 0.0,
+              "ppp": 1000.0
+            },
+            "movement": {
+              "type": "Ingreso Compra",
+              "qty": 4.0,
+              "unit_cost": 1000.0,
+              "total_cost": 4000.0
+            },
+            "after": {
+              "qty": 4.0,
+              "value": 4000.0,
+              "ppp": 1000.0
+            }
+          }
+        },
+        {
+          "id": 56175,
+          "created_at": "2026-09-29T05:44:43+00:00",
+          "date": "2026-09-29",
+          "time": "05:44:43",
+          "movement_type": "PURCHASE_RECEIPT",
+          "movement_type_label": "Ingreso Compra",
+          "reference_type": "purchase_order",
+          "reference_id": 4084,
+          "document_label": "OC-05759",
+          "document_url": "/compras/oc?search=OC-05759",
+          "lot_number": "E2E-DISPATCH-20260929-LOT-B",
+          "warehouse": "Principal",
+          "notes": "Recepci\u00f3n de compra OC-05759 (Entrada #2478)",
+          "in_qty": 6.0,
+          "out_qty": 0.0,
+          "balance_qty": 10.0,
+          "unit_cost_applied": 1200.0,
+          "in_amount": 7200.0,
+          "out_amount": 0.0,
+          "balance_amount": 11200.0,
+          "ppp": 1120.0,
+          "original_unit_cost": 1200.0,
+          "is_revalued": false,
+          "revaluation": null,
+          "audit": {
+            "before": {
+              "qty": 4.0,
+              "value": 4000.0,
+              "ppp": 1000.0
+            },
+            "movement": {
+              "type": "Ingreso Compra",
+              "qty": 6.0,
+              "unit_cost": 1200.0,
+              "total_cost": 7200.0
+            },
+            "after": {
+              "qty": 10.0,
+              "value": 11200.0,
+              "ppp": 1120.0
+            }
+          }
+        },
+        {
+          "id": 56179,
+          "created_at": "2026-09-29T05:47:55+00:00",
+          "date": "2026-09-29",
+          "time": "05:47:55",
+          "movement_type": "SALE",
+          "movement_type_label": "Salida Venta",
+          "reference_type": "sale",
+          "reference_id": 14267,
+          "document_label": "P-04197",
+          "document_url": "/ventas/detalle/14267",
+          "lot_number": "E2E-DISPATCH-20260929-LOT-A",
+          "warehouse": "Almac\u00e9n Principal",
+          "notes": "Despacho/Venta #14267 (Lote E2E-DISPATCH-20260929-LOT-A)",
+          "in_qty": 0.0,
+          "out_qty": 4.0,
+          "balance_qty": 6.0,
+          "unit_cost_applied": 1120.0,
+          "in_amount": 0.0,
+          "out_amount": 4480.0,
+          "balance_amount": 6720.0,
+          "ppp": 1120.0,
+          "original_unit_cost": 1120.0,
+          "is_revalued": false,
+          "revaluation": null,
+          "audit": {
+            "before": {
+              "qty": 10.0,
+              "value": 11200.0,
+              "ppp": 1120.0
+            },
+            "movement": {
+              "type": "Salida Venta",
+              "qty": -4.0,
+              "unit_cost": 1120.0,
+              "total_cost": 4480.0
+            },
+            "after": {
+              "qty": 6.0,
+              "value": 6720.0,
+              "ppp": 1120.0
+            }
+          }
+        },
+        {
+          "id": 56180,
+          "created_at": "2026-09-29T05:47:55+00:00",
+          "date": "2026-09-29",
+          "time": "05:47:55",
+          "movement_type": "SALE",
+          "movement_type_label": "Salida Venta",
+          "reference_type": "sale",
+          "reference_id": 14267,
+          "document_label": "P-04197",
+          "document_url": "/ventas/detalle/14267",
+          "lot_number": "E2E-DISPATCH-20260929-LOT-B",
+          "warehouse": "Almac\u00e9n Principal",
+          "notes": "Despacho/Venta #14267 (Lote E2E-DISPATCH-20260929-LOT-B)",
+          "in_qty": 0.0,
+          "out_qty": 2.0,
+          "balance_qty": 4.0,
+          "unit_cost_applied": 1120.0,
+          "in_amount": 0.0,
+          "out_amount": 2240.0,
+          "balance_amount": 4480.0,
+          "ppp": 1120.0,
+          "original_unit_cost": 1120.0,
+          "is_revalued": false,
+          "revaluation": null,
+          "audit": {
+            "before": {
+              "qty": 6.0,
+              "value": 6720.0,
+              "ppp": 1120.0
+            },
+            "movement": {
+              "type": "Salida Venta",
+              "qty": -2.0,
+              "unit_cost": 1120.0,
+              "total_cost": 2240.0
+            },
+            "after": {
+              "qty": 4.0,
+              "value": 4480.0,
+              "ppp": 1120.0
+            }
+          }
+        }
+      ],
+      "order_asc": true,
+      "start_date": "",
+      "end_date": "",
+      "movement_type_filter": ""
+    },
+    "EMPTY": {
+      "product": {
+        "id": 39576,
+        "sku": "E2E-DISPATCH-20260929-EMPTY",
+        "name": "E2E-DISPATCH-20260929 EMPTY",
+        "description": null,
+        "category": "Miel",
+        "product_type": "Final",
+        "unit_of_measure": "UN",
+        "cost": 0.0
+      },
+      "current_stock": 0.0,
+      "current_ppp": 0.0,
+      "current_inventory_value": 0.0,
+      "total_movements": 0,
+      "filtered_movements": 0,
+      "page": 1,
+      "per_page": 0,
+      "total_pages": 1,
+      "rows": [],
+      "order_asc": true,
+      "start_date": "",
+      "end_date": "",
+      "movement_type_filter": ""
+    }
+  },
+  "after_counts": {
+    "products": 77,
+    "sales": 22,
+    "purchase_orders": 8,
+    "inventory_entries": 10,
+    "inventory_movements": 28,
+    "lots": 10,
+    "lot_stock": 10,
+    "sale_items": 6,
+    "sale_lot_movements": 2,
+    "sale_payments": 11,
+    "sale_payment_items": 3,
+    "sales_status_history": 35,
+    "inventory_cost_revaluations": 1
+  }
+}

@@ -54,8 +54,44 @@
     </form>
 </div>
 
+<!-- Barra de herramientas: Búsqueda y Selector de Registros por Página -->
+<div style="background: white; padding: 16px 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+    <form method="GET" action="/administracion/listas-precios" id="search-filter-form" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <input type="hidden" name="per_page" value="{{ per_page }}">
+        <div style="position: relative; width: 320px;">
+            <input type="text" name="search" value="{{ search_query or '' }}" placeholder="Buscar por SKU, nombre, categoría..." style="width: 100%; padding: 8px 12px; padding-right: 32px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; outline: none;">
+            {% if search_query %}
+            <a href="/administracion/listas-precios?per_page={{ per_page }}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); text-decoration: none; color: #a0aec0; font-size: 14px;" title="Limpiar búsqueda">✕</a>
+            {% endif %}
+        </div>
+        <button type="submit" class="btn-primary" style="padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; background-color: #3182ce; color: white; border: none;">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <span>Buscar</span>
+        </button>
+        {% if search_query %}
+        <a href="/administracion/listas-precios?per_page={{ per_page }}" style="text-decoration: none; padding: 8px 12px; background: #e2e8f0; border-radius: 6px; font-size: 13px; color: #4a5568; font-weight: 600;">
+            Limpiar Filtro
+        </a>
+        {% endif %}
+    </form>
+
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <label for="per_page_select" style="font-size: 13px; color: #4a5568; font-weight: 600;">Mostrar:</label>
+            <select id="per_page_select" onchange="changePerPage(this.value)" style="padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e0; font-size: 13px; font-weight: 600; background: white; color: #2d3748; cursor: pointer;">
+                <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+            </select>
+        </div>
+        <span style="font-size: 13px; color: #718096; font-weight: 500;">
+            Total: <strong>{{ total_products }}</strong> productos
+        </span>
+    </div>
+</div>
+
 <!-- Tabla Principal de Productos y Precios Calculados -->
-<div class="table-container" style="overflow-x: auto;">
+<div class="table-container" style="overflow-x: auto; background: white; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
     <table class="data-table" style="width: 100%; border-collapse: collapse;">
         <thead>
             <tr style="font-size: 11px; background-color: #f7fafc; border-bottom: 2px solid #e2e8f0;">
@@ -99,9 +135,15 @@
 
                 <!-- Guardar -->
                 <td style="text-align: center; padding: 10px;">
-                    <button class="btn-primary" onclick="saveProductMargins('{{ p.sku }}')" style="padding: 6px 10px; font-size: 11px; font-weight: bold; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" title="Guardar márgenes de este producto">
+                    <button class="btn-primary" onclick="saveProductMargins('{{ p.sku }}')" style="padding: 6px 10px; font-size: 11px; font-weight: bold; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; background: #3182ce; color: white; border: none;" title="Guardar márgenes de este producto">
                         <i class="fa-solid fa-floppy-disk"></i>
                     </button>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="{{ 4 + config.categories|length }}" style="text-align: center; padding: 30px; color: #718096;">
+                    No se encontraron productos coincidentes con los criterios de búsqueda.
                 </td>
             </tr>
             {% endfor %}
@@ -109,7 +151,54 @@
     </table>
 </div>
 
+<!-- Paginación Server-Side -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding: 12px 16px; background: white; border-radius: 8px; border: 1px solid #e2e8f0; flex-wrap: wrap; gap: 10px;">
+    <div style="font-size: 13px; color: #64748b;">
+        {% if total_products and total_products > 0 %}
+            Mostrando <strong>{{ ((current_page - 1) * per_page) + 1 }}</strong> a <strong>{{ [current_page * per_page, total_products]|min }}</strong> de <strong>{{ total_products }}</strong> productos
+        {% else %}
+            Mostrando 0 registros
+        {% endif %}
+    </div>
+
+    {% if total_pages and total_pages > 1 %}
+    <div style="display: flex; gap: 6px; align-items: center;">
+        {% if current_page > 1 %}
+        <a href="/administracion/listas-precios?page={{ current_page - 1 }}&per_page={{ per_page }}{% if search_query %}&search={{ search_query }}{% endif %}" 
+           style="text-decoration: none; padding: 6px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; color: #4a5568; background: white; font-weight: 500;">
+            ◀ Anterior
+        </a>
+        {% else %}
+        <span style="padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; color: #a0aec0; background: #f7fafc; cursor: not-allowed;">◀ Anterior</span>
+        {% endif %}
+
+        {% for p in range([1, current_page - 2]|max, [total_pages + 1, current_page + 3]|min) %}
+        <a href="/administracion/listas-precios?page={{ p }}&per_page={{ per_page }}{% if search_query %}&search={{ search_query }}{% endif %}" 
+           style="text-decoration: none; padding: 6px 12px; border: 1px solid {% if p == current_page %}#3182ce{% else %}#cbd5e0{% endif %}; border-radius: 6px; font-size: 13px; color: {% if p == current_page %}white{% else %}#4a5568{% endif %}; background: {% if p == current_page %}#3182ce{% else %}white{% endif %}; font-weight: 600;">
+            {{ p }}
+        </a>
+        {% endfor %}
+
+        {% if current_page < total_pages %}
+        <a href="/administracion/listas-precios?page={{ current_page + 1 }}&per_page={{ per_page }}{% if search_query %}&search={{ search_query }}{% endif %}" 
+           style="text-decoration: none; padding: 6px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; color: #4a5568; background: white; font-weight: 500;">
+            Siguiente ▶
+        </a>
+        {% else %}
+        <span style="padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; color: #a0aec0; background: #f7fafc; cursor: not-allowed;">Siguiente ▶</span>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
 <script>
+function changePerPage(val) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('per_page', val);
+    url.searchParams.set('page', 1);
+    window.location.href = url.toString();
+}
+
 function addCategoryField() {
     const container = document.getElementById('categories-container');
     const index = container.children.length;

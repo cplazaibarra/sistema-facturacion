@@ -65,7 +65,7 @@
 <!-- Tabs de filtro -->
 <div style="display:flex;gap:4px;margin-bottom:0;border-bottom:2px solid #e2e8f0;">
     {% for tab_id, tab_label in [('todas','Todas'),('pendiente','Por Pagar'),('vencida','Vencidas'),('sin_factura','Sin Factura'),('pagada','Pagadas')] %}
-    <a href="?filtro={{ tab_id }}"
+    <a href="?filtro={{ tab_id }}&amp;search={{ request.args.get('search', '')|urlencode }}"
        style="padding:8px 18px;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px 6px 0 0;
               background:{% if filtro_activo == tab_id %}#fff{% else %}transparent{% endif %};
               color:{% if filtro_activo == tab_id %}#3182ce{% else %}#718096{% endif %};
@@ -79,13 +79,16 @@
 <div style="background:#fff;border-radius:0 8px 8px 8px;box-shadow:0 2px 5px rgba(0,0,0,.05);overflow:hidden;">
     <!-- Barra de búsqueda en vivo -->
     <div style="padding: 12px 16px; background: #fff; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-        <div style="position: relative; width: 320px; max-width: 100%;">
-            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #a0aec0; font-size: 13px;">🔍</span>
-            <input type="text" id="search-invoices-input" onkeyup="filterInvoicesTable()" placeholder="Buscar por proveedor, factura o N° OC..."
-                   style="width: 100%; padding: 7px 10px 7px 32px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div style="position: relative; width: 320px; max-width: 100%;">
+                <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #a0aec0; font-size: 13px;">🔍</span>
+                <input type="text" id="search-invoices-input" value="{{ search }}" onkeyup="scheduleInvoiceSearch(event)" placeholder="Buscar por proveedor, factura o N° OC..."
+                       style="width: 100%; padding: 7px 10px 7px 32px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+
         </div>
-        <div style="font-size: 13px; color: #718096;">
-            Mostrando <strong id="invoices-count" style="color: #2d3748;">{{ invoices|length }}</strong> documento(s)
+        <div style="font-size: 13px; color: #718096;" id="invoices-count-container">
+            Mostrando <strong id="invoices-count" style="color: #2d3748;">{{ pagination.total }}</strong> documento(s)
         </div>
     </div>
 
@@ -239,6 +242,9 @@
             </tbody>
         </table>
     </div>
+
+    <!-- Paginación de facturas -->
+    {% include "_pagination.html" %}
 </div>
 
 <!-- ─── MODAL 1: SUBIR / CARGAR NUEVA FACTURA ─────────────────────────────── -->
@@ -268,12 +274,9 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
                 <div style="grid-column: span 2;">
                     <label style="font-weight:600;font-size:13px;display:block;margin-bottom:5px;">Proveedor *</label>
-                    <select name="supplier_id" id="new-inv-supplier" required style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
-                        <option value="">Seleccionar Proveedor</option>
-                        {% for s in suppliers %}
-                        <option value="{{ s.id }}">{{ s.name }}</option>
-                        {% endfor %}
-                    </select>
+                    <input type="hidden" name="supplier_id" id="new-inv-supplier" value="">
+                    <input type="text" id="new-inv-supplier-search" list="new-inv-supplier-options" autocomplete="off" required placeholder="Escribe nombre, razón social o RUT para buscar" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;">
+                    <datalist id="new-inv-supplier-options"></datalist>
                 </div>
 
                 <div>
@@ -355,12 +358,9 @@
                         <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">
                             <i class="fa-solid fa-building-columns" style="color:#3182ce;margin-right:4px;"></i>Cuenta Bancaria de Egreso <span style="color:#e53e3e;">*</span>
                         </label>
-                        <select name="bank_account_id" id="new-inv-bank-account" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:4px;font-size:13px;">
-                            <option value="">Seleccionar Cuenta Bancaria de la Empresa</option>
-                            {% for b in bank_accounts %}
-                            <option value="{{ b.id }}">{{ b.bank_name }} - {{ b.account_type }} (N° {{ b.account_number }}) - {{ b.holder_name }}</option>
-                            {% endfor %}
-                        </select>
+                        <input type="hidden" name="bank_account_id" id="new-inv-bank-account" value="">
+                        <input type="text" id="new-inv-bank-account-search" list="new-inv-bank-account-options" autocomplete="off" placeholder="Escribe banco, número o titular para buscar" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:4px;font-size:13px;">
+                        <datalist id="new-inv-bank-account-options"></datalist>
                     </div>
                     <div>
                         <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">
@@ -439,12 +439,9 @@
                         <i class="fa-solid fa-building-columns" style="color:#3182ce;margin-right:4px;"></i>
                         Cuenta Bancaria de Egreso <span style="color:#e53e3e;" id="modal-bank-req-star">* (Requerida)</span>
                     </label>
-                    <select name="bank_account_id" id="modal-bank-account" required style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">
-                        <option value="">Seleccionar Cuenta Bancaria con que se realizó el pago...</option>
-                        {% for b in bank_accounts %}
-                        <option value="{{ b.id }}" {% if bank_accounts|length == 1 %}selected{% endif %}>{{ b.bank_name }} - {{ b.account_type }} (N° {{ b.account_number }}) - {{ b.holder_name }}</option>
-                        {% endfor %}
-                    </select>
+                    <input type="hidden" name="bank_account_id" id="modal-bank-account" value="">
+                    <input type="text" id="modal-bank-account-search" list="modal-bank-account-options" autocomplete="off" required placeholder="Escribe banco, número o titular para buscar" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">
+                    <datalist id="modal-bank-account-options"></datalist>
                 </div>
             </div>
 
@@ -812,6 +809,48 @@ setInputValueAndDatepicker('new-inv-pay-date', todayStr);
 setInputValueAndDatepicker('attach-inv-date', todayStr);
 setInputValueAndDatepicker('edit-inv-date', todayStr);
 
+const remoteOptionMaps = new Map();
+function formatSupplierOption(item) { return [item.name,item.rut].filter(Boolean).join(' · '); }
+function formatBankOption(item) { return `${item.bank_name} · ${item.account_number} · ${item.holder_name}`; }
+function bindRemoteSelector(kind,inputId,hiddenId,listId,formatter) {
+    const input=document.getElementById(inputId), hidden=document.getElementById(hiddenId), list=document.getElementById(listId);
+    if(!input||!hidden||!list)return;
+    const key=inputId; remoteOptionMaps.set(key,new Map()); let timer;
+    async function query() {
+        const params=new URLSearchParams({q:input.value.trim()});
+        try {
+            const response=await fetch(`/api/compras/selectores/${kind}?${params}`);
+            if(!response.ok)return;
+            const data=await response.json(), map=new Map(); list.replaceChildren();
+            for(const item of data.items||[]) {
+                const label=formatter(item); if(!label)continue;
+                map.set(label,String(item.id)); const option=document.createElement('option'); option.value=label; list.appendChild(option);
+            }
+            remoteOptionMaps.set(key,map);
+            if(!input.value && data.total===1 && data.items.length===1) {
+                const item=data.items[0], label=formatter(item); hidden.value=item.id; input.value=label;
+            } else if(input.value && map.has(input.value)) hidden.value=map.get(input.value);
+        } catch (_) {}
+    }
+    input.addEventListener('focus',query);
+    input.addEventListener('input',()=>{hidden.value='';clearTimeout(timer);timer=setTimeout(query,250);});
+    input.addEventListener('change',()=>{hidden.value=remoteOptionMaps.get(key).get(input.value)||'';});
+    query();
+}
+async function resolveRemoteOption(kind,id,inputId,listId,formatter) {
+    try { const response=await fetch(`/api/compras/selectores/${kind}?id=${encodeURIComponent(id)}`);if(!response.ok)return;
+        const data=await response.json(),item=(data.items||[])[0];if(!item)return;
+        const input=document.getElementById(inputId),list=document.getElementById(listId),label=formatter(item);
+        input.value=label;const option=document.createElement('option');option.value=label;list.replaceChildren(option);
+        const map=remoteOptionMaps.get(inputId);if(map)map.set(label,String(item.id));
+    } catch (_) {}
+}
+document.addEventListener('DOMContentLoaded',()=>{
+    bindRemoteSelector('proveedores','new-inv-supplier-search','new-inv-supplier','new-inv-supplier-options',formatSupplierOption);
+    bindRemoteSelector('cuentas-bancarias','new-inv-bank-account-search','new-inv-bank-account','new-inv-bank-account-options',formatBankOption);
+    bindRemoteSelector('cuentas-bancarias','modal-bank-account-search','modal-bank-account','modal-bank-account-options',formatBankOption);
+});
+
 // Modal Cargar Factura
 function openNewInvoiceModal() {
     document.getElementById('new-inv-modal-title').innerHTML = '<i class="fa-solid fa-file-invoice" style="color:#3182ce;margin-right:6px;"></i>Cargar Factura de Proveedor';
@@ -819,6 +858,9 @@ function openNewInvoiceModal() {
     document.getElementById('new-inv-po-id').value = '';
     document.getElementById('new-inv-supplier').disabled = false;
     document.getElementById('new-inv-supplier').value = '';
+    document.getElementById('new-inv-supplier-search').value = '';
+    document.getElementById('new-inv-bank-account').value = '';
+    document.getElementById('new-inv-bank-account-search').value = '';
     document.getElementById('new-inv-amount').value = '';
     document.getElementById('guia-linked-banner').style.display = 'none';
     document.getElementById('new-invoice-modal').style.display = 'flex';
@@ -830,6 +872,7 @@ function openInvoiceForGuia(entryId, supplierName, supplierId, orderNumber, amou
     document.getElementById('new-inv-po-id').value = poId || '';
     if (supplierId) {
         document.getElementById('new-inv-supplier').value = supplierId;
+        resolveRemoteOption('proveedores',supplierId,'new-inv-supplier-search','new-inv-supplier-options',formatSupplierOption);
     }
     document.getElementById('new-inv-amount').value = amount || '';
     document.getElementById('guia-linked-text').textContent = 'N° ' + orderNumber + ' (' + (supplierName || 'Sin proveedor') + ') — $' + Math.round(amount).toLocaleString('es-CL');
@@ -854,10 +897,12 @@ function previewNewInvFile(input) {
 function togglePaidSection(show) {
     document.getElementById('new-inv-paid-fields').style.display = show ? 'block' : 'none';
     const bankSelect = document.getElementById('new-inv-bank-account');
-    if (bankSelect) {
-        bankSelect.required = show;
+    const bankSearch = document.getElementById('new-inv-bank-account-search');
+    if (bankSelect && bankSearch) {
+        bankSearch.required = show;
         if (!show) {
             bankSelect.value = '';
+            bankSearch.value = '';
         }
     }
 }
@@ -875,10 +920,13 @@ function openPayModal(id, supplier, amount, status, invoiceNumber) {
 }
 
 function handleModalPayMethodChange(method) {
-    const bankSelect = document.getElementById('modal-bank-account');
+    const bankSelect = document.getElementById('modal-bank-account-search');
+    const bankHidden = document.getElementById('modal-bank-account');
     const star = document.getElementById('modal-bank-req-star');
     if (method === 'Efectivo') {
         bankSelect.required = false;
+        bankHidden.value = '';
+        bankSelect.value = '';
         if (star) star.style.display = 'none';
     } else {
         bankSelect.required = true;
@@ -965,21 +1013,17 @@ function previewEditInvFile(input) {
     }
 }
 
-function filterInvoicesTable() {
-    const query = (document.getElementById('search-invoices-input').value || '').toLowerCase().trim();
-    const rows = document.querySelectorAll('#invoices-table-body tr');
-    let count = 0;
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        if (!query || text.includes(query)) {
-            row.style.display = '';
-            count++;
-        } else {
-            row.style.display = 'none';
-        }
-    });
-    const counter = document.getElementById('invoices-count');
-    if (counter) counter.textContent = count;
+let invoiceSearchTimer;
+function scheduleInvoiceSearch(event) {
+    clearTimeout(invoiceSearchTimer);
+    if (event.key === 'Enter') submitInvoiceSearch();
+    else invoiceSearchTimer=setTimeout(submitInvoiceSearch,500);
+}
+function submitInvoiceSearch() {
+    const url=new URL(window.location.href);
+    url.searchParams.set('search',document.getElementById('search-invoices-input').value.trim());
+    url.searchParams.set('page','1');
+    window.location.assign(url.toString());
 }
 
 function closePayModal() {
@@ -1370,5 +1414,6 @@ document.addEventListener('DOMContentLoaded', () => {
     );
 });
 {% endif %}
+
 </script>
 {% endblock %}

@@ -1,0 +1,744 @@
+{% extends "base.html" %}
+
+{% block title %}Kardex Valorizado / PPP — Facturación Bodega Miel{% endblock %}
+{% block page_title %}Kardex Valorizado / PPP{% endblock %}
+
+{% block extra_css %}
+<style>
+.kardex-summary-card {
+    background: #ffffff;
+    padding: 18px 20px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.kardex-summary-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.kardex-summary-val {
+    font-size: 26px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+}
+.kardex-summary-sub {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 6px;
+}
+
+/* Selector de Producto Superior */
+.kardex-nav-card {
+    background: #ffffff;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.kardex-select-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    flex: 1;
+    min-width: 320px;
+}
+
+.kardex-select-control {
+    flex: 1;
+    min-width: 260px;
+    max-width: 480px;
+    padding: 9px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    background-color: #f8fafc;
+    color: #1e293b;
+    font-weight: 500;
+    outline: none;
+    transition: all 0.2s ease;
+}
+.kardex-select-control:focus {
+    background-color: #ffffff;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+}
+
+.tabla-kardex-sticky th.sticky-actions,
+.tabla-kardex-sticky td.sticky-actions {
+    position: sticky;
+    right: 0;
+    z-index: 3;
+    box-shadow: -4px 0 8px -2px rgba(0, 0, 0, 0.08);
+}
+.tabla-kardex-sticky th.sticky-actions {
+    background: #f8fafc !important;
+}
+.tabla-kardex-sticky td.sticky-actions {
+    background: #ffffff !important;
+}
+.tabla-kardex-sticky tr:hover td.sticky-actions {
+    background: #f8fafc !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Barra Superior con Selector de Producto y Acciones -->
+<div class="kardex-nav-card">
+    <div class="kardex-select-group">
+        <label for="producto-selector" style="font-size: 13px; font-weight: 700; color: #334155; display: flex; align-items: center; gap: 6px;">
+            <span>🔍 Filtrar Producto:</span>
+        </label>
+        <select id="producto-selector" class="kardex-select-control" onchange="seleccionarProducto(this.value)">
+            <option value="">-- Ver Todos los Productos (Consolidado) --</option>
+            {% for prod in all_products %}
+            <option value="{{ prod.id }}" {% if selected_product and selected_product.id == prod.id %}selected{% endif %}>
+                {{ prod.sku }} — {{ prod.name }} ({{ prod.product_type }})
+            </option>
+            {% endfor %}
+        </select>
+        {% if selected_product %}
+        <a href="{{ url_for('inventario.ver_kardex') }}" class="btn-primary btn-sm" title="Limpiar filtro y ver catálogo consolidado de todos los productos">
+            <i class="fa-solid fa-layer-group"></i>
+            <span>Ver Todos los Productos</span>
+        </a>
+        {% endif %}
+    </div>
+
+    <div style="display: flex; gap: 8px; align-items: center;">
+        {% if selected_product %}
+        <a href="{{ url_for('inventario.editar_producto', product_id=selected_product.id) }}" class="btn-secondary btn-sm">
+            <i class="fa-solid fa-pen-to-square"></i>
+            <span>Editar Ficha</span>
+        </a>
+        {% endif %}
+        <a href="{{ url_for('inventario.inventario') }}" class="btn-secondary btn-sm">
+            <i class="fa-solid fa-boxes-stacked"></i>
+            <span>Inventario Físico</span>
+        </a>
+    </div>
+</div>
+
+{% if selected_product and kardex %}
+<!-- ========================================================================= -->
+<!-- CASO A: DETALLE DEL KARDEX VALORIZADO PARA UN PRODUCTO PARTICULAR         -->
+<!-- ========================================================================= -->
+
+<!-- Banner informativo del Producto Seleccionado -->
+<div style="background: #ffffff; padding: 14px 20px; border-radius: 8px; border-left: 4px solid #10b981; border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+            <a href="{{ url_for('inventario.ver_kardex') }}" style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #2563eb; text-decoration: none; background: #eff6ff; padding: 4px 10px; border-radius: 6px; border: 1px solid #bfdbfe;">
+                <span>← Catálogo General</span>
+            </a>
+            <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b;">
+                Kardex Detallado: {{ selected_product.name }}
+            </h3>
+        </div>
+        <div style="font-size: 13px; color: #64748b; margin-top: 4px;">
+            SKU: <strong style="color: #2563eb;">{{ selected_product.sku }}</strong> &nbsp;|&nbsp; 
+            Categoría: <strong>{{ selected_product.category or 'Sin categoría' }}</strong> &nbsp;|&nbsp; 
+            Tipo: <strong>{{ selected_product.product_type }}</strong> &nbsp;|&nbsp; 
+            U. Medida: <strong>{{ selected_product.unit_of_measure or 'UN' }}</strong>
+        </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <a href="{{ url_for('inventario.ver_kardex') }}" class="sf-btn-secondary" style="padding: 7px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; font-size: 12px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-list"></i> Ver todos los productos
+        </a>
+        <div style="font-size: 12px; color: #059669; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 6px 12px; border-radius: 6px; font-weight: 600;">
+            ✓ Trazabilidad continua de PPP activa
+        </div>
+    </div>
+</div>
+
+{% if kardex.operational_balance is defined and kardex.operational_balance is not none %}
+<div role="status" class="stock-reconciliation">
+    Bodega: disponible <strong>{{ kardex.operational_balance.available }}</strong>,
+    reservado <strong>{{ kardex.operational_balance.reserved }}</strong>,
+    físico <strong>{{ kardex.operational_balance.physical }}</strong>.
+    {% if kardex.stock_delta %}
+    <strong>Existencias pendientes de conciliación.</strong>
+    El saldo de movimientos difiere del físico en {{ kardex.stock_delta }} unidades.
+    La valorización siguiente corresponde al historial de movimientos; no certifica las existencias de bodega.
+    {% else %}El saldo de movimientos coincide con el físico de bodega.{% endif %}
+</div>
+{% endif %}
+<!-- Tarjetas de Resumen del Producto -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    <div class="kardex-summary-card">
+        <div class="kardex-summary-title">📦 Saldo de movimientos</div>
+        <div class="kardex-summary-val">
+            {{ kardex.current_stock }} <span style="font-size: 14px; font-weight: 600; color: #64748b;">{{ selected_product.unit_of_measure or 'un' }}</span>
+        </div>
+        <div class="kardex-summary-sub">Reconstruido de movimientos</div>
+    </div>
+
+    <div class="kardex-summary-card" style="background: #f0fdf4; border-color: #bbf7d0;">
+        <div class="kardex-summary-title" style="color: #166534;">📈 PPP Actual Vigente</div>
+        <div class="kardex-summary-val" style="color: #15803d;">
+            ${{ "{:,.2f}".format(kardex.current_ppp) }}
+        </div>
+        <div class="kardex-summary-sub" style="color: #166534;">Precio Promedio Ponderado</div>
+    </div>
+
+    <div class="kardex-summary-card" style="background: #eff6ff; border-color: #bfdbfe;">
+        <div class="kardex-summary-title" style="color: #1e40af;">💰 Valor Actual Inventario</div>
+        <div class="kardex-summary-val" style="color: #1d4ed8;">
+            ${{ "{:,.0f}".format(kardex.current_inventory_value) }}
+        </div>
+        <div class="kardex-summary-sub" style="color: #1e40af;">Stock actual × PPP vigente</div>
+    </div>
+
+    <div class="kardex-summary-card">
+        <div class="kardex-summary-title">📑 Total Movimientos</div>
+        <div class="kardex-summary-val" style="color: #334155;">
+            {{ kardex.total_movements }}
+        </div>
+        <div class="kardex-summary-sub">Trazabilidad auditada</div>
+    </div>
+</div>
+
+<!-- Filtros de Fecha, Tipo de Movimiento y Orden -->
+<div style="background: #ffffff; padding: 16px 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+    <form method="GET" action="{{ url_for('inventario.ver_kardex') }}" style="display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap;">
+        <input type="hidden" name="product_id" value="{{ selected_product.id }}">
+
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 12px; font-weight: 600; color: #475569;">Fecha Desde:</label>
+            <input type="date" name="start_date" value="{{ current_filters.start_date }}" style="padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 12px; font-weight: 600; color: #475569;">Fecha Hasta:</label>
+            <input type="date" name="end_date" value="{{ current_filters.end_date }}" style="padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 12px; font-weight: 600; color: #475569;">Tipo Movimiento:</label>
+            <select name="movement_type" style="padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; min-width: 170px;">
+                <option value="">Todos los movimientos</option>
+                {% for code, label in movement_type_labels.items() %}
+                <option value="{{ code }}" {% if current_filters.movement_type == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 12px; font-weight: 600; color: #475569;">Orden:</label>
+            <select name="order" style="padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                <option value="desc" {% if current_filters.order == 'desc' %}selected{% endif %}>Más reciente primero (Desc)</option>
+                <option value="asc" {% if current_filters.order == 'asc' %}selected{% endif %}>Más antiguo primero (Cronológico)</option>
+            </select>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 12px; font-weight: 600; color: #475569;">Mostrar:</label>
+            <select name="per_page" style="padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                <option value="25" {% if current_filters.per_page == 25 %}selected{% endif %}>25 movs</option>
+                <option value="50" {% if current_filters.per_page == 50 %}selected{% endif %}>50 movs</option>
+                <option value="100" {% if current_filters.per_page == 100 %}selected{% endif %}>100 movs</option>
+            </select>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+            <button type="submit" class="sf-btn-primary" style="padding: 8px 16px; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                🔍 Filtrar
+            </button>
+            {% if current_filters.start_date or current_filters.end_date or current_filters.movement_type or current_filters.order != 'desc' or current_filters.per_page != 25 %}
+            <a href="{{ url_for('inventario.ver_kardex', product_id=selected_product.id) }}" style="padding: 8px 14px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center;">
+                Limpiar
+            </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<!-- Tabla de Movimientos del Kardex Valorizado -->
+<div class="table-container" style="background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+    <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 13px; min-width: 1100px;">
+        <thead>
+            <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569;">
+                <th style="padding: 12px 14px; text-align: left;">Fecha / Hora (UTC)</th>
+                <th style="padding: 12px 14px; text-align: left;">Movimiento</th>
+                <th style="padding: 12px 14px; text-align: left;">Doc. Origen</th>
+                <th style="padding: 12px 14px; text-align: right; background: #f0fdf4;">Entrada (un)</th>
+                <th style="padding: 12px 14px; text-align: right; background: #fef2f2;">Salida (un)</th>
+                <th style="padding: 12px 14px; text-align: right; background: #f8fafc; font-weight: 700;">Saldo (un)</th>
+                <th style="padding: 12px 14px; text-align: right; background: #f0fdf4;">Monto Entrada</th>
+                <th style="padding: 12px 14px; text-align: right; background: #fef2f2;">Monto Salida</th>
+                <th style="padding: 12px 14px; text-align: right; background: #eff6ff; font-weight: 700;">Saldo Val. ($)</th>
+                <th style="padding: 12px 14px; text-align: right; background: #fdf2f8; font-weight: 700;">PPP ($)</th>
+                <th style="padding: 12px 14px; text-align: center;">Auditar</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in kardex.rows %}
+            <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s ease;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                <!-- Fecha -->
+                <td style="padding: 10px 14px; white-space: nowrap;">
+                    <div style="font-weight: 600; color: #1e293b;">{{ row.date }}</div>
+                    <div style="font-size: 11px; color: #94a3b8;">{{ row.time }}</div>
+                </td>
+
+                <!-- Tipo Movimiento -->
+                <td style="padding: 10px 14px; white-space: nowrap;">
+                    {% if row.in_qty > 0 %}
+                    <span style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px;">
+                        📥 {{ row.movement_type_label }}
+                    </span>
+                    {% else %}
+                    <span style="background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px;">
+                        📤 {{ row.movement_type_label }}
+                    </span>
+                    {% endif %}
+                </td>
+
+                <!-- Documento Origen -->
+                <td style="padding: 10px 14px; white-space: nowrap;">
+                    {% if row.document_url %}
+                    <a href="{{ row.document_url }}" target="_blank" style="text-decoration: none; font-weight: 700; color: #2563eb; background: #eff6ff; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 4px; font-size: 12px;" title="Ver documento origen">
+                        📄 {{ row.document_label }} ↗
+                    </a>
+                    {% else %}
+                    <span style="color: #64748b; font-size: 12px;">{{ row.document_label }}</span>
+                    {% endif %}
+                </td>
+
+                <!-- Entrada (un) -->
+                <td style="padding: 10px 14px; text-align: right; background: #fafdfa; font-weight: 600; color: #166534;">
+                    {% if row.in_qty > 0 %}
+                    +{{ row.in_qty }}
+                    {% else %}
+                    <span style="color: #cbd5e1;">-</span>
+                    {% endif %}
+                </td>
+
+                <!-- Salida (un) -->
+                <td style="padding: 10px 14px; text-align: right; background: #fffdfd; font-weight: 600; color: #991b1b;">
+                    {% if row.out_qty > 0 %}
+                    -{{ row.out_qty }}
+                    {% else %}
+                    <span style="color: #cbd5e1;">-</span>
+                    {% endif %}
+                </td>
+
+                <!-- Saldo (un) -->
+                <td style="padding: 10px 14px; text-align: right; font-weight: 700; color: #0f172a;">
+                    {{ row.balance_qty }}
+                </td>
+
+                <!-- Monto Entrada -->
+                <td style="padding: 10px 14px; text-align: right; background: #fafdfa; color: #166534;">
+                    {% if row.in_amount > 0 %}
+                    ${{ "{:,.0f}".format(row.in_amount) }}
+                    <div style="font-size: 10px; color: #16a34a;">(@ ${{ "{:,.2f}".format(row.unit_cost_applied) }})</div>
+                    {% else %}
+                    <span style="color: #cbd5e1;">-</span>
+                    {% endif %}
+                </td>
+
+                <!-- Monto Salida -->
+                <td style="padding: 10px 14px; text-align: right; background: #fffdfd; color: #991b1b;">
+                    {% if row.out_amount > 0 %}
+                    ${{ "{:,.0f}".format(row.out_amount) }}
+                    <div style="font-size: 10px; color: #dc2626;">(@ PPP ${{ "{:,.2f}".format(row.unit_cost_applied) }})</div>
+                    {% else %}
+                    <span style="color: #cbd5e1;">-</span>
+                    {% endif %}
+                </td>
+
+                <!-- Saldo Valorizado ($) -->
+                <td style="padding: 10px 14px; text-align: right; font-weight: 700; color: #1d4ed8; background: #f8faff;">
+                    ${{ "{:,.0f}".format(row.balance_amount) }}
+                </td>
+
+                <!-- PPP ($) -->
+                <td style="padding: 10px 14px; text-align: right; font-weight: 800; color: #831843; background: #fdf2f8;">
+                    ${{ "{:,.2f}".format(row.ppp) }}
+                </td>
+
+                <!-- Auditoría -->
+                <td style="padding: 10px 14px; text-align: center; white-space: nowrap;">
+                    <button type="button" onclick="inspectRow({{ row.id }})" style="padding: 3px 8px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff; color: #334155; font-size: 11px; font-weight: 600; cursor: pointer;" title="Auditar cálculo Antes / Movimiento / Después">
+                        🔍 Audit
+                    </button>
+                    <script type="application/json" id="audit-data-{{ row.id }}">
+                        {{ row.audit | tojson }}
+                    </script>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="11" style="text-align: center; color: #64748b; padding: 40px;">
+                    No se registran movimientos de inventario para este producto con los filtros seleccionados.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Paginación Server-Side de Movimientos del Producto -->
+{% if kardex.total_pages and kardex.total_pages > 1 %}
+<div style="margin-top: 16px; margin-bottom: 24px; background: #ffffff; padding: 12px 20px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+    <div style="font-size: 13px; color: #64748b;">
+        Movimientos <strong>{{ ((kardex.page - 1) * kardex.per_page) + 1 }}–{{ [kardex.page * kardex.per_page, kardex.filtered_movements]|min }}</strong> de <strong>{{ kardex.filtered_movements }}</strong>
+        {% if kardex.total_movements != kardex.filtered_movements %}
+        <span style="font-size: 12px; color: #94a3b8;">(filtrados de {{ kardex.total_movements }} totales)</span>
+        {% endif %}
+    </div>
+
+    <div style="display: flex; gap: 6px; align-items: center;">
+        {% if kardex.page > 1 %}
+        <a href="{{ url_for('inventario.ver_kardex', product_id=selected_product.id, page=kardex.page - 1, per_page=kardex.per_page, order=current_filters.order, start_date=current_filters.start_date, end_date=current_filters.end_date, movement_type=current_filters.movement_type) }}"
+           style="text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #fff; color: #2563eb; border: 1px solid #cbd5e1;">
+            ← Anterior
+        </a>
+        {% else %}
+        <span style="padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; cursor: not-allowed;">
+            ← Anterior
+        </span>
+        {% endif %}
+
+        <!-- Ventana deslizante de números de página -->
+        {% for p in range([1, kardex.page - 2]|max, [kardex.total_pages + 1, kardex.page + 3]|min) %}
+        <a href="{{ url_for('inventario.ver_kardex', product_id=selected_product.id, page=p, per_page=kardex.per_page, order=current_filters.order, start_date=current_filters.start_date, end_date=current_filters.end_date, movement_type=current_filters.movement_type) }}"
+           style="text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; border: 1px solid {% if p == kardex.page %}#2563eb; background: #2563eb; color: #fff{% else %}#cbd5e1; background: #fff; color: #475569{% endif %};">
+            {{ p }}
+        </a>
+        {% endfor %}
+
+        {% if kardex.page < kardex.total_pages %}
+        <a href="{{ url_for('inventario.ver_kardex', product_id=selected_product.id, page=kardex.page + 1, per_page=kardex.per_page, order=current_filters.order, start_date=current_filters.start_date, end_date=current_filters.end_date, movement_type=current_filters.movement_type) }}"
+           style="text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #fff; color: #2563eb; border: 1px solid #cbd5e1;">
+            Siguiente →
+        </a>
+        {% else %}
+        <span style="padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; cursor: not-allowed;">
+            Siguiente →
+        </span>
+        {% endif %}
+    </div>
+</div>
+{% elif kardex.filtered_movements and kardex.filtered_movements > 0 %}
+<div style="margin-top: 12px; margin-bottom: 20px; font-size: 12px; color: #64748b; text-align: right;">
+    Mostrando todos los <strong>{{ kardex.filtered_movements }}</strong> movimientos en una sola página.
+</div>
+{% endif %}
+
+<!-- Modal de Auditoría Antes / Movimiento / Después -->
+<div id="audit-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; padding: 20px;">
+    <div style="background: #fff; width: 100%; max-width: 650px; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); overflow: hidden;">
+        <div style="padding: 16px 20px; background: #1e293b; color: #fff; display: flex; justify-content: space-between; align-items: center;">
+            <h4 style="margin: 0; font-size: 16px; font-weight: 700;">Auditoría de Impacto en Kardex / PPP</h4>
+            <button type="button" onclick="closeAuditModal()" style="background: transparent; border: none; color: #94a3b8; font-size: 20px; cursor: pointer;">✕</button>
+        </div>
+        <div style="padding: 20px;" id="audit-modal-body">
+            <!-- Rellenado por JS -->
+        </div>
+        <div style="padding: 12px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; text-align: right;">
+            <button type="button" onclick="closeAuditModal()" class="sf-btn-secondary" style="padding: 8px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; color: #334155; font-size: 13px; font-weight: 600; cursor: pointer;">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- ========================================================================= -->
+<!-- CASO B: VISTA GLOBAL DE TODOS LOS PRODUCTOS VALORIZADOS                   -->
+<!-- ========================================================================= -->
+
+<!-- Tarjetas de Resumen Global de la Empresa -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    <div class="kardex-summary-card" style="background: #eff6ff; border-color: #bfdbfe;">
+        <div class="kardex-summary-title" style="color: #1e40af;">💰 Valor Total Inventario Vigente</div>
+        <div class="kardex-summary-val" style="color: #1d4ed8;">
+            ${{ "{:,.0f}".format(all_summary.total_inventory_value if all_summary else 0) }}
+        </div>
+        <div class="kardex-summary-sub" style="color: #1e40af;">Valorización matemática consolidada por PPP</div>
+    </div>
+
+    <div class="kardex-summary-card">
+        <div class="kardex-summary-title">📦 Total Unidades en Stock Físico</div>
+        <div class="kardex-summary-val" style="color: #0f172a;">
+            {{ "{:,.1f}".format(all_summary.total_units_stock if all_summary else 0) }}
+        </div>
+        <div class="kardex-summary-sub">Suma física total en todas las bodegas</div>
+    </div>
+
+    <div class="kardex-summary-card">
+        <div class="kardex-summary-title">🏷️ Productos con Stock Activo</div>
+        <div class="kardex-summary-val" style="color: #15803d;">
+            {{ all_summary.products_with_stock_count if all_summary else 0 }} <span style="font-size: 14px; font-weight: 500; color: #64748b;">/ {{ all_summary.total_products_count if all_summary else 0 }} productos</span>
+        </div>
+        <div class="kardex-summary-sub">Ítems con existencia mayor a cero</div>
+    </div>
+</div>
+
+<!-- Buscador Server-Side y Selector de Registros de la Tabla Consolidada -->
+<div style="background: #ffffff; padding: 14px 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+    <!-- Formulario de Búsqueda Server-Side -->
+    <form method="GET" action="{{ url_for('inventario.ver_kardex') }}" style="display: flex; gap: 8px; flex: 1; max-width: 520px; margin: 0;">
+        <input type="hidden" name="per_page" value="{{ all_summary.per_page if all_summary else 25 }}">
+        <div style="position: relative; flex: 1;">
+            <input type="text" name="search" value="{{ current_filters.search or '' }}" placeholder="Buscar por SKU, Nombre, Categoría o Tipo..." 
+                   style="width: 100%; padding: 8px 12px 8px 34px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; box-sizing: border-box;">
+            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px;">🔍</span>
+        </div>
+        <button type="submit" class="sf-btn-primary" style="padding: 8px 16px; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+            Buscar
+        </button>
+        {% if current_filters.search %}
+        <a href="{{ url_for('inventario.ver_kardex', per_page=all_summary.per_page if all_summary else 25) }}" 
+           style="text-decoration: none; padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; display: inline-flex; align-items: center;">
+            ✕ Limpiar
+        </a>
+        {% endif %}
+    </form>
+
+    <!-- Selector de Registros por Página -->
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <label for="catalog_per_page" style="font-size: 12px; font-weight: 600; color: #475569;">Mostrar:</label>
+            <select id="catalog_per_page" onchange="changeCatalogPerPage(this.value)" 
+                    style="padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 600; background: #fff; color: #1e293b; cursor: pointer;">
+                <option value="25" {% if all_summary and all_summary.per_page == 25 %}selected{% endif %}>25 productos</option>
+                <option value="50" {% if all_summary and all_summary.per_page == 50 %}selected{% endif %}>50 productos</option>
+                <option value="100" {% if all_summary and all_summary.per_page == 100 %}selected{% endif %}>100 productos</option>
+            </select>
+        </div>
+        <div style="font-size: 12px; color: #64748b; background: #f8fafc; padding: 6px 12px; border-radius: 6px;">
+            {% if all_summary and all_summary.total_filtered != all_summary.total_products_count %}
+            Filtrados: <strong>{{ all_summary.total_filtered }}</strong> de <strong>{{ all_summary.total_products_count }}</strong>
+            {% else %}
+            Total Catálogo: <strong>{{ all_summary.total_products_count if all_summary else 0 }}</strong> productos
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Tabla Consolidada de Todos los Productos -->
+<div class="table-container" style="background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+    <table class="data-table tabla-kardex-sticky" id="tabla-kardex-todos" style="width: 100%; border-collapse: collapse; font-size: 13px; min-width: 1050px;">
+        <thead>
+            <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; text-align: left;">
+                <th style="padding: 12px 14px;">SKU</th>
+                <th style="padding: 12px 14px; min-width: 220px;">Producto</th>
+                <th style="padding: 12px 14px;">Categoría</th>
+                <th style="padding: 12px 14px;">Tipo</th>
+                <th style="padding: 12px 14px; text-align: right; background: #f8fafc; font-weight: 700;">Stock Actual</th>
+                <th style="padding: 12px 14px; text-align: center;">U.M.</th>
+                <th style="padding: 12px 14px; text-align: right; background: #fdf2f8; font-weight: 700;">PPP Vigente ($)</th>
+                <th style="padding: 12px 14px; text-align: right; background: #eff6ff; font-weight: 700;">Valor Inventario ($)</th>
+                <th style="padding: 12px 14px; text-align: center;">Movimientos</th>
+                <th class="sticky-actions" style="padding: 12px 14px; text-align: center; min-width: 140px;">Kardex / Detalle</th>
+            </tr>
+        </thead>
+        <tbody id="tbody-kardex-todos">
+            {% if all_summary and all_summary.products %}
+                {% for item in all_summary.products %}
+                <tr class="kardex-item-row" style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s ease;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                    <td style="padding: 10px 14px; font-weight: 600; color: #1e293b; white-space: nowrap;">
+                        {{ item.sku }}
+                    </td>
+                    <td style="padding: 10px 14px;">
+                        <a href="{{ url_for('inventario.ver_kardex', product_id=item.id) }}" style="font-weight: 600; color: #2563eb; text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                            {{ item.name }}
+                        </a>
+                        {% if item.format_capacity and item.format_capacity != '-' %}
+                        <span style="font-size: 11px; color: #64748b; margin-left: 4px;">({{ item.format_capacity }})</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 10px 14px; color: #475569;">
+                        {{ item.category }}
+                    </td>
+                    <td style="padding: 10px 14px; white-space: nowrap;">
+                        <span style="font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 6px; 
+                            background: {% if item.product_type == 'Insumo' %}#fffbeb{% else %}#eff6ff{% endif %};
+                            color: {% if item.product_type == 'Insumo' %}#b45309{% else %}#1d4ed8{% endif %};
+                            border: 1px solid {% if item.product_type == 'Insumo' %}#fde68a{% else %}#bfdbfe{% endif %};">
+                            {{ item.product_type }}
+                        </span>
+                    </td>
+                    <td style="padding: 10px 14px; text-align: right; font-weight: 700; color: {% if item.current_stock > 0 %}#166534{% else %}#94a3b8{% endif %};">
+                        {{ item.current_stock }}
+                    </td>
+                    <td style="padding: 10px 14px; text-align: center; color: #64748b; font-weight: 500;">
+                        {{ item.unit_of_measure }}
+                    </td>
+                    <td style="padding: 10px 14px; text-align: right; font-weight: 700; color: #831843; background: #fdf2f8;">
+                        ${{ "{:,.2f}".format(item.current_ppp) }}
+                    </td>
+                    <td style="padding: 10px 14px; text-align: right; font-weight: 800; color: #1d4ed8; background: #f8faff;">
+                        ${{ "{:,.0f}".format(item.current_inventory_value) }}
+                    </td>
+                    <td style="padding: 10px 14px; text-align: center; color: #64748b;">
+                        {{ item.total_movements }}
+                    </td>
+                    <td class="sticky-actions" style="padding: 10px 14px; text-align: center; white-space: nowrap;">
+                        <a href="{{ url_for('inventario.ver_kardex', product_id=item.id) }}" class="sf-btn-primary" style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 600; background: #2563eb; color: #ffffff;">
+                            <span>📈 Ver Kardex</span>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="10" style="text-align: center; color: #64748b; padding: 40px;">
+                        {% if current_filters.search %}No hay productos que coincidan con la búsqueda. Limpia la búsqueda para ver el catálogo.{% else %}No existen productos registrados en el sistema.{% endif %}
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Paginación Server-Side del Catálogo Consolidado -->
+{% if all_summary and all_summary.total_pages and all_summary.total_pages > 1 %}
+<div style="margin-top: 16px; margin-bottom: 24px; background: #ffffff; padding: 12px 20px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+    <div style="font-size: 13px; color: #64748b;">
+        Productos <strong>{{ ((all_summary.page - 1) * all_summary.per_page) + 1 }}–{{ [all_summary.page * all_summary.per_page, all_summary.total_filtered]|min }}</strong> de <strong>{{ all_summary.total_filtered }}</strong>
+        {% if all_summary.total_products_count != all_summary.total_filtered %}
+        <span style="font-size: 12px; color: #94a3b8;">(filtrados de {{ all_summary.total_products_count }} totales)</span>
+        {% endif %}
+    </div>
+
+    <div style="display: flex; gap: 6px; align-items: center;">
+        {% if all_summary.page > 1 %}
+        <a href="{{ url_for('inventario.ver_kardex', page=all_summary.page - 1, per_page=all_summary.per_page, search=current_filters.search) }}"
+           style="text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #fff; color: #2563eb; border: 1px solid #cbd5e1;">
+            ← Anterior
+        </a>
+        {% else %}
+        <span style="padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; cursor: not-allowed;">
+            ← Anterior
+        </span>
+        {% endif %}
+
+        <!-- Ventana deslizante de números de página -->
+        {% for p in range([1, all_summary.page - 2]|max, [all_summary.total_pages + 1, all_summary.page + 3]|min) %}
+        <a href="{{ url_for('inventario.ver_kardex', page=p, per_page=all_summary.per_page, search=current_filters.search) }}"
+           style="text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; border: 1px solid {% if p == all_summary.page %}#2563eb; background: #2563eb; color: #fff{% else %}#cbd5e1; background: #fff; color: #475569{% endif %};">
+            {{ p }}
+        </a>
+        {% endfor %}
+
+        {% if all_summary.page < all_summary.total_pages %}
+        <a href="{{ url_for('inventario.ver_kardex', page=all_summary.page + 1, per_page=all_summary.per_page, search=current_filters.search) }}"
+           style="text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #fff; color: #2563eb; border: 1px solid #cbd5e1;">
+            Siguiente →
+        </a>
+        {% else %}
+        <span style="padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; cursor: not-allowed;">
+            Siguiente →
+        </span>
+        {% endif %}
+    </div>
+</div>
+{% elif all_summary and all_summary.total_filtered and all_summary.total_filtered > 0 %}
+<div style="margin-top: 12px; margin-bottom: 20px; font-size: 12px; color: #64748b; text-align: right;">
+    Mostrando todos los <strong>{{ all_summary.total_filtered }}</strong> productos en una sola página.
+</div>
+{% endif %}
+
+{% endif %}
+
+<script>
+function changeCatalogPerPage(newVal) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('per_page', newVal);
+    url.searchParams.set('page', '1');
+    window.location.href = url.toString();
+}
+
+function seleccionarProducto(productId) {
+    if (!productId) {
+        window.location.href = "{{ url_for('inventario.ver_kardex') }}";
+    } else {
+        window.location.href = "{{ url_for('inventario.ver_kardex') }}?product_id=" + productId;
+    }
+}
+
+function filtrarTablaConsolidada() {
+    const input = document.getElementById('filtro-tabla-kardex');
+    if (!input) return;
+    const filter = input.value.toLowerCase();
+    const rows = document.querySelectorAll('.kardex-item-row');
+    
+    rows.forEach(row => {
+        const text = row.innerText.toLowerCase();
+        row.style.display = text.includes(filter) ? '' : 'none';
+    });
+}
+
+function inspectRow(rowId) {
+    const el = document.getElementById('audit-data-' + rowId);
+    if (!el) return;
+    const audit = JSON.parse(el.textContent);
+
+    const body = document.getElementById('audit-modal-body');
+    body.innerHTML = `
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+            <!-- ANTES -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+                <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">1. Antes</div>
+                <div style="font-size: 12px; color: #475569; margin-bottom: 4px;">Stock: <strong>${audit.before.qty}</strong></div>
+                <div style="font-size: 12px; color: #475569; margin-bottom: 4px;">PPP: <strong>$${audit.before.ppp.toLocaleString('es-CL')}</strong></div>
+                <div style="font-size: 12px; color: #475569;">Saldo: <strong>$${audit.before.value.toLocaleString('es-CL')}</strong></div>
+            </div>
+
+            <!-- MOVIMIENTO -->
+            <div style="background: #fefce8; border: 1px solid #fef08a; border-radius: 8px; padding: 14px;">
+                <div style="font-size: 11px; font-weight: 800; color: #854d0e; text-transform: uppercase; margin-bottom: 8px;">2. Movimiento</div>
+                <div style="font-size: 12px; color: #854d0e; margin-bottom: 4px;">Tipo: <strong>${audit.movement.type}</strong></div>
+                <div style="font-size: 12px; color: #854d0e; margin-bottom: 4px;">Cant: <strong>${audit.movement.qty}</strong></div>
+                <div style="font-size: 12px; color: #854d0e; margin-bottom: 4px;">Costo Unit: <strong>$${audit.movement.unit_cost.toLocaleString('es-CL')}</strong></div>
+                <div style="font-size: 12px; color: #854d0e;">Impacto $: <strong>$${audit.movement.total_cost.toLocaleString('es-CL')}</strong></div>
+            </div>
+
+            <!-- DESPUÉS -->
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px;">
+                <div style="font-size: 11px; font-weight: 800; color: #166534; text-transform: uppercase; margin-bottom: 8px;">3. Después</div>
+                <div style="font-size: 12px; color: #166534; margin-bottom: 4px;">Stock: <strong>${audit.after.qty}</strong></div>
+                <div style="font-size: 12px; color: #166534; margin-bottom: 4px;">PPP: <strong>$${audit.after.ppp.toLocaleString('es-CL')}</strong></div>
+                <div style="font-size: 12px; color: #166534;">Saldo: <strong>$${audit.after.value.toLocaleString('es-CL')}</strong></div>
+            </div>
+        </div>
+
+        <div style="background: #f1f5f9; border-left: 4px solid #3b82f6; padding: 12px 16px; border-radius: 4px; font-size: 13px; color: #334155;">
+            💡 <strong>Regla del Kardex Aplicada:</strong>
+            ${audit.movement.qty > 0 
+                ? 'Las entradas ponderan el valor monetario total del inventario recalculando el PPP = (Saldo Anterior + Monto Ingreso) / Nuevo Stock.' 
+                : 'Las salidas consumen inventario valorizado exactamente al PPP vigente sin alterar el valor promedio de las unidades restantes.'}
+        </div>
+    `;
+
+    document.getElementById('audit-modal').style.display = 'flex';
+}
+
+function closeAuditModal() {
+    document.getElementById('audit-modal').style.display = 'none';
+}
+</script>
+{% endblock %}

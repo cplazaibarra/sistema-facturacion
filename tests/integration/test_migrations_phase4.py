@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 import tools.migrate as mig
 import tools.seed_required as seed_req
 import tools.compare_schema as cmp_schema
+from core.test_database_guard import assert_current_test_database_authorized
 
 load_dotenv()
 
@@ -19,6 +20,9 @@ TEST_DB_NAME = "facturacion_test_phase4_auto"
 
 @pytest.fixture(scope="module")
 def fresh_test_db():
+    # This fixture drops/recreates a database. Permit it only inside the
+    # ephemeral, PostgreSQL-marked test run selected by the pytest guard.
+    assert_current_test_database_authorized()
     host = os.environ.get("DB_HOST", "127.0.0.1")
     port = os.environ.get("DB_PORT", "5432")
     user = os.environ.get("DB_USER", "facturador")

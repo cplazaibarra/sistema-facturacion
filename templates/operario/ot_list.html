@@ -1,0 +1,55 @@
+{% extends 'operario/base_operario.html' %}
+
+{% block title %}Órdenes de Trabajo{% endblock %}
+
+{% block content %}
+<header class="operario-header">
+  <div class="title-area">
+    <a href="/operario" style="color: #64748B; text-decoration: none; font-size: 14px; font-weight: 700; display: block; margin-bottom: 2px;">
+      <i class="fa-solid fa-chevron-left"></i> Volver
+    </a>
+    <h1>Operar OT</h1>
+  </div>
+  <a href="/operario/escanear" class="header-action-btn" title="Escanear OT">
+    <i class="fa-solid fa-barcode"></i>
+  </a>
+</header>
+
+<main class="operario-container">
+
+  <div class="section-header">
+    <h2>Órdenes Activas ({{ ots|length }})</h2>
+  </div>
+
+  {% if ots %}
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      {% for ot in ots %}
+        <div class="card-item-box">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+            <div class="card-item-title" style="color: #EA580C;">{{ ot.ot_number }}</div>
+            <span style="background: #FEF3C7; color: #B45309; font-size: 12px; font-weight: 700; padding: 4px 8px; border-radius: 8px;">
+              {{ ot.status }}
+            </span>
+          </div>
+
+          <div style="font-size: 16px; font-weight: 800; color: #1E293B;">{{ ot.final_product_name }}</div>
+          <div class="card-item-desc" style="margin-bottom: 12px;">
+            Cantidad a producir: <strong>{{ ot.quantity }} unidades</strong>
+          </div>
+
+          <a href="/operario/ot/{{ ot.id }}" class="btn-big btn-orange" style="font-size: 16px; min-height: 50px;">
+            <i class="fa-solid fa-gear" style="margin-right: 8px;"></i> ABRIR OT
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card-item-box" style="text-align: center; padding: 30px 10px;">
+      <i class="fa-solid fa-industry" style="font-size: 40px; color: #94A3B8; margin-bottom: 12px;"></i>
+      <div style="font-size: 16px; font-weight: 700; color: #475569;">No hay órdenes de trabajo activas</div>
+      <div style="font-size: 14px; color: #94A3B8; margin-top: 4px;">Todas las fabricaciones han sido concluidas.</div>
+    </div>
+  {% endif %}
+
+</main>
+{% endblock %}

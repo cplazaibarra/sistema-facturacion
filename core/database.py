@@ -15,6 +15,9 @@ def get_connection():
     Returns a connection to the PostgreSQL database using environment variables.
     Configured with psycopg2.extras.RealDictCursor by default.
     """
+    if os.environ.get("ERP_TEST_MODE") == "1":
+        from core.test_database_guard import assert_current_test_database_authorized
+        assert_current_test_database_authorized(check_database=False)
     return psycopg2.connect(
         host=os.environ.get("DB_HOST", "localhost"),
         port=os.environ.get("DB_PORT", "5432"),

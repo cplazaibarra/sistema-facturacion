@@ -89,10 +89,6 @@
                         <label style="font-weight: 600; display: block; margin-bottom: 6px; font-size: 13px; color: #334155;">Fecha Vencimiento Factura *</label>
                         <input type="date" name="due_date" id="due_date" style="width: 100%; padding: 9px 12px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 14px;">
                     </div>
-                    <div id="row-invoice-amount" style="display: none;">
-                        <label style="font-weight: 600; display: block; margin-bottom: 6px; font-size: 13px; color: #334155;">Monto Factura ($) *</label>
-                        <input type="number" name="invoice_amount" id="invoice_amount" step="0.01" min="0" placeholder="0.00" style="width: 100%; padding: 9px 12px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 14px;">
-                    </div>
                 </div>
 
                 <!-- Upload de foto / archivo -->
@@ -151,6 +147,7 @@
                                 <th style="padding: 10px 12px; width: 95px; text-align: center;">Recibido Prev.</th>
                                 <th style="padding: 10px 12px; width: 85px; text-align: center;">Pendiente</th>
                                 <th style="padding: 10px 12px; width: 110px; text-align: center;">Recibido Ahora</th>
+                                <th style="padding: 10px 12px; width: 100px; text-align: center;">Balance</th>
                                 <th style="padding: 10px 12px; width: 110px; text-align: right;">Precio Unit. (OC)</th>
                                 <th style="padding: 10px 12px; width: 120px; text-align: right;">Total Línea</th>
                                 <th style="padding: 10px 12px; width: 180px;">N° Lote Físico</th>
@@ -159,16 +156,41 @@
                         <tbody id="recepcion-tbody">
                             <!-- Filas dinámicas generadas por JavaScript -->
                         </tbody>
-                        <tfoot id="recepcion-tfoot" style="background: #f8fafc; border-top: 2px solid #cbd5e1; font-weight: 700;">
-                            <tr>
-                                <td colspan="4" style="padding: 12px; text-align: right; color: #475569;">
-                                    <span>TOTAL RECEPCIÓN ACTUAL:</span>
+                        <tfoot id="recepcion-tfoot" style="background: #f8fafc; border-top: 2px solid #cbd5e1;">
+                            <!-- Fila 1: Cantidad de Unidades y Subtotal / Neto -->
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                                <td colspan="4" style="padding: 10px 12px; text-align: right; color: #475569; font-size: 13px; font-weight: 600;">
+                                    <span>TOTAL UNIDADES RECIBIDAS:</span>
                                 </td>
-                                <td style="padding: 12px; text-align: center; color: #0284c7; font-size: 14px;" id="total-qty-now">
+                                <td style="padding: 10px 12px; text-align: center; color: #0284c7; font-size: 14px; font-weight: 700;" id="total-qty-now">
                                     0 un.
                                 </td>
+                                <td colspan="2" style="padding: 10px 12px; text-align: right; color: #475569; font-size: 13px; font-weight: 600;">
+                                    Subtotal / Neto:
+                                </td>
+                                <td style="padding: 10px 12px; text-align: right; color: #1e293b; font-size: 15px; font-weight: 700;" id="total-neto-now">
+                                    $0
+                                </td>
                                 <td></td>
-                                <td style="padding: 12px; text-align: right; color: #059669; font-size: 16px;" id="total-amount-now">
+                            </tr>
+                            <!-- Fila 2: IVA (19%) -->
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                                <td colspan="6"></td>
+                                <td style="padding: 8px 12px; text-align: right; color: #64748b; font-size: 13px; font-weight: 600;">
+                                    IVA (19%):
+                                </td>
+                                <td style="padding: 8px 12px; text-align: right; color: #64748b; font-size: 14px; font-weight: 600;" id="total-iva-now">
+                                    $0
+                                </td>
+                                <td></td>
+                            </tr>
+                            <!-- Fila 3: TOTAL con máxima jerarquía visual -->
+                            <tr style="background: #f0fdf4; border-top: 2px solid #86efac;">
+                                <td colspan="6"></td>
+                                <td style="padding: 12px 12px; text-align: right; color: #166534; font-size: 15px; font-weight: 800; letter-spacing: 0.5px;">
+                                    TOTAL:
+                                </td>
+                                <td style="padding: 12px 12px; text-align: right; color: #15803d; font-size: 18px; font-weight: 800;" id="total-amount-now">
                                     $0
                                 </td>
                                 <td></td>
@@ -184,10 +206,10 @@
             </div>
 
             <div class="form-actions" style="margin-top: 28px; display: flex; justify-content: flex-end; gap: 12px;">
-                <a href="{{ url_for('inventario.inventario') }}" class="btn-secondary" style="padding: 10px 18px; text-decoration: none; border-radius: 6px; display: inline-flex; align-items: center; color: #475569;">
+                <a href="{{ url_for('inventario.inventario') }}" class="btn-secondary" style="text-decoration: none;">
                     Cancelar
                 </a>
-                <button type="submit" class="sf-btn-primary" style="padding: 10px 24px; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+                <button type="submit" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-check"></i> Registrar Ingreso
                 </button>
             </div>
@@ -195,7 +217,9 @@
     </div>
     
     <div class="recent-ingresos" style="margin-top: 32px; background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-        <h3>Últimos Ingresos Registrados</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #1e293b;">Últimos Ingresos Registrados <span style="font-size: 0.85rem; font-weight: 500; color: #64748b;">(Últimos 20)</span></h3>
+        </div>
         <table class="data-table" style="width: 100%; margin-top: 16px;">
             <thead>
                 <tr>
@@ -214,7 +238,12 @@
                     <td><strong>{{ ingreso.order_number }}</strong></td>
                     <td>{{ ingreso.oc_number or 'Sin OC' }}</td>
                     <td>{{ ingreso.supplier }}</td>
-                    <td>{{ ingreso.items_count }} items</td>
+                    <td>
+                        <button type="button" onclick="openEntryDetailModal({{ ingreso.id }})" class="btn-secondary btn-sm" title="Ver productos recibidos en este ingreso">
+                            <i class="fa-solid fa-eye" style="color: var(--primary-blue);"></i>
+                            <span>{{ ingreso.items_count }} {% if ingreso.items_count == 1 %}ítem{% else %}ítems{% endif %}</span>
+                        </button>
+                    </td>
                     <td>{{ ingreso.total }}</td>
                 </tr>
                 {% else %}
@@ -227,6 +256,103 @@
     </div>
 </div>
 
+<!-- Modal: DETALLE DEL INGRESO DE MERCADERÍA -->
+<div id="modal-entry-detail" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; padding: 20px;">
+    <div style="background: #fff; width: 100%; max-width: 800px; max-height: 90vh; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); overflow: hidden; display: flex; flex-direction: column;">
+        <!-- Cabecera del Modal -->
+        <div style="padding: 16px 24px; background: #1e293b; color: #fff; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 20px;">📦</span>
+                <h4 id="med-title" style="margin: 0; font-size: 16px; font-weight: 700;">DETALLE DEL INGRESO DE MERCADERÍA</h4>
+            </div>
+            <button type="button" onclick="closeEntryDetailModal()" style="background: transparent; border: none; color: #94a3b8; font-size: 22px; cursor: pointer; line-height: 1;">✕</button>
+        </div>
+
+        <!-- Contenido scrolleable -->
+        <div style="padding: 24px; overflow-y: auto; flex: 1;" id="med-content">
+            <div id="med-loading" style="text-align: center; padding: 40px; color: #64748b;">
+                <span>Cargando detalle del ingreso...</span>
+            </div>
+            <div id="med-body" style="display: none;">
+                <!-- Metadatos de Encabezado -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Fecha</div>
+                        <div id="med-date" style="font-weight: 600; color: #1e293b; font-size: 14px;">-</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Documento</div>
+                        <div id="med-doc" style="font-weight: 600; color: #1e293b; font-size: 14px;">-</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Orden de Compra (OC)</div>
+                        <div id="med-oc" style="font-weight: 600; font-size: 14px;">-</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Proveedor</div>
+                        <div id="med-supplier" style="font-weight: 600; color: #1e293b; font-size: 14px;">-</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Almacén de Destino</div>
+                        <div id="med-warehouse" style="font-weight: 600; color: #1e293b; font-size: 14px;">-</div>
+                    </div>
+                </div>
+
+                <!-- Tabla de Productos Recibidos -->
+                <h5 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 700; color: #334155;">PRODUCTOS RECIBIDOS</h5>
+                <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                        <thead>
+                            <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1; color: #475569;">
+                                <th style="padding: 10px 12px; text-align: left;">Producto</th>
+                                <th style="padding: 10px 12px; text-align: left;">SKU</th>
+                                <th style="padding: 10px 12px; text-align: left;">N° Lote</th>
+                                <th style="padding: 10px 12px; text-align: right; background: #f0fdf4;">Cantidad</th>
+                                <th style="padding: 10px 12px; text-align: right;">Valor Unit.</th>
+                                <th style="padding: 10px 12px; text-align: right;">Total Línea</th>
+                            </tr>
+                        </thead>
+                        <tbody id="med-items-tbody">
+                            <!-- Filas generadas dinámicamente -->
+                        </tbody>
+                        <tfoot id="med-items-tfoot" style="background: #f8fafc; border-top: 2px solid #cbd5e1;">
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                                <td colspan="4" style="padding: 8px 12px; text-align: right; font-weight: 600; color: #64748b;">Subtotal / Neto:</td>
+                                <td colspan="2" style="padding: 8px 12px; text-align: right; font-weight: 700; color: #1e293b;" id="med-neto">$0</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                                <td colspan="4" style="padding: 8px 12px; text-align: right; font-weight: 600; color: #64748b;">IVA (19%):</td>
+                                <td colspan="2" style="padding: 8px 12px; text-align: right; font-weight: 600; color: #64748b;" id="med-iva">$0</td>
+                            </tr>
+                            <tr style="background: #f0fdf4; border-top: 2px solid #86efac;">
+                                <td colspan="4" style="padding: 10px 12px; text-align: right; font-weight: 800; color: #166534;">TOTAL:</td>
+                                <td colspan="2" style="padding: 10px 12px; text-align: right; font-weight: 800; color: #15803d; font-size: 16px;" id="med-total">$0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <div id="med-notes-box" style="background: #fffbeb; border: 1px solid #fef08a; border-radius: 6px; padding: 10px 14px; font-size: 12px; color: #854d0e; display: none;">
+                    <strong>Observaciones:</strong> <span id="med-notes-text"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pie de Modal con Acciones -->
+        <div style="padding: 14px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+            <div id="med-action-left">
+                <!-- Enlace a OC si corresponde -->
+            </div>
+            <div>
+                <button type="button" onclick="closeEntryDetailModal()" class="sf-btn-secondary" style="padding: 8px 18px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; color: #334155; font-size: 13px; font-weight: 600; cursor: pointer;">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 <script>
 // ─── Selector dinámico de tipo de documento ───────────────────────────────
 function updateDocType() {
@@ -234,11 +360,9 @@ function updateDocType() {
     const lblGuia = document.getElementById('lbl-guia');
     const lblFactura = document.getElementById('lbl-factura');
     const rowDue = document.getElementById('row-due-date');
-    const rowAmount = document.getElementById('row-invoice-amount');
     const docFieldsGrid = document.getElementById('doc-fields-grid');
     const docNum = document.getElementById('document_number');
     const dueDate = document.getElementById('due_date');
-    const invoiceAmount = document.getElementById('invoice_amount');
 
     if (isFactura) {
         lblGuia.style.borderColor = '#e2e8f0';
@@ -251,9 +375,7 @@ function updateDocType() {
 
         docFieldsGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(200px, 1fr))';
         rowDue.style.display = 'block';
-        rowAmount.style.display = 'block';
         dueDate.required = true;
-        invoiceAmount.required = true;
 
         document.getElementById('lbl-doc-number').textContent = 'N° de Factura *';
         docNum.placeholder = 'Ej. FAC-00145';
@@ -262,15 +384,8 @@ function updateDocType() {
         document.getElementById('alert-guia').style.display = 'none';
         document.getElementById('alert-factura').style.display = 'flex';
 
-        // Sincronizar monto si hay productos cargados o sugerir el total
         if (typeof recalculateTotals === 'function') {
             recalculateTotals();
-        } else {
-            const ocSelect = document.getElementById('ingreso-oc');
-            const selectedOption = ocSelect.options[ocSelect.selectedIndex];
-            if (selectedOption && selectedOption.dataset.total && (!invoiceAmount.value || invoiceAmount.value == '0')) {
-                invoiceAmount.value = selectedOption.dataset.total;
-            }
         }
     } else {
         lblGuia.style.borderColor = '#3182ce';
@@ -283,9 +398,7 @@ function updateDocType() {
 
         docFieldsGrid.style.gridTemplateColumns = '1fr';
         rowDue.style.display = 'none';
-        rowAmount.style.display = 'none';
         dueDate.required = false;
-        invoiceAmount.required = false;
 
         document.getElementById('lbl-doc-number').textContent = 'N° de Guía de Despacho *';
         docNum.placeholder = 'Ej. GD-10254';
@@ -351,10 +464,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Función para recalcular los totales de cada línea y el total general de la recepción
+    // Función para recalcular los totales de cada línea y el total general de la recepción (Neto, IVA 19%, Total)
     function recalculateTotals() {
         let totalQty = 0;
-        let totalAmount = 0;
+        let netoAmount = 0;
 
         document.querySelectorAll('.recepcion-row').forEach(row => {
             const inputQty = row.querySelector('.input-qty');
@@ -363,7 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const lineTotal = qty * unitPrice;
 
             totalQty += qty;
-            totalAmount += lineTotal;
+            netoAmount += lineTotal;
 
             const lineTotalCell = row.querySelector('.line-total-cell');
             if (lineTotalCell) {
@@ -371,17 +484,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        const totalQtyElem = document.getElementById('total-qty-now');
-        const totalAmountElem = document.getElementById('total-amount-now');
-        if (totalQtyElem) totalQtyElem.textContent = `${totalQty} un.`;
-        if (totalAmountElem) totalAmountElem.textContent = '$' + Math.round(totalAmount).toLocaleString('es-CL');
+        const ivaAmount = Math.round(netoAmount * 0.19);
+        const totalAmount = netoAmount + ivaAmount;
 
-        // Si el tipo de documento es Factura de Compra, sincronizar automáticamente el Monto Factura
-        const isFactura = document.getElementById('opt-factura').checked;
-        const invoiceAmountInput = document.getElementById('invoice_amount');
-        if (isFactura && invoiceAmountInput) {
-            invoiceAmountInput.value = totalAmount > 0 ? totalAmount : '';
-        }
+        const totalQtyElem = document.getElementById('total-qty-now');
+        const totalNetoElem = document.getElementById('total-neto-now');
+        const totalIvaElem = document.getElementById('total-iva-now');
+        const totalAmountElem = document.getElementById('total-amount-now');
+
+        if (totalQtyElem) totalQtyElem.textContent = `${totalQty} un.`;
+        if (totalNetoElem) totalNetoElem.textContent = '$' + Math.round(netoAmount).toLocaleString('es-CL');
+        if (totalIvaElem) totalIvaElem.textContent = '$' + Math.round(ivaAmount).toLocaleString('es-CL');
+        if (totalAmountElem) totalAmountElem.textContent = '$' + Math.round(totalAmount).toLocaleString('es-CL');
     }
 
     // 2. Cargar ítems pendientes de la OC seleccionada
@@ -433,6 +547,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td style="padding: 10px 12px; text-align: center;">
                             <input type="number" name="quantity[]" class="form-control input-qty" value="${pending}" min="0" max="${pending}" required style="width: 90px; padding: 7px 10px; border: 1px solid #CBD5E1; border-radius: 6px; font-weight: 600; text-align: center;">
                         </td>
+                        <td style="padding: 10px 12px; text-align: center;" class="diff-balance-cell">
+                            <span class="badge badge-success" style="font-size: 11px;">✓ Completo</span>
+                        </td>
                         <td style="padding: 10px 12px; text-align: right; font-weight: 600; color: #475569;">
                             $${Math.round(unitPrice).toLocaleString('es-CL')}
                         </td>
@@ -445,9 +562,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                     tbody.appendChild(row);
 
-                    // Event listener para recalcular totales en vivo al cambiar la cantidad
+                    // Función para actualizar balance visual de la fila
+                    const updateRowBalance = () => {
+                        const inputQty = row.querySelector('.input-qty');
+                        const qty = parseInt(inputQty.value) || 0;
+                        const diffCell = row.querySelector('.diff-balance-cell');
+                        if (!diffCell) return;
+                        if (qty === pending) {
+                            diffCell.innerHTML = '<span class="badge badge-success" style="font-size: 11px;">✓ Completo</span>';
+                        } else if (qty < pending && qty > 0) {
+                            diffCell.innerHTML = `<span class="badge badge-warning" style="font-size: 11px;">-${pending - qty} Parcial</span>`;
+                        } else if (qty === 0) {
+                            diffCell.innerHTML = '<span class="badge badge-secondary" style="font-size: 11px;">0 Recibido</span>';
+                        } else {
+                            diffCell.innerHTML = `<span class="badge badge-danger" style="font-size: 11px;">+${qty - pending} Exceso</span>`;
+                        }
+                    };
+
+                    // Event listener para recalcular totales en vivo y balance al cambiar la cantidad
                     const qtyInput = row.querySelector('.input-qty');
-                    qtyInput.addEventListener('input', recalculateTotals);
+                    qtyInput.addEventListener('input', () => {
+                        updateRowBalance();
+                        recalculateTotals();
+                    });
                 });
 
                 if (pendingCount > 0) {
@@ -570,5 +707,141 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// ─── Modal Interactivo: Detalle del Ingreso de Mercadería ─────────────────────
+function openEntryDetailModal(entryId) {
+    const modal = document.getElementById('modal-entry-detail');
+    const loading = document.getElementById('med-loading');
+    const body = document.getElementById('med-body');
+    const actionLeft = document.getElementById('med-action-left');
+
+    modal.style.display = 'flex';
+    loading.style.display = 'block';
+    body.style.display = 'none';
+    actionLeft.innerHTML = '';
+
+    fetch(`/api/recepciones/${entryId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(res => {
+            if (res.status !== 'success' || !res.data) {
+                loading.innerHTML = '<span style="color: #dc2626;">Error al cargar los datos del ingreso.</span>';
+                return;
+            }
+
+            const data = res.data;
+            const entry = data.entry;
+            const items = data.items;
+
+            document.getElementById('med-title').textContent = `DETALLE DEL INGRESO DE MERCADERÍA — #${entry.order_number}`;
+            document.getElementById('med-date').textContent = entry.entry_date || '-';
+            document.getElementById('med-doc').textContent = entry.document_label || '-';
+            
+            // OC Relacionada
+            const ocBox = document.getElementById('med-oc');
+            if (entry.oc_number) {
+                ocBox.innerHTML = `<a href="/compras/oc?search=${encodeURIComponent(entry.oc_number)}" target="_blank" style="color: #2563eb; font-weight: 700; text-decoration: underline;">📄 ${entry.oc_number} ↗</a>`;
+                actionLeft.innerHTML = `
+                    <a href="/compras/oc?search=${encodeURIComponent(entry.oc_number)}" target="_blank" class="sf-btn-primary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 8px 14px; border-radius: 6px; background: #2563eb; color: #fff; font-size: 13px; font-weight: 600;">
+                        <span>📄</span>
+                        <span>Ver Orden de Compra (${entry.oc_number})</span>
+                    </a>
+                `;
+            } else {
+                ocBox.innerHTML = '<span style="color: #94a3b8;">Sin OC asociada</span>';
+            }
+
+            document.getElementById('med-supplier').textContent = entry.supplier_name || '-';
+            document.getElementById('med-warehouse').textContent = entry.warehouse || 'Almacén Principal';
+
+            // Observaciones
+            const notesBox = document.getElementById('med-notes-box');
+            if (entry.notes && entry.notes.trim()) {
+                document.getElementById('med-notes-text').textContent = entry.notes.trim();
+                notesBox.style.display = 'block';
+            } else {
+                notesBox.style.display = 'none';
+            }
+
+            // Filas de la tabla de productos recibidos
+            const tbody = document.getElementById('med-items-tbody');
+            tbody.innerHTML = '';
+
+            items.forEach(it => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #f1f5f9';
+
+                const unitPrice = parseFloat(it.unit_price) || 0;
+                const qty = parseFloat(it.quantity) || 0;
+                const lineTotal = parseFloat(it.total) || (qty * unitPrice);
+
+                const skuHtml = it.product_id 
+                    ? `<a href="/productos/${it.product_id}/editar" target="_blank" style="color: #2563eb; font-weight: 700; text-decoration: underline;" title="Ver ficha del producto">${it.sku || '-'} ↗</a>`
+                    : `<strong>${it.sku || '-'}</strong>`;
+
+                const lotHtml = it.lot_number && it.lot_number.trim()
+                    ? `<span style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-family: monospace; font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 700;">🏷️ ${it.lot_number}</span>`
+                    : `<span style="color: #cbd5e1;">-</span>`;
+
+                tr.innerHTML = `
+                    <td style="padding: 10px 12px; font-weight: 600; color: #1e293b;">
+                        ${it.product_name}
+                    </td>
+                    <td style="padding: 10px 12px;">
+                        ${skuHtml}
+                    </td>
+                    <td style="padding: 10px 12px;">
+                        ${lotHtml}
+                    </td>
+                    <td style="padding: 10px 12px; text-align: right; background: #fafdfa; font-weight: 700; color: #166534;">
+                        ${qty} <span style="font-size: 11px; font-weight: 400; color: #64748b;">${it.unit_of_measure || 'un'}</span>
+                    </td>
+                    <td style="padding: 10px 12px; text-align: right; color: #475569;">
+                        $${unitPrice.toLocaleString('es-CL')}
+                    </td>
+                    <td style="padding: 10px 12px; text-align: right; font-weight: 700; color: #1e293b;">
+                        $${Math.round(lineTotal).toLocaleString('es-CL')}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Totales al pie
+            const neto = parseFloat(data.neto) || 0;
+            const iva = parseFloat(data.iva) || 0;
+            const total = parseFloat(data.total) || 0;
+
+            document.getElementById('med-neto').textContent = `$${Math.round(neto).toLocaleString('es-CL')}`;
+            document.getElementById('med-iva').textContent = `$${Math.round(iva).toLocaleString('es-CL')}`;
+            document.getElementById('med-total').textContent = `$${Math.round(total).toLocaleString('es-CL')}`;
+
+            loading.style.display = 'none';
+            body.style.display = 'block';
+        })
+        .catch(err => {
+            console.error('Error al consultar ingreso:', err);
+            loading.innerHTML = '<span style="color: #dc2626;">No se pudo cargar el detalle del ingreso de mercadería.</span>';
+        });
+}
+
+function closeEntryDetailModal() {
+    const modal = document.getElementById('modal-entry-detail');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Cerrar modal al hacer clic en el backdrop
+window.addEventListener('click', function(e) {
+    const modal = document.getElementById('modal-entry-detail');
+    if (e.target === modal) {
+        closeEntryDetailModal();
+    }
+});
 </script>
 {% endblock %}
+

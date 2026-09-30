@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}Cuentas por Pagar - Finanzas{% endblock %}
+{% block page_title %}Finanzas > Cuentas por Pagar{% endblock %}
+
+{% block content %}
+<!-- Barra superior de acciones -->
+<div class="sf-action-bar" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div class="sf-action-left">
+        <h3 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-clock-rotate-left" style="color: #b91c1c;"></i> Cuentas por Pagar (Obligaciones Activas)
+        </h3>
+        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 13px;">
+            Control estricto de obligaciones pendientes de pago (Saldo > 0). Priorización por vencimiento.
+        </p>
+    </div>
+    <div class="sf-action-right" style="display: flex; gap: 10px; align-items: center;">
+        <a href="{{ url_for('reportes.reportes_facturas_compras_gastos') }}" class="btn-secondary" style="text-decoration: none; padding: 9px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; color: #1e3a8a; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-list-check"></i> Histórico Facturas y Gastos
+        </a>
+        <a href="{{ url_for('reportes.exportar_cuentas_por_pagar_excel', **filters) }}" class="btn-primary" style="text-decoration: none; padding: 9px 18px; border-radius: 6px; background: #166534; color: #fff; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+            <i class="fa-solid fa-file-excel"></i> Exportar a Excel
+        </a>
+    </div>
+</div>
+
+<!-- Tarjetas KPI Superiores (Calculadas estrictamente sobre Saldo Pendiente) -->
+<div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #1e3a8a;">
+        <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Total Por Pagar</div>
+        <div style="font-size: 24px; font-weight: 700; color: #1e3a8a; margin-top: 4px;">${{ "{:,.0f}".format(metrics.total_por_pagar) }}</div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">{{ metrics.count_obligaciones }} obligaciones activas</div>
+    </div>
+    <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #ef4444;">
+        <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Total Vencido</div>
+        <div style="font-size: 24px; font-weight: 700; color: #b91c1c; margin-top: 4px;">${{ "{:,.0f}".format(metrics.total_vencido) }}</div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Exigible de inmediato</div>
+    </div>
+    <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #f59e0b;">
+        <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Vence Próx. 7 Días</div>
+        <div style="font-size: 24px; font-weight: 700; color: #b45309; margin-top: 4px;">${{ "{:,.0f}".format(metrics.vence_7_dias) }}</div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Compromiso a corto plazo</div>
+    </div>
+    <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #3b82f6;">
+        <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Vence Próx. 30 Días</div>
+        <div style="font-size: 24px; font-weight: 700; color: #1d4ed8; margin-top: 4px;">${{ "{:,.0f}".format(metrics.vence_30_dias) }}</div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Mes en curso</div>
+    </div>
+</div>
+
+<!-- Filtros y Tabla Principal -->
+<div style="background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); padding: 20px;">
+    <!-- Formulario de Filtros Server-side -->
+    <form method="GET" action="{{ url_for('reportes.reportes_cuentas_por_pagar') }}" id="filter-form" style="margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+        <input type="hidden" name="per_page" id="per_page_input" value="{{ per_page }}">
+        <input type="hidden" name="page" value="1">
+        <input type="hidden" name="sort_by" value="{{ filters.sort_by }}">
+        <input type="hidden" name="sort_order" value="{{ filters.sort_order }}">
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; align-items: flex-end;">
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Vencimiento Desde</label>
+                <input type="date" name="due_date_from" value="{{ filters.due_date_from }}" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Vencimiento Hasta</label>
+                <input type="date" name="due_date_to" value="{{ filters.due_date_to }}" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Tipo Obligación</label>
+                <select name="doc_type" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white;">
+                    <option value="all" {% if filters.doc_type == 'all' %}selected{% endif %}>Todos los tipos</option>
+                    <option value="factura" {% if filters.doc_type == 'factura' %}selected{% endif %}>Factura de Compra</option>
+                    <option value="gasto" {% if filters.doc_type == 'gasto' %}selected{% endif %}>Gasto Operacional</option>
+                </select>
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Proveedor / Beneficiario</label>
+                <input type="text" name="supplier_beneficiary" value="{{ filters.supplier_beneficiary }}" placeholder="Nombre o RUT..." style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Categoría</label>
+                <select name="category" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white;">
+                    <option value="">Todas las categorías</option>
+                    <option value="Compras / Insumos" {% if filters.category == 'Compras / Insumos' %}selected{% endif %}>Compras / Insumos</option>
+                    {% for c in categories %}
+                    <option value="{{ c.name }}" {% if filters.category == c.name %}selected{% endif %}>{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Estado</label>
+                <select name="status" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white;">
+                    <option value="all" {% if filters.status == 'all' %}selected{% endif %}>Todos los estados activos</option>
+                    <option value="Vencida" {% if filters.status == 'Vencida' %}selected{% endif %}>Vencida</option>
+                    <option value="Pendiente" {% if filters.status == 'Pendiente' %}selected{% endif %}>Pendiente</option>
+                    <option value="Parcial" {% if filters.status == 'Parcial' %}selected{% endif %}>Parcial</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 14px;">
+            <div style="flex: 1; max-width: 450px;">
+                <input type="text" name="search" value="{{ filters.search }}" placeholder="Buscar documento, proveedor, RUT, concepto o N° OC..." style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <button type="submit" style="padding: 8px 16px; background: #b91c1c; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-magnifying-glass"></i> Filtrar Cuentas
+                </button>
+                {% if filters.due_date_from or filters.due_date_to or (filters.doc_type and filters.doc_type != 'all') or filters.supplier_beneficiary or filters.category or (filters.status and filters.status != 'all') or filters.search %}
+                <a href="{{ url_for('reportes.reportes_cuentas_por_pagar') }}" style="text-decoration: none; padding: 8px 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #475569; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-rotate-left"></i> Limpiar
+                </a>
+                {% endif %}
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label for="per_page_select" style="font-size: 13px; color: #475569; font-weight: 600;">Mostrar:</label>
+                <select id="per_page_select" onchange="changePerPage(this.value)" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; background: white; cursor: pointer;">
+                    <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                </select>
+                <span style="font-size: 13px; color: #64748b; font-weight: 500;">de <strong>{{ total_records }}</strong> activas</span>
+            </div>
+        </div>
+    </form>
+
+    <!-- Tabla de Cuentas por Pagar -->
+    <div class="table-responsive" style="overflow-x: auto;">
+        <table class="data-table" style="width: 100%; border-collapse: collapse; min-width: 1100px; font-size: 13px;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #64748b;">
+                    <th style="padding: 10px 12px;">Vencimiento</th>
+                    <th style="padding: 10px 12px; text-align: center;">Días Venc.</th>
+                    <th style="padding: 10px 12px;">Tipo / Doc.</th>
+                    <th style="padding: 10px 12px;">Proveedor / Beneficiario</th>
+                    <th style="padding: 10px 12px;">Categoría / Glosa</th>
+                    <th style="padding: 10px 12px; text-align: center;">N° OC</th>
+                    <th style="padding: 10px 12px; text-align: right;">Total Doc.</th>
+                    <th style="padding: 10px 12px; text-align: right;">Pagado</th>
+                    <th style="padding: 10px 12px; text-align: right; background: #fff1f2; color: #9f1239;">Saldo Pendiente</th>
+                    <th style="padding: 10px 12px; text-align: center;">Estado</th>
+                    <th style="padding: 10px 12px; text-align: center;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if items %}
+                    {% for it in items %}
+                    <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s ease;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                        <td style="padding: 10px 12px; white-space: nowrap; font-weight: 600;">
+                            {% if it.due_badge_type == 'vencida' %}
+                            <span style="color: #b91c1c;"><i class="fa-solid fa-triangle-exclamation"></i> {{ it.due_date or 'Vencida' }}</span>
+                            {% elif it.due_badge_type == 'vence_hoy' %}
+                            <span style="color: #c2410c;"><i class="fa-solid fa-bell"></i> {{ it.due_date or 'Vence hoy' }}</span>
+                            {% elif it.due_badge_type == 'proxima_7' %}
+                            <span style="color: #b45309;"><i class="fa-solid fa-clock"></i> {{ it.due_date }}</span>
+                            {% else %}
+                            <span style="color: #334155;">{{ it.due_date or '—' }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: center;">
+                            {% if it.dias_vencimiento is not none %}
+                                {% if it.dias_vencimiento < 0 %}
+                                <span style="background: #fde8e8; color: #9b1c1c; font-weight: 700; padding: 2px 6px; border-radius: 12px; font-size: 11px;">
+                                    {{ it.dias_vencimiento }} d
+                                </span>
+                                {% elif it.dias_vencimiento == 0 %}
+                                <span style="background: #ffedd5; color: #9a3412; font-weight: 700; padding: 2px 6px; border-radius: 12px; font-size: 11px;">
+                                    Hoy
+                                </span>
+                                {% elif it.dias_vencimiento <= 7 %}
+                                <span style="background: #fef08a; color: #713f12; font-weight: 600; padding: 2px 6px; border-radius: 12px; font-size: 11px;">
+                                    {{ it.dias_vencimiento }} d
+                                </span>
+                                {% else %}
+                                <span style="color: #64748b; font-size: 12px;">{{ it.dias_vencimiento }} d</span>
+                                {% endif %}
+                            {% else %}
+                                <span style="color: #cbd5e1;">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px;">
+                            <div style="font-family: monospace; font-weight: 700; color: #0f172a;">{{ it.doc_number }}</div>
+                            <div style="font-size: 11px; color: #64748b;">{{ it.origin_type }}</div>
+                        </td>
+                        <td style="padding: 10px 12px;">
+                            <div style="font-weight: 600; color: #1e293b;">{{ it.party_name }}</div>
+                            {% if it.party_rut %}
+                            <div style="font-size: 11px; color: #64748b;">RUT: {{ it.party_rut }}</div>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px;">
+                            <div style="font-weight: 500; color: #475569;">{{ it.category_name }}</div>
+                            {% if it.description %}
+                            <div style="font-size: 11px; color: #94a3b8; max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                {{ it.description }}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: center;">
+                            {% if it.oc_number %}
+                            <span style="background: #f1f5f9; color: #334155; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; font-weight: 600;">
+                                {{ it.oc_number }}
+                            </span>
+                            {% else %}
+                            <span style="color: #cbd5e1;">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: right; color: #64748b;">
+                            ${{ "{:,.0f}".format(it.total) }}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: right; color: #059669;">
+                            ${{ "{:,.0f}".format(it.paid_amount) }}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: right; font-weight: 800; color: #b91c1c; background: #fff1f2;">
+                            ${{ "{:,.0f}".format(it.pending_amount) }}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: center;">
+                            {% if it.computed_status == 'Vencida' %}
+                            <span style="background: #fde8e8; color: #9b1c1c; font-weight: 700; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+                                🔴 Vencida
+                            </span>
+                            {% elif it.computed_status == 'Parcial' %}
+                            <span style="background: #e0e7ff; color: #3730a3; font-weight: 700; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+                                🟣 Parcial
+                            </span>
+                            {% else %}
+                            <span style="background: #fef08a; color: #713f12; font-weight: 600; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+                                ⏳ Pendiente
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: center; white-space: nowrap;">
+                            {% if it.origin_code == 'factura' %}
+                            <a href="{{ url_for('compras.cuentas_por_pagar') }}?open_pay={{ it.id }}" title="Registrar Pago Oficial" style="padding: 5px 10px; background: #059669; color: white; border-radius: 5px; text-decoration: none; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="fa-solid fa-credit-card"></i> Pagar
+                            </a>
+                            {% else %}
+                            <a href="{{ url_for('usuarios.gastos_operacionales') }}" title="Ir a Gastos Operacionales" style="padding: 5px 10px; background: #475569; color: white; border-radius: 5px; text-decoration: none; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver Gasto
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="11" style="text-align: center; color: #64748b; padding: 36px;">
+                            <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px; color: #047857;">
+                                <i class="fa-solid fa-circle-check"></i> No hay obligaciones pendientes
+                            </div>
+                            <div style="font-size: 13px;">No existen cuentas por pagar activas con los filtros seleccionados.</div>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginación Server-side -->
+    {% if total_pages > 1 %}
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 20px; padding-top: 14px; border-top: 1px solid #e2e8f0;">
+        <div style="font-size: 13px; color: #64748b;">
+            Página <strong>{{ current_page }}</strong> de <strong>{{ total_pages }}</strong> (Total: {{ total_records }} obligaciones)
+        </div>
+        <div style="display: flex; gap: 6px;">
+            {% if current_page > 1 %}
+            <a href="{{ url_for('reportes.reportes_cuentas_por_pagar', page=current_page-1, per_page=per_page, **filters) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; text-decoration: none; background: white; font-weight: 600;">
+                ◀ Anterior
+            </a>
+            {% endif %}
+
+            {% for p in range(1, total_pages + 1) %}
+                {% if p == current_page %}
+                <span style="padding: 6px 12px; border: 1px solid #b91c1c; border-radius: 6px; font-size: 13px; background: #b91c1c; color: white; font-weight: 600;">
+                    {{ p }}
+                </span>
+                {% elif p <= 3 or p >= total_pages - 1 or (p >= current_page - 1 and p <= current_page + 1) %}
+                <a href="{{ url_for('reportes.reportes_cuentas_por_pagar', page=p, per_page=per_page, **filters) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; text-decoration: none; background: white; font-weight: 600;">
+                    {{ p }}
+                </a>
+                {% elif p == 4 or p == total_pages - 2 %}
+                <span style="padding: 6px 8px; color: #94a3b8;">...</span>
+                {% endif %}
+            {% endfor %}
+
+            {% if current_page < total_pages %}
+            <a href="{{ url_for('reportes.reportes_cuentas_por_pagar', page=current_page+1, per_page=per_page, **filters) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; text-decoration: none; background: white; font-weight: 600;">
+                Siguiente ▶
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function changePerPage(val) {
+    document.getElementById('per_page_input').value = val;
+    document.getElementById('filter-form').submit();
+}
+</script>
+{% endblock %}

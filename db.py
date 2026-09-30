@@ -25,6 +25,8 @@ DEFAULT_DATA: Dict[str, Any] = {
                 "configuracion": True,
                 "crear_registros": True,
                 "aprobar_registros": True,
+                "inventory_adjustment_request": True,
+                "inventory_adjustment_approve": True,
                 "solo_ver": False,
             }),
         },
@@ -42,6 +44,8 @@ DEFAULT_DATA: Dict[str, Any] = {
                 "configuracion": False,
                 "crear_registros": True,
                 "aprobar_registros": True,
+                "inventory_adjustment_request": True,
+                "inventory_adjustment_approve": True,
                 "solo_ver": False,
             }),
         },
@@ -59,6 +63,8 @@ DEFAULT_DATA: Dict[str, Any] = {
                 "configuracion": False,
                 "crear_registros": True,
                 "aprobar_registros": False,
+                "inventory_adjustment_request": False,
+                "inventory_adjustment_approve": False,
                 "solo_ver": False,
             }),
         },
@@ -76,6 +82,8 @@ DEFAULT_DATA: Dict[str, Any] = {
                 "configuracion": False,
                 "crear_registros": False,
                 "aprobar_registros": False,
+                "inventory_adjustment_request": False,
+                "inventory_adjustment_approve": False,
                 "solo_ver": True,
             }),
         },
@@ -93,6 +101,8 @@ DEFAULT_DATA: Dict[str, Any] = {
                 "configuracion": False,
                 "crear_registros": True,
                 "aprobar_registros": True,
+                "inventory_adjustment_request": True,
+                "inventory_adjustment_approve": True,
                 "solo_ver": False,
             }),
         },
@@ -110,6 +120,8 @@ DEFAULT_DATA: Dict[str, Any] = {
                 "configuracion": False,
                 "crear_registros": True,
                 "aprobar_registros": False,
+                "inventory_adjustment_request": True,
+                "inventory_adjustment_approve": False,
                 "solo_ver": False,
             }),
         },
@@ -175,6 +187,13 @@ DEFAULT_DATA: Dict[str, Any] = {
             "desc": "Administrar cuentas bancarias para cobros de ventas y pagos a proveedores",
             "action": "Administrar",
             "link": "/administracion/cuentas-bancarias",
+        },
+        {
+            "icon": "💸",
+            "title": "Gastos Operacionales",
+            "desc": "Administrar gastos recurrentes y sus proyecciones",
+            "action": "Administrar",
+            "link": "/administracion/gastos-operacionales",
         },
         {
             "icon": "🏢",
@@ -839,13 +858,20 @@ from repositories.auth_repo import (
 
 from repositories.products_repo import (
     add_product_supplier,
+    create_product,
     delete_category,
     delete_product,
     get_product,
+    get_product_by_sku,
     get_product_calculated_cost,
+    get_products_batch_calculated_cost,
+    get_price_list_products_paginated,
+    get_products_paginated,
     insert_product,
     list_product_suppliers,
     list_products,
+    list_all_products_for_export,
+    get_products_lookup_maps,
     list_products_by_supplier,
     remove_product_supplier,
     rename_category,
@@ -856,11 +882,14 @@ from repositories.suppliers_repo import (
     delete_supplier,
     delete_supplier_contact,
     get_supplier,
+    get_supplier_by_rut,
     get_supplier_contact,
     insert_supplier,
     insert_supplier_contact,
     list_supplier_contacts,
     list_suppliers,
+    get_suppliers_paginated,
+    search_supplier_options,
     update_supplier,
     update_supplier_contact,
 )
@@ -896,6 +925,9 @@ from repositories.reporting_repo import (
     get_sales_report_data,
     get_system_notifications,
     get_top_products,
+    get_purchases_and_expenses_report_data,
+    get_accounts_payable_report_data,
+    get_accounts_receivable_report_data,
 )
 
 from repositories.purchases_repo import (
@@ -912,11 +944,18 @@ from repositories.purchases_repo import (
     list_active_purchase_orders_by_supplier,
     list_entries_missing_invoice,
     list_purchase_invoices,
+    get_purchase_invoices_page,
+    get_purchase_invoice_summary,
+    count_entries_missing_invoice,
     list_purchase_orders,
+    get_purchase_orders_paginated,
+    list_receivable_purchase_orders,
     update_purchase_order,
 )
 
 from repositories.finance_repo import (
+    get_bank_accounts_page,
+    search_bank_account_options,
     count_pending_invoices,
     delete_bank_account,
     delete_sale_payment_item,
@@ -939,15 +978,35 @@ from repositories.finance_repo import (
     upsert_sale_payment,
 )
 
+from repositories.operational_expenses_repo import (
+    create_operational_expense,
+    delete_operational_expense,
+    get_operational_expense,
+    list_operational_expense_audit,
+    list_operational_expenses,
+    project_operational_expenses,
+    set_operational_expense_status,
+    update_operational_expense,
+)
+from repositories.expense_categories_repo import (
+    create_expense_category,
+    delete_expense_category,
+    list_expense_categories,
+    update_expense_category,
+)
+
 from repositories.inventory_repo import (
     consume_fifo_lots,
     consume_lots_for_sale,
     discount_stock_for_sale,
     get_all_lot_stock,
+    get_lot_stock_paginated,
     get_inventory_entry_detail,
     get_lot_stock_by_product,
     get_lot_traceability,
+    get_product_physical_stock,
     get_product_available_stock,
+    get_batch_products_available_stock,
     get_relational_stock,
     get_relational_stock_by_sku,
     get_sale_lot_movements,
@@ -959,27 +1018,55 @@ from repositories.inventory_repo import (
 )
 
 from repositories.sales_repo import (
+    get_quotation_page,
     count_sales,
     delete_sale,
     get_next_sale_number,
     get_sale,
     get_sale_payments_for_sales,
+    get_sales_paginated,
     insert_sale,
     list_sales,
     list_sales_page,
     list_sales_page_light,
     update_quotation_status,
     update_sale,
+    list_packaging_products,
+    get_sale_packaging_items,
+    sale_has_packaging,
+    record_sale_packaging,
+    get_sale_financial_summary,
+    reverse_sale_packaging,
+    reverse_sale_inventory,
+    check_sale_stock_availability,
+    ensure_sale_stock_discounted,
+    lock_sale_for_change,
+    insert_collection_action,
+    list_collection_actions,
 )
 
 from repositories.production_repo import (
     get_next_ot_number,
+    get_production_order_by_id,
+    list_active_production_orders,
     list_production_orders,
+    get_production_orders_paginated,
+    get_ot_material_availability,
+    get_material_availability_for_orders,
+    create_production_order,
+    update_draft_production_order,
+    activate_draft_production_order,
+    cancel_draft_production_order,
+    set_production_order_schedule,
+    list_scheduled_production_orders,
+    list_unscheduled_production_orders,
+    get_recipes_paginated,
 )
 
 from repositories.lot_genealogy_repo import (
     create_lot,
     get_lot,
+    get_lot_by_number,
     get_lot_by_product_and_number,
     record_production_consumption,
     record_production_output,
@@ -987,4 +1074,60 @@ from repositories.lot_genealogy_repo import (
     trace_lot_backward,
     get_lot_recall_impact,
     search_lots,
+)
+
+from core.utils import (
+    PAYMENT_TERMS_LABELS,
+    VALID_PAYMENT_TERMS,
+    DEFAULT_PAYMENT_TERMS,
+    format_payment_terms,
+    calculate_chilean_dv,
+    validate_chilean_rut,
+    format_chilean_rut,
+)
+
+from repositories.kardex_repo import (
+    get_product_kardex_history,
+    get_inventory_valuation_summary,
+    get_all_products_kardex_summary,
+    get_all_products_kardex_paginated,
+    MOVEMENT_TYPE_LABELS,
+    get_current_ppp,
+)
+
+from repositories.bank_reconciliation_repo import (
+    generate_transaction_fingerprint,
+    list_bank_transaction_categories,
+    get_bank_transaction_category,
+    create_bank_transaction_category,
+    update_bank_transaction_category,
+    delete_bank_transaction_category,
+    log_bank_transaction_import,
+    get_existing_fingerprints,
+    insert_bank_transactions_bulk,
+    get_bank_transaction,
+    list_bank_transactions,
+    get_bank_reconciliation_kpis,
+    update_transaction_category,
+    get_suggested_reconciliation_matches,
+    reconcile_transaction,
+    unreconcile_transaction,
+    get_transaction_audit_history,
+)
+
+from repositories.debts_repo import (
+    list_debt_types,
+    create_debt_with_schedule,
+    get_debt_detail,
+    list_debt_installments,
+    list_debts,
+    get_debts_kpis,
+    register_debt_installment_payment,
+    list_debt_payment_history,
+    update_installment_details,
+)
+
+from repositories.cash_flow_repo import (
+    get_bank_initial_balances,
+    calculate_cash_flow_consolidation,
 )

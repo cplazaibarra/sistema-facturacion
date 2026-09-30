@@ -14,6 +14,36 @@ import psycopg2.extras
 from werkzeug.security import generate_password_hash
 
 from core.database import get_connection
+from core.pagination import PAGE_SIZE, pagination_meta
+
+
+def get_bank_accounts_page(page=1):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) AS n FROM bank_accounts")
+            pagination = pagination_meta(cur.fetchone()['n'], page)
+            cur.execute("""SELECT id, bank_name, account_number, account_type, holder_name,
+                                  holder_rut, email, status, created_at
+                           FROM bank_accounts ORDER BY id DESC LIMIT %s OFFSET %s""",
+                        (PAGE_SIZE, pagination['offset']))
+            return [dict(row) for row in cur.fetchall()], pagination
+
+
+def search_bank_account_options(search: str = "", limit: int = 30) -> dict:
+    """Small remote selector response for bank account choices."""
+    from core.pagination import PAGE_SIZE
+    term=(search or "").strip()
+    pattern=f"%{term}%"
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT COUNT(*) AS total FROM bank_accounts
+                WHERE (%s='' OR bank_name ILIKE %s OR account_number ILIKE %s OR holder_name ILIKE %s)""",
+                (term,pattern,pattern,pattern))
+            total=cur.fetchone()['total']
+            cur.execute("""SELECT id,bank_name,account_number,account_type,holder_name FROM bank_accounts
+                WHERE (%s='' OR bank_name ILIKE %s OR account_number ILIKE %s OR holder_name ILIKE %s)
+                ORDER BY id DESC LIMIT %s""",(term,pattern,pattern,pattern,min(PAGE_SIZE,max(1,int(limit)))))
+            return {'items':[dict(r) for r in cur.fetchall()],'total':total}
 
 
 def list_bank_accounts() -> list[dict]:
@@ -286,7 +316,7 @@ def list_sale_payment_items(sale_id: int) -> list[dict]:
             cols = [r["column_name"] for r in cur.fetchall()]
             has_approval = "accounting_approved" in cols
             if has_approval:
-                select_cols = "id, sale_id, payment_amount, payment_date, payment_proof_file, created_at, accounting_approved, accounting_approved_by, accounting_approved_at, accounting_comment"
+                select_cols = "id, sale_id, payment_amount, payment_date, payment_proof_file, created_at, accounting_approved, accounting_approved_by, accounting_approved_at, accounting_comment, payment_method, registered_by, registered_at, bank_name_snapshot, account_number_snapshot, payment_notes"
             else:
                 select_cols = "id, sale_id, payment_amount, payment_date, payment_proof_file, created_at"
             
@@ -503,4 +533,3 @@ def link_invoice_to_entry(invoice_id: int, entry_id: int) -> bool:
             """, (entry_id,))
             conn.commit()
             return cur.rowcount > 0
-

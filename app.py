@@ -12,6 +12,8 @@ from security import validate_secret_key, log_security_event
 
 # Inicializar Flask
 app = Flask(__name__)
+from core.pagination import page_url
+app.jinja_env.globals['page_url'] = page_url
 app.wsgi_app = ProxyFix(app.wsgi_app, x_prefix=1)
 
 # Configuración de Entorno y Clave Secreta
@@ -42,6 +44,30 @@ def handle_csrf_error(e):
         return jsonify({"status": "error", "message": f"Error CSRF: {e.description}"}), 400
     return render_template('csrf_error.html', error_description=e.description), 400
 
+@app.errorhandler(403)
+def handle_forbidden_error(e):
+    user = session.get('username') if 'user_id' in session else 'ANONYMOUS'
+    log_security_event('403_FORBIDDEN', user, f"Ruta: {request.path}", level='warning')
+    if request.path.startswith('/api/') or request.is_json or request.accept_mimetypes.best == 'application/json':
+        return jsonify({"status": "error", "message": "Acceso denegado: no tiene permisos para acceder a esta sección."}), 403
+    return render_template('403.html', permission=None), 403
+
+@app.errorhandler(404)
+def handle_not_found_error(e):
+    if request.path.startswith('/api/') or request.is_json or request.accept_mimetypes.best == 'application/json':
+        return jsonify({"status": "error", "message": "Recurso no encontrado."}), 404
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def handle_internal_error(e):
+    import uuid
+    import logging
+    error_ref = str(uuid.uuid4())[:8].upper()
+    logging.getLogger('erp.error').error("ERROR 500 [Ref: %s] en %s: %s", error_ref, request.path, e, exc_info=True)
+    if request.path.startswith('/api/') or request.is_json or request.accept_mimetypes.best == 'application/json':
+        return jsonify({"status": "error", "message": "Ocurrió un problema al procesar la solicitud.", "error_ref": error_ref}), 500
+    return render_template('500.html', error_ref=error_ref), 500
+
 # Crear carpeta de uploads si no existe
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -68,6 +94,10 @@ def date_cl_filter(value):
         return f"{parts[2]}/{parts[1]}/{parts[0]}"
     return val_str
 
+from core.presentation import money_cl, product_label
+app.jinja_env.filters['money_cl'] = money_cl
+app.jinja_env.filters['product_label'] = product_label
+
 # Inicializar Base de Datos
 init_db()
 
@@ -91,6 +121,7 @@ from routes.reportes import reportes_bp
 from routes.compras import compras_bp
 from routes.produccion import produccion_bp
 from routes.trazabilidad import trazabilidad_bp
+from routes.operario import operario_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(dashboard_bp)
@@ -102,13 +133,19 @@ app.register_blueprint(reportes_bp)
 app.register_blueprint(compras_bp)
 app.register_blueprint(produccion_bp)
 app.register_blueprint(trazabilidad_bp)
+app.register_blueprint(operario_bp)
+
+@app.route('/operador')
+def operador_redirect():
+    return redirect(url_for('operario.home'))
+
 
 @app.before_request
 def check_login():
     # Permitir la ruta de login y los archivos estáticos (CSS, JS, imágenes, etc.)
     if request.path.startswith('/static') or request.path.startswith('/uploads'):
         return
-    if request.endpoint in ('auth.login', 'uploaded_file', 'health'):
+    if request.endpoint in ('auth.login', 'uploaded_file', 'health', 'operario.pwa_manifest'):
         return
     # Si no hay usuario en sesión, redirigir a login o responder JSON si es API
     if 'user_id' not in session:
@@ -140,3 +177,4 @@ def health():
 if __name__ == '__main__':
     is_debug = app.config.get('APP_ENV') != 'production' and os.getenv('FLASK_DEBUG', '0') == '1'
     app.run(debug=is_debug, host='0.0.0.0', port=5001, use_reloader=is_debug)
+

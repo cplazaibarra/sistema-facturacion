@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify, flash, send_file, session, Response
 from datetime import datetime, date
 import io, os
-from security import allowed_file
+from security import allowed_file, require_permission
 from db import (
     list_suppliers,
     list_products_by_supplier,
@@ -35,17 +35,64 @@ from reportlab.lib import colors
 
 compras_bp = Blueprint('compras', __name__)
 
+
+@compras_bp.before_request
+def _require_inventory_permission_for_purchases():
+    """Purchase screens and mutations require the ERP inventory/purchasing role."""
+    @require_permission('inventario')
+    def _authorized():
+        return None
+    return _authorized()
+
+
+@compras_bp.route('/api/compras/selectores/<kind>')
+def buscar_opciones_compras(kind):
+    """Remote, bounded autocomplete options for large invoice-form catalogs."""
+    from db import search_supplier_options, search_bank_account_options, get_supplier, get_bank_account
+    term=request.args.get('q','').strip()
+    item_id=request.args.get('id',type=int)
+    if kind=='proveedores':
+        if item_id:
+            row=get_supplier(item_id)
+            item={'id':row['id'],'name':row.get('name'),'razon_social':row.get('razon_social'),'rut':row.get('rut')} if row else None
+            return jsonify({'items':[item] if item else [],'total':1 if item else 0})
+        return jsonify(search_supplier_options(term))
+    if kind=='cuentas-bancarias':
+        if item_id:
+            row=get_bank_account(item_id)
+            item={k:row.get(k) for k in ('id','bank_name','account_number','account_type','holder_name')} if row else None
+            return jsonify({'items':[item] if item else [],'total':1 if item else 0})
+        return jsonify(search_bank_account_options(term))
+    return jsonify({'items':[],'total':0}),404
+
 @compras_bp.route('/compras/productos-comprados')
 def productos_comprados():
-    """Matriz mensual de productos comprados por SKU"""
+    """Matriz mensual de productos comprados por SKU con paginación server-side"""
     available_years = get_purchase_years()
     current_year = datetime.now().year
     default_year = available_years[0] if available_years else current_year
 
     selected_year = request.args.get('year', default_year, type=int)
     selected_category = request.args.get('category', 'all').strip()
+    search_query = request.args.get('search', '').strip()
 
-    matrix_data = get_purchased_products_matrix(selected_year, selected_category)
+    try:
+        current_page = int(request.args.get('page', 1))
+        if current_page < 1:
+            current_page = 1
+    except (ValueError, TypeError):
+        current_page = 1
+
+    from core.pagination import PAGE_SIZE
+    per_page = PAGE_SIZE
+
+    matrix_data = get_purchased_products_matrix(
+        year=selected_year,
+        category=selected_category,
+        search=search_query,
+        page=current_page,
+        per_page=per_page
+    )
 
     months_headers = [
         (1, 'Ene'), (2, 'Feb'), (3, 'Mar'), (4, 'Abr'),
@@ -59,6 +106,11 @@ def productos_comprados():
         available_years=available_years,
         selected_year=selected_year,
         selected_category=selected_category,
+        search_query=search_query,
+        current_page=matrix_data["page"],
+        per_page=matrix_data["per_page"],
+        total_pages=matrix_data["total_pages"],
+        total_skus=matrix_data["total_skus"],
         months_headers=months_headers
     )
 
@@ -70,7 +122,8 @@ def exportar_productos_comprados_csv():
     selected_year = request.args.get('year', default_year, type=int)
     selected_category = request.args.get('category', 'all').strip()
 
-    matrix_data = get_purchased_products_matrix(selected_year, selected_category)
+    matrix_data = get_purchased_products_matrix(
+        selected_year, selected_category, search=request.args.get('search', '').strip())
 
     import csv
     output = io.StringIO()
@@ -110,9 +163,46 @@ def exportar_productos_comprados_csv():
 
 @compras_bp.route('/compras/oc')
 def list_oc():
-    """Listar órdenes de compra"""
-    orders = list_purchase_orders()
-    return render_template('compras_oc.html', orders=orders)
+    """Listar órdenes de compra con paginación server-side y filtros batch"""
+    from db import get_purchase_orders_paginated
+
+    search_query = request.args.get('search', '').strip()
+    oc_status = request.args.get('status', '').strip()
+    payment_status = request.args.get('payment_status', '').strip()
+
+    try:
+        current_page = int(request.args.get('page', 1))
+        if current_page < 1:
+            current_page = 1
+    except (ValueError, TypeError):
+        current_page = 1
+
+    try:
+        per_page = int(request.args.get('per_page', 25))
+        if per_page not in (25, 50, 100):
+            per_page = 25
+    except (ValueError, TypeError):
+        per_page = 25
+
+    paginated = get_purchase_orders_paginated(
+        page=current_page,
+        per_page=per_page,
+        search=search_query,
+        oc_status=oc_status,
+        payment_status=payment_status
+    )
+
+    return render_template(
+        'compras_oc.html',
+        orders=paginated["items"],
+        current_page=paginated["page"],
+        per_page=paginated["per_page"],
+        total_pages=paginated["total_pages"],
+        total_orders=paginated["total"],
+        search_query=search_query,
+        oc_status=oc_status,
+        payment_status=payment_status
+    )
 
 @compras_bp.route('/compras/oc/nueva', methods=['GET', 'POST'])
 def nueva_oc():
@@ -143,6 +233,7 @@ def nueva_oc():
                 })
         
         payment_method = request.form.get('payment_method', 'Efectivo').strip()
+        payment_terms = request.form.get('payment_terms', 'NET_30').strip().upper()
         status = request.form.get('status', 'Pendiente Aprobación').strip()
         if status not in ['Borrador', 'Pendiente Aprobación', 'Emitida']:
             status = 'Pendiente Aprobación'
@@ -153,7 +244,7 @@ def nueva_oc():
             return render_template('nueva_oc.html', suppliers=suppliers, default_date=datetime.now().strftime('%Y-%m-%d'))
             
         created_by = session.get('user_id')
-        oc_num = create_purchase_order(supplier_id, order_date, notes, items, status=status, created_by=created_by, payment_method=payment_method)
+        oc_num = create_purchase_order(supplier_id, order_date, notes, items, status=status, created_by=created_by, payment_method=payment_method, payment_terms=payment_terms)
         flash(f"Orden de Compra {oc_num} guardada como {status} con éxito.", "success")
         return redirect(url_for('compras.list_oc'))
 
@@ -177,6 +268,7 @@ def editar_oc(po_id):
         order_date = request.form.get('order_date')
         notes = request.form.get('notes')
         payment_method = request.form.get('payment_method', 'Efectivo').strip()
+        payment_terms = request.form.get('payment_terms', po.get('payment_terms') or 'NET_30').strip().upper()
         
         product_ids = request.form.getlist('product_id[]')
         quantities = request.form.getlist('quantity[]')
@@ -208,7 +300,7 @@ def editar_oc(po_id):
             items_current = get_purchase_order_items(po_id)
             return render_template('editar_oc.html', po=po, items=items_current, suppliers=suppliers)
             
-        update_purchase_order(po_id, supplier_id, order_date, notes, items, status=status, payment_method=payment_method)
+        update_purchase_order(po_id, supplier_id, order_date, notes, items, status=status, payment_method=payment_method, payment_terms=payment_terms)
         flash(f"Orden de Compra {po['oc_number']} actualizada como {status} con éxito.", "success")
         return redirect(url_for('compras.list_oc'))
 
@@ -217,6 +309,7 @@ def editar_oc(po_id):
     return render_template('editar_oc.html', po=po, items=items, suppliers=suppliers)
 
 @compras_bp.route('/compras/oc/<int:po_id>/aprobar', methods=['POST'])
+@require_permission('aprobar_registros')
 def aprobar_oc(po_id):
     """Aprobar una orden de compra pendiente de aprobación"""
     user_role = session.get('role_name')
@@ -304,8 +397,11 @@ def api_oc_detalle(po_id):
         return jsonify({"error": "Orden de compra no encontrada"}), 404
     items = get_purchase_order_items(po_id)
     entries = get_purchase_order_entries(po_id)
+    from core.utils import format_payment_terms
+    po_dict = dict(po)
+    po_dict["payment_terms_formatted"] = format_payment_terms(po.get("payment_terms"))
     return jsonify({
-        "order": po,
+        "order": po_dict,
         "items": items,
         "entries": entries
     })
@@ -372,12 +468,15 @@ def descargar_oc_pdf(po_id):
     story.append(Paragraph("ORDEN DE COMPRA", title_style))
     story.append(Spacer(1, 10))
     
+    from core.utils import format_payment_terms
+
     # Grid de Metadatos
+    payment_terms_label = format_payment_terms(po.get("payment_terms"))
     meta_data = [
         [Paragraph("Número de OC:", label_style), Paragraph(po["oc_number"], value_style),
          Paragraph("Fecha de Emisión:", label_style), Paragraph(po["order_date"], value_style)],
         [Paragraph("Proveedor:", label_style), Paragraph(po["supplier_name"], value_style),
-         Paragraph("Forma de Pago:", label_style), Paragraph(po.get("payment_method") or "Efectivo", value_style)],
+         Paragraph("Forma de Pago:", label_style), Paragraph(payment_terms_label, value_style)],
         [Paragraph("Estado:", label_style), Paragraph(po["status"], value_style),
          Paragraph("Creado por:", label_style), Paragraph(po.get("creator_name") or "-", value_style)],
         [Paragraph("Aprobado por:", label_style), Paragraph(po.get("approver_name") or "-", value_style),
@@ -471,26 +570,16 @@ def cuentas_por_pagar():
     if filtro == 'todas':
         status_filter = None
 
-    invoices          = list_purchase_invoices(status_filter)
-    guias_sin_factura = list_entries_missing_invoice()
-    all_invoices      = list_purchase_invoices()
-    suppliers         = list_suppliers()
-    pos               = list_purchase_orders()
-    bank_accounts     = list_bank_accounts()
-
-    n_vencidas       = sum(1 for i in all_invoices if i['payment_status'] == 'Vencida')
-    n_pendientes     = sum(1 for i in all_invoices if i['payment_status'] in ('Pendiente', 'Vencida'))
-    n_sin_factura    = len(guias_sin_factura)
-    total_pendiente  = sum(
-        (i['invoice_amount'] or 0) for i in all_invoices
-        if i['payment_status'] in ('Pendiente', 'Vencida', 'Sin Factura')
-    )
-
+    from db import get_purchase_invoices_page, get_purchase_invoice_summary, count_entries_missing_invoice
+    page = request.args.get('page', 1)
+    search = request.args.get('search', '').strip()
+    invoices, pagination = get_purchase_invoices_page(status_filter, page, search)
+    summary = get_purchase_invoice_summary()
     stats = {
-        'n_vencidas':    n_vencidas,
-        'n_pendientes':  n_pendientes,
-        'n_sin_factura': n_sin_factura,
-        'total_pendiente': total_pendiente,
+        'n_vencidas': summary['n_vencidas'],
+        'n_pendientes': summary['n_pendientes'],
+        'n_sin_factura': count_entries_missing_invoice(),
+        'total_pendiente': float(summary['total_pendiente'] or 0),
     }
 
     open_pay_id = request.args.get('open_pay', type=int)
@@ -502,10 +591,8 @@ def cuentas_por_pagar():
     return render_template(
         'compras_cuentas_pagar.html',
         invoices=invoices,
-        guias_sin_factura=guias_sin_factura,
-        suppliers=suppliers,
-        purchase_orders=pos,
-        bank_accounts=bank_accounts,
+        pagination=pagination,
+        search=search,
         stats=stats,
         filtro_activo=filtro,
         auto_open_pay_inv=auto_open_pay_inv,
@@ -871,4 +958,3 @@ def api_pending_invoices_count():
     """API: devuelve la cantidad de facturas pendientes/vencidas (para badge del menú)."""
     n = count_pending_invoices()
     return jsonify({'count': n})
-

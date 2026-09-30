@@ -1,0 +1,8 @@
+<nav aria-label="Paginación" class="list-pagination" style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px;font-size:13px">
+    <span>Mostrando {{ pagination.start }}–{{ pagination.end }} de {{ pagination.total }} registros</span>
+    <span style="display:flex;align-items:center;gap:16px">
+        {% if pagination.page > 1 %}<a href="{{ page_url(pagination.page - 1) }}" rel="prev">‹ Anterior</a>{% else %}<span aria-disabled="true">‹ Anterior</span>{% endif %}
+        <span>Página {{ pagination.page }} de {{ pagination.total_pages }}</span>
+        {% if pagination.page < pagination.total_pages %}<a href="{{ page_url(pagination.page + 1) }}" rel="next">Siguiente ›</a>{% else %}<span aria-disabled="true">Siguiente ›</span>{% endif %}
+    </span>
+</nav>

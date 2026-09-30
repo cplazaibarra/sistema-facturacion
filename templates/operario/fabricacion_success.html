@@ -1,0 +1,46 @@
+{% extends 'operario/base_operario.html' %}
+
+{% block title %}Fabricación Completada{% endblock %}
+
+{% block content %}
+<main class="operario-container">
+  <div class="success-screen">
+    <div class="success-icon-circle" style="background: #EDE9FE; color: #6D28D9; box-shadow: 0 10px 25px rgba(109, 40, 217, 0.2);">
+      <i class="fa-solid fa-check-double"></i>
+    </div>
+    <h1 class="success-title" style="color: #4C1D95;">✓ FABRICACIÓN COMPLETADA</h1>
+    <p style="font-size: 15px; color: #64748B; margin-bottom: 24px;">
+      La Orden de Trabajo se ha finalizado con éxito y el producto terminado fue ingresado con su lote.
+    </p>
+
+    <div class="card-item-box" style="text-align: left; margin-bottom: 20px;">
+      <div style="margin-bottom: 10px;">
+        <span style="font-size: 13px; color: #64748B; font-weight: 700; display: block;">ORDEN DE TRABAJO</span>
+        <span style="font-size: 17px; font-weight: 800; color: #6D28D9;">{{ ot_number }}</span>
+      </div>
+      <div style="margin-bottom: 10px;">
+        <span style="font-size: 13px; color: #64748B; font-weight: 700; display: block;">PRODUCTO FABRICADO</span>
+        <span style="font-size: 16px; font-weight: 800; color: #1E293B;">{{ product_name }}</span>
+      </div>
+      <div style="display: flex; gap: 16px;">
+        <div style="flex: 1;">
+          <span style="font-size: 13px; color: #64748B; font-weight: 700; display: block;">CANTIDAD FINAL</span>
+          <span style="font-size: 18px; font-weight: 800; color: #1E293B;">{{ quantity }} un</span>
+        </div>
+        <div style="flex: 1;">
+          <span style="font-size: 13px; color: #64748B; font-weight: 700; display: block;">LOTE TERMINADO</span>
+          <span style="font-size: 16px; font-weight: 800; color: #6D28D9;">{{ lot_number }}</span>
+        </div>
+      </div>
+    </div>
+
+    <a href="/operario" class="btn-big btn-purple">
+      VOLVER AL INICIO
+    </a>
+    
+    <a href="/operario/ot" class="btn-big btn-secondary" style="margin-top: 10px;">
+      OPERAR OTRA ORDEN
+    </a>
+  </div>
+</main>
+{% endblock %}

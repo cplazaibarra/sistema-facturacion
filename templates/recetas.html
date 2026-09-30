@@ -18,23 +18,47 @@
 </style>
 <div class="header-section" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
     <div style="display: flex; gap: 10px;">
-        <a href="/produccion" class="btn-secondary" style="text-decoration: none; padding: 10px 18px; border-radius: 6px; font-weight: bold; display: inline-flex; align-items: center; gap: 6px;">
-            ⬅️ Volver a Fabricación
+        <a href="/produccion" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-arrow-left"></i> Volver a Fabricación
         </a>
-        <a href="/produccion/recetas/nueva" class="btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 6px; font-weight: bold;">
-            📝 Crear Nueva Receta
+        <a href="/produccion/recetas/nueva" class="btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-plus"></i> Crear Nueva Receta
         </a>
     </div>
-    <div class="search-box">
-        <input type="text" id="buscar-receta" onkeyup="filtrarRecetas()" placeholder="Buscar receta, SKU o componente..." style="padding: 9px 16px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; width: 300px;">
-    </div>
+    <form method="GET" action="/produccion/recetas" id="recetas-filter-form" style="display: flex; gap: 10px; align-items: center;">
+        <input type="hidden" name="per_page" value="{{ per_page }}">
+        <div style="position: relative; width: 320px;">
+            <input type="text" name="search" value="{{ search_query or '' }}" placeholder="Buscar receta, SKU o componente..." style="padding: 9px 16px; padding-right: 32px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; width: 100%;">
+            {% if search_query %}
+            <a href="/produccion/recetas?per_page={{ per_page }}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); text-decoration: none; color: #a0aec0; font-size: 14px;" title="Limpiar búsqueda">✕</a>
+            {% endif %}
+        </div>
+        <button type="submit" class="btn-primary" style="padding: 9px 16px; font-size: 13px; font-weight: 600; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-magnifying-glass"></i> Buscar
+        </button>
+        {% if search_query %}
+        <a href="/produccion/recetas?per_page={{ per_page }}" class="btn-secondary" style="text-decoration: none; padding: 9px 14px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-rotate-left"></i> Limpiar
+        </a>
+        {% endif %}
+    </form>
 </div>
 
 <div class="recent-section">
     <div class="recent-card" style="background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px;">
-        <div class="card-header" style="border-bottom: 1px solid #edf2f7; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <div class="card-header" style="border-bottom: 1px solid #edf2f7; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
             <h3 style="margin: 0; color: #2d3748;">Fórmulas y Recetas Registradas (BOM)</h3>
-            <span style="font-size: 12px; font-weight: 600; color: #64748b; background: #f1f5f9; padding: 4px 10px; border-radius: 12px;">{{ recipes|length }} Recetas</span>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <label for="per_page_select" style="font-size: 13px; color: #64748b; font-weight: 600;">Mostrar:</label>
+                    <select id="per_page_select" onchange="changePerPage(this.value)" style="padding: 5px 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 600; background: white; color: #1e293b; cursor: pointer;">
+                        <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+                <span style="font-size: 12px; font-weight: 600; color: #64748b; background: #f1f5f9; padding: 4px 10px; border-radius: 12px;">{{ total_recipes }} Recetas Totales</span>
+            </div>
         </div>
         
         <div class="table-responsive">
@@ -89,14 +113,14 @@
                                 {% endfor %}
                             </div>
                         </td>
-                        <td style="padding: 12px; text-align: center; vertical-align: middle;">
-                            <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-                                <a href="/produccion/recetas/{{ r.id }}/editar" class="btn-icon" style="color: #2563eb; text-decoration: none; font-size: 1.15rem; display: inline-flex; align-items: center;" title="Editar Receta">
-                                    ✏️
+                        <td class="actions-cell" style="padding: 12px; text-align: center; vertical-align: middle;">
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                <a href="/produccion/recetas/{{ r.id }}/editar" class="btn-icon" style="color: #2563eb; text-decoration: none;" title="Editar Receta">
+                                    <i class="fa-solid fa-pen-to-square"></i>
                                 </a>
                                 <form method="POST" action="/produccion/recetas/{{ r.id }}/eliminar" onsubmit="return confirm('¿Está seguro de que desea eliminar esta receta de fabricación?');" style="margin: 0; display: inline-flex;">
-                                    <button type="submit" class="btn-icon" style="color: #e53e3e; background: none; border: none; cursor: pointer; font-size: 1.15rem; padding: 0;" title="Eliminar Receta">
-                                        🗑️
+                                    <button type="submit" class="btn-icon" style="color: #dc2626;" title="Eliminar Receta">
+                                        <i class="fa-solid fa-trash-can"></i>
                                     </button>
                                 </form>
                             </div>
@@ -105,25 +129,75 @@
                     {% endfor %}
                 {% else %}
                     <tr>
-                        <td colspan="4" style="padding: 30px; text-align: center; color: #a0aec0;">
-                            No hay recetas de fabricación registradas en el sistema.
+                        <td colspan="4" style="padding: 40px 20px; text-align: center;">
+                            <div style="font-size: 36px; margin-bottom: 12px; color: #94a3b8;"><i class="fa-solid fa-receipt"></i></div>
+                            {% if search_query %}
+                            <h4 style="margin: 0 0 8px 0; color: #1e293b; font-size: 16px;">No se encontraron recetas</h4>
+                            <p style="margin: 0 0 16px 0; color: #64748b; font-size: 13px;">No hay recetas que coincidan con <strong>"{{ search_query }}"</strong>.</p>
+                            <a href="/produccion/recetas?per_page={{ per_page }}" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+                                <i class="fa-solid fa-rotate-left"></i> Limpiar filtros de búsqueda
+                            </a>
+                            {% else %}
+                            <h4 style="margin: 0 0 8px 0; color: #1e293b; font-size: 16px;">No hay recetas de fabricación registradas</h4>
+                            <a href="/produccion/recetas/nueva" class="btn-primary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+                                <i class="fa-solid fa-plus"></i> Crear Primera Receta
+                            </a>
+                            {% endif %}
                         </td>
                     </tr>
                 {% endif %}
             </tbody>
         </table>
         </div>
+
+        <!-- Paginación Server-Side -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding: 12px 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; flex-wrap: wrap; gap: 10px;">
+            <div style="font-size: 13px; color: #64748b;">
+                {% if total_recipes and total_recipes > 0 %}
+                    Mostrando <strong>{{ ((current_page - 1) * per_page) + 1 }}</strong> a <strong>{{ [current_page * per_page, total_recipes]|min }}</strong> de <strong>{{ total_recipes }}</strong> recetas
+                {% else %}
+                    Mostrando 0 registros
+                {% endif %}
+            </div>
+
+            {% if total_pages and total_pages > 1 %}
+            <div style="display: flex; gap: 6px; align-items: center;">
+                {% if current_page > 1 %}
+                <a href="/produccion/recetas?page={{ current_page - 1 }}&per_page={{ per_page }}{% if search_query %}&search={{ search_query }}{% endif %}" 
+                   style="text-decoration: none; padding: 6px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; color: #4a5568; background: white; font-weight: 500;">
+                    ◀ Anterior
+                </a>
+                {% else %}
+                <span style="padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; color: #a0aec0; background: #f1f5f9; cursor: not-allowed;">◀ Anterior</span>
+                {% endif %}
+
+                {% for p in range([1, current_page - 2]|max, [total_pages + 1, current_page + 3]|min) %}
+                <a href="/produccion/recetas?page={{ p }}&per_page={{ per_page }}{% if search_query %}&search={{ search_query }}{% endif %}" 
+                   style="text-decoration: none; padding: 6px 12px; border: 1px solid {% if p == current_page %}#2563eb{% else %}#cbd5e0{% endif %}; border-radius: 6px; font-size: 13px; color: {% if p == current_page %}white{% else %}#4a5568{% endif %}; background: {% if p == current_page %}#2563eb{% else %}white{% endif %}; font-weight: 600;">
+                    {{ p }}
+                </a>
+                {% endfor %}
+
+                {% if current_page < total_pages %}
+                <a href="/produccion/recetas?page={{ current_page + 1 }}&per_page={{ per_page }}{% if search_query %}&search={{ search_query }}{% endif %}" 
+                   style="text-decoration: none; padding: 6px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 13px; color: #4a5568; background: white; font-weight: 500;">
+                    Siguiente ▶
+                </a>
+                {% else %}
+                <span style="padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; color: #a0aec0; background: #f1f5f9; cursor: not-allowed;">Siguiente ▶</span>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 
 <script>
-function filtrarRecetas() {
-    const filter = document.getElementById('buscar-receta').value.toLowerCase();
-    const rows = document.querySelectorAll('.receta-row');
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        row.style.display = text.indexOf(filter) > -1 ? '' : 'none';
-    });
+function changePerPage(val) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('per_page', val);
+    url.searchParams.set('page', 1);
+    window.location.href = url.toString();
 }
 </script>
 {% endblock %}

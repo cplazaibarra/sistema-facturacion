@@ -44,39 +44,179 @@
 
 <!-- Panel de reporte -->
 <div class="settings-section" style="margin-top: 24px;">
-    <div class="settings-card">
-        <div class="card-header">
-            <h3>Distribución de Ventas por Producto</h3>
+    <div class="settings-card" style="background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden;">
+        <div class="card-header" style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #1e293b;">Distribución de Ventas por Producto</h3>
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <div style="position: relative; width: 260px; max-width: 100%;">
+                    <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #a0aec0; font-size: 13px;">🔍</span>
+                    <input type="text" id="search-sales-products-input" onkeyup="filterSalesProductsTable(true)" placeholder="Buscar producto..."
+                           style="width: 100%; padding: 6px 10px 6px 30px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <label for="sales-products-per-page-select" style="font-size: 12px; color: #64748b; font-weight: 500;">Mostrar:</label>
+                    <select id="sales-products-per-page-select" onchange="filterSalesProductsTable(true)"
+                            style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; background: #fff; cursor: pointer;">
+                        <option value="25" selected>25 por pág.</option>
+                        <option value="50">50 por pág.</option>
+                        <option value="100">100 por pág.</option>
+                        <option value="all">Todos</option>
+                    </select>
+                </div>
+            </div>
         </div>
-        <table class="data-table" style="margin-top: 16px;">
-            <thead>
-                <tr>
-                    <th>Producto</th>
-                    <th style="text-align: center;">Unidades Vendidas</th>
-                    <th style="text-align: right;">Ingresos</th>
-                    <th style="text-align: center;">% del Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if data.has_data and data.products %}
-                    {% for p in data.products %}
-                    <tr>
-                        <td style="font-weight: 600;">{{ p.name }}</td>
-                        <td style="text-align: center;">{{ p.units }}</td>
-                        <td style="text-align: right; font-weight: 600;">${{ "%.0f"|format(p.revenue) }}</td>
-                        <td style="text-align: center;">{{ p.percentage }}%</td>
+
+        <div style="overflow-x: auto;">
+            <table class="data-table" style="width: 100%; border-collapse: collapse; margin-top: 0;">
+                <thead>
+                    <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                        <th style="padding: 12px 16px; text-align: left; font-size: 12px; color: #64748b; font-weight: 600;">Producto</th>
+                        <th style="padding: 12px 16px; text-align: center; font-size: 12px; color: #64748b; font-weight: 600;">Unidades Vendidas</th>
+                        <th style="padding: 12px 16px; text-align: right; font-size: 12px; color: #64748b; font-weight: 600;">Ingresos</th>
+                        <th style="padding: 12px 16px; text-align: center; font-size: 12px; color: #64748b; font-weight: 600;">% del Total</th>
                     </tr>
-                    {% endfor %}
-                {% else %}
-                    <tr>
-                        <td colspan="4" style="text-align: center; color: #64748b; padding: 32px;">
-                            <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">SIN DATOS REGISTRADOS PARA EL PERÍODO</div>
-                            <div style="font-size: 13px;">No se encontraron ventas completadas o emitidas en el rango seleccionado.</div>
-                        </td>
-                    </tr>
-                {% endif %}
-            </tbody>
-        </table>
+                </thead>
+                <tbody id="sales-products-body">
+                    {% if data.has_data and data.products %}
+                        {% for p in data.products %}
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 12px 16px; font-weight: 600; color: #1e293b;">{{ p.name }}</td>
+                            <td style="padding: 12px 16px; text-align: center; color: #475569;">{{ p.units }}</td>
+                            <td style="padding: 12px 16px; text-align: right; font-weight: 700; color: #0f172a;">${{ "%.0f"|format(p.revenue) }}</td>
+                            <td style="padding: 12px 16px; text-align: center; color: #475569;">{{ p.percentage }}%</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr id="no-sales-products-row">
+                            <td colspan="4" style="text-align: center; color: #64748b; padding: 32px;">
+                                <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">SIN DATOS REGISTRADOS PARA EL PERÍODO</div>
+                                <div style="font-size: 13px;">No se encontraron ventas completadas o emitidas en el rango seleccionado.</div>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginación inferior -->
+        <div id="pagination-sales-products" style="padding: 14px 20px; background: #fff; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div id="pagination-sales-products-info" style="font-size: 13px; color: #64748b;"></div>
+            <div id="pagination-sales-products-controls" style="display: flex; gap: 6px; align-items: center;"></div>
+        </div>
     </div>
 </div>
+
+<script>
+let salesProductsCurrentPage = 1;
+let matchingSalesProductRows = [];
+
+function renderSalesProductsPagination() {
+    const perPageSelect = document.getElementById('sales-products-per-page-select');
+    const perPageVal = perPageSelect ? perPageSelect.value : '25';
+    const total = matchingSalesProductRows.length;
+    const infoEl = document.getElementById('pagination-sales-products-info');
+    const controlsEl = document.getElementById('pagination-sales-products-controls');
+
+    if (!infoEl || !controlsEl) return;
+
+    if (total === 0) {
+        infoEl.innerHTML = 'Mostrando 0 productos';
+        controlsEl.innerHTML = '';
+        return;
+    }
+
+    if (perPageVal === 'all') {
+        matchingSalesProductRows.forEach(row => { row.style.display = ''; });
+        infoEl.innerHTML = `Mostrando <strong>1</strong> a <strong>${total}</strong> de <strong>${total}</strong> productos`;
+        controlsEl.innerHTML = '';
+        return;
+    }
+
+    const perPage = parseInt(perPageVal, 10) || 25;
+    const totalPages = Math.ceil(total / perPage);
+    if (salesProductsCurrentPage > totalPages) salesProductsCurrentPage = totalPages;
+    if (salesProductsCurrentPage < 1) salesProductsCurrentPage = 1;
+
+    const startIdx = (salesProductsCurrentPage - 1) * perPage;
+    const endIdx = startIdx + perPage;
+
+    matchingSalesProductRows.forEach((row, idx) => {
+        if (idx >= startIdx && idx < endIdx) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    const fromNum = startIdx + 1;
+    const toNum = Math.min(endIdx, total);
+    infoEl.innerHTML = `Mostrando <strong>${fromNum}</strong> a <strong>${toNum}</strong> de <strong>${total}</strong> productos`;
+
+    if (totalPages <= 1) {
+        controlsEl.innerHTML = '';
+        return;
+    }
+
+    let controlsHtml = '';
+    if (salesProductsCurrentPage > 1) {
+        controlsHtml += `<button type="button" class="sf-page-btn" onclick="goToSalesProductsPage(${salesProductsCurrentPage - 1})" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; background: white; color: #334155; cursor: pointer;">◀ Anterior</button>`;
+    } else {
+        controlsHtml += `<button type="button" class="sf-page-btn" disabled style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #94a3b8; background: white; opacity: 0.5; cursor: not-allowed;">◀ Anterior</button>`;
+    }
+
+    const startP = Math.max(1, salesProductsCurrentPage - 2);
+    const endP = Math.min(totalPages, salesProductsCurrentPage + 2);
+    for (let p = startP; p <= endP; p++) {
+        if (p === salesProductsCurrentPage) {
+            controlsHtml += `<button type="button" class="sf-page-btn active" style="padding: 6px 12px; border: 1px solid #3182ce; border-radius: 6px; font-size: 13px; font-weight: 600; background: #3182ce; color: white; cursor: default;">${p}</button>`;
+        } else {
+            controlsHtml += `<button type="button" class="sf-page-btn" onclick="goToSalesProductsPage(${p})" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; background: white; color: #334155; cursor: pointer;">${p}</button>`;
+        }
+    }
+
+    if (salesProductsCurrentPage < totalPages) {
+        controlsHtml += `<button type="button" class="sf-page-btn" onclick="goToSalesProductsPage(${salesProductsCurrentPage + 1})" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; background: white; color: #334155; cursor: pointer;">Siguiente ▶</button>`;
+    } else {
+        controlsHtml += `<button type="button" class="sf-page-btn" disabled style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #94a3b8; background: white; opacity: 0.5; cursor: not-allowed;">Siguiente ▶</button>`;
+    }
+
+    controlsEl.innerHTML = controlsHtml;
+}
+
+function goToSalesProductsPage(page) {
+    salesProductsCurrentPage = page;
+    renderSalesProductsPagination();
+    const input = document.getElementById('search-sales-products-input');
+    if (input) input.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function filterSalesProductsTable(resetPage = false) {
+    if (resetPage) {
+        salesProductsCurrentPage = 1;
+    }
+    const input = document.getElementById('search-sales-products-input');
+    const query = (input ? input.value : '').toLowerCase().trim();
+    const allRows = Array.from(document.querySelectorAll('#sales-products-body tr'));
+
+    matchingSalesProductRows = [];
+    allRows.forEach(row => {
+        if (row.id === 'no-sales-products-row' || row.querySelector('td[colspan]')) {
+            row.style.display = 'none';
+            return;
+        }
+        const text = row.textContent.toLowerCase();
+        if (!query || text.includes(query)) {
+            matchingSalesProductRows.push(row);
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    renderSalesProductsPagination();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    filterSalesProductsTable(true);
+});
+</script>
 {% endblock %}

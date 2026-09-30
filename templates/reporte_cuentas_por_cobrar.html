@@ -1,0 +1,876 @@
+{% extends "base.html" %}
+
+{% block title %}Cuentas por Cobrar - Finanzas{% endblock %}
+{% block page_title %}Finanzas > Cuentas por Cobrar{% endblock %}
+
+{% block content %}
+<!-- Barra superior de acciones -->
+<div class="sf-action-bar" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div class="sf-action-left">
+        <h3 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-hand-holding-dollar" style="color: #1e40af;"></i> Cuentas por Cobrar (Ventas y Clientes)
+        </h3>
+        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 13px;">
+            Control de cobranzas pendientes (Saldo > 0). Priorización por fecha de vencimiento y gestión de pagos parciales.
+        </p>
+    </div>
+    <div class="sf-action-right" style="display: flex; gap: 10px; align-items: center;">
+        <a href="{{ url_for('ventas.ventas') }}" class="btn-secondary" style="text-decoration: none; padding: 9px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; color: #1e3a8a; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-list-check"></i> Ventas Realizadas
+        </a>
+        <a href="{{ url_for('reportes.exportar_cuentas_por_cobrar_excel', **filters) }}" class="btn-primary" style="text-decoration: none; padding: 9px 18px; border-radius: 6px; background: #166534; color: #fff; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+            <i class="fa-solid fa-file-excel"></i> Exportar a Excel
+        </a>
+    </div>
+</div>
+
+<!-- Tarjetas KPI Superiores (Calculadas estrictamente sobre Saldo Pendiente) -->
+<div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #1e40af;">
+        <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Total Por Cobrar</div>
+        <div style="font-size: 24px; font-weight: 700; color: #1e40af; margin-top: 4px;">${{ "{:,.0f}".format(metrics.total_por_cobrar) }}</div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">{{ metrics.count_cuentas }} ventas pendientes</div>
+    </div>
+    <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #ef4444;">
+        <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Total Vencido</div>
+        <div style="font-size: 24px; font-weight: 700; color: #b91c1c; margin-top: 4px;">${{ "{:,.0f}".format(metrics.total_vencido) }}</div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Cobro prioritario inmediato</div>
+    </div>
+    <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #f59e0b;">
+        <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Vence Próx. 7 Días</div>
+        <div style="font-size: 24px; font-weight: 700; color: #b45309; margin-top: 4px;">${{ "{:,.0f}".format(metrics.vence_7_dias) }}</div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Cobros a corto plazo</div>
+    </div>
+    <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #3b82f6;">
+        <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Vence Próx. 30 Días</div>
+        <div style="font-size: 24px; font-weight: 700; color: #1d4ed8; margin-top: 4px;">${{ "{:,.0f}".format(metrics.vence_30_dias) }}</div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Mes en curso</div>
+    </div>
+    <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #8b5cf6;">
+        <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Clientes con Deuda</div>
+        <div style="font-size: 24px; font-weight: 700; color: #6d28d9; margin-top: 4px;">{{ metrics.clientes_con_deuda }}</div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">{{ metrics.cuentas_parciales }} con pagos parciales</div>
+    </div>
+</div>
+
+<!-- Filtros y Tabla Principal -->
+<div style="background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); padding: 20px;">
+    <!-- Accesos Rápidos de Cobranza -->
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9;">
+        <span style="font-size: 12px; font-weight: 700; color: #64748b; align-self: center; margin-right: 4px;">Accesos Rápidos:</span>
+        <a href="{{ url_for('reportes.reportes_cuentas_por_cobrar', quick_filter='all') }}" style="text-decoration: none; padding: 5px 12px; border-radius: 16px; font-size: 12px; font-weight: 600; background: {% if filters.quick_filter == 'all' %}#1e40af{% else %}#f1f5f9{% endif %}; color: {% if filters.quick_filter == 'all' %}#fff{% else %}#475569{% endif %};">
+            Todas
+        </a>
+        <a href="{{ url_for('reportes.reportes_cuentas_por_cobrar', quick_filter='vencidas') }}" style="text-decoration: none; padding: 5px 12px; border-radius: 16px; font-size: 12px; font-weight: 600; background: {% if filters.quick_filter == 'vencidas' %}#b91c1c{% else %}#fee2e2{% endif %}; color: {% if filters.quick_filter == 'vencidas' %}#fff{% else %}#991b1b{% endif %};">
+            🔴 Vencidas
+        </a>
+        <a href="{{ url_for('reportes.reportes_cuentas_por_cobrar', quick_filter='hoy') }}" style="text-decoration: none; padding: 5px 12px; border-radius: 16px; font-size: 12px; font-weight: 600; background: {% if filters.quick_filter == 'hoy' %}#c2410c{% else %}#ffedd5{% endif %}; color: {% if filters.quick_filter == 'hoy' %}#fff{% else %}#9a3412{% endif %};">
+            🟠 Vencen Hoy
+        </a>
+        <a href="{{ url_for('reportes.reportes_cuentas_por_cobrar', quick_filter='proximas_7') }}" style="text-decoration: none; padding: 5px 12px; border-radius: 16px; font-size: 12px; font-weight: 600; background: {% if filters.quick_filter == 'proximas_7' %}#b45309{% else %}#fef3c7{% endif %}; color: {% if filters.quick_filter == 'proximas_7' %}#fff{% else %}#92400e{% endif %};">
+            🟡 Próximos 7 Días
+        </a>
+        <a href="{{ url_for('reportes.reportes_cuentas_por_cobrar', quick_filter='proximas_30') }}" style="text-decoration: none; padding: 5px 12px; border-radius: 16px; font-size: 12px; font-weight: 600; background: {% if filters.quick_filter == 'proximas_30' %}#1d4ed8{% else %}#dbeafe{% endif %}; color: {% if filters.quick_filter == 'proximas_30' %}#fff{% else %}#1e40af{% endif %};">
+            🔵 Próximos 30 Días
+        </a>
+    </div>
+
+    <!-- Formulario de Filtros Server-side -->
+    <form method="GET" action="{{ url_for('reportes.reportes_cuentas_por_cobrar') }}" id="filter-form" style="margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+        <input type="hidden" name="per_page" id="per_page_input" value="{{ per_page }}">
+        <input type="hidden" name="page" value="1">
+        <input type="hidden" name="sort_by" value="{{ filters.sort_by }}">
+        <input type="hidden" name="sort_order" value="{{ filters.sort_order }}">
+        <input type="hidden" name="quick_filter" value="{{ filters.quick_filter }}">
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: flex-end;">
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Venta Desde</label>
+                <input type="date" name="date_from" value="{{ filters.date_from }}" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Venta Hasta</label>
+                <input type="date" name="date_to" value="{{ filters.date_to }}" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Vencimiento Desde</label>
+                <input type="date" name="due_date_from" value="{{ filters.due_date_from }}" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Vencimiento Hasta</label>
+                <input type="date" name="due_date_to" value="{{ filters.due_date_to }}" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Cliente / RUT</label>
+                <input type="text" name="customer" value="{{ filters.customer }}" placeholder="Nombre o RUT..." style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Estado Pago</label>
+                <select name="payment_status" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white;">
+                    <option value="all" {% if filters.payment_status == 'all' %}selected{% endif %}>Todos los estados activos</option>
+                    <option value="Vencida" {% if filters.payment_status == 'Vencida' %}selected{% endif %}>Vencida</option>
+                    <option value="Pendiente" {% if filters.payment_status == 'Pendiente' %}selected{% endif %}>Pendiente</option>
+                    <option value="Parcial" {% if filters.payment_status == 'Parcial' %}selected{% endif %}>Parcial</option>
+                </select>
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Por Gestión</label>
+                <select name="filter_gestion" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white;">
+                    <option value="all" {% if filters.filter_gestion == 'all' %}selected{% endif %}>Todas las cuentas</option>
+                    <option value="con_gestion" {% if filters.filter_gestion == 'con_gestion' %}selected{% endif %}>Con gestión registrada</option>
+                    <option value="sin_gestion" {% if filters.filter_gestion == 'sin_gestion' %}selected{% endif %}>Sin gestión registrada</option>
+                </select>
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Antigüedad Gestión</label>
+                <select name="filter_antiguedad_gestion" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white;">
+                    <option value="all" {% if filters.filter_antiguedad_gestion == 'all' %}selected{% endif %}>Cualquier fecha</option>
+                    <option value="hoy" {% if filters.filter_antiguedad_gestion == 'hoy' %}selected{% endif %}>Gestionadas hoy</option>
+                    <option value="ultimos_7" {% if filters.filter_antiguedad_gestion == 'ultimos_7' %}selected{% endif %}>Últimos 7 días (0-7 d)</option>
+                    <option value="mas_7" {% if filters.filter_antiguedad_gestion == 'mas_7' %}selected{% endif %}>Más de 7 días (>7 d)</option>
+                    <option value="mas_15" {% if filters.filter_antiguedad_gestion == 'mas_15' %}selected{% endif %}>Más de 15 días (>15 d)</option>
+                    <option value="mas_30" {% if filters.filter_antiguedad_gestion == 'mas_30' %}selected{% endif %}>Más de 30 días (>30 d)</option>
+                </select>
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Tipo de Gestión</label>
+                <select name="filter_tipo_gestion" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white;">
+                    <option value="all" {% if filters.filter_tipo_gestion == 'all' %}selected{% endif %}>Todos los tipos</option>
+                    <option value="Correo enviado" {% if filters.filter_tipo_gestion == 'Correo enviado' %}selected{% endif %}>Correo enviado</option>
+                    <option value="Llamada telefónica" {% if filters.filter_tipo_gestion == 'Llamada telefónica' %}selected{% endif %}>Llamada telefónica</option>
+                    <option value="WhatsApp / Mensaje" {% if filters.filter_tipo_gestion == 'WhatsApp / Mensaje' %}selected{% endif %}>WhatsApp / Mensaje</option>
+                    <option value="Reunión" {% if filters.filter_tipo_gestion == 'Reunión' %}selected{% endif %}>Reunión</option>
+                    <option value="Compromiso de pago" {% if filters.filter_tipo_gestion == 'Compromiso de pago' %}selected{% endif %}>Compromiso de pago</option>
+                    <option value="Carta / Notificación" {% if filters.filter_tipo_gestion == 'Carta / Notificación' %}selected{% endif %}>Carta / Notificación</option>
+                    <option value="Otra" {% if filters.filter_tipo_gestion == 'Otra' %}selected{% endif %}>Otra</option>
+                </select>
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Estado Operacional</label>
+                <select name="sale_status" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white;">
+                    <option value="all" {% if filters.sale_status == 'all' %}selected{% endif %}>Todos los estados</option>
+                    <option value="Pendiente" {% if filters.sale_status == 'Pendiente' %}selected{% endif %}>Pendiente</option>
+                    <option value="En Preparación" {% if filters.sale_status == 'En Preparación' %}selected{% endif %}>En Preparación</option>
+                    <option value="Para Despacho" {% if filters.sale_status == 'Para Despacho' %}selected{% endif %}>Para Despacho</option>
+                    <option value="Completada" {% if filters.sale_status == 'Completada' %}selected{% endif %}>Completada</option>
+                </select>
+            </div>
+            <div style="grid-column: span 2;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Buscar</label>
+                <input type="text" name="search" value="{{ filters.search }}" placeholder="N° Venta, Documento, Cliente, RUT, Notas, Contacto..." style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button type="submit" style="flex: 1; padding: 8px 14px; background: #1e40af; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                    <i class="fa-solid fa-magnifying-glass"></i> Filtrar
+                </button>
+                <a href="{{ url_for('reportes.reportes_cuentas_por_cobrar') }}" style="text-decoration: none; padding: 8px 12px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center;">
+                    Limpiar
+                </a>
+            </div>
+        </div>
+    </form>
+
+    <!-- Tabla de Cuentas por Cobrar -->
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 700;">
+                    <th style="padding: 10px 12px; white-space: nowrap;">
+                        <a href="{{ url_for('reportes.reportes_cuentas_por_cobrar', **dict(filters, sort_by='due_date', sort_order='desc' if filters.sort_by == 'due_date' and filters.sort_order == 'asc' else 'asc')) }}" style="text-decoration: none; color: inherit;">
+                            Vencimiento {% if filters.sort_by == 'due_date' %}{{ '▲' if filters.sort_order == 'asc' else '▼' }}{% endif %}
+                        </a>
+                    </th>
+                    <th style="padding: 10px 12px; text-align: center;">Días Venc.</th>
+                    <th style="padding: 10px 12px;">N° Venta</th>
+                    <th style="padding: 10px 12px;">Cliente</th>
+                    <th style="padding: 10px 12px; text-align: right;">Total Venta</th>
+                    <th style="padding: 10px 12px; text-align: right;">Total Pagado</th>
+                    <th style="padding: 10px 12px; text-align: right; color: #1e40af; font-weight: 800;">
+                        <a href="{{ url_for('reportes.reportes_cuentas_por_cobrar', **dict(filters, sort_by='pending', sort_order='desc' if filters.sort_by == 'pending' and filters.sort_order == 'asc' else 'asc')) }}" style="text-decoration: none; color: inherit;">
+                            Saldo por Cobrar {% if filters.sort_by == 'pending' %}{{ '▲' if filters.sort_order == 'asc' else '▼' }}{% endif %}
+                        </a>
+                    </th>
+                    <th style="padding: 10px 12px; text-align: center;">Estado</th>
+                    <!-- Nuevas Columnas de Gestión y Seguimiento -->
+                    <th style="padding: 10px 12px; text-align: left;">
+                        <a href="{{ url_for('reportes.reportes_cuentas_por_cobrar', **dict(filters, sort_by='last_action', sort_order='desc' if filters.sort_by == 'last_action' and filters.sort_order == 'asc' else 'asc')) }}" style="text-decoration: none; color: inherit;">
+                            Última Gestión {% if filters.sort_by == 'last_action' %}{{ '▲' if filters.sort_order == 'asc' else '▼' }}{% endif %}
+                        </a>
+                    </th>
+                    <th style="padding: 10px 12px; text-align: center;">
+                        <a href="{{ url_for('reportes.reportes_cuentas_por_cobrar', **dict(filters, sort_by='days_without_action', sort_order='desc' if filters.sort_by == 'days_without_action' and filters.sort_order == 'asc' else 'asc')) }}" style="text-decoration: none; color: inherit;">
+                            Días sin Gestión {% if filters.sort_by == 'days_without_action' %}{{ '▲' if filters.sort_order == 'asc' else '▼' }}{% endif %}
+                        </a>
+                    </th>
+                    <th style="padding: 10px 12px; text-align: center;">
+                        <a href="{{ url_for('reportes.reportes_cuentas_por_cobrar', **dict(filters, sort_by='next_action', sort_order='desc' if filters.sort_by == 'next_action' and filters.sort_order == 'asc' else 'asc')) }}" style="text-decoration: none; color: inherit;">
+                            Próxima Gestión {% if filters.sort_by == 'next_action' %}{{ '▲' if filters.sort_order == 'asc' else '▼' }}{% endif %}
+                        </a>
+                    </th>
+                    <th style="padding: 10px 12px; text-align: center;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if items %}
+                    {% for it in items %}
+                    <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                        <td style="padding: 10px 12px; white-space: nowrap; font-weight: 600;">
+                            {% if it.due_badge_type == 'vencida' %}
+                            <span style="color: #b91c1c;"><i class="fa-solid fa-triangle-exclamation"></i> {{ it.due_date or 'Vencida' }}</span>
+                            {% elif it.due_badge_type == 'vence_hoy' %}
+                            <span style="color: #c2410c;"><i class="fa-solid fa-bell"></i> {{ it.due_date or 'Vence hoy' }}</span>
+                            {% elif it.due_badge_type == 'proxima_7' %}
+                            <span style="color: #b45309;"><i class="fa-solid fa-clock"></i> {{ it.due_date }}</span>
+                            {% elif it.due_badge_type == 'proxima_30' %}
+                            <span style="color: #1d4ed8;"><i class="fa-solid fa-calendar-day"></i> {{ it.due_date }}</span>
+                            {% else %}
+                            <span style="color: #334155;">{{ it.due_date or '—' }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: center;">
+                            {% if it.dias_vencimiento is not none %}
+                                {% if it.dias_vencimiento < 0 %}
+                                <span style="background: #fde8e8; color: #9b1c1c; font-weight: 700; padding: 2px 6px; border-radius: 12px; font-size: 11px;">
+                                    {{ it.dias_vencimiento }} d
+                                </span>
+                                {% elif it.dias_vencimiento == 0 %}
+                                <span style="background: #ffedd5; color: #9a3412; font-weight: 700; padding: 2px 6px; border-radius: 12px; font-size: 11px;">
+                                    Hoy
+                                </span>
+                                {% elif it.dias_vencimiento <= 7 %}
+                                <span style="background: #fef08a; color: #713f12; font-weight: 600; padding: 2px 6px; border-radius: 12px; font-size: 11px;">
+                                    {{ it.dias_vencimiento }} d
+                                </span>
+                                {% elif it.dias_vencimiento <= 30 %}
+                                <span style="background: #dbeafe; color: #1e40af; font-weight: 600; padding: 2px 6px; border-radius: 12px; font-size: 11px;">
+                                    {{ it.dias_vencimiento }} d
+                                </span>
+                                {% else %}
+                                <span style="color: #64748b; font-size: 12px;">{{ it.dias_vencimiento }} d</span>
+                                {% endif %}
+                            {% else %}
+                                <span style="color: #cbd5e1;">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px;">
+                            <div style="font-family: monospace; font-weight: 700; color: #0f172a;">{{ it.sale_number }}</div>
+                            <div style="font-size: 11px; color: #64748b;">{{ it.doc_number }} | {{ it.sale_date }}</div>
+                        </td>
+                        <td style="padding: 10px 12px;">
+                            <div style="font-weight: 600; color: #1e293b;">{{ it.customer_name }}</div>
+                            {% if it.customer_rut %}
+                            <div style="font-size: 11px; color: #64748b;">RUT: {{ it.customer_rut }}</div>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: right; color: #64748b;">
+                            ${{ "{:,.0f}".format(it.total_amount) }}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: right; color: #059669;">
+                            ${{ "{:,.0f}".format(it.paid_amount) }}
+                            {% if it.payment_items_count > 0 %}
+                            <div style="font-size: 10px; color: #94a3b8;">{{ it.payment_items_count }} abono(s)</div>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: right; font-weight: 800; color: #1e40af; background: #eff6ff;">
+                            ${{ "{:,.0f}".format(it.pending_amount) }}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: center;">
+                            {% if it.computed_status == 'Vencida' %}
+                            <span style="background: #fde8e8; color: #9b1c1c; font-weight: 700; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+                                🔴 Vencida
+                            </span>
+                            {% elif it.computed_status == 'Parcial' %}
+                            <span style="background: #e0e7ff; color: #3730a3; font-weight: 700; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+                                🟣 Parcial
+                            </span>
+                            {% else %}
+                            <span style="background: #fef08a; color: #713f12; font-weight: 600; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+                                ⏳ Pendiente
+                            </span>
+                            {% endif %}
+                        </td>
+                        <!-- Columna Última Gestión -->
+                        <td style="padding: 10px 12px;">
+                            {% if it.last_action_date %}
+                                <div style="font-size: 12px; font-weight: 600; color: #1e293b; display: flex; align-items: center; gap: 4px;">
+                                    {% if it.last_action_type == 'Correo enviado' %}
+                                        <i class="fa-solid fa-envelope" style="color: #2563eb;"></i>
+                                    {% elif it.last_action_type == 'Llamada telefónica' %}
+                                        <i class="fa-solid fa-phone" style="color: #059669;"></i>
+                                    {% elif it.last_action_type == 'WhatsApp / Mensaje' %}
+                                        <i class="fa-brands fa-whatsapp" style="color: #16a34a;"></i>
+                                    {% elif it.last_action_type == 'Reunión' %}
+                                        <i class="fa-solid fa-handshake" style="color: #9333ea;"></i>
+                                    {% elif it.last_action_type == 'Compromiso de pago' %}
+                                        <i class="fa-solid fa-calendar-check" style="color: #d97706;"></i>
+                                    {% elif it.last_action_type == 'Carta / Notificación' %}
+                                        <i class="fa-solid fa-file-contract" style="color: #dc2626;"></i>
+                                    {% else %}
+                                        <i class="fa-solid fa-comment-dots" style="color: #64748b;"></i>
+                                    {% endif %}
+                                    {{ it.last_action_type }}
+                                </div>
+                                <div style="font-size: 11px; color: #64748b;">
+                                    {{ it.last_action_date }} {{ it.last_action_time }}
+                                </div>
+                                {% if it.last_commitment_date %}
+                                <div style="font-size: 10px; color: #b45309; font-weight: 600; margin-top: 2px;">
+                                    Compromiso: {{ it.last_commitment_date }} (${{ "{:,.0f}".format(it.last_commitment_amount or 0) }})
+                                </div>
+                                {% endif %}
+                            {% else %}
+                                <span style="background: #f1f5f9; color: #94a3b8; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;">
+                                    Sin gestión
+                                </span>
+                            {% endif %}
+                        </td>
+                        <!-- Columna Días sin Gestión -->
+                        <td style="padding: 10px 12px; text-align: center;">
+                            {% if it.dias_sin_gestion is not none %}
+                                {% if it.gestion_badge_type == 'reciente' %}
+                                    <span style="background: #dcfce7; color: #166534; font-weight: 700; padding: 2px 8px; border-radius: 12px; font-size: 11px;" title="Gestión reciente">
+                                        {{ it.dias_sin_gestion }} d
+                                    </span>
+                                {% elif it.gestion_badge_type == 'normal' %}
+                                    <span style="background: #f1f5f9; color: #334155; font-weight: 600; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+                                        {{ it.dias_sin_gestion }} d
+                                    </span>
+                                {% elif it.gestion_badge_type == 'atencion' %}
+                                    <span style="background: #fef3c7; color: #92400e; font-weight: 700; padding: 2px 8px; border-radius: 12px; font-size: 11px;" title="Requiere seguimiento">
+                                        ⚠️ {{ it.dias_sin_gestion }} d
+                                    </span>
+                                {% else %}
+                                    <span style="background: #fee2e2; color: #991b1b; font-weight: 800; padding: 2px 8px; border-radius: 12px; font-size: 11px;" title="Urgente seguimiento">
+                                        🚨 {{ it.dias_sin_gestion }} d
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                <span style="background: #fee2e2; color: #b91c1c; font-weight: 700; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+                                    Sin gestión
+                                </span>
+                            {% endif %}
+                        </td>
+                        <!-- Columna Próxima Gestión -->
+                        <td style="padding: 10px 12px; text-align: center;">
+                            {% if it.last_next_action_date %}
+                                {% if it.proxima_gestion_atrasada %}
+                                    <span style="background: #fee2e2; color: #991b1b; font-weight: 700; padding: 2px 8px; border-radius: 12px; font-size: 11px;" title="Próxima gestión atrasada">
+                                        <i class="fa-solid fa-clock-rotate-left"></i> {{ it.last_next_action_date }}
+                                    </span>
+                                {% else %}
+                                    <span style="background: #e0f2fe; color: #0369a1; font-weight: 600; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+                                        {{ it.last_next_action_date }}
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                <span style="color: #cbd5e1;">—</span>
+                            {% endif %}
+                        </td>
+                        <!-- Columna Acciones -->
+                        <td style="padding: 10px 12px; text-align: center; white-space: nowrap;">
+                            <div style="display: inline-flex; gap: 4px; align-items: center;">
+                                <button type="button" 
+                                        class="btn-gestion-action"
+                                        data-sale-id="{{ it.id }}"
+                                        data-sale-number="{{ it.sale_number }}"
+                                        data-customer="{{ it.customer_name }}"
+                                        data-pending="{{ it.pending_amount }}"
+                                        onclick="openGestionModal(this)"
+                                        title="Registrar Gestión de Cobranza"
+                                        style="padding: 5px 8px; background: #0284c7; color: white; border: none; border-radius: 5px; font-size: 11px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
+                                    <i class="fa-solid fa-phone-volume"></i> Gestión
+                                </button>
+                                <button type="button" 
+                                        class="btn-historial-action"
+                                        data-sale-id="{{ it.id }}"
+                                        data-sale-number="{{ it.sale_number }}"
+                                        data-customer="{{ it.customer_name }}"
+                                        data-total-actions="{{ it.total_actions_count }}"
+                                        onclick="openHistorialModal(this)"
+                                        title="Ver Historial de Gestiones"
+                                        style="padding: 5px 7px; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 11px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
+                                    <i class="fa-solid fa-clock-rotate-left"></i> ({{ it.total_actions_count }})
+                                </button>
+                                <button type="button" 
+                                        class="btn-cobrar-action"
+                                        data-sale-id="{{ it.id }}"
+                                        data-sale-number="{{ it.sale_number }}"
+                                        data-customer="{{ it.customer_name }}"
+                                        data-total="{{ it.total_amount }}"
+                                        data-paid="{{ it.paid_amount }}"
+                                        data-pending="{{ it.pending_amount }}"
+                                        data-method="{{ it.payment_method }}"
+                                        data-doc="{{ it.doc_number }}"
+                                        onclick="openCobrarModal(this)"
+                                        title="Registrar Cobro Oficial"
+                                        style="padding: 5px 8px; background: #1e40af; color: white; border: none; border-radius: 5px; font-size: 11px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
+                                    <i class="fa-solid fa-credit-card"></i> Cobrar
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="12" style="text-align: center; color: #64748b; padding: 36px;">
+                            <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px; color: #047857;">
+                                <i class="fa-solid fa-circle-check"></i> No hay cobros pendientes
+                            </div>
+                            <div style="font-size: 13px;">No existen cuentas por cobrar activas con los filtros seleccionados.</div>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginación Server-side -->
+    {% if total_pages > 1 %}
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 20px; padding-top: 14px; border-top: 1px solid #e2e8f0;">
+        <div style="font-size: 13px; color: #64748b;">
+            Página <strong>{{ current_page }}</strong> de <strong>{{ total_pages }}</strong> (Total: {{ total_records }} cuentas activas)
+        </div>
+        <div style="display: flex; gap: 6px;">
+            {% if current_page > 1 %}
+            <a href="{{ url_for('reportes.reportes_cuentas_por_cobrar', **dict(filters, page=current_page-1, per_page=per_page)) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; text-decoration: none; color: #334155; font-size: 12px; font-weight: 600;">
+                &laquo; Anterior
+            </a>
+            {% endif %}
+
+            {% for p in range(1, total_pages + 1) %}
+                {% if p == current_page %}
+                <span style="padding: 6px 12px; background: #1e40af; color: white; border-radius: 6px; font-size: 12px; font-weight: 600;">
+                    {{ p }}
+                </span>
+                {% elif p <= 3 or p >= total_pages - 2 or (p >= current_page - 1 and p <= current_page + 1) %}
+                <a href="{{ url_for('reportes.reportes_cuentas_por_cobrar', **dict(filters, page=p, per_page=per_page)) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; text-decoration: none; color: #334155; font-size: 12px;">
+                    {{ p }}
+                </a>
+                {% elif p == 4 or p == total_pages - 3 %}
+                <span style="padding: 6px 8px; color: #94a3b8; font-size: 12px;">...</span>
+                {% endif %}
+            {% endfor %}
+
+            {% if current_page < total_pages %}
+            <a href="{{ url_for('reportes.reportes_cuentas_por_cobrar', **dict(filters, page=current_page+1, per_page=per_page)) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; text-decoration: none; color: #334155; font-size: 12px; font-weight: 600;">
+                Siguiente &raquo;
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Oficial para Registrar Cobro / Pago de Venta -->
+<div id="cobrarModal" class="sf-modal" style="display: none; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000;">
+    <div class="sf-modal-backdrop" onclick="closeCobrarModal()" style="position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.5);"></div>
+    <div class="sf-modal-content" style="position: relative; background: #fff; padding: 25px; border-radius: 8px; width: 460px; max-width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+        <div class="sf-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 id="cobrar-modal-title" style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b;">Registrar Cobro / Pago</h3>
+            <button type="button" onclick="closeCobrarModal()" style="border: none; background: none; font-size: 20px; cursor: pointer; color: #a0aec0;">✕</button>
+        </div>
+        <div class="sf-modal-body">
+            <form id="cobrarForm" method="POST" action="{{ url_for('ventas.registrar_pago_venta') }}" enctype="multipart/form-data">
+                <input type="hidden" id="modal_sale_id" name="sale_id">
+                <input type="hidden" id="modal_idempotency_key" name="idempotency_key">
+                <input type="hidden" name="return_url" value="{{ request.full_path }}">
+
+                <!-- Resumen Financiero de la Venta -->
+                <div style="margin-bottom: 15px; background: #eff6ff; padding: 12px; border-radius: 6px; border: 1px dashed #93c5fd;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="color: #64748b; font-size: 13px;">N° Venta:</span>
+                        <strong id="modal_label_sale_number" style="color: #1e293b;">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="color: #64748b; font-size: 13px;">Cliente:</span>
+                        <strong id="modal_label_customer" style="color: #1e40af;">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="color: #64748b; font-size: 13px;">Total Venta:</span>
+                        <strong id="modal_label_total" style="color: #1e293b;">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="color: #64748b; font-size: 13px;">Total Ya Pagado:</span>
+                        <strong id="modal_label_paid" style="color: #059669;">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: #64748b; font-size: 13px; font-weight: 700;">Saldo Pendiente:</span>
+                        <strong id="modal_label_pending" style="color: #b91c1c; font-size: 14px;">-</strong>
+                    </div>
+                </div>
+
+                <div class="sf-form-group" style="margin-bottom: 15px;">
+                    <label style="display: block; font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 6px;">Medio de pago *</label>
+                    <select class="sf-select" id="modal_payment_method" name="payment_method" onchange="toggleCobrarFields(this.value)" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;">
+                        <option value="">-- Seleccionar --</option>
+                        <option value="Transferencia">Transferencia bancaria</option>
+                        <option value="Efectivo">Efectivo</option>
+                    </select>
+                </div>
+
+                <div class="sf-form-group" style="margin-bottom: 15px;">
+                    <label style="display: block; font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 6px;">Fecha del pago *</label>
+                    <input type="date" class="sf-input" id="modal_payment_date" name="payment_date" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;">
+                </div>
+
+                <div class="sf-form-group" style="margin-bottom: 15px;">
+                    <label style="display: block; font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 6px;">Monto a pagar ($) *</label>
+                    <input type="number" step="0.01" min="0.01" class="sf-input" id="modal_payment_amount" name="payment_amount" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;">
+                    <small style="color: #64748b; font-size: 11px;">Permite abonos parciales o el saldo total.</small>
+                </div>
+
+                <div id="modal_transfer_fields" style="display: none;">
+                    <div class="sf-form-group" style="margin-bottom: 15px;">
+                        <label style="display: block; font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 6px;">Cuenta Bancaria Destino *</label>
+                        <select class="sf-select" id="modal_bank_account_id" name="bank_account_id" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;">
+                            <option value="">-- Seleccionar Cuenta --</option>
+                            {% for acc in bank_accounts %}
+                                <option value="{{ acc.id }}">{{ acc.bank_name }} - {{ acc.account_number }} ({{ acc.holder_name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="sf-form-group" style="margin-bottom: 15px;">
+                        <label style="display: block; font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 6px;">Comprobante / Evidencia *</label>
+                        <input type="file" class="sf-input" id="modal_payment_file" name="payment_file" accept="image/*,application/pdf" style="width: 100%; padding: 6px; font-size: 13px;">
+                    </div>
+                </div>
+
+                <div class="sf-form-group" style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 6px;">Observación / Referencia</label>
+                    <textarea class="sf-input" id="modal_payment_notes" name="payment_notes" rows="2" placeholder="N° de transferencia, observaciones del abono..." style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px;"></textarea>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" onclick="closeCobrarModal()" style="padding: 8px 16px; border: 1px solid #cbd5e0; background: #fff; color: #4a5568; border-radius: 4px; cursor: pointer;">Cancelar</button>
+                    <button type="submit" id="cobrar-submit-btn" style="padding: 8px 18px; border: none; background: #1e40af; color: #fff; border-radius: 4px; cursor: pointer; font-weight: 600;">Registrar Cobro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Registrar Gestión de Cobranza -->
+<div id="gestionModal" class="sf-modal" style="display: none; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000;">
+    <div class="sf-modal-backdrop" onclick="closeGestionModal()" style="position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.5);"></div>
+    <div class="sf-modal-content" style="position: relative; background: #fff; padding: 25px; border-radius: 8px; width: 520px; max-width: 92%; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+        <div class="sf-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px;">
+            <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-phone-volume" style="color: #0284c7;"></i> Registrar Gestión de Cobranza
+            </h3>
+            <button type="button" onclick="closeGestionModal()" style="border: none; background: none; font-size: 20px; cursor: pointer; color: #a0aec0;">✕</button>
+        </div>
+        <div class="sf-modal-body">
+            <form id="gestionForm" method="POST" action="{{ url_for('reportes.registrar_gestion_cobranza') }}">
+                <input type="hidden" id="gestion_sale_id" name="sale_id">
+                <input type="hidden" name="return_url" value="{{ request.full_path }}">
+
+                <!-- Resumen de la Venta y Deuda -->
+                <div style="margin-bottom: 15px; background: #f0f9ff; padding: 12px; border-radius: 6px; border: 1px dashed #7dd3fc;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="color: #64748b; font-size: 13px;">Venta:</span>
+                        <strong id="gestion_label_sale_number" style="color: #0f172a;">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="color: #64748b; font-size: 13px;">Cliente:</span>
+                        <strong id="gestion_label_customer" style="color: #0284c7;">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: #64748b; font-size: 13px; font-weight: 700;">Saldo Pendiente:</span>
+                        <strong id="gestion_label_pending" style="color: #b91c1c; font-size: 14px;">-</strong>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                    <div class="sf-form-group">
+                        <label style="display: block; font-weight: 600; font-size: 12px; color: #334155; margin-bottom: 4px;">Tipo de Gestión *</label>
+                        <select class="sf-select" id="gestion_action_type" name="action_type" required style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px;">
+                            <option value="Correo enviado">Correo enviado</option>
+                            <option value="Llamada telefónica" selected>Llamada telefónica</option>
+                            <option value="WhatsApp / Mensaje">WhatsApp / Mensaje</option>
+                            <option value="Reunión">Reunión</option>
+                            <option value="Compromiso de pago">Compromiso de pago</option>
+                            <option value="Carta / Notificación">Carta / Notificación</option>
+                            <option value="Otra">Otra</option>
+                        </select>
+                    </div>
+                    <div class="sf-form-group">
+                        <label style="display: block; font-weight: 600; font-size: 12px; color: #334155; margin-bottom: 4px;">Fecha y Hora *</label>
+                        <div style="display: flex; gap: 6px;">
+                            <input type="date" class="sf-input" id="gestion_action_date" name="action_date" required style="flex: 2; padding: 7px 8px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 12px;">
+                            <input type="time" class="sf-input" id="gestion_action_time" name="action_time" required style="flex: 1; padding: 7px 6px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 12px;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sf-form-group" style="margin-bottom: 12px;">
+                    <label style="display: block; font-weight: 600; font-size: 12px; color: #334155; margin-bottom: 4px;">Contacto (Persona contactada)</label>
+                    <input type="text" class="sf-input" id="gestion_contact_name" name="contact_name" placeholder="Ej: Juan Pérez (Jefe Finanzas / Tesorería)" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px;">
+                </div>
+
+                <div class="sf-form-group" style="margin-bottom: 12px;">
+                    <label style="display: block; font-weight: 600; font-size: 12px; color: #334155; margin-bottom: 4px;">Resultado de la Gestión *</label>
+                    <textarea class="sf-input" id="gestion_result" name="result" rows="2" required placeholder="Detalle de lo conversado o respuesta del cliente..." style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px;"></textarea>
+                </div>
+
+                <div style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 14px;">
+                    <div style="font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 8px; text-transform: uppercase;">
+                        Compromiso de Pago (Opcional)
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div>
+                            <label style="display: block; font-weight: 600; font-size: 12px; color: #64748b; margin-bottom: 4px;">Fecha Comprometida</label>
+                            <input type="date" class="sf-input" id="gestion_commitment_date" name="payment_commitment_date" style="width: 100%; padding: 7px 8px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 12px;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-weight: 600; font-size: 12px; color: #64748b; margin-bottom: 4px;">Monto Comprometido ($)</label>
+                            <input type="number" step="0.01" min="0" class="sf-input" id="gestion_commitment_amount" name="payment_commitment_amount" placeholder="0" style="width: 100%; padding: 7px 8px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 12px;">
+                        </div>
+                    </div>
+                    <small style="color: #94a3b8; font-size: 11px; display: block; margin-top: 4px;">
+                        * El compromiso de pago no modifica el saldo real hasta registrar el cobro oficial.
+                    </small>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 12px;">
+                    <div class="sf-form-group">
+                        <label style="display: block; font-weight: 600; font-size: 12px; color: #334155; margin-bottom: 4px;">Próxima Acción</label>
+                        <input type="text" class="sf-input" id="gestion_next_action" name="next_action" placeholder="Ej: Reintentar llamada / Revisar cartola..." style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px;">
+                    </div>
+                    <div class="sf-form-group">
+                        <label style="display: block; font-weight: 600; font-size: 12px; color: #334155; margin-bottom: 4px;">Fecha Próx. Gestión</label>
+                        <input type="date" class="sf-input" id="gestion_next_action_date" name="next_action_date" style="width: 100%; padding: 8px 8px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 12px;">
+                    </div>
+                </div>
+
+                <div class="sf-form-group" style="margin-bottom: 16px;">
+                    <label style="display: block; font-weight: 600; font-size: 12px; color: #334155; margin-bottom: 4px;">Observaciones Adicionales</label>
+                    <textarea class="sf-input" id="gestion_notes" name="notes" rows="2" placeholder="Notas internas de la cuenta..." style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px;"></textarea>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" onclick="closeGestionModal()" style="padding: 8px 16px; border: 1px solid #cbd5e0; background: #fff; color: #4a5568; border-radius: 4px; cursor: pointer;">Cancelar</button>
+                    <button type="submit" id="gestion-submit-btn" style="padding: 8px 18px; border: none; background: #0284c7; color: #fff; border-radius: 4px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-save"></i> Guardar Gestión
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Ver Historial de Gestiones -->
+<div id="historialModal" class="sf-modal" style="display: none; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000;">
+    <div class="sf-modal-backdrop" onclick="closeHistorialModal()" style="position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.5);"></div>
+    <div class="sf-modal-content" style="position: relative; background: #fff; padding: 25px; border-radius: 8px; width: 650px; max-width: 95%; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+        <div class="sf-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px;">
+            <div>
+                <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-clock-rotate-left" style="color: #475569;"></i> Historial de Gestiones de Cobranza
+                </h3>
+                <div style="font-size: 12px; color: #64748b; margin-top: 2px;" id="historial_modal_subtitle">
+                    Cargando información...
+                </div>
+            </div>
+            <button type="button" onclick="closeHistorialModal()" style="border: none; background: none; font-size: 20px; cursor: pointer; color: #a0aec0;">✕</button>
+        </div>
+        <div class="sf-modal-body" style="overflow-y: auto; flex: 1; padding-right: 4px;">
+            <div id="historial_loading" style="text-align: center; padding: 30px; color: #64748b;">
+                <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; color: #0284c7; margin-bottom: 8px;"></i>
+                <div>Cargando historial de gestiones...</div>
+            </div>
+            <div id="historial_empty" style="display: none; text-align: center; padding: 30px; color: #64748b;">
+                <i class="fa-regular fa-comment-dots" style="font-size: 28px; color: #cbd5e1; margin-bottom: 8px;"></i>
+                <div style="font-weight: 600;">No hay gestiones registradas para esta cuenta</div>
+                <div style="font-size: 12px; margin-top: 4px;">Usa el botón "Gestión" para registrar el primer contacto o llamada.</div>
+            </div>
+            <div id="historial_list" style="display: none; display: flex; flex-direction: column; gap: 12px;">
+                <!-- Rellenado dinámicamente mediante JS -->
+            </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; margin-top: 16px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+            <button type="button" onclick="closeHistorialModal()" style="padding: 8px 18px; border: 1px solid #cbd5e1; background: #fff; color: #334155; border-radius: 4px; cursor: pointer; font-weight: 600;">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function openGestionModal(btn) {
+    const saleId = btn.getAttribute('data-sale-id');
+    const saleNumber = btn.getAttribute('data-sale-number');
+    const customer = btn.getAttribute('data-customer');
+    const pending = parseFloat(btn.getAttribute('data-pending') || '0');
+
+    document.getElementById('gestion_sale_id').value = saleId;
+    document.getElementById('gestion_label_sale_number').innerText = saleNumber;
+    document.getElementById('gestion_label_customer').innerText = customer;
+    document.getElementById('gestion_label_pending').innerText = '$' + Math.round(pending).toLocaleString('es-CL');
+
+    const now = new Date();
+    const actionDate = document.getElementById('gestion_action_date');
+    if (actionDate._flatpickr) actionDate._flatpickr.setDate(now.toISOString().substring(0, 10), true);
+    else actionDate.value = now.toISOString().substring(0, 10);
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    document.getElementById('gestion_action_time').value = `${hours}:${minutes}`;
+
+    document.getElementById('gestion_contact_name').value = '';
+    document.getElementById('gestion_result').value = '';
+    document.getElementById('gestion_next_action').value = '';
+    const nextActionDate = document.getElementById('gestion_next_action_date');
+    const commitmentDate = document.getElementById('gestion_commitment_date');
+    if (nextActionDate._flatpickr) nextActionDate._flatpickr.clear();
+    else nextActionDate.value = '';
+    if (commitmentDate._flatpickr) commitmentDate._flatpickr.clear();
+    else commitmentDate.value = '';
+    document.getElementById('gestion_commitment_amount').value = '';
+    document.getElementById('gestion_notes').value = '';
+
+    document.getElementById('gestionModal').style.display = 'flex';
+}
+
+function closeGestionModal() {
+    document.getElementById('gestionModal').style.display = 'none';
+}
+
+function openHistorialModal(btn) {
+    const saleId = btn.getAttribute('data-sale-id');
+    const saleNumber = btn.getAttribute('data-sale-number');
+    const customer = btn.getAttribute('data-customer');
+
+    document.getElementById('historial_modal_subtitle').innerText = `${saleNumber} - ${customer}`;
+    const loadingDiv = document.getElementById('historial_loading');
+    const emptyDiv = document.getElementById('historial_empty');
+    const listDiv = document.getElementById('historial_list');
+
+    loadingDiv.style.display = 'block';
+    emptyDiv.style.display = 'none';
+    listDiv.style.display = 'none';
+    listDiv.innerHTML = '';
+
+    document.getElementById('historialModal').style.display = 'flex';
+
+    fetch(`/reporteria/cuentas-por-cobrar/${saleId}/historial-cobranza`)
+        .then(response => response.json())
+        .then(data => {
+            loadingDiv.style.display = 'none';
+            if (data.status === 'success' && data.actions && data.actions.length > 0) {
+                listDiv.style.display = 'flex';
+                data.actions.forEach(action => {
+                    const card = document.createElement('div');
+                    card.style.background = '#f8fafc';
+                    card.style.border = '1px solid #e2e8f0';
+                    card.style.borderRadius = '8px';
+                    card.style.padding = '12px 14px';
+                    card.style.position = 'relative';
+
+                    let iconHtml = '<i class="fa-solid fa-comment-dots" style="color: #64748b;"></i>';
+                    if (action.action_type === 'Correo enviado') iconHtml = '<i class="fa-solid fa-envelope" style="color: #2563eb;"></i>';
+                    else if (action.action_type === 'Llamada telefónica') iconHtml = '<i class="fa-solid fa-phone" style="color: #059669;"></i>';
+                    else if (action.action_type === 'WhatsApp / Mensaje') iconHtml = '<i class="fa-brands fa-whatsapp" style="color: #16a34a;"></i>';
+                    else if (action.action_type === 'Reunión') iconHtml = '<i class="fa-solid fa-handshake" style="color: #9333ea;"></i>';
+                    else if (action.action_type === 'Compromiso de pago') iconHtml = '<i class="fa-solid fa-calendar-check" style="color: #d97706;"></i>';
+                    else if (action.action_type === 'Carta / Notificación') iconHtml = '<i class="fa-solid fa-file-contract" style="color: #dc2626;"></i>';
+
+                    let commitmentHtml = '';
+                    if (action.payment_commitment_date || action.payment_commitment_amount) {
+                        const mto = action.payment_commitment_amount ? '$' + Math.round(action.payment_commitment_amount).toLocaleString('es-CL') : '—';
+                        commitmentHtml = `
+                            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 4px; padding: 6px 10px; margin-top: 8px; font-size: 12px; color: #92400e;">
+                                <strong>Compromiso de pago:</strong> ${action.payment_commitment_date || '—'} | Monto: <strong>${mto}</strong>
+                            </div>
+                        `;
+                    }
+
+                    let nextActionHtml = '';
+                    if (action.next_action || action.next_action_date) {
+                        nextActionHtml = `
+                            <div style="margin-top: 6px; font-size: 11px; color: #0369a1; background: #f0f9ff; border: 1px solid #e0f2fe; border-radius: 4px; padding: 4px 8px;">
+                                <strong>Próxima acción:</strong> ${action.next_action || '—'} (${action.next_action_date || 'Sin fecha'})
+                            </div>
+                        `;
+                    }
+
+                    card.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                            <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #1e293b; font-size: 13px;">
+                                ${iconHtml} ${action.action_type}
+                                ${action.contact_name ? `<span style="font-weight: normal; color: #64748b; font-size: 12px;">(con ${action.contact_name})</span>` : ''}
+                            </div>
+                            <div style="font-size: 11px; color: #64748b; text-align: right;">
+                                <div>${action.action_date} ${action.action_time || ''}</div>
+                                <div style="color: #94a3b8; font-size: 10px;">Por: <strong>${action.user_name}</strong></div>
+                            </div>
+                        </div>
+                        <div style="font-size: 13px; color: #334155; line-height: 1.4; margin-top: 4px;">
+                            ${action.result}
+                        </div>
+                        ${action.notes ? `<div style="font-size: 11px; color: #64748b; font-style: italic; margin-top: 4px;">Nota: ${action.notes}</div>` : ''}
+                        ${commitmentHtml}
+                        ${nextActionHtml}
+                    `;
+                    listDiv.appendChild(card);
+                });
+            } else {
+                emptyDiv.style.display = 'block';
+            }
+        })
+        .catch(err => {
+            loadingDiv.style.display = 'none';
+            emptyDiv.style.display = 'block';
+            emptyDiv.innerHTML = `<div style="color: #b91c1c;">Error al cargar historial: ${err}</div>`;
+        });
+}
+
+function closeHistorialModal() {
+    document.getElementById('historialModal').style.display = 'none';
+}
+
+function openCobrarModal(btn) {
+    const saleId = btn.getAttribute('data-sale-id');
+    const saleNumber = btn.getAttribute('data-sale-number');
+    const customer = btn.getAttribute('data-customer');
+    const total = parseFloat(btn.getAttribute('data-total') || '0');
+    const paid = parseFloat(btn.getAttribute('data-paid') || '0');
+    const pending = parseFloat(btn.getAttribute('data-pending') || '0');
+    const method = btn.getAttribute('data-method') || 'Transferencia';
+
+    document.getElementById('modal_sale_id').value = saleId;
+    document.getElementById('modal_label_sale_number').innerText = saleNumber;
+    document.getElementById('modal_label_customer').innerText = customer;
+    document.getElementById('modal_label_total').innerText = '$' + Math.round(total).toLocaleString('es-CL');
+    document.getElementById('modal_label_paid').innerText = '$' + Math.round(paid).toLocaleString('es-CL');
+    document.getElementById('modal_label_pending').innerText = '$' + Math.round(pending).toLocaleString('es-CL');
+
+    document.getElementById('modal_payment_date').value = new Date().toISOString().substring(0, 10);
+    document.getElementById('modal_payment_amount').value = pending.toFixed(2);
+    document.getElementById('modal_payment_amount').max = pending.toFixed(2);
+    document.getElementById('modal_idempotency_key').value = (window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : (Date.now() + '-' + Math.random()));
+
+    document.getElementById('modal_payment_method').value = method;
+    toggleCobrarFields(method);
+
+    document.getElementById('cobrarModal').style.display = 'flex';
+}
+
+function closeCobrarModal() {
+    document.getElementById('cobrarModal').style.display = 'none';
+}
+
+function toggleCobrarFields(method) {
+    const transferDiv = document.getElementById('modal_transfer_fields');
+    const bankSelect = document.getElementById('modal_bank_account_id');
+    const fileInput = document.getElementById('modal_payment_file');
+
+    if (method === 'Transferencia') {
+        transferDiv.style.display = 'block';
+        bankSelect.required = true;
+        fileInput.required = true;
+    } else {
+        transferDiv.style.display = 'none';
+        bankSelect.required = false;
+        fileInput.required = false;
+    }
+}
+</script>
+{% endblock %}

@@ -9,105 +9,234 @@
         <h3>Registrar Nueva Orden de Compra (OC)</h3>
         <form class="ingreso-form" method="post" id="oc-form" style="margin-top: 20px;">
             
-            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                <div class="form-group">
-                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Fecha de Orden</label>
-                    <input type="date" class="form-control" name="order_date" value="{{ default_date }}" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
-                </div>
-                <div class="form-group">
-                    <label style="font-weight: 500; display: block; margin-bottom: 6px;">Proveedor</label>
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                        <select class="form-control" name="supplier_id" id="oc-supplier" required style="flex: 1; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
-                            <option value="">Seleccionar proveedor</option>
-                            {% for supplier in suppliers %}
-                            <option value="{{ supplier.id }}">{{ supplier.name }}</option>
-                            {% endfor %}
-                        </select>
-                        <button type="button" id="btn-open-supplier-modal" style="background-color: #3182CE; color: white; border: none; border-radius: 6px; padding: 8px 14px; font-weight: bold; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;" title="Agregar nuevo proveedor">
-                            ➕
-                        </button>
+            <div class="form-section" style="margin-bottom: 20px;">
+                <div class="form-section-header">
+                    <span class="form-section-badge">1</span>
+                    <div>
+                        <h4 class="form-section-title">Datos Generales y Proveedor</h4>
+                        <p class="form-section-subtitle">Fecha de emisión, proveedor seleccionado y condiciones comerciales</p>
                     </div>
                 </div>
-            </div>
 
-            <div class="form-group" style="margin-bottom: 16px;">
-                <label style="font-weight: 500; display: block; margin-bottom: 6px;">Método / Condición de Pago *</label>
-                <select class="form-control" name="payment_method" required style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
-                    <option value="Efectivo" selected>Efectivo</option>
-                    <option value="Transferencia bancaria">Transferencia bancaria</option>
-                    <option value="Tarjeta de Crédito / Débito">Tarjeta de Crédito / Débito</option>
-                    <option value="Crédito 30 días">Crédito 30 días</option>
-                </select>
-            </div>
-
-            <div class="form-group" style="margin-bottom: 16px;">
-                <label style="font-weight: 500; display: block; margin-bottom: 6px;">Notas / Términos de Compra</label>
-                <textarea class="form-control" name="notes" placeholder="Términos de pago, plazos de entrega, etc..." style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px; height: 60px; resize: vertical;"></textarea>
-            </div>
-
-            <div class="form-divider" style="height: 1px; background: #E2E8F0; margin: 24px 0;"></div>
-
-            <h4 style="margin-bottom: 12px;">Insumos a Solicitar</h4>
-            <p style="color: #718096; font-size: 13px; margin-bottom: 16px;" id="supplier-hint">Seleccione un proveedor para listar los insumos disponibles.</p>
-            <div id="productos-oc-section" style="display: none; margin-top: 15px;">
-                <!-- Cabecera de columnas única -->
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 12px; margin-bottom: 8px; font-weight: 600; font-size: 13px; color: #4a5568; border-bottom: 2px solid #E2E8F0; padding-bottom: 6px;">
-                    <div>Insumo</div>
-                    <div>Cantidad</div>
-                    <div>Precio Unitario ($)</div>
-                    <div style="width: 40px; text-align: center;"></div>
+                <div class="form-grid-2">
+                    <div class="form-group-field">
+                        <label>Fecha de Orden <span class="req-star">*</span></label>
+                        <input type="date" class="form-control" name="order_date" value="{{ default_date }}" required>
+                    </div>
+                    <div class="form-group-field">
+                        <label>Proveedor <span class="req-star">*</span></label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <select class="form-control" name="supplier_id" id="oc-supplier" required style="flex: 1;">
+                                <option value="">-- Seleccionar proveedor --</option>
+                                {% for supplier in suppliers %}
+                                <option value="{{ supplier.id }}" data-payment-terms="{{ supplier.default_payment_terms or 'NET_30' }}">{{ supplier.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" id="btn-open-supplier-modal" class="btn-secondary" style="padding: 8px 12px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;" title="Registrar nuevo proveedor">
+                                <i class="fa-solid fa-plus"></i> Agregar Proveedor
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                
-                <div id="productos-oc-container">
-                    <!-- Filas de productos dinámicas sin repetir etiquetas -->
+
+                <div class="form-grid-2">
+                    <div class="form-group-field">
+                        <label>Forma de Pago <span class="req-star">*</span></label>
+                        <select class="form-control" name="payment_terms" id="oc-payment-terms" required>
+                            <option value="CASH">Al contado</option>
+                            <option value="NET_30" selected>A 30 días (Crédito)</option>
+                            <option value="NET_60">A 60 días (Crédito)</option>
+                        </select>
+                    </div>
+                    <div class="form-group-field">
+                        <label>Método Operativo de Pago</label>
+                        <select class="form-control" name="payment_method">
+                            <option value="Transferencia bancaria" selected>Transferencia bancaria</option>
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Tarjeta de Crédito / Débito">Tarjeta de Crédito / Débito</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group-field">
+                    <label>Notas / Términos de Compra</label>
+                    <textarea class="form-control" name="notes" placeholder="Términos de pago, plazos acordados de entrega, condiciones de flete..." rows="2"></textarea>
                 </div>
             </div>
 
-            <button type="button" class="btn-secondary" id="add-product-btn" style="margin-top: 12px; display: none; padding: 6px 12px; background-color: #ED8936; border: none; color: white; border-radius: 4px; cursor: pointer; font-weight: 600;">
-                ➕ Agregar línea
-            </button>
+            <!-- SECCIÓN 2: INSUMOS A SOLICITAR -->
+            <div class="form-section">
+                <div class="form-section-header">
+                    <span class="form-section-badge">2</span>
+                    <div>
+                        <h4 class="form-section-title">Insumos y Líneas de Pedido</h4>
+                        <p class="form-section-subtitle">Selecciona los insumos provistos por el proveedor y sus cantidades</p>
+                    </div>
+                </div>
+
+                <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;" id="supplier-hint">
+                    <i class="fa-solid fa-circle-info" style="color: var(--info); margin-right: 4px;"></i>
+                    Seleccione un proveedor arriba para listar los insumos disponibles y habilitar la carga de líneas.
+                </p>
+
+                <div id="productos-oc-section" style="display: none; margin-top: 15px;">
+                    <!-- Cabecera de columnas única -->
+                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 12px; margin-bottom: 8px; font-weight: 600; font-size: 13px; color: var(--text-body); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">
+                        <div>Insumo / Ítem</div>
+                        <div>Cantidad Requerida</div>
+                        <div>Precio Unitario Neto ($)</div>
+                        <div style="width: 40px; text-align: center;">Acción</div>
+                    </div>
+                    
+                    <div id="productos-oc-container">
+                        <!-- Filas de productos dinámicas -->
+                    </div>
+                </div>
+
+                <button type="button" class="btn-secondary btn-sm" id="add-product-btn" style="margin-top: 14px; display: none; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-plus"></i> Agregar línea de insumo
+                </button>
+            </div>
 
             <!-- Input oculto para definir el estado (Borrador vs Pendiente Aprobación) -->
             <input type="hidden" name="status" id="oc-status-input" value="Pendiente Aprobación">
 
             <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px; align-items: center;">
-                <a href="{{ url_for('compras.list_oc') }}" class="btn-secondary" style="text-decoration: none; padding: 10px 16px;">Cancelar</a>
+                <a href="{{ url_for('compras.list_oc') }}" class="btn-secondary" style="text-decoration: none;">Cancelar</a>
                 
-                <button type="submit" onclick="document.getElementById('oc-status-input').value = 'Borrador';" class="btn-secondary" style="padding: 10px 20px; background-color: #A0AEC0; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
-                    📂 Guardar Borrador
+                <button type="submit" onclick="document.getElementById('oc-status-input').value = 'Borrador';" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-floppy-disk"></i> Guardar Borrador
                 </button>
                 
-                <button type="submit" onclick="document.getElementById('oc-status-input').value = 'Pendiente Aprobación';" class="sf-btn-primary" style="padding: 10px 20px;">
-                    ✉️ Enviar a Aprobación
+                <button type="submit" onclick="document.getElementById('oc-status-input').value = 'Pendiente Aprobación';" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-paper-plane"></i> Enviar a Aprobación
                 </button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Modal para Registro Rápido de Proveedor -->
-<div id="modal-quick-supplier" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
-    <div style="background: white; border-radius: 12px; width: 450px; max-width: 90%; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); position: relative;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #E2E8F0; padding-bottom: 12px;">
-            <h3 style="margin: 0; font-size: 18px; color: #2D3748;">Agregar Nuevo Proveedor</h3>
-            <button type="button" id="btn-close-supplier-modal" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #A0AEC0;">✕</button>
+<!-- Modal para Registro de Proveedor desde la Orden de Compra -->
+<div id="modal-quick-supplier" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(2px); z-index: 99999; justify-content: center; align-items: center; padding: 16px; overflow-y: auto;">
+    <div style="background: white; border-radius: 12px; width: 620px; max-width: 95%; max-height: 90vh; overflow-y: auto; padding: 22px 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04); position: relative; border: 1px solid #e2e8f0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px;">
+            <div>
+                <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-truck" style="color: #3182ce; font-size: 15px;"></i>
+                    <span>Agregar Proveedor</span>
+                </h3>
+                <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Crear proveedor en el maestro y asignarlo a esta Orden de Compra</p>
+            </div>
+            <button type="button" id="btn-close-supplier-modal" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #94a3b8; line-height: 1;">✕</button>
         </div>
+
+        <!-- Banner de alerta de duplicado o error general -->
+        <div id="modal-supplier-alert" style="display: none; margin-bottom: 14px; padding: 10px 14px; border-radius: 8px; font-size: 13px; line-height: 1.4;">
+            <div id="modal-supplier-alert-text"></div>
+            <div id="modal-supplier-duplicate-action" style="margin-top: 8px; display: none;">
+                <button type="button" id="btn-select-existing-supplier" style="padding: 5px 12px; background: #2563eb; color: white; border: none; border-radius: 5px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                    Usar este proveedor en la OC
+                </button>
+            </div>
+        </div>
+
         <form id="quick-supplier-form">
-            <div style="margin-bottom: 14px;">
-                <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; color: #4A5568;">Nombre del Proveedor *</label>
-                <input type="text" id="quick-supplier-name" required placeholder="Ej: Distribuidora Miel SpA" style="width: 100%; padding: 8px 12px; border: 1px solid #CBD5E0; border-radius: 6px; font-size: 14px;">
+            <!-- Fila 1: RUT y Razón Social -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 12px; margin-bottom: 4px; color: #334155;">
+                        RUT Proveedor <span class="req-star" style="color: #e11d48;">*</span>
+                    </label>
+                    <div style="display: flex; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; background: white;" id="wrapper-quick-supplier-rut">
+                        <span style="background: #f8fafc; padding: 7px 10px; font-size: 12px; color: #64748b; font-weight: 600; border-right: 1px solid #cbd5e1;">RUT</span>
+                        <input type="text" id="quick-supplier-rut" placeholder="76.123.456-7" style="flex: 1; padding: 7px 10px; border: none; outline: none; font-size: 13px;">
+                    </div>
+                    <small id="err-quick-supplier-rut" style="display: none; color: #dc2626; font-size: 11px; margin-top: 3px; font-weight: 600;"></small>
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 12px; margin-bottom: 4px; color: #334155;">
+                        Razón Social / Nombre <span class="req-star" style="color: #e11d48;">*</span>
+                    </label>
+                    <input type="text" id="quick-supplier-name" required placeholder="Ej: Comercial ABC Ltda." style="width: 100%; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                    <small id="err-quick-supplier-name" style="display: none; color: #dc2626; font-size: 11px; margin-top: 3px; font-weight: 600;"></small>
+                </div>
             </div>
-            <div style="margin-bottom: 14px;">
-                <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; color: #4A5568;">Descripción / Rubro</label>
-                <input type="text" id="quick-supplier-desc" placeholder="Ej: Insumos de empaque y envases" style="width: 100%; padding: 8px 12px; border: 1px solid #CBD5E0; border-radius: 6px; font-size: 14px;">
+
+            <!-- Fila 2: Nombre de Fantasía y Giro -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 12px; margin-bottom: 4px; color: #334155;">Nombre de Fantasía</label>
+                    <input type="text" id="quick-supplier-fantasy" placeholder="Ej: ABC Suministros" style="width: 100%; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 12px; margin-bottom: 4px; color: #334155;">Giro Comercial</label>
+                    <input type="text" id="quick-supplier-giro" placeholder="Ej: Venta de envases y embalajes" style="width: 100%; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
             </div>
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; color: #4A5568;">Sitio Web / Email</label>
-                <input type="text" id="quick-supplier-web" placeholder="Ej: www.proveedor.cl" style="width: 100%; padding: 8px 12px; border: 1px solid #CBD5E0; border-radius: 6px; font-size: 14px;">
+
+            <!-- Fila 3: Dirección, Comuna y Ciudad -->
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; margin-bottom: 10px;">
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 12px; margin-bottom: 4px; color: #334155;">Dirección</label>
+                    <input type="text" id="quick-supplier-dir" placeholder="Av. Los Aromos 1234" style="width: 100%; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 12px; margin-bottom: 4px; color: #334155;">Comuna</label>
+                    <input type="text" id="quick-supplier-comuna" placeholder="Ej: Santiago" style="width: 100%; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 12px; margin-bottom: 4px; color: #334155;">Ciudad</label>
+                    <input type="text" id="quick-supplier-ciudad" placeholder="Ej: Santiago" style="width: 100%; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
             </div>
-            <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" id="btn-cancel-supplier-modal" style="padding: 8px 16px; background: #E2E8F0; color: #4A5568; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">Cancelar</button>
-                <button type="submit" id="btn-save-supplier-modal" style="padding: 8px 16px; background: #3182CE; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Guardar Proveedor</button>
+
+            <!-- Fila 4: Contacto, Teléfono y Email -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 10px;">
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 12px; margin-bottom: 4px; color: #334155;">Contacto Comercial</label>
+                    <input type="text" id="quick-supplier-contact" placeholder="Ej: Juan Pérez" style="width: 100%; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 12px; margin-bottom: 4px; color: #334155;">Teléfono</label>
+                    <input type="text" id="quick-supplier-phone" placeholder="+56 9 1234 5678" style="width: 100%; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 12px; margin-bottom: 4px; color: #334155;">Email</label>
+                    <input type="email" id="quick-supplier-email" placeholder="compras@proveedor.cl" style="width: 100%; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                    <small id="err-quick-supplier-email" style="display: none; color: #dc2626; font-size: 11px; margin-top: 3px; font-weight: 600;"></small>
+                </div>
+            </div>
+
+            <!-- Fila 5: Condición de Pago y Sitio Web -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 12px; margin-bottom: 4px; color: #334155;">
+                        Condición de Pago <span class="req-star" style="color: #e11d48;">*</span>
+                    </label>
+                    <select id="quick-supplier-terms" style="width: 100%; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white;">
+                        <option value="CASH">Al contado</option>
+                        <option value="NET_30" selected>A 30 días</option>
+                        <option value="NET_60">A 60 días</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 12px; margin-bottom: 4px; color: #334155;">Sitio Web</label>
+                    <input type="text" id="quick-supplier-web" placeholder="www.proveedor.cl" style="width: 100%; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
+            </div>
+
+            <!-- Fila 6: Observaciones -->
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-weight: 600; font-size: 12px; margin-bottom: 4px; color: #334155;">Observaciones</label>
+                <textarea id="quick-supplier-desc" rows="2" placeholder="Notas sobre plazos de entrega, despacho, condiciones de compra..." style="width: 100%; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; resize: vertical;"></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #e2e8f0; padding-top: 14px;">
+                <button type="button" id="btn-cancel-supplier-modal" style="padding: 7px 16px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">Cancelar</button>
+                <button type="submit" id="btn-save-supplier-modal" style="padding: 7px 18px; background: #3182CE; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>Crear Proveedor</span>
+                </button>
             </div>
         </form>
     </div>
@@ -127,15 +256,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCloseSupplierModal = document.getElementById('btn-close-supplier-modal');
     const btnCancelSupplierModal = document.getElementById('btn-cancel-supplier-modal');
     const quickSupplierForm = document.getElementById('quick-supplier-form');
+    const alertBox = document.getElementById('modal-supplier-alert');
+    const alertText = document.getElementById('modal-supplier-alert-text');
+    const dupAction = document.getElementById('modal-supplier-duplicate-action');
+    const btnSelectDup = document.getElementById('btn-select-existing-supplier');
+
+    let pendingDuplicateSupplier = null;
+
+    const clearErrors = () => {
+        ['rut', 'name', 'email'].forEach(f => {
+            const err = document.getElementById(`err-quick-supplier-${f}`);
+            if (err) {
+                err.textContent = '';
+                err.style.display = 'none';
+            }
+        });
+        if (alertBox) alertBox.style.display = 'none';
+        if (dupAction) dupAction.style.display = 'none';
+        pendingDuplicateSupplier = null;
+    };
 
     const openSupplierModal = () => {
+        clearErrors();
         modalSupplier.style.display = 'flex';
-        document.getElementById('quick-supplier-name').focus();
+        document.getElementById('quick-supplier-rut').focus();
     };
 
     const closeSupplierModal = () => {
         modalSupplier.style.display = 'none';
         quickSupplierForm.reset();
+        clearErrors();
     };
 
     if (btnOpenSupplierModal) btnOpenSupplierModal.addEventListener('click', openSupplierModal);
@@ -146,43 +296,144 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target === modalSupplier) closeSupplierModal();
     });
 
+    if (btnSelectDup) {
+        btnSelectDup.addEventListener('click', () => {
+            if (pendingDuplicateSupplier) {
+                applySupplierSelection(pendingDuplicateSupplier);
+                closeSupplierModal();
+            }
+        });
+    }
+
+    function applySupplierSelection(supplier) {
+        // Verificar si la opción ya existe en el selector
+        let opt = Array.from(supplierSelect.options).find(o => String(o.value) === String(supplier.id));
+        if (!opt) {
+            opt = document.createElement('option');
+            opt.value = supplier.id;
+            opt.textContent = supplier.name;
+            opt.setAttribute('data-payment-terms', supplier.default_payment_terms || 'NET_30');
+            supplierSelect.appendChild(opt);
+        }
+        supplierSelect.value = supplier.id;
+
+        // Actualizar forma de pago predeterminada
+        const paymentTermsSelect = document.getElementById('oc-payment-terms');
+        if (paymentTermsSelect && supplier.default_payment_terms) {
+            paymentTermsSelect.value = supplier.default_payment_terms;
+        }
+
+        // Habilitar sección de líneas
+        if (section.style.display === 'none') {
+            section.style.display = 'block';
+            addBtn.style.display = 'inline-block';
+            hint.style.display = 'none';
+        }
+        if (container.children.length === 0) {
+            supplierSelect.dispatchEvent(new Event('change'));
+        } else if (supplierProducts.length === 0) {
+            fetch(`/api/compras/proveedores/${supplier.id}/productos`)
+                .then(r => r.json())
+                .then(data => { supplierProducts = data; })
+                .catch(err => console.error("Error cargando insumos:", err));
+        }
+    }
+
     quickSupplierForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const name = document.getElementById('quick-supplier-name').value.trim();
-        const description = document.getElementById('quick-supplier-desc').value.trim();
-        const website = document.getElementById('quick-supplier-web').value.trim();
+        clearErrors();
 
-        if (!name) return;
+        const rutVal = document.getElementById('quick-supplier-rut').value.trim();
+        const nameVal = document.getElementById('quick-supplier-name').value.trim();
+        const fantasyVal = document.getElementById('quick-supplier-fantasy').value.trim();
+        const giroVal = document.getElementById('quick-supplier-giro').value.trim();
+        const dirVal = document.getElementById('quick-supplier-dir').value.trim();
+        const comunaVal = document.getElementById('quick-supplier-comuna').value.trim();
+        const ciudadVal = document.getElementById('quick-supplier-ciudad').value.trim();
+        const contactVal = document.getElementById('quick-supplier-contact').value.trim();
+        const phoneVal = document.getElementById('quick-supplier-phone').value.trim();
+        const emailVal = document.getElementById('quick-supplier-email').value.trim();
+        const termsVal = document.getElementById('quick-supplier-terms').value.trim();
+        const webVal = document.getElementById('quick-supplier-web').value.trim();
+        const descVal = document.getElementById('quick-supplier-desc').value.trim();
+
+        // Obtener token CSRF
+        const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
+        const csrfToken = csrfTokenMeta ? csrfTokenMeta.getAttribute('content') : '';
+
+        const payload = {
+            rut: rutVal,
+            name: nameVal,
+            razon_social: nameVal,
+            nombre_fantasia: fantasyVal,
+            giro: giroVal,
+            direccion: dirVal,
+            comuna: comunaVal,
+            ciudad: ciudadVal,
+            contacto: contactVal,
+            phone: phoneVal,
+            email: emailVal,
+            default_payment_terms: termsVal,
+            website: webVal,
+            description: descVal
+        };
+
+        const submitBtn = document.getElementById('btn-save-supplier-modal');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
 
         try {
             const res = await fetch('/api/proveedores/crear', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, description, website })
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                    'X-CSRF-Token': csrfToken
+                },
+                body: JSON.stringify(payload)
             });
 
-            if (res.ok) {
-                const result = await res.json();
-                if (result.status === 'ok' && result.supplier) {
-                    // Agregar nuevo option al select de proveedores
-                    const newOpt = document.createElement('option');
-                    newOpt.value = result.supplier.id;
-                    newOpt.textContent = result.supplier.name;
-                    supplierSelect.appendChild(newOpt);
+            const result = await res.json().catch(() => ({}));
 
-                    // Seleccionar automáticamente el nuevo proveedor
-                    supplierSelect.value = result.supplier.id;
-                    supplierSelect.dispatchEvent(new Event('change'));
-
-                    closeSupplierModal();
+            if (res.ok && result.status === 'ok') {
+                applySupplierSelection(result.supplier);
+                closeSupplierModal();
+            } else if (res.status === 409 && result.status === 'duplicate') {
+                // Caso proveedor duplicado por RUT
+                alertBox.style.display = 'block';
+                alertBox.style.background = '#fef3c7';
+                alertBox.style.border = '1px solid #fde68a';
+                alertBox.style.color = '#92400e';
+                alertText.innerHTML = `⚠️ <strong>${result.message}</strong>`;
+                if (result.supplier) {
+                    pendingDuplicateSupplier = result.supplier;
+                    dupAction.style.display = 'block';
                 }
             } else {
-                const errorData = await res.json();
-                alert(errorData.message || 'Error al guardar el proveedor');
+                // Errores de validación
+                if (result.field) {
+                    const errEl = document.getElementById(`err-quick-supplier-${result.field}`);
+                    if (errEl) {
+                        errEl.textContent = result.message || 'Dato inválido.';
+                        errEl.style.display = 'block';
+                    }
+                }
+                alertBox.style.display = 'block';
+                alertBox.style.background = '#fee2e2';
+                alertBox.style.border = '1px solid #fecaca';
+                alertBox.style.color = '#991b1b';
+                alertText.innerHTML = `⚠️ ${result.message || 'Error al validar el proveedor.'}`;
             }
         } catch (err) {
             console.error('Error al registrar proveedor:', err);
-            alert('Ocurrió un error al guardar el proveedor.');
+            alertBox.style.display = 'block';
+            alertBox.style.background = '#fee2e2';
+            alertBox.style.border = '1px solid #fecaca';
+            alertBox.style.color = '#991b1b';
+            alertText.innerHTML = '⚠️ Error inesperado al comunicarse con el servidor.';
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Crear Proveedor';
         }
     });
 
@@ -190,12 +441,35 @@ document.addEventListener('DOMContentLoaded', () => {
  
     supplierSelect.addEventListener('change', async () => {
         const supplierId = supplierSelect.value;
-        container.innerHTML = '';
         if (!supplierId) {
+            container.innerHTML = '';
             addBtn.style.display = 'none';
             section.style.display = 'none';
             hint.style.display = 'block';
             return;
+        }
+
+        // Cargar Forma de Pago predeterminada del proveedor seleccionado
+        const selectedOption = supplierSelect.options[supplierSelect.selectedIndex];
+        const paymentTermsSelect = document.getElementById('oc-payment-terms');
+        if (selectedOption && paymentTermsSelect) {
+            let terms = selectedOption.getAttribute('data-payment-terms');
+            if (terms) {
+                paymentTermsSelect.value = terms;
+            } else {
+                // Fallback a API si no estuviera en el atributo
+                try {
+                    const suppRes = await fetch(`/api/proveedores/${supplierId}`);
+                    if (suppRes.ok) {
+                        const suppData = await suppRes.json();
+                        if (suppData.default_payment_terms) {
+                            paymentTermsSelect.value = suppData.default_payment_terms;
+                        }
+                    }
+                } catch (err) {
+                    console.error("Error al consultar proveedor:", err);
+                }
+            }
         }
         
         try {
@@ -206,7 +480,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     addBtn.style.display = 'inline-block';
                     section.style.display = 'block';
                     hint.style.display = 'none';
-                    createProductRow();
+                    if (container.children.length === 0) {
+                        createProductRow();
+                    }
                 } else {
                     addBtn.style.display = 'none';
                     section.style.display = 'none';
@@ -265,8 +541,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="form-group" style="margin: 0;">
                 <input type="number" name="unit_price[]" min="0.01" step="0.01" required placeholder="0.00" style="width: 100%; padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
             </div>
-            <button type="button" class="btn-icon delete-btn" style="background:none; border:none; font-size:18px; cursor:pointer; color:#F56565; padding: 4px 8px; display: flex; align-items: center; justify-content: center;" onclick="this.closest('.product-row').remove(); updateProductDropdowns();">
-                🗑️
+            <button type="button" class="btn-icon delete-btn" style="background:none; border:none; font-size:15px; cursor:pointer; color:#ef4444; padding: 6px 8px; display: flex; align-items: center; justify-content: center;" title="Quitar línea" onclick="this.closest('.product-row').remove(); updateProductDropdowns();">
+                <i class="fa-solid fa-trash-can"></i>
             </button>
         `;
         container.appendChild(row);

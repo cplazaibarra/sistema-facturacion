@@ -96,8 +96,8 @@
                     <td style="font-weight:600;color:#2b6cb0;">{{ sale.id }}</td>
                     <td>{{ sale.cliente }}</td>
                     <td>{{ sale.producto }}</td>
-                    <td>{{ sale.cantidad }}</td>
-                    <td style="font-weight:600;">${{ "%.0f"|format(sale.total) }}</td>
+                    <td>{{ "%g" | format(sale.cantidad) }}</td>
+                    <td style="font-weight:600;">{{ sale.total | money_cl }}</td>
                     <td>
                         {% if sale.estado in ['Completada', 'Completado', 'Pagada', 'Pagado'] %}
                         <span class="badge success">{{ sale.estado }}</span>

@@ -140,7 +140,10 @@
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
     <h2 style="margin: 0; font-size: 20px; color: #1e293b;">Clientes de la Plataforma</h2>
-    <button class="btn-blue-submit" onclick="toggleNewClientForm()">+ Registrar Nuevo Cliente</button>
+    <button type="button" class="btn-primary" onclick="toggleNewClientForm()" style="display: inline-flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-plus"></i>
+        <span>Registrar Nuevo Cliente</span>
+    </button>
 </div>
 
 <!-- Formulario Registrador / Editor de Cliente (DATOS RECEPTOR) -->
@@ -194,6 +197,14 @@
                         <span class="input-addon-label">Dirección</span>
                         <input type="text" name="direccion" class="input-addon-field" placeholder="Av. Principal 123">
                     </div>
+                </div>
+            </div>
+
+            <div class="receptor-grid-full">
+                <label class="form-label-tag">Dirección de despacho</label>
+                <div class="input-addon-group">
+                    <span class="input-addon-label">Despacho</span>
+                    <input type="text" name="delivery_address" class="input-addon-field" placeholder="Lugar habitual de entrega">
                 </div>
             </div>
 
@@ -274,9 +285,14 @@
                 </div>
             </div>
 
-            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px;">
-                <button type="button" onclick="toggleNewClientForm()" class="btn-secondary" style="padding: 8px 16px;">Cancelar</button>
-                <button type="submit" class="btn-blue-submit">Guardar Cliente</button>
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                <button type="button" onclick="toggleNewClientForm()" class="btn-secondary">Cancelar</button>
+                <button type="reset" class="btn-secondary">
+                    <i class="fa-solid fa-eraser"></i> Limpiar
+                </button>
+                <button type="submit" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-floppy-disk"></i> Guardar Cliente
+                </button>
             </div>
         </form>
     </div>
@@ -323,11 +339,17 @@
                         {% endfor %}
                         {{ ns.name }}
                     </td>
-                    <td style="text-align: right; white-space: nowrap;">
-                        <button type="button" onclick='editClient({{ c|tojson|safe }})' style="background: none; border: none; color: #0284c7; cursor: pointer; font-size: 16px; margin-right: 8px;" title="Editar Cliente">✏️</button>
-                        <form method="POST" action="{{ url_for('ventas.eliminar_cliente', client_id=c.id) }}" onsubmit="return confirm('¿Eliminar este cliente?');" style="display: inline;">
-                            <button type="submit" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px;" title="Eliminar Cliente">🗑️</button>
-                        </form>
+                    <td class="actions-cell">
+                        <div style="display: inline-flex; gap: 6px; justify-content: flex-end;">
+                            <button type="button" class="btn-icon" onclick='editClient({{ c|tojson|safe }})' style="color: #2563eb;" title="Editar Cliente">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <form method="POST" action="{{ url_for('ventas.eliminar_cliente', client_id=c.id) }}" onsubmit="return confirm('¿Eliminar este cliente?');" style="display: inline; margin: 0;">
+                                <button type="submit" class="btn-icon" style="color: #dc2626;" title="Eliminar Cliente">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
@@ -372,6 +394,7 @@ function editClient(c) {
     form.elements['razon_social'].value = c.razon_social || '';
     form.elements['tipo_compra'].value = c.tipo_compra || 'Del Giro';
     form.elements['direccion'].value = c.direccion || '';
+    form.elements['delivery_address'].value = c.delivery_address || '';
     form.elements['comuna'].value = c.comuna || '';
     form.elements['ciudad'].value = c.ciudad || '';
     form.elements['giro'].value = c.giro || '';

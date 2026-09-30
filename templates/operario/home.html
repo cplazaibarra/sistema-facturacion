@@ -1,0 +1,117 @@
+{% extends 'operario/base_operario.html' %}
+
+{% block title %}Bodega{% endblock %}
+
+{% block content %}
+<header class="operario-header">
+  <div class="title-area">
+    <h1>Bodega</h1>
+  </div>
+  <a href="/operario/perfil" class="header-action-btn" title="Configuración / Perfil">
+    <i class="fa-solid fa-gear"></i>
+  </a>
+</header>
+
+<main class="operario-container">
+
+  <!-- Flash Messages amigables para operarios -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="card-item-box" style="border-left: 5px solid {% if category == 'success' %}#10B981{% elif category == 'danger' %}#EF4444{% else %}#F59E0B{% endif %}; margin-bottom: 16px;">
+          <div style="font-weight: 700; font-size: 15px; color: {% if category == 'success' %}#065F46{% elif category == 'danger' %}#991B1B{% else %}#92400E{% endif %};">
+            {{ message }}
+          </div>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <!-- 4 Grandes Acciones Minimalistas (Opción 4) -->
+  <div class="action-cards-grid">
+    
+    <!-- 1. RECEPCIÓN -->
+    <a href="/operario/recepcion" class="action-card card-recepcion">
+      <div class="card-icon">
+        <i class="fa-solid fa-truck-moving"></i>
+      </div>
+      <div class="card-info">
+        <div class="card-title">1. RECEPCIÓN</div>
+        <div class="card-desc">Escanear y recibir productos</div>
+      </div>
+      <div class="card-chevron">
+        <i class="fa-solid fa-chevron-right"></i>
+      </div>
+    </a>
+
+    <!-- 2. OPERAR OT -->
+    <a href="/operario/ot" class="action-card card-ot">
+      <div class="card-icon">
+        <i class="fa-solid fa-gear"></i>
+      </div>
+      <div class="card-info">
+        <div class="card-title">2. OPERAR OT</div>
+        <div class="card-desc">Registrar consumos</div>
+      </div>
+      <div class="card-chevron">
+        <i class="fa-solid fa-chevron-right"></i>
+      </div>
+    </a>
+
+    <!-- 3. TERMINAR -->
+    <a href="/operario/finalizar" class="action-card card-terminar">
+      <div class="card-icon">
+        <i class="fa-solid fa-check"></i>
+      </div>
+      <div class="card-info">
+        <div class="card-title">3. TERMINAR</div>
+        <div class="card-desc">Confirmar fabricación</div>
+      </div>
+      <div class="card-chevron">
+        <i class="fa-solid fa-chevron-right"></i>
+      </div>
+    </a>
+
+    <!-- 4. ESCANEAR AHORA -->
+    <a href="/operario/escanear" class="action-card card-escanear">
+      <div class="card-icon">
+        <i class="fa-solid fa-barcode"></i>
+      </div>
+      <div class="card-info">
+        <div class="card-title">ESCANEAR AHORA</div>
+      </div>
+      <div class="card-chevron">
+        <i class="fa-solid fa-chevron-right"></i>
+      </div>
+    </a>
+
+  </div>
+
+  <!-- Últimas Acciones -->
+  <div class="section-header">
+    <h2>Últimas acciones</h2>
+    <a href="/operario/historial" class="see-all-link">Ver todas</a>
+  </div>
+
+  <div class="recent-list">
+    {% if recent_actions %}
+      {% for act in recent_actions %}
+        <div class="recent-item">
+          <div class="recent-icon-wrap {{ act.badge_class }}">
+            <i class="{{ act.icon }}"></i>
+          </div>
+          <div class="recent-content">
+            <div class="recent-title">{{ act.title }}</div>
+            <div class="recent-subtitle">{{ act.subtitle }}</div>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div style="padding: 20px 0; text-align: center; color: #94A3B8; font-weight: 600;">
+        No hay acciones recientes registradas hoy.
+      </div>
+    {% endif %}
+  </div>
+
+</main>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% extends 'operario/base_operario.html' %}
+
+{% block title %}Terminar Fabricación {{ ot.ot_number }}{% endblock %}
+
+{% block content %}
+<header class="operario-header">
+  <div class="title-area">
+    <a href="/operario/ot/{{ ot.id }}" style="color: #64748B; text-decoration: none; font-size: 14px; font-weight: 700; display: block; margin-bottom: 2px;">
+      <i class="fa-solid fa-chevron-left"></i> Volver a OT
+    </a>
+    <h1>Terminar {{ ot.ot_number }}</h1>
+  </div>
+</header>
+
+<main class="operario-container">
+
+  <!-- Resumen OT -->
+  <div class="card-item-box" style="margin-bottom: 16px;">
+    <div style="font-size: 13px; color: #64748B; font-weight: 700;">PRODUCTO TERMINADO</div>
+    <div style="font-size: 18px; font-weight: 800; color: #0F172A; margin: 2px 0;">{{ ot.final_product_name }}</div>
+    <div style="font-size: 14px; color: #64748B;">SKU: {{ ot.final_product_sku }} · Meta: {{ ot.quantity }} un</div>
+  </div>
+
+  <form method="POST" action="/operario/ot/{{ ot.id }}/finalizar">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="touch-input-group">
+      <label>1. Cantidad Real Producida</label>
+      <input type="number" step="any" min="0.01" name="actual_quantity" value="{{ ot.quantity }}" class="touch-input" required>
+    </div>
+
+    <div class="touch-input-group">
+      <label style="display: flex; justify-content: space-between; align-items: center;">
+        <span>2. Lote Producto Terminado {% if ot.requires_lot %}<span style="color: #EF4444;">*</span>{% endif %}</span>
+        <button type="button" onclick="autoGenerateLot()" style="background: none; border: none; color: #6366F1; font-weight: 700; font-size: 13px; cursor: pointer;">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Autogenerar
+        </button>
+      </label>
+      <input type="text" name="output_lot_number" id="output_lot_input" value="PT-{{ ot.ot_number }}" class="touch-input" {% if ot.requires_lot %}required{% endif %} placeholder="Ej: PT-{{ ot.ot_number }}">
+      {% if ot.requires_lot %}
+        <div style="font-size: 12px; color: #B45309; font-weight: 700; margin-top: 4px;">
+          <i class="fa-solid fa-circle-info"></i> Lote obligatorio para trazabilidad genealógica.
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="touch-input-group">
+      <label>3. Fecha de Vencimiento (opcional)</label>
+      <input type="date" name="expiry_date" class="touch-input">
+    </div>
+
+    <div class="touch-input-group">
+      <label>4. Bodega de Destino</label>
+      <select name="warehouse" class="touch-select">
+        <option value="Principal" selected>Bodega Principal</option>
+        <option value="Secundaria">Bodega Secundaria</option>
+      </select>
+    </div>
+
+    <button type="submit" class="btn-big btn-purple">
+      <i class="fa-solid fa-check-double" style="margin-right: 8px;"></i> CONFIRMAR Y TERMINAR
+    </button>
+  </form>
+
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function autoGenerateLot() {
+    const today = new Date().toISOString().slice(0,10).replace(/-/g, '');
+    document.getElementById('output_lot_input').value = `PT-{{ ot.ot_number }}-${today}`;
+  }
+</script>
+{% endblock %}

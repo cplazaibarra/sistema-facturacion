@@ -30,7 +30,7 @@
         </div>
 
         <!-- Botón Exportar CSV -->
-        <a href="{{ url_for('compras.exportar_productos_comprados_csv', year=selected_year, category=selected_category) }}"
+        <a href="{{ url_for('compras.exportar_productos_comprados_csv', year=selected_year, category=selected_category, search=search_query) }}"
            class="sf-btn-primary"
            style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; background: #059669; color: white; font-weight: 600; font-size: 13px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
             <i class="fa-solid fa-file-excel"></i>
@@ -87,13 +87,17 @@
 <!-- Tarjeta Principal con la Matriz -->
 <div class="recent-card" style="background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; overflow: hidden;">
     
-    <!-- Barra de Filtros y Búsqueda -->
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+    <!-- Barra de Filtros y Búsqueda Server-Side -->
+    <form method="GET" action="{{ url_for('compras.productos_comprados') }}" id="matrix-filter-form" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+        <input type="hidden" name="year" value="{{ selected_year }}">
+        <input type="hidden" name="per_page" id="matrix_per_page_input" value="{{ per_page }}">
+        <input type="hidden" name="page" value="1">
+        
         <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; flex: 1;">
             <!-- Buscador por texto -->
             <div style="position: relative; min-width: 240px; flex: 1; max-width: 320px;">
                 <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #a0aec0; font-size: 13px;">🔍</span>
-                <input type="text" id="matrix-search-input" onkeyup="filterMatrixTable()" placeholder="Buscar por SKU o nombre..."
+                <input type="text" name="search" id="matrix-search-input" value="{{ search_query }}" placeholder="Buscar por SKU o nombre..."
                        style="width: 100%; padding: 7px 10px 7px 32px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; background: #fff;">
             </div>
 
@@ -102,7 +106,7 @@
                 <label for="filter-category" style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">
                     <i class="fa-solid fa-tags" style="color: #64748b;"></i> Categoría:
                 </label>
-                <select id="filter-category" onchange="filterMatrixTable()"
+                <select name="category" id="filter-category" onchange="this.form.submit()"
                         style="padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; cursor: pointer;">
                     <option value="">-- Todas las Categorías --</option>
                     {% for cat in matrix.categories %}
@@ -111,17 +115,31 @@
                 </select>
             </div>
 
-            <!-- Botón Limpiar -->
-            <button type="button" onclick="clearMatrixFilters()" title="Limpiar Filtros"
-                    style="padding: 7px 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #475569; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
-                <i class="fa-solid fa-rotate-left" style="font-size: 11px;"></i> Limpiar
+            <button type="submit" style="padding: 7px 14px; background: #3182ce; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                Filtrar
             </button>
+
+            <!-- Botón Limpiar -->
+            {% if search_query or (selected_category and selected_category != 'all') %}
+            <a href="{{ url_for('compras.productos_comprados', year=selected_year) }}" title="Limpiar Filtros"
+               style="text-decoration: none; padding: 7px 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #475569; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                <i class="fa-solid fa-rotate-left" style="font-size: 11px;"></i> Limpiar
+            </a>
+            {% endif %}
         </div>
 
-        <div style="font-size: 13px; color: #718096; white-space: nowrap;">
-            Mostrando <strong id="matrix-count" style="color: #2d3748;">{{ matrix.products|length }}</strong> SKU(s)
+        <div style="display: flex; align-items: center; gap: 14px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <label for="matrix_per_page_select" style="font-size: 13px; color: #475569; font-weight: 600;">Mostrar:</label>
+                <select id="matrix_per_page_select" onchange="changeMatrixPerPage(this.value)" style="padding: 5px 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 600; background: white; color: #1e293b; cursor: pointer;">
+                    <option value="30" selected>30</option>
+                </select>
+            </div>
+            <div style="font-size: 13px; color: #718096; white-space: nowrap;">
+                Total: <strong style="color: #2d3748;">{{ total_skus }}</strong> SKU(s)
+            </div>
         </div>
-    </div>
+    </form>
 
     <!-- Tabla Matriz con Scroll Horizontal -->
     <div style="overflow-x: auto; max-width: 100%; border: 1px solid #e2e8f0; border-radius: 8px;">
@@ -193,7 +211,7 @@
                 <tr id="empty-initial-row">
                     <td colspan="17" style="text-align: center; color: #94a3b8; padding: 36px 14px;">
                         <i class="fa-solid fa-box-open" style="font-size: 32px; color: #cbd5e1; margin-bottom: 8px; display: block;"></i>
-                        No se registraron compras de productos durante el año {{ selected_year }}.
+                        No hay compras de productos que coincidan con los filtros del año {{ selected_year }}.
                     </td>
                 </tr>
                 {% endfor %}
@@ -229,62 +247,26 @@
         </table>
     </div>
 
+    {% with pagination=matrix.pagination %}{% include "_pagination.html" %}{% endwith %}
+
 </div>
 
 {% block scripts %}
 <script>
     function changeYear(year) {
         const cat = document.getElementById('filter-category').value;
+        const search = document.getElementById('matrix-search-input').value;
         let url = `?year=${year}`;
-        if (cat) url += `&category=${encodeURIComponent(cat)}`;
+        if (cat && cat !== 'all') url += `&category=${encodeURIComponent(cat)}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
         window.location.href = url;
     }
 
-    function filterMatrixTable() {
-        const searchVal = (document.getElementById('matrix-search-input').value || '').toLowerCase().trim();
-        const catVal = (document.getElementById('filter-category').value || '').trim().toLowerCase();
-
-        const rows = document.querySelectorAll('.matrix-row');
-        let visible = 0;
-
-        rows.forEach(row => {
-            const text = row.textContent.toLowerCase();
-            const rowCat = (row.getAttribute('data-category') || '').toLowerCase();
-
-            const matchSearch = !searchVal || text.includes(searchVal);
-            const matchCat = !catVal || rowCat === catVal;
-
-            if (matchSearch && matchCat) {
-                row.style.display = '';
-                visible++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        const countElem = document.getElementById('matrix-count');
-        if (countElem) countElem.textContent = visible;
-
-        let noResultRow = document.getElementById('no-matrix-results-row');
-        const tbody = document.getElementById('matrix-tbody');
-        if (visible === 0) {
-            if (!noResultRow && tbody) {
-                noResultRow = document.createElement('tr');
-                noResultRow.id = 'no-matrix-results-row';
-                noResultRow.innerHTML = '<td colspan="17" style="text-align:center; color:#718096; padding:32px;"><i class="fa-solid fa-magnifying-glass" style="margin-right:6px;"></i>No se encontraron SKUs con los filtros aplicados.</td>';
-                tbody.appendChild(noResultRow);
-            } else if (noResultRow) {
-                noResultRow.style.display = '';
-            }
-        } else if (noResultRow) {
-            noResultRow.style.display = 'none';
-        }
-    }
-
-    function clearMatrixFilters() {
-        document.getElementById('matrix-search-input').value = '';
-        document.getElementById('filter-category').value = '';
-        filterMatrixTable();
+    function changeMatrixPerPage(val) {
+        const input = document.getElementById('matrix_per_page_input');
+        if (input) input.value = val;
+        const form = document.getElementById('matrix-filter-form');
+        if (form) form.submit();
     }
 </script>
 {% endblock %}

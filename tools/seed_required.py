@@ -121,6 +121,24 @@ DEFAULT_ROLES = [
             "solo_ver": False,
         },
     },
+    {
+        "name": "Operario de Bodega",
+        "description": "Acceso exclusivo a interfaz móvil de bodega y producción",
+        "permissions": {
+            "operario_bodega": True,
+            "dashboard": False,
+            "usuarios": False,
+            "ventas": False,
+            "inventario": True,
+            "productos": True,
+            "administracion": False,
+            "reportes": False,
+            "configuracion": False,
+            "crear_registros": True,
+            "aprobar_registros": False,
+            "solo_ver": False,
+        },
+    },
 ]
 
 REQUIRED_PAGE_DATA = {
@@ -128,6 +146,7 @@ REQUIRED_PAGE_DATA = {
         {"icon": "👥", "title": "Usuarios", "desc": "Gestionar usuarios y permisos del sistema", "action": "Gestionar", "link": "/usuarios"},
         {"icon": "🏪", "title": "Proveedores", "desc": "Gestionar empresas proveedoras y contactos", "action": "Gestionar", "link": "/proveedores"},
         {"icon": "🏦", "title": "Cuentas Bancarias", "desc": "Administrar cuentas bancarias para cobros y pagos", "action": "Administrar", "link": "/administracion/cuentas-bancarias"},
+        {"icon": "💸", "title": "Gastos Operacionales", "desc": "Administrar gastos recurrentes y sus proyecciones", "action": "Administrar", "link": "/administracion/gastos-operacionales"},
         {"icon": "🏢", "title": "Empresa", "desc": "Configuración de datos de la empresa", "action": "Configurar", "link": "/administracion#empresa"},
         {"icon": "💳", "title": "Métodos de Pago", "desc": "Configurar formas de pago aceptadas", "action": "Configurar", "link": "/administracion#pagos"},
         {"icon": "📄", "title": "Documentos", "desc": "Plantillas de facturas y documentos", "action": "Editar", "link": "/administracion#documentos"},

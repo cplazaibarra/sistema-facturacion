@@ -42,6 +42,7 @@ class LotTraceabilityService:
                 "created_at": lot["created_at"],
                 "expiry_date": lot["expiry_date"],
                 "initial_quantity": lot["initial_quantity"],
+                "available_qty": lot["available_qty"],
                 "warehouse": lot["warehouse"],
                 "notes": lot["notes"]
             },

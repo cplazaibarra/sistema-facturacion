@@ -4,10 +4,27 @@
 {% block page_title %}Bodega{% endblock %}
 
 {% block content %}
+{% set ambiguous_reservations = reservation_diagnostics|default([])|selectattr('code', 'equalto', 'RESERVA_AMBIGUA')|list %}
+{% if ambiguous_reservations %}
+<div role="alert" class="alert alert-warning" style="margin:0 0 14px;">
+    <strong>{{ ambiguous_reservations|length }} reservas ambiguas</strong> no se asignaron automáticamente a un producto.
+    Documentos: {{ ambiguous_reservations[:20]|map(attribute='document_id')|unique|join(', ') }}{% if ambiguous_reservations|length > 20 %} y otros{% endif %}.
+</div>
+{% endif %}
 <div class="inventory-header">
-    <div class="header-actions">
-        <button class="btn-primary">+ Nuevo Producto</button>
-        <button class="btn-secondary" onclick="exportInventory()">Exportar</button>
+    <div class="header-actions" style="display: flex; gap: 8px;">
+        <a href="/inventario/ajustes" class="btn-secondary" title="Revisar y solicitar ajustes de inventario">
+            <i class="fa-solid fa-clipboard-check"></i>
+            <span>Ajustes de Inventario</span>
+        </a>
+        <a href="{{ url_for('inventario.productos') }}" class="btn-primary">
+            <i class="fa-solid fa-plus"></i>
+            <span>Nuevo Producto</span>
+        </a>
+        <button type="button" class="btn-secondary" onclick="exportInventory()">
+            <i class="fa-solid fa-file-export"></i>
+            <span>Exportar</span>
+        </button>
     </div>
     <div class="filter-group" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
         <div style="position: relative; min-width: 280px; flex: 1; max-width: 380px;">
@@ -33,6 +50,14 @@
             <option value="{{ option }}">{{ option }}</option>
             {% endfor %}
         </select>
+        <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
+            <label for="inventory-per-page-select" style="font-size: 13px; color: #4a5568; font-weight: 600; white-space: nowrap;">Mostrar:</label>
+            <select id="inventory-per-page-select" class="form-control" style="width: auto; min-width: 110px; font-weight: 600; cursor: pointer;">
+                <option value="25" selected>25 por pág.</option>
+                <option value="50">50 por pág.</option>
+                <option value="100">100 por pág.</option>
+            </select>
+        </div>
     </div>
 </div>
 
@@ -72,7 +97,9 @@
                 <th>Bodega</th>
                 <th>Stock Actual</th>
                 <th>Stock Mínimo</th>
-                <th>Precio</th>
+                <th>Precio Venta</th>
+                <th style="background: #fdf2f8; color: #831843;">PPP Actual</th>
+                <th style="background: #eff6ff; color: #1e40af;">Valor Inventario</th>
                 <th>Estado</th>
                 <th>Acciones</th>
             </tr>
@@ -112,30 +139,55 @@
                                 🟡 Reservado: <strong>{{ item.reserved }}</strong>
                             </span>
                             <span style="background: #EDF2F7; color: #4A5568; padding: 2px 6px; border-radius: 4px; border: 1px solid #E2E8F0; font-weight: bold;" title="Total físico en bodega (Disponible + Reservado)">
-                                📦 Físico: {{ item.total_stock }}
+                                📦 Físico: {{ item.total_stock }}{% if item.stock_delta is defined and item.stock_delta %}
+<span class="stock-reconciliation" title="El saldo reconstruido no coincide con las existencias operativas">Pendiente de conciliación: movimientos {{ item.movement_stock }}; diferencia {{ item.stock_delta }} un.</span>{% endif %}
                             </span>
                         </div>
                     </div>
                 </td>
                 <td>{{ item.min_stock }}</td>
                 <td>${{ item.price | round | int }}</td>
-                <td>
-                    {% if item.status == 'Normal' %}
-                    <span class="badge success">{{ item.status }}</span>
-                    {% elif item.status == 'Stock Bajo' %}
-                    <span class="badge warning">{{ item.status }}</span>
-                    {% else %}
-                    <span class="badge danger">{{ item.status }}</span>
-                    {% endif %}
+                <td style="font-weight: 700; color: #831843; background: #fdf2f8;">
+                    ${{ "{:,.2f}".format(item.ppp or 0.0) }}
+                </td>
+                <td style="font-weight: 800; color: #1d4ed8; background: #eff6ff;">
+                    ${{ "{:,.0f}".format(item.inventory_value or 0.0) }}
                 </td>
                 <td>
-                    <button class="btn-icon" title="Editar Stock Mínimo" onclick="editMinStock('{{ item.code }}', {{ item.min_stock }})">✏️</button>
-                    <button class="btn-icon" title="Eliminar">🗑️</button>
+                    {% if item.status == 'Normal' %}
+                    <span class="badge badge-success"><i class="fa-solid fa-circle-check" style="font-size: 10px;"></i> {{ item.status }}</span>
+                    {% elif item.status == 'Stock Bajo' %}
+                    <span class="badge badge-warning"><i class="fa-solid fa-triangle-exclamation" style="font-size: 10px;"></i> {{ item.status }}</span>
+                    {% else %}
+                    <span class="badge badge-danger"><i class="fa-solid fa-circle-xmark" style="font-size: 10px;"></i> {{ item.status }}</span>
+                    {% endif %}
+                </td>
+                <td class="actions-cell">
+                    <div style="display: flex; gap: 4px; align-items: center; justify-content: flex-end;">
+                        {% if item.product_id %}
+                        <a href="{{ url_for('inventario.ver_kardex_producto', product_id=item.product_id) }}" class="btn-icon" title="Ver Kardex / PPP" style="color: #059669;">
+                            <i class="fa-solid fa-chart-line"></i>
+                        </a>
+                        {% endif %}
+                        <button type="button" class="btn-icon" title="Editar Stock Mínimo" onclick="editMinStock('{{ item.code }}', {{ item.min_stock }})" style="color: #2563eb;">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        {% if item.product_id %}
+                        <a href="/inventario/ajustes/nuevo?product_id={{ item.product_id }}" class="btn-icon" title="Solicitar ajuste de inventario" style="color: #b45309;">
+                            <i class="fa-solid fa-scale-balanced"></i>
+                        </a>
+                        {% endif %}
+                    </div>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+    <!-- Paginación de Stock General -->
+    <div id="pagination-general" class="sf-pagination" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 16px; background: white; border-top: 1px solid #e2e8f0; border-radius: 0 0 8px 8px;">
+        <div id="pagination-general-info" style="font-size: 13px; color: #64748b;"></div>
+        <div id="pagination-general-controls" style="display: flex; gap: 6px; align-items: center;"></div>
+    </div>
 </div>
 
 <!-- Contenedor Pestaña: Stock por Lote -->
@@ -208,6 +260,11 @@
             {% endfor %}
         </tbody>
     </table>
+    <!-- Paginación de Stock por Lote -->
+    <div id="pagination-lotes" class="sf-pagination" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 16px; background: white; border-top: 1px solid #e2e8f0; border-radius: 0 0 8px 8px;">
+        <div id="pagination-lotes-info" style="font-size: 13px; color: #64748b;"></div>
+        <div id="pagination-lotes-controls" style="display: flex; gap: 6px; align-items: center;"></div>
+    </div>
 </div>
 
 <script>
@@ -246,6 +303,9 @@
         }
     }
 
+    let lotesCurrentPage = 1;
+    let matchingLotRows = [];
+
     function filterLotesTable(globalSearch, selWarehouse, selCategory) {
         const lotSearchInput = document.getElementById('filter-lotes-input');
         const lotSearchTerm = (lotSearchInput ? lotSearchInput.value : '').toLowerCase().trim();
@@ -261,8 +321,8 @@
         const catFilter = document.getElementById('inventory-category-filter');
         const selectedCat = selCategory !== undefined ? selCategory : (catFilter ? catFilter.value : '').toLowerCase().trim();
 
-        let visibleLots = 0;
         const lotRows = document.querySelectorAll('.lot-row');
+        matchingLotRows = [];
         lotRows.forEach(row => {
             const rowText = (row.textContent || '').toLowerCase();
             const txt = (row.dataset.search || '').toLowerCase();
@@ -274,8 +334,11 @@
             const matchesCat = !selectedCat || catCell === selectedCat || catCell.includes(selectedCat);
 
             const isVisible = matchesText && matchesWh && matchesCat;
-            row.style.display = isVisible ? '' : 'none';
-            if (isVisible) visibleLots++;
+            if (isVisible) {
+                matchingLotRows.push(row);
+            } else {
+                row.style.display = 'none';
+            }
         });
 
         const lotTbody = document.querySelector('#tabla-lotes tbody');
@@ -287,8 +350,80 @@
             lotTbody.appendChild(noLotsRow);
         }
         if (noLotsRow) {
-            noLotsRow.style.display = (visibleLots === 0 && lotRows.length > 0) ? '' : 'none';
+            noLotsRow.style.display = (matchingLotRows.length === 0 && lotRows.length > 0) ? '' : 'none';
         }
+
+        renderLotesPagination();
+    }
+
+    function renderLotesPagination() {
+        const perPageSelect = document.getElementById('inventory-per-page-select');
+        const perPage = parseInt(perPageSelect ? perPageSelect.value : 25, 10) || 25;
+        const total = matchingLotRows.length;
+        const totalPages = Math.max(1, Math.ceil(total / perPage));
+
+        if (lotesCurrentPage > totalPages) lotesCurrentPage = totalPages;
+        if (lotesCurrentPage < 1) lotesCurrentPage = 1;
+
+        const startIdx = (lotesCurrentPage - 1) * perPage;
+        const endIdx = startIdx + perPage;
+
+        matchingLotRows.forEach((row, index) => {
+            row.style.display = (index >= startIdx && index < endIdx) ? '' : 'none';
+        });
+
+        const paginationContainer = document.getElementById('pagination-lotes');
+        const infoEl = document.getElementById('pagination-lotes-info');
+        const controlsEl = document.getElementById('pagination-lotes-controls');
+
+        if (!paginationContainer || !infoEl || !controlsEl) return;
+
+        if (total === 0) {
+            infoEl.innerHTML = 'Mostrando 0 lotes';
+            controlsEl.innerHTML = '';
+            return;
+        }
+
+        const fromNum = startIdx + 1;
+        const toNum = Math.min(endIdx, total);
+        infoEl.innerHTML = `Mostrando <strong>${fromNum}</strong> a <strong>${toNum}</strong> de <strong>${total}</strong> lotes`;
+
+        if (totalPages <= 1) {
+            controlsEl.innerHTML = '';
+            return;
+        }
+
+        let controlsHtml = '';
+        if (lotesCurrentPage > 1) {
+            controlsHtml += `<button type="button" class="sf-page-btn" onclick="goToLotesPage(${lotesCurrentPage - 1})" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; background: white; color: #334155; cursor: pointer;">◀ Anterior</button>`;
+        } else {
+            controlsHtml += `<button type="button" class="sf-page-btn" disabled style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #94a3b8; background: white; opacity: 0.5; cursor: not-allowed;">◀ Anterior</button>`;
+        }
+
+        const startP = Math.max(1, lotesCurrentPage - 2);
+        const endP = Math.min(totalPages, lotesCurrentPage + 2);
+        for (let p = startP; p <= endP; p++) {
+            if (p === lotesCurrentPage) {
+                controlsHtml += `<button type="button" class="sf-page-btn active" style="padding: 6px 12px; border: 1px solid #3182ce; border-radius: 6px; font-size: 13px; font-weight: 600; background: #3182ce; color: white; cursor: default;">${p}</button>`;
+            } else {
+                controlsHtml += `<button type="button" class="sf-page-btn" onclick="goToLotesPage(${p})" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; background: white; color: #334155; cursor: pointer;">${p}</button>`;
+            }
+        }
+
+        if (lotesCurrentPage < totalPages) {
+            controlsHtml += `<button type="button" class="sf-page-btn" onclick="goToLotesPage(${lotesCurrentPage + 1})" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; background: white; color: #334155; cursor: pointer;">Siguiente ▶</button>`;
+        } else {
+            controlsHtml += `<button type="button" class="sf-page-btn" disabled style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #94a3b8; background: white; opacity: 0.5; cursor: not-allowed;">Siguiente ▶</button>`;
+        }
+
+        controlsEl.innerHTML = controlsHtml;
+    }
+
+    function goToLotesPage(page) {
+        lotesCurrentPage = page;
+        renderLotesPagination();
+        const tableContainer = document.getElementById('container-tab-lotes');
+        if (tableContainer) tableContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function exportInventory() {
@@ -394,14 +529,92 @@
         const warehouseFilter = document.getElementById('inventory-warehouse-filter');
         const generalSearch = document.getElementById('inventory-general-search');
         const headerSearch = document.querySelector('.header .search-box input');
+        const perPageSelect = document.getElementById('inventory-per-page-select');
         const clearBtn = document.getElementById('clear-search-btn');
         const rows = Array.from(document.querySelectorAll('#container-tab-general .data-table tbody tr'));
+
+        let generalCurrentPage = 1;
+        let matchingGeneralRows = [];
 
         function normalize(value) {
             return (value || '').trim().toLowerCase();
         }
 
-        function applyFilters() {
+        function renderGeneralPagination() {
+            const perPage = parseInt(perPageSelect ? perPageSelect.value : 25, 10) || 25;
+            const total = matchingGeneralRows.length;
+            const totalPages = Math.max(1, Math.ceil(total / perPage));
+
+            if (generalCurrentPage > totalPages) generalCurrentPage = totalPages;
+            if (generalCurrentPage < 1) generalCurrentPage = 1;
+
+            const startIdx = (generalCurrentPage - 1) * perPage;
+            const endIdx = startIdx + perPage;
+
+            matchingGeneralRows.forEach((row, index) => {
+                row.style.display = (index >= startIdx && index < endIdx) ? '' : 'none';
+            });
+
+            const paginationContainer = document.getElementById('pagination-general');
+            const infoEl = document.getElementById('pagination-general-info');
+            const controlsEl = document.getElementById('pagination-general-controls');
+
+            if (!paginationContainer || !infoEl || !controlsEl) return;
+
+            if (total === 0) {
+                infoEl.innerHTML = 'Mostrando 0 productos';
+                controlsEl.innerHTML = '';
+                return;
+            }
+
+            const fromNum = startIdx + 1;
+            const toNum = Math.min(endIdx, total);
+            infoEl.innerHTML = `Mostrando <strong>${fromNum}</strong> a <strong>${toNum}</strong> de <strong>${total}</strong> productos`;
+
+            if (totalPages <= 1) {
+                controlsEl.innerHTML = '';
+                return;
+            }
+
+            let controlsHtml = '';
+            if (generalCurrentPage > 1) {
+                controlsHtml += `<button type="button" class="sf-page-btn" onclick="window.goToGeneralPage(${generalCurrentPage - 1})" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; background: white; color: #334155; cursor: pointer;">◀ Anterior</button>`;
+            } else {
+                controlsHtml += `<button type="button" class="sf-page-btn" disabled style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #94a3b8; background: white; opacity: 0.5; cursor: not-allowed;">◀ Anterior</button>`;
+            }
+
+            const startP = Math.max(1, generalCurrentPage - 2);
+            const endP = Math.min(totalPages, generalCurrentPage + 2);
+            for (let p = startP; p <= endP; p++) {
+                if (p === generalCurrentPage) {
+                    controlsHtml += `<button type="button" class="sf-page-btn active" style="padding: 6px 12px; border: 1px solid #3182ce; border-radius: 6px; font-size: 13px; font-weight: 600; background: #3182ce; color: white; cursor: default;">${p}</button>`;
+                } else {
+                    controlsHtml += `<button type="button" class="sf-page-btn" onclick="window.goToGeneralPage(${p})" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; background: white; color: #334155; cursor: pointer;">${p}</button>`;
+                }
+            }
+
+            if (generalCurrentPage < totalPages) {
+                controlsHtml += `<button type="button" class="sf-page-btn" onclick="window.goToGeneralPage(${generalCurrentPage + 1})" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; background: white; color: #334155; cursor: pointer;">Siguiente ▶</button>`;
+            } else {
+                controlsHtml += `<button type="button" class="sf-page-btn" disabled style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #94a3b8; background: white; opacity: 0.5; cursor: not-allowed;">Siguiente ▶</button>`;
+            }
+
+            controlsEl.innerHTML = controlsHtml;
+        }
+
+        window.goToGeneralPage = function (page) {
+            generalCurrentPage = page;
+            renderGeneralPagination();
+            const tableContainer = document.getElementById('container-tab-general');
+            if (tableContainer) tableContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        };
+
+        function applyFilters(resetPage = false) {
+            if (resetPage) {
+                generalCurrentPage = 1;
+                lotesCurrentPage = 1;
+            }
+
             const selectedCategory = normalize(categoryFilter ? categoryFilter.value : '');
             const selectedStatus = normalize(stockFilter ? stockFilter.value : '');
             const selectedWarehouse = normalize(warehouseFilter ? warehouseFilter.value : '');
@@ -415,7 +628,7 @@
                 clearBtn.style.display = searchTerm ? 'inline-flex' : 'none';
             }
 
-            let visibleCount = 0;
+            matchingGeneralRows = [];
             rows.forEach((row) => {
                 const rowText = normalize(row.textContent);
                 const rowCategory = normalize(row.getAttribute('data-category'));
@@ -429,7 +642,6 @@
                 const matchesStatus = !selectedStatus || rowStatus === selectedStatus;
                 const matchesWarehouse = !selectedWarehouse || rowWarehouse.includes(selectedWarehouse);
                 
-                // Filtro general: busca cualquier texto en cualquier columna o dato
                 const matchesSearch = !searchTerm || 
                     rowText.includes(searchTerm) || 
                     rowCode.includes(searchTerm) || 
@@ -440,8 +652,11 @@
                     rowStatus.includes(searchTerm);
 
                 const isVisible = matchesCategory && matchesStatus && matchesWarehouse && matchesSearch;
-                row.style.display = isVisible ? '' : 'none';
-                if (isVisible) visibleCount++;
+                if (isVisible) {
+                    matchingGeneralRows.push(row);
+                } else {
+                    row.style.display = 'none';
+                }
             });
 
             const generalTbody = document.querySelector('#container-tab-general .data-table tbody');
@@ -449,34 +664,39 @@
             if (!noGeneralRow && generalTbody) {
                 noGeneralRow = document.createElement('tr');
                 noGeneralRow.id = 'no-general-results-row';
-                noGeneralRow.innerHTML = '<td colspan="9" style="text-align: center; color: #64748b; padding: 30px; font-style: italic;">🔍 No se encontraron productos que coincidan con la búsqueda.</td>';
+                noGeneralRow.innerHTML = '<td colspan="11" style="text-align: center; color: #64748b; padding: 30px; font-style: italic;">🔍 No se encontraron productos que coincidan con la búsqueda.</td>';
                 generalTbody.appendChild(noGeneralRow);
             }
             if (noGeneralRow) {
-                noGeneralRow.style.display = (visibleCount === 0 && rows.length > 0) ? '' : 'none';
+                noGeneralRow.style.display = (matchingGeneralRows.length === 0 && rows.length > 0) ? '' : 'none';
             }
 
+            renderGeneralPagination();
             filterLotesTable(searchTerm, selectedWarehouse, selectedCategory);
         }
 
         window.applyInventoryFilters = applyFilters;
 
-        if (categoryFilter) categoryFilter.addEventListener('change', applyFilters);
-        if (stockFilter) stockFilter.addEventListener('change', applyFilters);
-        if (warehouseFilter) warehouseFilter.addEventListener('change', applyFilters);
+        if (categoryFilter) categoryFilter.addEventListener('change', () => applyFilters(true));
+        if (stockFilter) stockFilter.addEventListener('change', () => applyFilters(true));
+        if (warehouseFilter) warehouseFilter.addEventListener('change', () => applyFilters(true));
+        if (perPageSelect) perPageSelect.addEventListener('change', () => applyFilters(true));
 
         if (generalSearch) {
             generalSearch.addEventListener('input', () => {
                 if (headerSearch) headerSearch.value = generalSearch.value;
-                applyFilters();
+                applyFilters(true);
             });
         }
         if (headerSearch) {
             headerSearch.addEventListener('input', () => {
                 if (generalSearch) generalSearch.value = headerSearch.value;
-                applyFilters();
+                applyFilters(true);
             });
         }
+
+        // Ejecutar paginación inicial
+        applyFilters(true);
     })();
 </script>
 

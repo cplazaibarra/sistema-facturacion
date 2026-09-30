@@ -1,0 +1,102 @@
+{
+  "mode": "check",
+  "summary": {
+    "products_analyzed": 77,
+    "soft_deleted_excluded": 0,
+    "snapshot_present": 74,
+    "snapshot_missing": 3,
+    "snapshot_value_absent_or_invalid": 0,
+    "snapshot_coverage_pct": 96.104,
+    "snapshot_duplicate_sku_products": 0,
+    "ledger_vs_lots": 0,
+    "ledger_vs_lots_absolute_delta": 0.0,
+    "snapshot_vs_ledger": 5,
+    "snapshot_vs_ledger_absolute_delta": 17.0,
+    "snapshot_vs_lots": 2,
+    "snapshot_vs_lots_absolute_delta": 8.0,
+    "reservation_inconsistent": 0,
+    "uncovered_demand_products": 4,
+    "uncovered_demand_units": 8.0,
+    "reservation_lines_unresolved": 0,
+    "reservation_lines_ambiguous": 0,
+    "reservation_match_methods": {
+      "product_id": 5
+    },
+    "operational_integrity": "OK",
+    "legacy_status": "LEGACY_WARNING",
+    "quantity_investigation_candidates": 0,
+    "traceability_products": 0,
+    "products_requiring_review_union": 0,
+    "legacy_warning_products_count": 8,
+    "classifications": {
+      "ALERTA_LEGACY": 8,
+      "OK": 69,
+      "RESERVA_INCONSISTENTE": 0,
+      "SNAPSHOT_AUSENTE": 3,
+      "SNAPSHOT_VS_LEDGER": 5,
+      "SNAPSHOT_VS_LOTES": 2
+    },
+    "invalid_lot_stock_rows": 0,
+    "zero_quantity_movements": 0,
+    "reference_orphan_movements": 0,
+    "reference_missing_type_or_id": 0,
+    "reference_generic_movements": 0,
+    "references": {
+      "by_type": [
+        {
+          "reference_type": "purchase_order",
+          "movements": 11,
+          "valid_references": 11,
+          "references_absent": 0,
+          "orphan_references": 0,
+          "legacy_generic": 0,
+          "unverifiable": 0
+        },
+        {
+          "reference_type": "production_order",
+          "movements": 8,
+          "valid_references": 8,
+          "references_absent": 0,
+          "orphan_references": 0,
+          "legacy_generic": 0,
+          "unverifiable": 0
+        },
+        {
+          "reference_type": "sale",
+          "movements": 7,
+          "valid_references": 7,
+          "references_absent": 0,
+          "orphan_references": 0,
+          "legacy_generic": 0,
+          "unverifiable": 0
+        },
+        {
+          "reference_type": "inventory_adjustment",
+          "movements": 1,
+          "valid_references": 1,
+          "references_absent": 0,
+          "orphan_references": 0,
+          "legacy_generic": 0,
+          "unverifiable": 0
+        },
+        {
+          "reference_type": "sale_cancellation",
+          "movements": 1,
+          "valid_references": 1,
+          "references_absent": 0,
+          "orphan_references": 0,
+          "legacy_generic": 0,
+          "unverifiable": 0
+        }
+      ],
+      "movements": 28,
+      "valid": 28,
+      "references_absent": 0,
+      "references_missing_type_or_id": 0,
+      "orphan": 0,
+      "legacy_generic": 0,
+      "unverifiable": 0
+    },
+    "automatic_quantity_corrections_identified": 0
+  }
+}

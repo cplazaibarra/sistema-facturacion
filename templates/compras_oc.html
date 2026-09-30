@@ -18,13 +18,15 @@
 
 <div class="recent-section">
     <div class="recent-card">
-        <!-- Barra de Filtros y Búsqueda -->
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+        <!-- Barra de Filtros y Búsqueda Server-Side -->
+        <form method="GET" action="{{ url_for('compras.list_oc') }}" id="oc-filter-form" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+            <input type="hidden" name="per_page" id="per_page_input" value="{{ per_page }}">
+            <input type="hidden" name="page" value="1">
             <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; flex: 1;">
                 <!-- Buscador general -->
-                <div style="position: relative; min-width: 220px; flex: 1; max-width: 280px;">
+                <div style="position: relative; min-width: 240px; flex: 1; max-width: 320px;">
                     <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #a0aec0; font-size: 13px;">🔍</span>
-                    <input type="text" id="oc-search-input" onkeyup="filterOCTable()" placeholder="Buscar por OC, proveedor o factura..."
+                    <input type="text" name="search" id="oc-search-input" value="{{ search_query }}" placeholder="Buscar por OC, proveedor o factura..."
                            style="width: 100%; padding: 7px 10px 7px 32px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; background: #fff;">
                 </div>
 
@@ -33,14 +35,14 @@
                     <label for="filter-payment-status" style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">
                         <i class="fa-solid fa-money-bill-wave" style="color: #10b981;"></i> Estado Pago:
                     </label>
-                    <select id="filter-payment-status" onchange="filterOCTable()"
+                    <select name="payment_status" id="filter-payment-status" onchange="this.form.submit()"
                             style="padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; cursor: pointer;">
                         <option value="">-- Todos los Estados de Pago --</option>
-                        <option value="Por Pagar">⏳ Por Pagar</option>
-                        <option value="Sin Factura">📄 Sin Factura</option>
-                        <option value="Pagada">✅ Pagada</option>
-                        <option value="Vencida">⚠️ Vencida</option>
-                        <option value="Sin Iniciar">⚪ Sin Iniciar / -</option>
+                        <option value="Por Pagar" {% if payment_status == 'Por Pagar' %}selected{% endif %}>⏳ Por Pagar</option>
+                        <option value="Sin Factura" {% if payment_status == 'Sin Factura' %}selected{% endif %}>📄 Sin Factura</option>
+                        <option value="Pagada" {% if payment_status == 'Pagada' %}selected{% endif %}>✅ Pagada</option>
+                        <option value="Vencida" {% if payment_status == 'Vencida' %}selected{% endif %}>⚠️ Vencida</option>
+                        <option value="Sin Iniciar" {% if payment_status == 'Sin Iniciar' %}selected{% endif %}>⚪ Sin Iniciar / -</option>
                     </select>
                 </div>
 
@@ -49,30 +51,46 @@
                     <label for="filter-oc-status" style="font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap;">
                         <i class="fa-solid fa-clipboard-list" style="color: #3b82f6;"></i> Estado OC:
                     </label>
-                    <select id="filter-oc-status" onchange="filterOCTable()"
+                    <select name="status" id="filter-oc-status" onchange="this.form.submit()"
                             style="padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; cursor: pointer;">
                         <option value="">-- Todos los Estados OC --</option>
-                        <option value="Emitida">Emitida</option>
-                        <option value="Recibida">Recibida</option>
-                        <option value="Parcialmente Recibida">Parcialmente Recibida</option>
-                        <option value="Pendiente Aprobación">Pendiente Aprobación</option>
-                        <option value="Borrador">Borrador</option>
-                        <option value="Anulada">Anulada</option>
+                        <option value="Emitida" {% if oc_status == 'Emitida' %}selected{% endif %}>Emitida</option>
+                        <option value="Recibida" {% if oc_status == 'Recibida' %}selected{% endif %}>Recibida</option>
+                        <option value="Parcialmente Recibida" {% if oc_status == 'Parcialmente Recibida' %}selected{% endif %}>Parcialmente Recibida</option>
+                        <option value="Pendiente Aprobación" {% if oc_status == 'Pendiente Aprobación' %}selected{% endif %}>Pendiente Aprobación</option>
+                        <option value="Borrador" {% if oc_status == 'Borrador' %}selected{% endif %}>Borrador</option>
+                        <option value="Anulada" {% if oc_status == 'Anulada' %}selected{% endif %}>Anulada</option>
                     </select>
                 </div>
 
-                <!-- Botón Limpiar -->
-                <button type="button" onclick="clearOCFilters()" title="Limpiar Filtros"
-                        style="padding: 7px 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #475569; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
-                    <i class="fa-solid fa-rotate-left" style="font-size: 11px;"></i> Limpiar
+                <button type="submit" style="padding: 7px 14px; background: #3182ce; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                    Filtrar
                 </button>
+
+                <!-- Botón Limpiar -->
+                {% if search_query or payment_status or oc_status %}
+                <a href="{{ url_for('compras.list_oc') }}" title="Limpiar Filtros"
+                   style="text-decoration: none; padding: 7px 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #475569; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                    <i class="fa-solid fa-rotate-left" style="font-size: 11px;"></i> Limpiar
+                </a>
+                {% endif %}
             </div>
 
-            <!-- Contador de registros -->
-            <div style="font-size: 13px; color: #718096; white-space: nowrap;">
-                Mostrando <strong id="oc-count" style="color: #2d3748;">{{ orders|length }}</strong> orden(es)
+            <!-- Selector per_page y Contador de registros -->
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <label for="per_page_select" style="font-size: 13px; color: #475569; font-weight: 600;">Mostrar:</label>
+                    <select id="per_page_select" onchange="changeOCPerPage(this.value)" style="padding: 5px 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 600; background: white; color: #1e293b; cursor: pointer;">
+                        <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+                <div style="font-size: 13px; color: #718096; white-space: nowrap;">
+                    Total: <strong style="color: #2d3748;">{{ total_orders }}</strong> orden(es)
+                </div>
             </div>
-        </div>
+        </form>
 
         <table class="data-table">
             <thead>
@@ -214,54 +232,54 @@
                         {% if order.status == 'Emitida' %}
                             {% if (not order.entries or order.entries|length == 0) %}
                             <button type="button" onclick="event.stopPropagation(); openAnularOCModal({{ order.id }}, '{{ order.oc_number }}')"
-                                    class="badge" style="background-color: #00AEEF; color: white; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; transition: opacity 0.15s ease;"
-                                    onmouseover="this.style.opacity='0.85';" onmouseout="this.style.opacity='1';"
+                                    class="badge badge-info" style="cursor: pointer;"
                                     title="Hacer clic para anular esta Orden de Compra (sin mercadería recibida)">
                                 <span>{{ order.status }}</span>
                                 <i class="fa-solid fa-ban" style="font-size: 10px; margin-left: 2px;"></i>
                             </button>
                             {% else %}
-                            <span class="badge" style="background-color: #00AEEF; color: white;">{{ order.status }}</span>
+                            <span class="badge badge-info">{{ order.status }}</span>
                             {% endif %}
                         {% elif order.status == 'Borrador' %}
-                        <span class="badge" style="background-color: #A0AEC0; color: white;">{{ order.status }}</span>
+                        <span class="badge badge-secondary">{{ order.status }}</span>
                         {% elif order.status == 'Pendiente Aprobación' %}
-                        <span class="badge" style="background-color: #ED8936; color: white;">{{ order.status }}</span>
+                        <span class="badge badge-warning">{{ order.status }}</span>
                         {% elif order.status == 'Parcialmente Recibida' %}
-                        <span class="badge" style="background-color: #6B5B95; color: white;">{{ order.status }}</span>
+                        <span class="badge" style="background: #f3e8ff; color: #7e22ce; border-color: #e9d5ff;">{{ order.status }}</span>
                         {% elif order.status == 'Recibida' %}
-                        <span class="badge" style="background-color: #00D1B2; color: white;">{{ order.status }}</span>
+                        <span class="badge badge-success">{{ order.status }}</span>
                         {% elif order.status == 'Anulada' %}
-                        <span class="badge" style="background-color: #E53E3E; color: white; display: inline-flex; align-items: center; gap: 4px;">
+                        <span class="badge badge-danger">
                             <i class="fa-solid fa-ban" style="font-size: 10px;"></i>
                             {{ order.status }}
                         </span>
                         {% else %}
-                        <span class="badge" style="background-color: #718096; color: white;">{{ order.status }}</span>
+                        <span class="badge badge-secondary">{{ order.status }}</span>
                         {% endif %}
                     </td>
 
                     <!-- Acciones -->
-                    <td>
+                    <td class="actions-cell">
                         {% if order.status == 'Borrador' %}
-                        <a href="{{ url_for('compras.editar_oc', po_id=order.id) }}" class="badge" style="background-color: #ED8936; text-decoration: none; color: white; display: inline-flex; align-items: center; gap: 6px; margin-right: 6px;">
-                            <i class="fa-solid fa-pen"></i> Editar
+                        <a href="{{ url_for('compras.editar_oc', po_id=order.id) }}" class="btn-secondary btn-sm" title="Editar Borrador">
+                            <i class="fa-solid fa-pen-to-square"></i> Editar
                         </a>
                         {% endif %}
                         {% if order.status == 'Pendiente Aprobación' and session.get('role_name') in ['Aprobador', 'Gerente', 'Administrativo'] %}
-                        <form action="{{ url_for('compras.aprobar_oc', po_id=order.id) }}" method="POST" style="display: inline-block; margin-right: 6px;">
-                            <button type="submit" class="badge" style="background-color: #48BB78; border: none; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <form action="{{ url_for('compras.aprobar_oc', po_id=order.id) }}" method="POST" style="display: inline-block; margin-right: 4px;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn-success btn-sm">
                                 <i class="fa-solid fa-circle-check"></i> Aprobar
                             </button>
                         </form>
                         {% endif %}
                         {% if order.status in ['Emitida', 'Parcialmente Recibida'] %}
-                        <a href="{{ url_for('inventario.ingreso_mercaderia', po_id=order.id) }}" class="badge" style="background-color: #3182ce; text-decoration: none; color: white; display: inline-flex; align-items: center; gap: 6px; margin-right: 6px;">
+                        <a href="{{ url_for('inventario.ingreso_mercaderia', po_id=order.id) }}" class="btn-primary btn-sm" style="margin-right: 4px;" title="Registrar recepción de mercadería">
                             <i class="fa-solid fa-boxes-packing"></i> Recepcionar
                         </a>
                         {% endif %}
                         {% if order.status == 'Emitida' and (not order.entries or order.entries|length == 0) %}
-                        <button type="button" onclick="event.stopPropagation(); openAnularOCModal({{ order.id }}, '{{ order.oc_number }}')" class="badge" style="background-color: #fee2e2; border: 1px solid #fca5a5; color: #dc2626; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;" title="Anular esta Orden de Compra">
+                        <button type="button" onclick="event.stopPropagation(); openAnularOCModal({{ order.id }}, '{{ order.oc_number }}')" class="btn-danger btn-sm" title="Anular esta Orden de Compra">
                             <i class="fa-solid fa-ban"></i> Anular
                         </button>
                         {% endif %}
@@ -272,11 +290,51 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8" style="text-align: center; color: #718096; padding: 24px;">No hay órdenes de compra registradas.</td>
+                    <td colspan="8" style="text-align: center; color: #718096; padding: 24px;">No hay órdenes de compra que coincidan con los filtros actuales.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+
+        <!-- Paginación Server-Side -->
+        <div class="sf-pagination" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 16px; background: white; border-top: 1px solid #e2e8f0; border-radius: 0 0 8px 8px;">
+            <div class="sf-pagination-info" style="font-size: 13px; color: #64748b;">
+                {% if total_orders and total_orders > 0 %}
+                    Mostrando <strong>{{ ((current_page - 1) * per_page) + 1 }}</strong> a <strong>{{ [current_page * per_page, total_orders]|min }}</strong> de <strong>{{ total_orders }}</strong> órdenes
+                {% else %}
+                    Mostrando 0 registros
+                {% endif %}
+            </div>
+            
+            {% if total_pages and total_pages > 1 %}
+            <div class="sf-pagination-controls" style="display: flex; gap: 6px; align-items: center;">
+                {% if current_page > 1 %}
+                <a href="{{ url_for('compras.list_oc', page=current_page - 1, per_page=per_page, search=search_query, status=oc_status, payment_status=payment_status) }}" 
+                   style="text-decoration: none; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; font-weight: 600; background: white;">
+                    ◀ Anterior
+                </a>
+                {% else %}
+                <button disabled style="opacity: 0.5; cursor: not-allowed; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #94a3b8; background: white;">◀ Anterior</button>
+                {% endif %}
+
+                {% for p in range([1, current_page - 2]|max, [total_pages + 1, current_page + 3]|min) %}
+                <a href="{{ url_for('compras.list_oc', page=p, per_page=per_page, search=search_query, status=oc_status, payment_status=payment_status) }}" 
+                   style="text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; {% if p == current_page %}background: #3182ce; color: white; border: 1px solid #3182ce;{% else %}background: white; color: #334155; border: 1px solid #cbd5e1;{% endif %}">
+                    {{ p }}
+                </a>
+                {% endfor %}
+
+                {% if current_page < total_pages %}
+                <a href="{{ url_for('compras.list_oc', page=current_page + 1, per_page=per_page, search=search_query, status=oc_status, payment_status=payment_status) }}" 
+                   style="text-decoration: none; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; font-weight: 600; background: white;">
+                    Siguiente ▶
+                </a>
+                {% else %}
+                <button disabled style="opacity: 0.5; cursor: not-allowed; padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #94a3b8; background: white;">Siguiente ▶</button>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 
@@ -527,7 +585,7 @@
             document.getElementById('modal-oc-supplier-link').textContent = po.supplier_name || '-';
             document.getElementById('modal-oc-supplier-link').href = `/proveedores/${po.supplier_id}`;
             document.getElementById('modal-oc-date').textContent = po.order_date || '-';
-            document.getElementById('modal-oc-payment-method').textContent = po.payment_method || 'Efectivo';
+            document.getElementById('modal-oc-payment-method').textContent = po.payment_terms_formatted || po.payment_method || 'A 30 días';
             let statusHtml = `<span style="font-weight:600;">${po.status || '-'}</span>`;
             if (po.status === 'Emitida') {
                 statusHtml = `<span style="background-color: #00AEEF; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">Emitida</span>`;
@@ -813,94 +871,14 @@
         });
     }
 
-    // Filtros de Órdenes de Compra
-    function filterOCTable() {
-        const searchInput = document.getElementById('oc-search-input');
-        const paymentSelect = document.getElementById('filter-payment-status');
-        const ocSelect = document.getElementById('filter-oc-status');
-
-        const searchVal = (searchInput ? searchInput.value : '').toLowerCase().trim();
-        const paymentVal = (paymentSelect ? paymentSelect.value : '').trim();
-        const ocVal = (ocSelect ? ocSelect.value : '').trim();
-
-        const rows = document.querySelectorAll('.oc-table-row');
-        let visibleCount = 0;
-
-        rows.forEach(row => {
-            const text = row.textContent.toLowerCase();
-            const rowPaymentStatuses = (row.getAttribute('data-payment-status') || '').split('|');
-            const rowOcStatus = (row.getAttribute('data-oc-status') || '').trim();
-
-            // Match text search
-            const matchSearch = !searchVal || text.includes(searchVal);
-
-            // Match payment status
-            let matchPayment = true;
-            if (paymentVal) {
-                matchPayment = rowPaymentStatuses.includes(paymentVal);
-            }
-
-            // Match OC status
-            let matchOC = true;
-            if (ocVal) {
-                matchOC = (rowOcStatus === ocVal);
-            }
-
-            if (matchSearch && matchPayment && matchOC) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        const countElem = document.getElementById('oc-count');
-        if (countElem) {
-            countElem.textContent = visibleCount;
-        }
-
-        // Fila cuando no hay resultados
-        let noResultRow = document.getElementById('no-oc-results-row');
-        const tbody = document.getElementById('oc-table-body');
-        if (visibleCount === 0) {
-            if (!noResultRow && tbody) {
-                noResultRow = document.createElement('tr');
-                noResultRow.id = 'no-oc-results-row';
-                noResultRow.innerHTML = '<td colspan="8" style="text-align:center; color:#718096; padding:24px;"><i class="fa-solid fa-magnifying-glass" style="margin-right:6px;"></i>No se encontraron órdenes de compra con los filtros seleccionados.</td>';
-                tbody.appendChild(noResultRow);
-            } else if (noResultRow) {
-                noResultRow.style.display = '';
-            }
-        } else if (noResultRow) {
-            noResultRow.style.display = 'none';
-        }
-    }
-
-    function clearOCFilters() {
-        const searchInput = document.getElementById('oc-search-input');
-        const paymentSelect = document.getElementById('filter-payment-status');
-        const ocSelect = document.getElementById('filter-oc-status');
-
-        if (searchInput) searchInput.value = '';
-        if (paymentSelect) paymentSelect.value = '';
-        if (ocSelect) ocSelect.value = '';
-
-        filterOCTable();
+    function changeOCPerPage(val) {
+        const input = document.getElementById('per_page_input');
+        if (input) input.value = val;
+        const form = document.getElementById('oc-filter-form');
+        if (form) form.submit();
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        const params = new URLSearchParams(window.location.search);
-        const pStatus = params.get('estado_pago') || params.get('pago');
-        const oStatus = params.get('estado_oc') || params.get('estado');
-
-        if (pStatus) {
-            const pSelect = document.getElementById('filter-payment-status');
-            if (pSelect) pSelect.value = pStatus;
-        }
-        if (oStatus) {
-            const oSelect = document.getElementById('filter-oc-status');
-            if (oSelect) oSelect.value = oStatus;
-        }
         const anularModal = document.getElementById('modal-anular-oc');
         if (anularModal) {
             anularModal.addEventListener('click', function(e) {

@@ -5,68 +5,122 @@
 
 {% block content %}
 <!-- Botón para agregar proveedor -->
-<div class="header-section">
-    <button class="btn-primary" onclick="toggleFormulario()">
-        ➕ Agregar Proveedor
+<div class="header-section" style="margin-bottom: 20px;">
+    <button type="button" class="btn-primary" onclick="toggleFormulario()" style="display: inline-flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-plus"></i>
+        <span>Agregar Proveedor</span>
     </button>
 </div>
 
-<!-- Formulario oculto -->
-<div class="settings-section" id="formulario-proveedores" style="display: none; margin-bottom: 24px;">
-    <div class="settings-card" style="background: white; border-radius: 10px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
-        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px;">
-            <h3 style="margin: 0; font-size: 18px; color: #1e293b;">Agregar Nuevo Proveedor (Datos de Facturación)</h3>
-            <button type="button" class="btn-secondary" onclick="toggleFormulario()" style="padding: 6px 12px; background: #e2e8f0; border: none; border-radius: 6px; cursor: pointer; color: #475569;">Cerrar</button>
+<!-- Formulario oculto optimizado (UX FASE 3) -->
+<div class="settings-section" id="formulario-proveedores" style="display: none; margin-bottom: 28px;">
+    <div class="settings-card" style="background: white; border-radius: 12px; padding: 24px; box-shadow: var(--shadow-md); border: 1px solid var(--border-color);">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 14px; margin-bottom: 20px;">
+            <div>
+                <h3 style="margin: 0; font-size: 18px; color: var(--text-dark); display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-building" style="color: var(--primary-blue);"></i>
+                    <span>Registrar Nuevo Proveedor (Datos Tributarios)</span>
+                </h3>
+                <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--text-muted);">Información de facturación, condiciones de pago y contacto comercial</p>
+            </div>
+            <button type="button" class="btn-secondary btn-sm" onclick="toggleFormulario()">
+                <i class="fa-solid fa-xmark"></i> Cerrar
+            </button>
         </div>
         <form class="settings-form" method="POST">
-            <!-- RUT y Razón Social -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                <div>
-                    <label style="font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">RUT</label>
-                    <div style="display: flex; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden;">
-                        <span style="background: #f1f5f9; padding: 8px 12px; font-size: 13px; color: #64748b; font-weight: 600; border-right: 1px solid #cbd5e1;">RUT</span>
-                        <input type="text" name="rut" placeholder="12345678" style="flex: 1; padding: 8px 12px; border: none; outline: none;">
-                        <span style="padding: 8px 4px; color: #94a3b8;">-</span>
-                        <input type="text" name="dv" placeholder="K" style="width: 40px; padding: 8px 4px; text-align: center; border: none; outline: none; border-left: 1px solid #cbd5e1;">
+            <!-- SECCIÓN 1: IDENTIFICACIÓN TRIBUTARIA -->
+            <div class="form-section">
+                <div class="form-section-header">
+                    <span class="form-section-badge">1</span>
+                    <div>
+                        <h4 class="form-section-title">Identificación y Razón Social</h4>
+                        <p class="form-section-subtitle">RUT chileno y nombre de facturación</p>
                     </div>
                 </div>
-                <div>
-                    <label style="font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Razón Social / Nombre Comercial *</label>
-                    <input type="text" name="name" required class="form-control" placeholder="Nombre o Razón Social" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
+
+                <div class="form-grid-2">
+                    <div class="form-group-field">
+                        <label>RUT Proveedor</label>
+                        <div style="display: flex; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; background: white;">
+                            <span style="background: var(--bg-subtle); padding: 9px 12px; font-size: 13px; color: var(--text-muted); font-weight: 600; border-right: 1px solid var(--border-color);">RUT</span>
+                            <input type="text" name="rut" placeholder="12345678" style="flex: 1; padding: 9px 12px; border: none; outline: none; font-size: 14px;">
+                            <span style="padding: 9px 4px; color: var(--text-light);">-</span>
+                            <input type="text" name="dv" placeholder="K" style="width: 45px; padding: 9px 4px; text-align: center; border: none; outline: none; border-left: 1px solid var(--border-color); font-size: 14px; text-transform: uppercase;">
+                        </div>
+                    </div>
+                    <div class="form-group-field">
+                        <label>Razón Social / Nombre Comercial <span class="req-star">*</span></label>
+                        <input type="text" name="name" required class="form-control" placeholder="Ej. Envases del Sur SpA">
+                    </div>
                 </div>
             </div>
 
-            <!-- Dirección, Comuna y Ciudad -->
-            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                <div>
-                    <label style="font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Dirección</label>
-                    <input type="text" name="direccion" class="form-control" placeholder="Av. Principal 123" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
+            <!-- SECCIÓN 2: DIRECCIÓN Y UBICACIÓN -->
+            <div class="form-section">
+                <div class="form-section-header">
+                    <span class="form-section-badge">2</span>
+                    <div>
+                        <h4 class="form-section-title">Dirección de Despacho y Sucursal</h4>
+                        <p class="form-section-subtitle">Domicilio comercial para recepción y retiro</p>
+                    </div>
                 </div>
-                <div>
-                    <label style="font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Comuna</label>
-                    <input type="text" name="comuna" class="form-control" placeholder="Ej: Santiago" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
-                </div>
-                <div>
-                    <label style="font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Ciudad</label>
-                    <input type="text" name="ciudad" class="form-control" placeholder="Ej: Santiago" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
+
+                <div class="form-grid-3">
+                    <div class="form-group-field" style="grid-column: span 1;">
+                        <label>Dirección</label>
+                        <input type="text" name="direccion" class="form-control" placeholder="Av. Los Aromos 1234">
+                    </div>
+                    <div class="form-group-field">
+                        <label>Comuna</label>
+                        <input type="text" name="comuna" class="form-control" placeholder="Ej. Puerto Varas">
+                    </div>
+                    <div class="form-group-field">
+                        <label>Ciudad</label>
+                        <input type="text" name="ciudad" class="form-control" placeholder="Ej. Llanquihue">
+                    </div>
                 </div>
             </div>
 
-            <!-- Sitio Web y Descripción -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-                <div>
-                    <label style="font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Sitio Web</label>
-                    <input type="text" name="website" class="form-control" placeholder="www.proveedor.com" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
+            <!-- SECCIÓN 3: CONDICIONES COMERCIALES Y CONTACTO -->
+            <div class="form-section">
+                <div class="form-section-header">
+                    <span class="form-section-badge">3</span>
+                    <div>
+                        <h4 class="form-section-title">Condición de Pago y Canales Web</h4>
+                        <p class="form-section-subtitle">Términos financieros habituales de compra</p>
+                    </div>
                 </div>
-                <div>
-                    <label style="font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Descripción / Observaciones</label>
-                    <input type="text" name="description" class="form-control" placeholder="Notas internas..." style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
+
+                <div class="form-grid-3">
+                    <div class="form-group-field">
+                        <label>Forma de Pago Predeterminada <span class="req-star">*</span></label>
+                        <select name="default_payment_terms" class="form-control">
+                            <option value="CASH">Al contado</option>
+                            <option value="NET_30" selected>A 30 días</option>
+                            <option value="NET_60">A 60 días</option>
+                        </select>
+                        <span class="form-help">Se asignará automáticamente al emitir una nueva OC.</span>
+                    </div>
+                    <div class="form-group-field">
+                        <label>Sitio Web</label>
+                        <input type="text" name="website" class="form-control" placeholder="www.proveedor.cl">
+                    </div>
+                    <div class="form-group-field">
+                        <label>Observaciones Internas</label>
+                        <input type="text" name="description" class="form-control" placeholder="Tiempos de entrega, contacto clave...">
+                    </div>
                 </div>
             </div>
 
-            <div class="form-actions" style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
-                <button type="reset" class="btn-secondary" style="padding: 8px 16px; background: #e2e8f0; color: #475569; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Limpiar</button>
-                <button type="submit" class="btn-primary" style="padding: 8px 20px; background: #0284c7; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">Guardar Proveedor</button>
+            <!-- BOTONES DE ACCIÓN -->
+            <div class="form-actions" style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                <button type="button" class="btn-secondary" onclick="toggleFormulario()">Cancelar</button>
+                <button type="reset" class="btn-secondary">
+                    <i class="fa-solid fa-eraser"></i> Limpiar
+                </button>
+                <button type="submit" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-floppy-disk"></i> Guardar Proveedor
+                </button>
             </div>
         </form>
     </div>
@@ -75,7 +129,46 @@
 <!-- Lista de proveedores -->
 <div class="recent-section">
     <div class="recent-card">
-        <div class="card-header">
+        <!-- Barra de Búsqueda y Paginación Server-Side -->
+        <form method="GET" action="{{ url_for('proveedores.proveedores') }}" id="proveedores-filter-form" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+            <input type="hidden" name="per_page" id="prov_per_page_input" value="{{ per_page }}">
+            <input type="hidden" name="page" value="1">
+
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; flex: 1;">
+                <div style="position: relative; min-width: 240px; flex: 1; max-width: 320px;">
+                    <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #a0aec0; font-size: 13px;">🔍</span>
+                    <input type="text" name="search" value="{{ search_query }}" placeholder="Buscar por nombre, RUT, razón social..."
+                           style="width: 100%; padding: 7px 10px 7px 32px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; background: #fff;">
+                </div>
+
+                <button type="submit" style="padding: 7px 14px; background: #3182ce; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                    Buscar
+                </button>
+
+                {% if search_query %}
+                <a href="{{ url_for('proveedores.proveedores') }}" title="Limpiar Filtros"
+                   style="text-decoration: none; padding: 7px 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #475569; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                    <i class="fa-solid fa-rotate-left" style="font-size: 11px;"></i> Limpiar
+                </a>
+                {% endif %}
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <label for="prov_per_page_select" style="font-size: 13px; color: #475569; font-weight: 600;">Mostrar:</label>
+                    <select id="prov_per_page_select" onchange="changeProvPerPage(this.value)" style="padding: 5px 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 600; background: white; color: #1e293b; cursor: pointer;">
+                        <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+                <div style="font-size: 13px; color: #718096; white-space: nowrap;">
+                    Total: <strong style="color: #2d3748;">{{ total_suppliers }}</strong> proveedores
+                </div>
+            </div>
+        </form>
+
+        <div class="card-header" style="margin-bottom: 12px;">
             <h3>Proveedores Registrados</h3>
         </div>
         {% if suppliers %}
@@ -105,24 +198,92 @@
                         -
                         {% endif %}
                     </td>
-                    <td>
-                        <div class="action-buttons">
-                            <button class="btn-icon edit-btn" title="Ver" onclick="verProveedor({{ supplier.id }})">👁️</button>
-                            <button class="btn-icon edit-btn" title="Editar" onclick="editarProveedor({{ supplier.id }})">✏️</button>
-                            <button class="btn-icon delete-btn" title="Eliminar" onclick="eliminarProveedor({{ supplier.id }})">🗑️</button>
+                    <td class="actions-cell">
+                        <div class="action-buttons" style="display: inline-flex; gap: 6px; justify-content: flex-end;">
+                            <button type="button" class="btn-icon" title="Ver ficha completa" onclick="verProveedor({{ supplier.id }})" style="color: #0284c7;">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                            <button type="button" class="btn-icon" title="Editar datos del proveedor" onclick="editarProveedor({{ supplier.id }})" style="color: #2563eb;">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button type="button" class="btn-icon" title="Eliminar proveedor" onclick="eliminarProveedor({{ supplier.id }})" style="color: #dc2626;">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
                         </div>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+
+        <!-- Paginación Server-Side -->
+        <div class="sf-pagination" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 16px; background: white; border-top: 1px solid #e2e8f0; border-radius: 0 0 8px 8px; margin-top: 12px;">
+            <div class="sf-pagination-info" style="font-size: 13px; color: #64748b;">
+                {% if total_suppliers and total_suppliers > 0 %}
+                    Mostrando <strong>{{ ((current_page - 1) * per_page) + 1 }}</strong> a <strong>{{ [current_page * per_page, total_suppliers]|min }}</strong> de <strong>{{ total_suppliers }}</strong> proveedores
+                {% else %}
+                    Mostrando 0 registros
+                {% endif %}
+            </div>
+            
+            {% if total_pages and total_pages > 1 %}
+            <div class="sf-pagination-controls" style="display: flex; gap: 6px; align-items: center;">
+                {% if current_page > 1 %}
+                <a href="{{ url_for('proveedores.proveedores', search=search_query, page=current_page - 1, per_page=per_page) }}" 
+                   class="btn-secondary btn-sm" style="text-decoration: none;">
+                    <i class="fa-solid fa-chevron-left" style="font-size: 10px;"></i> Anterior
+                </a>
+                {% else %}
+                <button disabled class="btn-secondary btn-sm" style="opacity: 0.5; cursor: not-allowed;"><i class="fa-solid fa-chevron-left" style="font-size: 10px;"></i> Anterior</button>
+                {% endif %}
+
+                {% for p in range([1, current_page - 2]|max, [total_pages + 1, current_page + 3]|min) %}
+                <a href="{{ url_for('proveedores.proveedores', search=search_query, page=p, per_page=per_page) }}" 
+                   style="text-decoration: none; padding: 5px 11px; border-radius: 6px; font-size: 13px; font-weight: 600; {% if p == current_page %}background: var(--primary-blue); color: white; border: 1px solid var(--primary-blue);{% else %}background: white; color: #334155; border: 1px solid #cbd5e1;{% endif %}">
+                    {{ p }}
+                </a>
+                {% endfor %}
+
+                {% if current_page < total_pages %}
+                <a href="{{ url_for('proveedores.proveedores', search=search_query, page=current_page + 1, per_page=per_page) }}" 
+                   class="btn-secondary btn-sm" style="text-decoration: none;">
+                    Siguiente <i class="fa-solid fa-chevron-right" style="font-size: 10px;"></i>
+                </a>
+                {% else %}
+                <button disabled class="btn-secondary btn-sm" style="opacity: 0.5; cursor: not-allowed;">Siguiente <i class="fa-solid fa-chevron-right" style="font-size: 10px;"></i></button>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
         {% else %}
-        <p style="padding: 20px; text-align: center; color: #999;">No hay proveedores registrados</p>
+        <div style="padding: 40px 20px; text-align: center;">
+            <div style="font-size: 36px; margin-bottom: 12px; color: #94a3b8;"><i class="fa-solid fa-building-user"></i></div>
+            {% if search_query %}
+            <h4 style="margin: 0 0 8px 0; color: #1e293b; font-size: 16px;">No se encontraron proveedores</h4>
+            <p style="margin: 0 0 16px 0; color: #64748b; font-size: 13px;">No hay resultados coincidentes con <strong>"{{ search_query }}"</strong>.</p>
+            <a href="{{ url_for('proveedores.proveedores') }}" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+                <i class="fa-solid fa-rotate-left"></i> Limpiar filtros de búsqueda
+            </a>
+            {% else %}
+            <h4 style="margin: 0 0 8px 0; color: #1e293b; font-size: 16px;">No hay proveedores registrados</h4>
+            <p style="margin: 0 0 16px 0; color: #64748b; font-size: 13px;">Comienza creando el primer proveedor del sistema.</p>
+            <button type="button" onclick="toggleFormulario()" class="btn-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-plus"></i> Agregar Nuevo Proveedor
+            </button>
+            {% endif %}
+        </div>
         {% endif %}
     </div>
 </div>
 
 <script>
+function changeProvPerPage(val) {
+    const input = document.getElementById('prov_per_page_input');
+    if (input) input.value = val;
+    const form = document.getElementById('proveedores-filter-form');
+    if (form) form.submit();
+}
+
 function toggleFormulario() {
     const formulario = document.getElementById('formulario-proveedores');
     if (formulario.style.display === 'none') {

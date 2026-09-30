@@ -1,8 +1,12 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify, session, flash
 from datetime import datetime, timezone
+import json
+from security import require_permission
+from repositories.sales_repo import CancelledSaleError, lock_sale_for_change
 from db import (
     get_page_data,
     list_sales,
+    get_sales_paginated,
     get_sales_metrics,
     insert_sales_entry,
     list_sales_entries,
@@ -11,10 +15,34 @@ from db import (
     list_products,
     insert_sale,
     get_sale,
-    update_sale
+    update_sale,
+    list_packaging_products,
+    get_sale_packaging_items,
+    sale_has_packaging,
+    record_sale_packaging,
+    get_sale_financial_summary,
+    reverse_sale_packaging,
+    reverse_sale_inventory
 )
 
 ventas_bp = Blueprint('ventas', __name__)
+
+
+@ventas_bp.errorhandler(CancelledSaleError)
+def cancelled_sale_rejected(error):
+    # Repository exception unwinds/rolls back its transaction before rendering.
+    if request.is_json:
+        return jsonify(error=str(error)), 409
+    flash(str(error), 'warning')
+    return redirect(url_for('ventas.ventas'))
+
+
+@ventas_bp.before_request
+def _require_sales_permission():
+    @require_permission('ventas')
+    def _authorized():
+        return None
+    return _authorized()
 
 def get_logged_in_user_info():
     """Obtiene el nombre completo y las iniciales del usuario logeado en la sesión"""
@@ -177,50 +205,101 @@ def _get_formatted_sales_data():
 
 @ventas_bp.route('/ventas')
 def ventas():
-    """Módulo exclusivo de Ventas"""
-    card_filter = request.args.get('filter', '')
+    """Módulo exclusivo de Ventas con paginación server-side y filtros de alto rendimiento"""
+    card_filter = request.args.get('filter', '').strip()
     active_filter = card_filter
+    search_query = request.args.get('search', '').strip()
+    client_filter = request.args.get('client', '').strip()
+    status_filter = request.args.get('status', '').strip()
+    product_filter = request.args.get('product', '').strip()
 
-    ventas_records_all, today_str = _get_formatted_sales_data()
+    # Sanitizar página y registros por página
+    try:
+        current_page = int(request.args.get('page', 1))
+        if current_page < 1:
+            current_page = 1
+    except (ValueError, TypeError):
+        current_page = 1
 
-    # Excluir cotizaciones para esta vista
-    only_ventas = [r for r in ventas_records_all if r['status']['label'] != 'Cotización' and not str(r['sale_number']).startswith('COT-')]
+    try:
+        per_page = int(request.args.get('per_page', 25))
+        if per_page not in (25, 50, 100):
+            per_page = 25
+    except (ValueError, TypeError):
+        per_page = 25
 
-    count_retrasadas = sum(1 for v in only_ventas if v['payment_status'] == 'Retrasada')
+    today_str = datetime.today().strftime('%Y-%m-%d')
 
-    ventas_records = []
-    for record in only_ventas:
-        if card_filter == 'Ventas Pendientes':
-            if record['status']['label'] == 'Pendiente':
-                ventas_records.append(record)
-        elif card_filter == 'Ventas Completadas':
-            if record['status']['label'] == 'Completada':
-                ventas_records.append(record)
-        elif card_filter in ['Pago Retrasado', 'Pagos Retrasados', 'Retrasada']:
-            if record['payment_status'] == 'Retrasada':
-                ventas_records.append(record)
-        elif card_filter == 'Ventas Hoy':
-            if record['date'] == today_str:
-                ventas_records.append(record)
-        else:
-            ventas_records.append(record)
+    # 1. Obtener ventas paginadas server-side (batch fetching N+1 safe)
+    paginated = get_sales_paginated(
+        page=current_page,
+        per_page=per_page,
+        search=search_query,
+        client_filter=client_filter,
+        status_filter=status_filter,
+        product_filter=product_filter,
+        card_filter=card_filter,
+        sort_by=request.args.get("sort"),
+        sort_direction=request.args.get("direction", "desc")
+    )
+    ventas_records = paginated["items"]
+    total_sales = paginated["total"]
+    total_pages = paginated["total_pages"]
+    current_page = paginated["page"]
 
-    # Extraer clientes, productos y estados de venta únicos para filtros
-    all_clients = sorted(list(set(v['customer']['name'] for v in only_ventas if v['customer']['name'])))
+    # 2. Métricas Globales (Calculadas sobre TODO el universo de ventas de la empresa)
+    from core.database import get_connection
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Conteo global de pagos retrasados
+            cur.execute("""
+                SELECT COUNT(*) as count
+                FROM sales s
+                LEFT JOIN sale_payments sp ON sp.sale_id = s.id
+                WHERE s.status != 'Cotización' AND s.sale_number NOT LIKE 'COT-%%'
+                  AND (s.payment_status != 'Pagado' OR s.payment_status IS NULL)
+                  AND sp.invoice_due_date IS NOT NULL
+                  AND sp.invoice_due_date != '-'
+                  AND sp.invoice_due_date != ''
+                  AND sp.invoice_due_date < %s
+            """, (today_str,))
+            retrasadas_row = cur.fetchone()
+            count_retrasadas = int(retrasadas_row["count"] if retrasadas_row else 0)
+
+            # Extraer clientes únicos de ventas reales para el dropdown
+            cur.execute("""
+                SELECT DISTINCT customer_name
+                FROM sales
+                WHERE status != 'Cotización' AND sale_number NOT LIKE 'COT-%%'
+                  AND customer_name IS NOT NULL AND customer_name != ''
+                ORDER BY customer_name ASC
+            """)
+            all_clients = [r["customer_name"] for r in cur.fetchall()]
+
+            # Extraer estados de venta disponibles
+            cur.execute("""
+                SELECT DISTINCT status
+                FROM sales
+                WHERE status != 'Cotización' AND sale_number NOT LIKE 'COT-%%'
+                  AND status IS NOT NULL AND status != ''
+                ORDER BY status ASC
+            """)
+            db_statuses = [r["status"] for r in cur.fetchall()]
+
+    known_statuses = ['Pendiente', 'En Preparación', 'Para Despacho', 'Completada', 'Cancelada']
+    all_statuses = list(known_statuses)
+    for st_label in db_statuses:
+        if st_label and st_label not in all_statuses:
+            all_statuses.append(st_label)
+
+    # Extraer nombres de productos para filtro
     all_products_set = set()
-    for v in only_ventas:
-        for p in v['products']:
+    for v in ventas_records:
+        for p in v.get('products', []):
             p_name = p.get('product_name') or p.get('name') if isinstance(p, dict) else str(p)
             if p_name:
                 all_products_set.add(p_name)
     all_products = sorted(list(all_products_set))
-
-    known_statuses = ['Pendiente', 'En Preparación', 'Para Despacho', 'Completada', 'Cancelada']
-    all_statuses = list(known_statuses)
-    for v in only_ventas:
-        st_label = v.get('status', {}).get('label')
-        if st_label and st_label not in all_statuses:
-            all_statuses.append(st_label)
 
     metrics = get_sales_metrics()
     ventas_hoy_val = metrics.get('ventas_hoy', 0.0)
@@ -284,6 +363,14 @@ def ventas():
         categories=categories,
         active_filter=active_filter,
         bank_accounts=bank_accounts,
+        current_page=current_page,
+        per_page=per_page,
+        total_pages=total_pages,
+        total_sales=total_sales,
+        search_query=search_query,
+        client_filter=client_filter,
+        status_filter=status_filter,
+        product_filter=product_filter,
     ))
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'
@@ -299,33 +386,154 @@ def cotizaciones():
         card_filter = 'Activa'
     active_filter = card_filter
 
-    ventas_records_all, today_str = _get_formatted_sales_data()
+    from db import get_connection
+    today_str = datetime.today().strftime('%Y-%m-%d')
+    only_cotizaciones = []
 
-    # Incluir únicamente cotizaciones
-    only_cotizaciones = [r for r in ventas_records_all if r['status']['label'] == 'Cotización' or str(r['sale_number']).startswith('COT-')]
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            from repositories.sales_repo import get_quotation_page
+            cot_rows, pagination, quote_metrics, all_clients, all_products = get_quotation_page(
+                cur, page=request.args.get('page'), status=active_filter,
+                search=request.args.get('search', ''), client=request.args.get('client', ''),
+                product=request.args.get('product', ''))
+            cot_ids = [r['id'] for r in cot_rows]
+            clients_map = {}
+            emails = [(r.get('customer_email') or '').lower().strip() for r in cot_rows]
+            names = [(r.get('customer_name') or '').lower().strip() for r in cot_rows]
+            cur.execute("SELECT * FROM clients WHERE lower(trim(email)) = ANY(%s) OR lower(trim(razon_social)) = ANY(%s) ORDER BY id", (emails, names))
+            for c in cur.fetchall():
+                c_dict = dict(c)
+                if c_dict.get('email'):
+                    clients_map[c_dict['email'].lower().strip()] = c_dict
+                if c_dict.get('razon_social'):
+                    clients_map[c_dict['razon_social'].lower().strip()] = c_dict
+                if c_dict.get('rut'):
+                    clients_map[c_dict['rut'].strip()] = c_dict
 
-    # Enviar todas las cotizaciones a la plantilla para permitir filtrado fluido en frontend
-    # sin que registros ganados o perdidos desaparezcan del DOM al interactuar con los filtros
+            # 3. Carga BATCH de historiales de estado y pago solo para cotizaciones (0 consultas N+1)
+            status_history_map = {}
+            payment_history_map = {}
+            bank_accounts_map = {}
+
+            if cot_ids:
+                cur.execute(
+                    "SELECT sale_id, status, user_name, changed_at, comment FROM sales_status_history WHERE sale_id = ANY(%s) ORDER BY id DESC",
+                    (cot_ids,)
+                )
+                for r in cur.fetchall():
+                    sid = r["sale_id"]
+                    if sid not in status_history_map:
+                        status_history_map[sid] = []
+                    status_history_map[sid].append(dict(r))
+
+                cur.execute(
+                    "SELECT sale_id, action, user_name, changed_at, details FROM sales_payment_history WHERE sale_id = ANY(%s) ORDER BY id DESC",
+                    (cot_ids,)
+                )
+                for r in cur.fetchall():
+                    sid = r["sale_id"]
+                    if sid not in payment_history_map:
+                        payment_history_map[sid] = []
+                    payment_history_map[sid].append(dict(r))
+
+                cur.execute(
+                    "SELECT DISTINCT ON (sale_id) sale_id, bank_account_id FROM sale_payment_items WHERE sale_id = ANY(%s) ORDER BY sale_id, id DESC",
+                    (cot_ids,)
+                )
+                for r in cur.fetchall():
+                    bank_accounts_map[r["sale_id"]] = r["bank_account_id"]
+
+            for sale in cot_rows:
+                raw_p_status = sale.get("payment_status") or "Pendiente"
+                due_date = sale.get("invoice_due_date") or ""
+                calculated_payment_status = raw_p_status
+                if raw_p_status != "Pagado" and due_date and due_date != "-":
+                    if due_date < today_str:
+                        calculated_payment_status = "Retrasada"
+
+                history = status_history_map.get(sale["id"], [])
+                payment_history = payment_history_map.get(sale["id"], [])
+                bank_account_id = bank_accounts_map.get(sale["id"])
+
+                c_email = (sale.get("customer_email") or "").lower().strip()
+                c_name = (sale.get("customer_name") or "").lower().strip()
+                c_data = clients_map.get(c_email) or clients_map.get(c_name) or {}
+
+                notes_str = sale.get("notes") or ""
+                rut_val = c_data.get("rut") or ""
+                dv_val = c_data.get("dv") or ""
+                if not rut_val and "RUT:" in notes_str:
+                    try:
+                        rut_part = notes_str.split("RUT:")[1].split("|")[0].strip()
+                        if "-" in rut_part:
+                            rut_val, dv_val = rut_part.split("-", 1)
+                        else:
+                            rut_val = rut_part
+                    except Exception:
+                        pass
+
+                products = json.loads(sale["products_json"]) if sale.get("products_json") else []
+
+                only_cotizaciones.append({
+                    "id": sale["id"],
+                    "sale_number": sale["sale_number"],
+                    "customer": {
+                        "id": c_data.get("id"),
+                        "rut": rut_val,
+                        "dv": dv_val,
+                        "name": sale["customer_name"],
+                        "email": sale.get("customer_email", ""),
+                        "phone": c_data.get("phone", ""),
+                        "direccion": c_data.get("direccion", ""),
+                        "comuna": c_data.get("comuna", ""),
+                        "ciudad": c_data.get("ciudad", ""),
+                        "giro": c_data.get("giro", ""),
+                        "tipo_compra": c_data.get("tipo_compra", "Del Giro"),
+                        "category_id": c_data.get("category_id", ""),
+                        "category_snapshot": sale.get("customer_category_snapshot"),
+                        "delivery_address": sale.get("customer_delivery_address"),
+                        "initials": sale.get("customer_initials", ""),
+                    },
+                    "date": sale["sale_date"],
+                    "time": sale["sale_time"],
+                    "products": products,
+                    "total": f"${sale['total_amount']:.2f}",
+                    "total_raw": sale['total_amount'],
+                    "payment_method": sale.get("payment_method") or "Efectivo",
+                    "payment_status": calculated_payment_status,
+                    "invoice_due_date": sale.get("invoice_due_date") or "-",
+                    "payment_date": sale.get("payment_date") or "-",
+                    "payment_proof_file": sale.get("payment_proof_file") or "",
+                    "invoice_number": sale.get("invoice_number") or "",
+                    "invoice_file": sale.get("invoice_file") or "",
+                    "notes": sale.get("notes") or "",
+                    "bank_account_id": bank_account_id,
+                    "status": {
+                        "label": sale["status"],
+                        "level": "success" if sale["status"] == "Completada" else "warning" if sale["status"] == "Pendiente" else "info" if sale["status"] == "Cotización" else "danger"
+                    },
+                    "quotation_status": sale.get("quotation_status") or ("Ganada" if "Venta Generada:" in (sale.get("notes") or "") else "Activa"),
+                    "win_probability": int(sale.get("win_probability") if sale.get("win_probability") is not None else (100 if "Venta Generada:" in (sale.get("notes") or "") else 50)),
+                    "seller": {
+                        "name": sale["seller_name"],
+                        "initials": sale.get("seller_initials", "")
+                    },
+                    "history": history,
+                    "payment_history": payment_history,
+                })
+
+    # Sólo los documentos de la página; filtros y métricas resueltos en SQL
     cotizaciones_records = only_cotizaciones
 
-    # Extraer clientes y productos únicos para filtros
-    all_clients = sorted(list(set(c['customer']['name'] for c in only_cotizaciones if c['customer']['name'])))
-    all_products_set = set()
-    for c in only_cotizaciones:
-        for p in c['products']:
-            p_name = p.get('product_name') or p.get('name') if isinstance(p, dict) else str(p)
-            if p_name:
-                all_products_set.add(p_name)
-    all_products = sorted(list(all_products_set))
-
-    activas_count = sum(1 for c in only_cotizaciones if c.get('quotation_status') == 'Activa')
-    ganadas_count = sum(1 for c in only_cotizaciones if c.get('quotation_status') == 'Ganada')
-    perdidas_count = sum(1 for c in only_cotizaciones if c.get('quotation_status') == 'Perdida')
+    activas_count = quote_metrics['active']
+    ganadas_count = quote_metrics['won']
+    perdidas_count = quote_metrics['lost']
 
     cotizaciones_metrics = [
         {
             "icon": "<i class=\"fa-solid fa-file-invoice-dollar\"></i>",
-            "value": str(len(only_cotizaciones)),
+            "value": str(quote_metrics["total"]),
             "label": "Total Cotizaciones",
             "secondary": "emitidas en sistema",
             "color": "blue",
@@ -364,6 +572,7 @@ def cotizaciones():
     response = make_response(render_template(
         'cotizaciones.html',
         cotizaciones_metrics=cotizaciones_metrics,
+        pagination=pagination,
         cotizaciones_records=cotizaciones_records,
         all_clients=all_clients,
         all_products=all_products,
@@ -460,6 +669,202 @@ def guardar_cliente_modal():
 
 @ventas_bp.route('/ventas/registrar-pago', methods=['POST'])
 def registrar_pago_venta():
+    """Registra un cobro formal e idempotente para una venta."""
+    import hashlib
+    import os
+    from db import get_connection
+    import uuid
+    from werkzeug.utils import secure_filename
+    from flask import current_app, send_file
+    from db import get_connection, upsert_sale_payment
+
+    role = session.get('role_name')
+    permissions = session.get('permissions') or {}
+    allowed = role in {'Administrativo', 'Aprobador', 'Gerente'} or bool(
+        permissions.get('ventas.registrar_pago') or permissions.get('aprobar_registros')
+    )
+    if not allowed:
+        return ('No autorizado para registrar pagos.', 403)
+
+    sale_id = request.form.get('sale_id', type=int)
+    return_url = request.form.get('return_url') or request.referrer or url_for('ventas.ventas')
+    method = (request.form.get('payment_method') or '').strip().lower()
+    method = {'transferencia bancaria': 'Transferencia', 'transferencia': 'Transferencia', 'efectivo': 'Efectivo'}.get(method, method)
+    payment_date = (request.form.get('payment_date') or '').strip()
+    idempotency_key = (request.form.get('idempotency_key') or '').strip()
+    notes = (request.form.get('payment_notes') or '').strip()
+    if not idempotency_key:
+        idempotency_key = hashlib.sha256(f'{sale_id}|{method}|{payment_date}|{request.form.get("payment_amount", "")}'.encode()).hexdigest()
+
+    if not sale_id or method not in {'Transferencia', 'Efectivo'} or not payment_date:
+        flash('Completa venta, medio de pago y fecha del pago.', 'danger')
+        return redirect(return_url)
+
+    try:
+        amount = round(float(request.form.get('payment_amount', '0').replace(',', '.')), 2)
+    except (TypeError, ValueError):
+        amount = 0
+    if amount <= 0:
+        flash('El monto pagado debe ser mayor que cero.', 'danger')
+        return redirect(url_for('ventas.ventas'))
+
+    bank_id = request.form.get('bank_account_id', type=int)
+    if method == 'Transferencia' and not bank_id:
+        flash('Selecciona una cuenta bancaria activa.', 'danger')
+        return redirect(url_for('ventas.ventas'))
+    if method == 'Efectivo':
+        bank_id = None
+
+    payment_file = request.files.get('payment_file')
+    allowed_exts = {'.pdf', '.jpg', '.jpeg', '.png'}
+    saved_path = None
+    proof_name = None
+    if method == 'Transferencia':
+        if not payment_file or not payment_file.filename:
+            flash('El comprobante es obligatorio para transferencias.', 'danger')
+            return redirect(return_url)
+        original = secure_filename(payment_file.filename)
+        ext = os.path.splitext(original)[1].lower()
+        if ext not in allowed_exts:
+            flash('Formato de comprobante no permitido. Usa PDF, JPG, JPEG o PNG.', 'danger')
+            return redirect(return_url)
+        allowed_mimes = {'.pdf': 'application/pdf', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png'}
+        if payment_file.mimetype and payment_file.mimetype != allowed_mimes[ext]:
+            flash('El tipo MIME del comprobante no coincide con su extensión.', 'danger')
+            return redirect(return_url)
+        payment_file.stream.seek(0, os.SEEK_END)
+        size = payment_file.stream.tell()
+        payment_file.stream.seek(0)
+        if size > 10 * 1024 * 1024:
+            flash('El comprobante no puede superar 10 MB.', 'danger')
+            return redirect(return_url)
+        proof_name = f'{uuid.uuid4().hex}{ext}'
+        private_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'comprobantes_pago_ventas'))
+        os.makedirs(private_dir, exist_ok=True)
+        saved_path = os.path.join(private_dir, proof_name)
+        payment_file.save(saved_path)
+
+    user_name = session.get('full_name') or session.get('user_name') or 'Administrador'
+    now = datetime.now(timezone.utc).isoformat(timespec='seconds')
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, sale_number, customer_name, sale_date, total_amount, status, payment_status FROM sales WHERE id = %s FOR UPDATE", (sale_id,))
+                sale = cur.fetchone()
+                if not sale:
+                    raise ValueError('Venta no encontrada.')
+                if sale['status'] in ('Cancelada', 'Cotización'):
+                    raise ValueError('No se puede registrar un pago para esta venta.')
+                cur.execute("SELECT invoice_due_date FROM sale_payments WHERE sale_id = %s", (sale_id,))
+                payment_header = cur.fetchone()
+                invoice_due_date = (payment_header['invoice_due_date'] if payment_header else None) or sale['sale_date']
+
+                cur.execute("SELECT id FROM sale_payment_items WHERE idempotency_key = %s", (idempotency_key,))
+                if cur.fetchone():
+                    conn.commit()
+                    flash('El pago ya había sido registrado.', 'info')
+                    return redirect(return_url)
+
+                cur.execute("SELECT COALESCE(SUM(payment_amount), 0) AS total_paid FROM sale_payment_items WHERE sale_id = %s AND COALESCE(accounting_approved, 1) = 1", (sale_id,))
+                paid_before = float(cur.fetchone()['total_paid'] or 0)
+                remaining = round(float(sale['total_amount']) - paid_before, 2)
+                if remaining <= 0:
+                    raise ValueError('La venta ya está completamente pagada.')
+                if amount > remaining + 0.01:
+                    raise ValueError(f'El monto supera el saldo pendiente de ${remaining:,.2f}.')
+
+                bank = None
+                if bank_id:
+                    cur.execute("SELECT id, bank_name, account_number FROM bank_accounts WHERE id = %s AND status = 'Activa' FOR SHARE", (bank_id,))
+                    bank = cur.fetchone()
+                    if not bank:
+                        raise ValueError('La cuenta bancaria no existe o está inactiva.')
+
+                cur.execute(
+                    """INSERT INTO sale_payment_items
+                       (sale_id, payment_amount, payment_date, payment_proof_file, created_at,
+                        bank_account_id, accounting_approved, accounting_approved_by,
+                        accounting_approved_at, accounting_comment, payment_method,
+                        registered_by, registered_at, bank_name_snapshot,
+                        account_number_snapshot, payment_notes, idempotency_key)
+                       VALUES (%s,%s,%s,%s,%s,%s,1,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                       RETURNING id""",
+                    (sale_id, amount, payment_date, proof_name, now, bank_id, user_name, now,
+                     'Pago registrado', method, user_name, now,
+                     bank['bank_name'] if bank else None, bank['account_number'] if bank else None,
+                     notes or None, idempotency_key),
+                )
+                payment_item_id = cur.fetchone()['id']
+                proof_url = url_for('ventas.ver_comprobante_pago', item_id=payment_item_id) if proof_name else None
+                total_paid = round(paid_before + amount, 2)
+                is_paid = total_paid + 0.01 >= float(sale['total_amount'])
+                status = 'Pagado' if is_paid else 'Pendiente'
+                cur.execute("UPDATE sales SET payment_status = %s, payment_method = %s WHERE id = %s", (status, method, sale_id))
+                if is_paid and sale['status'] != 'Completada':
+                    # El pago no elige qué pedido recibirá el stock físico.
+                    cur.execute("SELECT EXISTS(SELECT 1 FROM sale_items WHERE sale_id = %s) AS discounted", (sale_id,))
+                    if cur.fetchone()['discounted']:
+                        cur.execute("UPDATE sales SET status = 'Completada' WHERE id = %s", (sale_id,))
+                        cur.execute("INSERT INTO sales_status_history (sale_id,status,user_name,changed_at,comment) VALUES (%s,'Completada',%s,%s,%s)", (sale_id, user_name, now, 'Venta completada al registrar el pago total'))
+                    else:
+                        cur.execute("INSERT INTO sales_status_history (sale_id,status,user_name,changed_at,comment) VALUES (%s,%s,%s,%s,%s)", (sale_id, sale['status'], user_name, now, 'Pago total registrado. Venta permanece pendiente de preparación física.'))
+
+                upsert_sale_payment(sale_id, {
+                    'invoice_number': f'FACT-{sale_id:05d}',
+                    'invoice_amount': sale['total_amount'],
+                    'invoice_due_date': invoice_due_date,
+                    'payment_proof_file': proof_url,
+                    'payment_amount': total_paid,
+                    'payment_date': payment_date,
+                    'payment_uploaded_at': now,
+                    'accounting_approved': 1,
+                    'accounting_approved_by': user_name,
+                    'accounting_approved_at': now,
+                    'accounting_comment': 'Pago registrado',
+                    'status': status,
+                    'created_at': now,
+                    'updated_at': now,
+                }, conn=conn)
+                cur.execute("INSERT INTO sales_payment_history (sale_id, action, user_name, changed_at, details) VALUES (%s,%s,%s,%s,%s)", (sale_id, 'Pago registrado', user_name, now, f'{method}: ${amount:.2f} con fecha {payment_date}'))
+            conn.commit()
+    except ValueError as exc:
+        if saved_path and os.path.exists(saved_path):
+            os.remove(saved_path)
+        flash(str(exc), 'danger')
+        return redirect(return_url)
+    except Exception:
+        if saved_path and os.path.exists(saved_path):
+            os.remove(saved_path)
+        raise
+
+    flash('Pago registrado correctamente.', 'success')
+    return redirect(return_url)
+
+
+@ventas_bp.route('/ventas/pagos/comprobante/<int:item_id>')
+def ver_comprobante_pago(item_id):
+    """Entrega comprobantes sólo a usuarios autenticados y autorizados."""
+    import os
+    from db import get_connection
+    role = session.get('role_name')
+    permissions = session.get('permissions') or {}
+    if not session.get('user_id') or not (role in {'Administrativo', 'Aprobador', 'Gerente'} or permissions.get('ventas.registrar_pago') or permissions.get('aprobar_registros')):
+        return ('No autorizado.', 403)
+    from flask import send_file
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT payment_proof_file FROM sale_payment_items WHERE id = %s", (item_id,))
+            row = cur.fetchone()
+    if not row or not row['payment_proof_file']:
+        return ('Comprobante no encontrado.', 404)
+    private_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'comprobantes_pago_ventas'))
+    path = os.path.abspath(os.path.join(private_dir, os.path.basename(row['payment_proof_file'])))
+    if not path.startswith(private_dir + os.sep) or not os.path.isfile(path):
+        return ('Comprobante no encontrado.', 404)
+    return send_file(path, as_attachment=False)
+
+
+def registrar_pago_venta_legacy():
     """Registrar o actualizar el pago de una factura de venta"""
     import os
     from werkzeug.utils import secure_filename
@@ -473,7 +878,7 @@ def registrar_pago_venta():
     user_role = session.get('role_name')
     if payment_status == 'Pagado' and user_role not in ['Aprobador', 'Gerente', 'Administrativo']:
         payment_status = 'Pendiente Aprobación Pago'
-        
+
     invoice_due_date = request.form.get('invoice_due_date')
     payment_date = request.form.get('payment_date') if payment_status in ['Pagado', 'Pendiente Aprobación Pago'] else None
 
@@ -483,21 +888,22 @@ def registrar_pago_venta():
 
     user_responsible = session.get('full_name', 'Administrador')
 
-    # Subir comprobante si existe y el estado es Pagado o Pendiente Aprobación
-    payment_proof_file = None
-    file = request.files.get('payment_file')
-    file_uploaded = False
-    if payment_status in ['Pagado', 'Pendiente Aprobación Pago'] and file and file.filename:
-        safe_name = secure_filename(file.filename)
-        ext = os.path.splitext(safe_name)[1]
-        filename = f"comprobante_venta_{sale_id}_{int(datetime.now(timezone.utc).timestamp())}{ext}"
-        filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
-        payment_proof_file = f"/uploads/{filename}"
-        file_uploaded = True
-
     with get_connection() as conn:
         with conn.cursor() as cur:
+            lock_sale_for_change(cur, sale_id)
+            # Subir comprobante si existe y el estado es Pagado o Pendiente Aprobación
+            payment_proof_file = None
+            file = request.files.get('payment_file')
+            file_uploaded = False
+            if payment_status in ['Pagado', 'Pendiente Aprobación Pago'] and file and file.filename:
+                safe_name = secure_filename(file.filename)
+                ext = os.path.splitext(safe_name)[1]
+                filename = f"comprobante_venta_{sale_id}_{int(datetime.now(timezone.utc).timestamp())}{ext}"
+                filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+                payment_proof_file = f"/uploads/{filename}"
+                file_uploaded = True
+
             # 1. Obtener la venta con bloqueo exclusivo, su estado anterior y el pago anterior para auditar diferencias
             cur.execute("SELECT total_amount, sale_date, status, payment_status FROM sales WHERE id = %s FOR UPDATE", (sale_id,))
             sale_row = cur.fetchone()
@@ -588,29 +994,46 @@ def registrar_pago_venta():
                 (payment_status, sale_id)
             )
 
-            # Automatización: Si el pago se registró como "Pagado" y la venta no estaba Completada
+            # Un pago sólo completa automáticamente una venta cuyo stock ya fue
+            # descontado por una decisión operacional anterior.
             auto_completed = False
             if payment_status == 'Pagado' and old_sale_status != 'Completada':
-                cur.execute(
-                    "UPDATE sales SET status = 'Completada' WHERE id = %s",
-                    (sale_id,)
-                )
-                auto_completed = True
-                
-                # Registrar historial de estado por cambio automático del sistema
-                cur.execute(
-                    """
-                    INSERT INTO sales_status_history (sale_id, status, user_name, changed_at, comment)
-                    VALUES (%s, %s, %s, %s, %s)
-                    """,
-                    (
-                        sale_id,
-                        'Completada',
-                        f'Sistema (Auto por {user_responsible})',
-                        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        'Estado cambiado automáticamente a Completada tras subida de comprobante'
+                cur.execute("SELECT EXISTS(SELECT 1 FROM sale_items WHERE sale_id = %s) AS discounted", (sale_id,))
+                if cur.fetchone()['discounted']:
+                    cur.execute(
+                        "UPDATE sales SET status = 'Completada' WHERE id = %s",
+                        (sale_id,)
                     )
-                )
+                    auto_completed = True
+                    
+                    # Registrar historial de estado por cambio automático del sistema
+                    cur.execute(
+                        """
+                        INSERT INTO sales_status_history (sale_id, status, user_name, changed_at, comment)
+                        VALUES (%s, %s, %s, %s, %s)
+                        """,
+                        (
+                            sale_id,
+                            'Completada',
+                            f'Sistema (Auto por {user_responsible})',
+                            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            'Estado cambiado automáticamente a Completada tras subida de comprobante'
+                        )
+                    )
+                else:
+                    cur.execute(
+                        """
+                        INSERT INTO sales_status_history (sale_id, status, user_name, changed_at, comment)
+                        VALUES (%s, %s, %s, %s, %s)
+                        """,
+                        (
+                            sale_id,
+                            old_sale_status,
+                            f'Sistema (Auto por {user_responsible})',
+                            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            'Comprobante subido y pago registrado como Pagado. Venta permanece pendiente de preparación física.'
+                        )
+                    )
 
             # Si es reversión a Pendiente, mantener el archivo anterior a menos que explícitamente se borre. 
             final_proof_file = payment_proof_file if payment_proof_file else (old_proof_file if payment_status in ['Pagado', 'Pendiente Aprobación Pago'] else None)
@@ -713,6 +1136,7 @@ def registrar_pago_venta():
 @ventas_bp.route('/ventas/pago/<int:sale_id>/aprobar', methods=['POST'])
 def aprobar_pago_venta(sale_id):
     """Aprobar un pago pendiente de validación por parte del Aprobador"""
+    from db import get_connection
     user_role = session.get('role_name')
     user_responsible = session.get('full_name', 'Administrador')
     
@@ -722,6 +1146,7 @@ def aprobar_pago_venta(sale_id):
         
     with get_connection() as conn:
         with conn.cursor() as cur:
+            lock_sale_for_change(cur, sale_id)
             # 1. Obtener la venta
             cur.execute("SELECT payment_status, total_amount FROM sales WHERE id = %s", (sale_id,))
             sale_row = cur.fetchone()
@@ -733,9 +1158,41 @@ def aprobar_pago_venta(sale_id):
                 flash("El pago de esta venta no está pendiente de aprobación.", "warning")
                 return redirect(url_for('ventas.ventas'))
                 
-            # 2. Actualizar el estado de pago principal a 'Pagado' y el estado de la venta a 'Completada'
-            cur.execute("UPDATE sales SET payment_status = 'Pagado', status = 'Completada' WHERE id = %s", (sale_id,))
-            
+            # 2. Aprobar el pago sin asignar stock a una venta aún no preparada.
+            cur.execute("SELECT EXISTS(SELECT 1 FROM sale_items WHERE sale_id = %s) AS discounted", (sale_id,))
+            if cur.fetchone()['discounted']:
+                cur.execute("UPDATE sales SET payment_status = 'Pagado', status = 'Completada' WHERE id = %s", (sale_id,))
+                
+                # Registrar historial de estado a Completada
+                cur.execute(
+                    """
+                    INSERT INTO sales_status_history (sale_id, status, user_name, changed_at, comment)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (
+                        sale_id,
+                        'Completada',
+                        f'Sistema (Aprobación por {user_responsible})',
+                        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'Estado cambiado a Completada tras aprobación de pago'
+                    )
+                )
+            else:
+                cur.execute("UPDATE sales SET payment_status = 'Pagado' WHERE id = %s", (sale_id,))
+                cur.execute(
+                    """
+                    INSERT INTO sales_status_history (sale_id, status, user_name, changed_at, comment)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (
+                        sale_id,
+                        'Pendiente',
+                        f'Sistema (Aprobación por {user_responsible})',
+                        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'Pago aprobado. Venta permanece pendiente de preparación física.'
+                    )
+                )
+
             # 3. Actualizar la tabla sale_payments
             cur.execute(
                 """
@@ -749,21 +1206,6 @@ def aprobar_pago_venta(sale_id):
                 WHERE sale_id = %s
                 """,
                 (user_responsible, datetime.now(timezone.utc).isoformat(), sale_row['total_amount'], datetime.now(timezone.utc).isoformat(), sale_id)
-            )
-            
-            # 4. Registrar en historial de estado
-            cur.execute(
-                """
-                INSERT INTO sales_status_history (sale_id, status, user_name, changed_at, comment)
-                VALUES (%s, %s, %s, %s, %s)
-                """,
-                (
-                    sale_id,
-                    'Completada',
-                    f'Sistema (Aprobación por {user_responsible})',
-                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    'Estado cambiado a Completada tras aprobación de pago'
-                )
             )
             
             # 5. Registrar en historial de pagos
@@ -803,34 +1245,72 @@ def actualizar_estado_venta():
 
     user_responsible = session.get('full_name', 'Administrador')
 
-    # Subir factura física si existe
-    invoice_file_path = None
-    file = request.files.get('invoice_file')
-    if file and file.filename:
-        safe_name = secure_filename(file.filename)
-        ext = os.path.splitext(safe_name)[1]
-        filename = f"factura_venta_{sale_id}_{int(datetime.now(timezone.utc).timestamp())}{ext}"
-        filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
-        invoice_file_path = f"/uploads/{filename}"
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            current = lock_sale_for_change(cur, sale_id, allow_cancelled=new_status == 'Cancelada')
+            if not current:
+                flash('Venta no encontrada.', 'warning')
+                return redirect(url_for('ventas.ventas'))
+            if current['status'] == 'Cancelada':
+                flash('La venta ya está Cancelada; no se realizaron cambios.', 'info')
+                return redirect(url_for('ventas.ventas'))
 
-    # Validar que si el estado es 'Completada', obligatoriamente exista o se haya subido un archivo de factura/boleta
-    if new_status == 'Completada':
-        has_file = bool(invoice_file_path)
-        if not has_file:
-            with get_connection() as conn:
-                with conn.cursor() as cur:
+            # Subir factura física si existe
+            invoice_file_path = None
+            file = request.files.get('invoice_file')
+            if file and file.filename:
+                safe_name = secure_filename(file.filename)
+                ext = os.path.splitext(safe_name)[1]
+                filename = f"factura_venta_{sale_id}_{int(datetime.now(timezone.utc).timestamp())}{ext}"
+                filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+                invoice_file_path = f"/uploads/{filename}"
+
+            # Validar que si el estado es 'Completada', obligatoriamente exista o se haya subido un archivo de factura/boleta
+            if new_status == 'Completada':
+                has_file = bool(invoice_file_path)
+                if not has_file:
                     cur.execute("SELECT invoice_file FROM sale_payments WHERE sale_id = %s", (sale_id,))
                     row = cur.fetchone()
                     if row and row.get("invoice_file"):
                         has_file = True
 
-        if not has_file:
-            flash("Para marcar la venta como Completada es obligatorio adjuntar el archivo de la Factura o Boleta.", "warning")
-            return redirect(url_for('ventas.ventas'))
+                if not has_file:
+                    flash("Para marcar la venta como Completada es obligatorio adjuntar el archivo de la Factura o Boleta.", "warning")
+                    return redirect(url_for('ventas.ventas'))
 
-    with get_connection() as conn:
-        with conn.cursor() as cur:
+            # Protección estricta de Estados Operacionales frente a déficit de stock
+            OPERATIONAL_STATUSES = ('En Preparación', 'Para Despacho', 'Completada')
+            if new_status in OPERATIONAL_STATUSES:
+                from repositories.sales_repo import check_sale_stock_availability, ensure_sale_stock_discounted
+                stock_check = check_sale_stock_availability(sale_id, conn=conn)
+                if stock_check.get("has_deficit"):
+                    deficit_items = [it for it in stock_check.get("items", []) if it.get("has_deficit")]
+                    details_str = ", ".join(
+                        f"{it['product_name']} (Solicitado: {int(it['requested']) if it['requested'].is_integer() else it['requested']}, "
+                        f"Disponible: {int(it['available']) if it['available'].is_integer() else it['available']}, "
+                        f"Faltante: {int(it['deficit']) if it['deficit'].is_integer() else it['deficit']})"
+                        for it in deficit_items
+                    )
+                    conn.rollback()
+                    flash(
+                        f"⚠️ No es posible avanzar a '{new_status}': stock insuficiente para cumplir el pedido. "
+                        f"Faltantes: {details_str}.",
+                        "danger"
+                    )
+                    return redirect(url_for('ventas.ventas'))
+
+                # Si pasa a estado operacional y aún no ha sido descontada físicamente, ejecutar el descuento dentro de la transacción
+                try:
+                    ensure_sale_stock_discounted(sale_id, conn=conn)
+                except ValueError as ve:
+                    conn.rollback()
+                    flash(
+                        f"⚠️ No es posible avanzar a '{new_status}': stock insuficiente para cumplir el pedido. Detalle: {str(ve)}",
+                        "danger"
+                    )
+                    return redirect(url_for('ventas.ventas'))
+
             # 1. Registrar el historial de cambio de estado
             cur.execute(
                 """
@@ -907,6 +1387,37 @@ def actualizar_estado_venta():
                     )
                 )
 
+            # 5. Si la venta se cancela, revertir productos e inventario y embalaje de manera transaccional e idempotente
+            if new_status == 'Cancelada':
+                reverse_sale_inventory(sale_id, user_name=user_responsible, conn=conn)
+                reverse_sale_packaging(sale_id, user_name=user_responsible, conn=conn)
+
+            # 6. Si pasa a 'Para Despacho' o 'Completada', verificar y procesar consumo de cajas
+            if new_status in ('Para Despacho', 'Completada'):
+                already_has_pkg = sale_has_packaging(sale_id, conn=conn)
+                if not already_has_pkg:
+                    # Leer cajas enviadas desde el formulario
+                    pkg_ids = request.form.getlist('packaging_product_id[]')
+                    pkg_qtys = request.form.getlist('packaging_quantity[]')
+                    items_to_record = []
+                    for idx, pid_str in enumerate(pkg_ids):
+                        if pid_str and idx < len(pkg_qtys):
+                            try:
+                                pid = int(pid_str)
+                                qty = int(pkg_qtys[idx])
+                                if qty > 0:
+                                    items_to_record.append({"product_id": pid, "quantity": qty})
+                            except (ValueError, TypeError):
+                                pass
+
+                    if items_to_record:
+                        try:
+                            record_sale_packaging(sale_id, items_to_record, user_name=user_responsible, conn=conn)
+                        except ValueError as ve:
+                            conn.rollback()
+                            flash(f"⚠️ Error al asignar embalaje: {str(ve)} No se modificó el estado de la venta.", "danger")
+                            return redirect(url_for('ventas.ventas'))
+
         conn.commit()
 
     flash(f'El estado de la venta se actualizó a "{new_status}" con éxito.', 'success')
@@ -914,8 +1425,8 @@ def actualizar_estado_venta():
 
 @ventas_bp.route('/ventas/reportes')
 def ventas_reportes():
-    """Reportes de ventas"""
-    return render_template('ventas_reportes.html')
+    """Reportes de ventas - Redirige a la reportería oficial consolidada"""
+    return redirect(url_for('reportes.reportes_ventas'), code=302)
 
 @ventas_bp.route('/ingreso-ventas', methods=['GET', 'POST'])
 def ingreso_ventas():
@@ -947,16 +1458,16 @@ def ingreso_ventas():
         }
 
         if entry["sku"] and entry["product_name"] and entry["sale_date"]:
-            from db import get_product_available_stock
-            avail = get_product_available_stock(entry["sku"])
+            from services.stock_context import get_operational_balance
+            balance = get_operational_balance(entry["sku"])
+            avail = balance["available_stock"] if balance else 0.0
             if quantity > avail:
                 avail_disp = int(avail) if avail.is_integer() else avail
                 flash(
-                    f"Stock insuficiente en bodega para '{entry['product_name']}'. "
+                    f"⚠️ Venta registrada con stock pendiente: '{entry['product_name']}'. "
                     f"Se solicitaron {quantity} unidades, pero el máximo disponible en bodega es de {avail_disp} unidades.",
-                    "danger"
+                    "warning"
                 )
-                return redirect(url_for('ventas.ingreso_ventas'))
             insert_sales_entry(entry)
 
         return redirect(url_for('ventas.ingreso_ventas'))
@@ -979,6 +1490,8 @@ def nueva_cotizacion():
         customer_name = request.form.get('customer_name', '').strip()
         customer_email = request.form.get('customer_email', '').strip()
         customer_category = request.form.get('customer_category', '').strip()
+        customer_delivery_address = request.form.get('customer_delivery_address', '').strip()
+        customer_id_raw = request.form.get('customer_id', '').strip()
         customer_rut = request.form.get('customer_rut', '').strip()
         customer_dv = request.form.get('customer_dv', '').strip()
         doc_type = request.form.get('doc_type', 'Boleta').strip()
@@ -1004,15 +1517,33 @@ def nueva_cotizacion():
         lot_numbers = request.form.getlist('lot_number[]')
         
         # Guardar / Actualizar datos del cliente en la base de datos (con RUT como llave primaria)
-        from db import upsert_client_by_rut
-        if customer_rut:
+        from db import upsert_client_by_rut, get_client_by_id, get_client_by_rut
+        if customer_rut and not customer_id_raw.isdigit():
             upsert_client_by_rut({
                 "rut": customer_rut,
                 "dv": customer_dv,
                 "razon_social": customer_name,
                 "email": customer_email,
-                "category_id": customer_category
+                "category_id": customer_category,
+                "delivery_address": customer_delivery_address
             })
+
+        # La base de datos es la autoridad para los datos del cliente seleccionado.
+        authoritative_client = None
+        if customer_id_raw.isdigit():
+            authoritative_client = get_client_by_id(int(customer_id_raw))
+        if not authoritative_client and customer_rut:
+            authoritative_client = get_client_by_rut(customer_rut, customer_dv)
+        if authoritative_client:
+            customer_delivery_address = authoritative_client.get('delivery_address') or ''
+            customer_category = authoritative_client.get('category_id') or customer_category
+
+        category_snapshot = customer_category
+        config_snapshot = get_page_data("price_list_config") or {}
+        for category in config_snapshot.get("categories", []):
+            if str(category.get("id")) == str(customer_category):
+                category_snapshot = category.get("name") or customer_category
+                break
 
         if customer_email and customer_category:
             with get_connection() as conn:
@@ -1027,12 +1558,31 @@ def nueva_cotizacion():
                     )
                 conn.commit()
 
-        # Obtener nombres de productos y construir el JSON
+        # Obtener únicamente los productos seleccionados. Cargar el catálogo
+        # completo aquí hacía que el POST de una cotización recorriera miles de
+        # filas antes de poder responder al usuario.
         products_list = []
         total_amount = 0.0
-        
-        # Cargar productos para buscar nombres
-        all_prods = {str(p['id']): p for p in list_products()}
+
+        selected_ids = []
+        for raw_id in product_ids:
+            if raw_id and raw_id.isdigit():
+                selected_ids.append(int(raw_id))
+
+        all_prods = {}
+        if selected_ids:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT id, name, sku
+                        FROM products
+                        WHERE id = ANY(%s)
+                          AND (is_deleted = FALSE OR is_deleted IS NULL)
+                        """,
+                        (list(set(selected_ids)),),
+                    )
+                    all_prods = {str(row["id"]): dict(row) for row in cur.fetchall()}
         
         for idx, (p_id, qty, price) in enumerate(zip(product_ids, quantities, unit_prices)):
             if not p_id or not qty or not price:
@@ -1046,6 +1596,9 @@ def nueva_cotizacion():
             total_amount += subtotal
             
             prod_info = all_prods.get(p_id, {})
+            if not prod_info:
+                flash("Uno de los productos seleccionados ya no está disponible. Recarga la cotización e inténtalo nuevamente.", "danger")
+                return redirect(request.url)
             products_list.append({
                 "product_id": int(p_id),
                 "product_name": prod_info.get('name', 'Producto Desconocido'),
@@ -1069,10 +1622,12 @@ def nueva_cotizacion():
             quotation_status = 'Activa'
 
         win_prob_raw = request.form.get('win_probability', '').strip()
-        if win_prob_raw.isdigit():
+        if quotation_status == 'Perdida':
+            win_probability = 0
+        elif win_prob_raw.isdigit():
             win_probability = max(0, min(100, int(win_prob_raw)))
         else:
-            win_probability = 100 if quotation_status == 'Ganada' else (0 if quotation_status == 'Perdida' else 50)
+            win_probability = 100 if quotation_status == 'Ganada' else 50
 
         if edit_id:
             # ── MODO EDICIÓN: Actualizar cotización en Borrador existente ──
@@ -1099,6 +1654,8 @@ def nueva_cotizacion():
                 "payment_status": cot_status,
                 "delivery_status": cot_status,
                 "notes": notes,
+                "customer_delivery_address": customer_delivery_address,
+                "customer_category_snapshot": category_snapshot,
             }
             update_sale(edit_id, sale_data)
             if quotation_status == 'Ganada':
@@ -1137,7 +1694,9 @@ def nueva_cotizacion():
                 "payment_status": cot_status,
                 "delivery_status": cot_status,
                 "notes": notes,
-                "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds')
+                "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds'),
+                "customer_delivery_address": customer_delivery_address,
+                "customer_category_snapshot": category_snapshot
             }
             new_cot_id = insert_sale(sale_data)
             if quotation_status == 'Ganada':
@@ -1155,10 +1714,24 @@ def nueva_cotizacion():
 
         return redirect(url_for('ventas.cotizaciones'))
         
-    from db import get_product_available_stock
-    products = [p for p in list_products() if p.get('product_type', 'Final') != 'Insumo']
-    for p in products:
-        p['available_stock'] = int(get_product_available_stock(p['id']))
+    from db import get_batch_products_available_stock
+    raw_products = [p for p in list_products() if p.get('product_type', 'Final') != 'Insumo']
+    stock_map = get_batch_products_available_stock(raw_products)
+    from services.stock_context import get_reserved_stock_by_sku
+    reserved_map = get_reserved_stock_by_sku(raw_products, list_sales({'status': 'Pendiente'}))
+    products = []
+    for p in raw_products:
+        p_id = p['id']
+        products.append({
+            'id': p_id,
+            'name': p.get('name', ''),
+            'sku': p.get('sku', ''),
+            'category': p.get('category', ''),
+            'product_type': p.get('product_type', 'Final'),
+            'requires_lot': bool(p.get('requires_lot')),
+            'available_stock': max(float(stock_map.get(p_id, 0) or 0) -
+                                   float(reserved_map.get(p.get('sku'), 0) or 0), 0.0)
+        })
     default_date = datetime.today().strftime('%Y-%m-%d')
 
     # ── Detectar modo EDICIÓN (edit_id) o modo CLONACIÓN (clone_id) ──
@@ -1194,10 +1767,23 @@ def nueva_cotizacion():
                     pass
 
             cat_id = ""
+            c_data = None
+            delivery_address = source_sale.get("customer_delivery_address") or ""
+            snapshot_category = source_sale.get("customer_category_snapshot") or ""
             if rut_val:
                 c_data = get_client_by_rut(rut_val)
                 if c_data:
                     cat_id = c_data.get("category_id") or ""
+                    if not delivery_address:
+                        delivery_address = c_data.get("delivery_address") or ""
+            if snapshot_category:
+                # El snapshot puede contener el nombre histórico; el formulario
+                # requiere el ID para mantener el comportamiento de precios.
+                config_for_clone = get_page_data("price_list_config") or {}
+                for cat in config_for_clone.get("categories", []):
+                    if cat.get("name") == snapshot_category or str(cat.get("id")) == snapshot_category:
+                        cat_id = cat.get("id")
+                        break
 
             clean_notes = notes_str
             if "\n" in notes_str:
@@ -1211,15 +1797,19 @@ def nueva_cotizacion():
                 "doc_type": doc_type,
                 "customer_rut": rut_val,
                 "customer_dv": dv_val,
+                "customer_id": c_data.get("id") if c_data else "",
                 "customer_name": source_sale.get("customer_name", ""),
                 "customer_email": source_sale.get("customer_email", ""),
                 "customer_category": cat_id,
+                "customer_delivery_address": delivery_address,
                 "quotation_status": source_sale.get("quotation_status", "Activa"),
                 "win_probability": source_sale.get("win_probability", 50),
                 "sale_date": source_sale.get("sale_date", default_date) if is_edit_mode else default_date,
                 "payment_method": source_sale.get("payment_method", "Efectivo") if is_edit_mode else "Efectivo",
                 "notes": clean_notes,
-                "products": source_sale.get("products", [])
+                "products": source_sale.get("products", []),
+                "seller_name": source_sale.get("seller_name") or get_logged_in_user_info()[0],
+                "seller_initials": source_sale.get("seller_initials") or get_logged_in_user_info()[1]
             }
             if is_edit_mode:
                 # In edit mode, use the saved date as default
@@ -1301,6 +1891,8 @@ def nueva_cotizacion():
         cat_copy["margin"] = int(m_val) if m_val.is_integer() else m_val
         formatted_categories.append(cat_copy)
 
+    current_seller_name, current_seller_initials = get_logged_in_user_info()
+
     return render_template(
         'nueva_cotizacion.html',
         products=products,
@@ -1308,7 +1900,9 @@ def nueva_cotizacion():
         categories=formatted_categories,
         products_prices_map=products_prices_map,
         cloned_quotation=cloned_quotation,
-        is_edit_mode=is_edit_mode
+        is_edit_mode=is_edit_mode,
+        current_seller_name=current_seller_name,
+        current_seller_initials=current_seller_initials
     )
 
 @ventas_bp.route('/api/clientes/<string:email>/categoria')
@@ -1316,6 +1910,10 @@ def get_client_category(email):
     from db import get_connection
     with get_connection() as conn:
         with conn.cursor() as cur:
+            cur.execute("SELECT category_id, delivery_address FROM clients WHERE lower(email) = lower(%s) ORDER BY id LIMIT 1", (email.strip(),))
+            row = cur.fetchone()
+            if row:
+                return jsonify({"email": email, "category_id": row["category_id"] or "", "delivery_address": row["delivery_address"] or ""})
             cur.execute("SELECT category_id FROM client_categories WHERE email = %s", (email.strip(),))
             row = cur.fetchone()
             if row:
@@ -1333,6 +1931,7 @@ def emitir_cotizacion(sale_id):
         
     with get_connection() as conn:
         with conn.cursor() as cur:
+            lock_sale_for_change(cur, sale_id)
             cur.execute(
                 """
                 UPDATE sales 
@@ -1353,8 +1952,8 @@ def _convert_quotation_to_sale(sale_id):
     """
     Convierte una cotización a venta real (Crea VTA- sin eliminar COT-).
     Si ya tiene una venta generada previamente, retorna el folio existente sin duplicar.
-    Valida previamente que exista stock suficiente en bodega. Si no hay suficiente stock,
-    no genera la venta y retorna el mensaje de error correspondiente.
+    Crea una venta Pendiente sin asignar ni descontar stock. El operador decide
+    qué pedido preparar; la cotización convertida mantiene 100% de probabilidad.
     Retorna: (new_sale_number, error_message)
     """
     import json
@@ -1362,7 +1961,6 @@ def _convert_quotation_to_sale(sale_id):
         get_connection,
         insert_sale,
         validate_stock_for_sale,
-        discount_stock_for_sale,
         get_next_sale_number,
     )
     from datetime import timedelta
@@ -1384,6 +1982,8 @@ def _convert_quotation_to_sale(sale_id):
             row = cur.fetchone()
             if not row:
                 return None, "Cotización no encontrada."
+
+            lock_sale_for_change(cur, sale_id)
 
             quotation = dict(row)
             notes_str = quotation.get("notes") or ""
@@ -1411,13 +2011,12 @@ def _convert_quotation_to_sale(sale_id):
                     (product_ids,)
                 )
 
-            # 3. Validar stock físico disponible antes de generar la venta
-            is_valid, err_msg, details = validate_stock_for_sale(products_list)
-            if not is_valid:
-                return None, err_msg
+            # 3. Diagnóstico informativo del físico; nunca reserva ni asigna.
+            is_valid, err_msg, details = validate_stock_for_sale(products_list, conn=conn)
+            stock_is_sufficient = is_valid
 
-            # 4. Generar nuevo folio usando secuencia atómica
-            new_sale_number = get_next_sale_number(prefix="VTA", conn=conn)
+            # 4. Generar nuevo folio usando secuencia atómica (P-XXXXX)
+            new_sale_number = get_next_sale_number(prefix="P", conn=conn)
 
             sale_date_dt = datetime.today()
             sale_date = sale_date_dt.strftime('%Y-%m-%d')
@@ -1432,6 +2031,8 @@ def _convert_quotation_to_sale(sale_id):
 
             cot_notes = quotation.get("notes") or ""
             origin_tag = f"Cotización de Origen: {quotation['sale_number']}"
+            if not stock_is_sufficient:
+                origin_tag += " [Stock pendiente de abastecimiento]"
             full_notes = f"{origin_tag}\n{cot_notes}" if cot_notes else origin_tag
 
             seller_name = quotation.get("seller_name") if quotation.get("seller_name") and quotation.get("seller_name") != "Vendedor" else get_logged_in_user_info()[0]
@@ -1472,6 +2073,9 @@ def _convert_quotation_to_sale(sale_id):
             )
 
             # Registrar historial de la nueva venta
+            history_comment = f"Venta creada automáticamente a partir de Cotización {quotation['sale_number']} (Ganada)"
+            if not stock_is_sufficient:
+                history_comment += ". Creada con stock pendiente de abastecimiento."
             cur.execute(
                 """
                 INSERT INTO sales_status_history (sale_id, status, user_name, changed_at, comment)
@@ -1482,7 +2086,7 @@ def _convert_quotation_to_sale(sale_id):
                     "Pendiente",
                     logged_user,
                     now_str,
-                    f"Venta creada automáticamente a partir de Cotización {quotation['sale_number']} (Ganada)"
+                    history_comment
                 )
             )
 
@@ -1493,9 +2097,6 @@ def _convert_quotation_to_sale(sale_id):
                 "UPDATE sales SET notes = %s, status = 'Cotización', quotation_status = 'Ganada', win_probability = 100 WHERE id = %s",
                 (updated_cot_notes, sale_id)
             )
-
-            # Descontar existencias dentro de la misma transacción
-            discount_stock_for_sale(new_sale_id, products_list, conn=conn)
 
             conn.commit()
             return new_sale_number, None
@@ -1536,10 +2137,22 @@ def actualizar_estado_cotizacion(sale_id):
         new_status = 'Activa'
         
     prob_raw = request.form.get('win_probability', '').strip()
-    if prob_raw.isdigit():
+    old_status = quotation.get('quotation_status') or 'Activa'
+    old_prob = quotation.get('win_probability') if quotation.get('win_probability') is not None else 50
+
+    if new_status == 'Perdida':
+        prob_val = 0
+    elif prob_raw.isdigit():
         prob_val = max(0, min(100, int(prob_raw)))
     else:
-        prob_val = 100 if new_status == 'Ganada' else (0 if new_status == 'Perdida' else 50)
+        prob_val = 100 if new_status == 'Ganada' else (old_prob if old_prob is not None else 50)
+
+    from security import log_security_event
+    log_security_event(
+        'QUOTATION_STATUS_CHANGED',
+        session.get('username'),
+        f"Cotización {quotation.get('sale_number')} (ID: {sale_id}) | Estado: '{old_status}' -> '{new_status}' | Probabilidad: {old_prob}% -> {prob_val}%"
+    )
 
     if new_status == 'Ganada':
         notes_str = quotation.get("notes") or ""
@@ -1587,6 +2200,7 @@ def clientes():
             "razon_social": razon_social_val,
             "tipo_compra": request.form.get('tipo_compra', 'Del Giro').strip(),
             "direccion": request.form.get('direccion', '').strip(),
+            "delivery_address": request.form.get('delivery_address', '').strip(),
             "comuna": request.form.get('comuna', '').strip(),
             "ciudad": request.form.get('ciudad', '').strip(),
             "giro": request.form.get('giro', '').strip(),
@@ -1643,6 +2257,7 @@ def editar_cliente(client_id):
         "razon_social": request.form.get('razon_social', '').strip(),
         "tipo_compra": request.form.get('tipo_compra', 'Del Giro').strip(),
         "direccion": request.form.get('direccion', '').strip(),
+        "delivery_address": request.form.get('delivery_address', '').strip(),
         "comuna": request.form.get('comuna', '').strip(),
         "ciudad": request.form.get('ciudad', '').strip(),
         "giro": request.form.get('giro', '').strip(),
@@ -1680,7 +2295,9 @@ def api_buscar_cliente_por_rut(rut):
                 "razon_social": client.get("razon_social", ""),
                 "email": client.get("email", ""),
                 "phone": client.get("phone", ""),
-                "category_id": client.get("category_id", "")
+                "category_id": client.get("category_id", ""),
+                "direccion": client.get("direccion", ""),
+                "delivery_address": client.get("delivery_address", "")
             }
         })
     return jsonify({"status": "not_found", "message": "Cliente no encontrado"}), 404
@@ -1705,6 +2322,7 @@ def api_buscar_clientes():
         "direccion": c.get("direccion", ""),
         "comuna": c.get("comuna", ""),
         "ciudad": c.get("ciudad", ""),
+        "delivery_address": c.get("delivery_address", ""),
     } for c in clients])
 
 
@@ -1735,17 +2353,50 @@ def api_sale_lots(sale_id):
 @ventas_bp.route('/api/producto/<int:product_id>/stock')
 def api_producto_stock(product_id):
     """Retorna el stock disponible en bodega para un producto (y lote opcional)."""
-    from db import get_product_available_stock
     lot = request.args.get('lot', '').strip() or None
-    avail = get_product_available_stock(product_id, lot)
+    from services.stock_context import get_product_stock_balance
+    balance = get_product_stock_balance(product_id, lot)
+    if balance is None:
+        return jsonify({"error": "Producto no encontrado"}), 404
+    avail = balance["available_stock"]
     avail_disp = int(avail) if avail.is_integer() else avail
     return jsonify({
         "product_id": product_id,
         "available_stock": avail_disp,
+        "physical_stock": balance["physical_stock"],
+        "reserved_stock": balance["reserved_stock"],
         "lot": lot
     })
 
 
+@ventas_bp.route('/api/packaging/disponibles')
+def api_packaging_disponibles():
+    """Retorna la lista de cajas y material de embalaje disponibles con su stock y costo."""
+    items = list_packaging_products()
+    return jsonify(items)
 
 
+@ventas_bp.route('/api/ventas/<int:sale_id>/packaging')
+def api_sale_packaging(sale_id):
+    """
+    Retorna si la venta ya tiene cajas asociadas, los items registrados y su resumen financiero.
+    """
+    has_pkg = sale_has_packaging(sale_id)
+    pkg_items = get_sale_packaging_items(sale_id)
+    financial = get_sale_financial_summary(sale_id)
+    return jsonify({
+        "sale_id": sale_id,
+        "has_packaging": has_pkg,
+        "packaging_items": pkg_items,
+        "financial_summary": financial
+    })
 
+
+@ventas_bp.route('/api/ventas/<int:sale_id>/stock-check')
+def api_sale_stock_check(sale_id):
+    """
+    Retorna el estado de disponibilidad y abastecimiento en tiempo real para una venta.
+    """
+    from repositories.sales_repo import check_sale_stock_availability
+    result = check_sale_stock_availability(sale_id)
+    return jsonify(result)

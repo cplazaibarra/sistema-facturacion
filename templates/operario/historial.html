@@ -1,0 +1,45 @@
+{% extends 'operario/base_operario.html' %}
+
+{% block title %}Historial Operacional{% endblock %}
+
+{% block content %}
+<header class="operario-header">
+  <div class="title-area">
+    <a href="/operario" style="color: #64748B; text-decoration: none; font-size: 14px; font-weight: 700; display: block; margin-bottom: 2px;">
+      <i class="fa-solid fa-chevron-left"></i> Inicio
+    </a>
+    <h1>Historial</h1>
+  </div>
+</header>
+
+<main class="operario-container">
+
+  <div class="section-header">
+    <h2>Registro de Actividad</h2>
+  </div>
+
+  <div class="recent-list" style="margin-bottom: 24px;">
+    {% if actions %}
+      {% for act in actions %}
+        <div class="recent-item">
+          <div class="recent-icon-wrap {{ act.badge_class }}">
+            <i class="{{ act.icon }}"></i>
+          </div>
+          <div class="recent-content">
+            <div class="recent-title">{{ act.title }}</div>
+            <div class="recent-subtitle">{{ act.subtitle }}</div>
+            <div style="font-size: 11px; color: #94A3B8; margin-top: 2px;">
+              {{ act.timestamp }}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div style="padding: 24px 0; text-align: center; color: #94A3B8; font-weight: 600;">
+        No hay registros históricos disponibles.
+      </div>
+    {% endif %}
+  </div>
+
+</main>
+{% endblock %}

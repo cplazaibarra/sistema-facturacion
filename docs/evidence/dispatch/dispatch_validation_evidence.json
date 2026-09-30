@@ -1,0 +1,886 @@
+{
+  "started_at": "2026-09-29T05:53:50.995407+00:00",
+  "before": {
+    "facturacion": {
+      "bank_accounts": {
+        "count": 10,
+        "hash": "4b5593e4368bd43314f47fe9803e1ffe"
+      },
+      "bank_reconciliation_audit": {
+        "count": 3,
+        "hash": "c92b77e01c5dd5bde3ebc0ed8e795797"
+      },
+      "bank_transaction_categories": {
+        "count": 10,
+        "hash": "bc6330256a2aaa704e7247669e988171"
+      },
+      "bank_transaction_imports": {
+        "count": 2,
+        "hash": "c92c472165ef089b7ef209c98bd4d8c6"
+      },
+      "bank_transactions": {
+        "count": 2,
+        "hash": "17dd4e28d54536f4d1b6ef7c9be0325e"
+      },
+      "client_categories": {
+        "count": 13,
+        "hash": "00bd5c0af2dc3d4a6151b2cbf817d0f1"
+      },
+      "clients": {
+        "count": 12,
+        "hash": "317bca0db1678a0996118923ccb5d729"
+      },
+      "collection_actions": {
+        "count": 1,
+        "hash": "328f44e4c092701605c5f5f5aad7254a"
+      },
+      "debt_audit": {
+        "count": 4,
+        "hash": "4481be9e0801782934e9f67c941d0906"
+      },
+      "debt_installments": {
+        "count": 2,
+        "hash": "cefcffb2656500b618daa3b2b4a6632c"
+      },
+      "debt_payments": {
+        "count": 3,
+        "hash": "b20e6f6ef135855932e7e1422d349995"
+      },
+      "debt_types": {
+        "count": 7,
+        "hash": "6a2514281ada56446bf21cfc5dd20ff0"
+      },
+      "debts": {
+        "count": 1,
+        "hash": "116948217f8e487007a262531280f5eb"
+      },
+      "excel_import_previews": {
+        "count": 2,
+        "hash": "7dd66532b11a496de018e30a5ad6fca0"
+      },
+      "expense_categories": {
+        "count": 1,
+        "hash": "44366e62bddf0a1df1cb5af5a2d69756"
+      },
+      "inventory_adjustment_audit": {
+        "count": 2,
+        "hash": "b6bee8b011686fc4b406b832c24caf9c"
+      },
+      "inventory_adjustment_requests": {
+        "count": 1,
+        "hash": "b7f05273d61a0442767423bae8515a39"
+      },
+      "inventory_cost_revaluations": {
+        "count": 1,
+        "hash": "0ef457bd81e15ba2f84173de662bb428"
+      },
+      "inventory_entries": {
+        "count": 10,
+        "hash": "ee244bed883119459b135e7a74ec284a"
+      },
+      "inventory_entry_items": {
+        "count": 12,
+        "hash": "1feda9f69389f028316daccc804cdc33"
+      },
+      "inventory_movements": {
+        "count": 28,
+        "hash": "9e67d4fbeef8324834bf2180a7330b4c"
+      },
+      "lot_stock": {
+        "count": 10,
+        "hash": "632629ed1925ced13749453459574c49"
+      },
+      "lots": {
+        "count": 10,
+        "hash": "9e258a9133e428ef8bbb8d7728cfaa0f"
+      },
+      "operational_expense_audit": {
+        "count": 1,
+        "hash": "b909b75688286156efcf7c89153a6e29"
+      },
+      "operational_expense_occurrences": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "operational_expenses": {
+        "count": 1,
+        "hash": "b2bd562bd3743b1c5ef9b4bc7bd9d525"
+      },
+      "page_data": {
+        "count": 25,
+        "hash": "a5dbb5a0cd6b91613868e8e8634cc1d2"
+      },
+      "product_margins": {
+        "count": 1,
+        "hash": "00f814a0cdb81ff562d251ac24c660ad"
+      },
+      "product_recipe_items": {
+        "count": 65,
+        "hash": "65f5c4ea72a5e8aa88f4031d29087ca5"
+      },
+      "product_recipes": {
+        "count": 18,
+        "hash": "262fa4e8ef6b3eacaf454d95e789047e"
+      },
+      "product_suppliers": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "production_lot_consumptions": {
+        "count": 5,
+        "hash": "a187d253b7c3be8f34e449e216318dbe"
+      },
+      "production_lot_outputs": {
+        "count": 3,
+        "hash": "16718a101e8bf1c5f65a1d9ca2246f0f"
+      },
+      "production_order_additional_items": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "production_order_items": {
+        "count": 3,
+        "hash": "47145144f88aa08ae1dad91301ca9ed5"
+      },
+      "production_orders": {
+        "count": 3,
+        "hash": "8f84a6f0670d14ca42b375f50630b14f"
+      },
+      "products": {
+        "count": 77,
+        "hash": "57f96f082512a11a8866fab2889b1adf"
+      },
+      "purchase_invoices": {
+        "count": 1,
+        "hash": "d3637128abbd174792f6488c33f22ca7"
+      },
+      "purchase_order_items": {
+        "count": 10,
+        "hash": "9057aa2c048a5e36a7fe83cf58c88d4b"
+      },
+      "purchase_orders": {
+        "count": 8,
+        "hash": "83c0be73d1c2fc66d7e5ec7bb533b27c"
+      },
+      "roles": {
+        "count": 7,
+        "hash": "32fa5b3d830ce34d24733734698544c6"
+      },
+      "sale_items": {
+        "count": 6,
+        "hash": "6ffb1009c2e29e5d641ed53af4109ecf"
+      },
+      "sale_lot_movements": {
+        "count": 2,
+        "hash": "1e5e5ba7a0a5bcf663e55ad7c0db63d4"
+      },
+      "sale_packaging_items": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "sale_payment_items": {
+        "count": 3,
+        "hash": "e247a596a857de4235ddc9de48694adc"
+      },
+      "sale_payments": {
+        "count": 11,
+        "hash": "453ae643a222f30102d0191df4ea4141"
+      },
+      "sales": {
+        "count": 22,
+        "hash": "059eaa5217425503a62e91f8b3525aee"
+      },
+      "sales_entries": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "sales_payment_history": {
+        "count": 6,
+        "hash": "17128ec04b2884a0999ca2c5536a5bd9"
+      },
+      "sales_status_history": {
+        "count": 35,
+        "hash": "1bb1f63f438a103143f1d0b79bf78d17"
+      },
+      "schema_migrations": {
+        "count": 24,
+        "hash": "4833c690f6bb94e1de068236264417de"
+      },
+      "supplier_contacts": {
+        "count": 2,
+        "hash": "663198f4f14482e1ce048bfd563bcf0e"
+      },
+      "suppliers": {
+        "count": 11,
+        "hash": "0c9a5851cf8e37630473a8cc2ee39be4"
+      },
+      "users": {
+        "count": 6,
+        "hash": "f00be82a3060fd129792cf2758c65720"
+      }
+    },
+    "facturacion_cleanup_verify": {
+      "bank_accounts": {
+        "count": 54,
+        "hash": "b2b8db0effd2938a3c2aa5d81b6a8bc2"
+      },
+      "bank_reconciliation_audit": {
+        "count": 12,
+        "hash": "236b21780bddd0b95965635fd92ea3ae"
+      },
+      "bank_transaction_categories": {
+        "count": 10,
+        "hash": "bc6330256a2aaa704e7247669e988171"
+      },
+      "bank_transaction_imports": {
+        "count": 2,
+        "hash": "bfec931dd772f6814458ea7f9d247396"
+      },
+      "bank_transactions": {
+        "count": 25,
+        "hash": "3a5be8ad729be2014dacdd8f6e370eaf"
+      },
+      "client_categories": {
+        "count": 13,
+        "hash": "00bd5c0af2dc3d4a6151b2cbf817d0f1"
+      },
+      "clients": {
+        "count": 10,
+        "hash": "cb5943f6bf6292bb85adb7295a8e81e2"
+      },
+      "collection_actions": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "debt_audit": {
+        "count": 32,
+        "hash": "6c38cdd616f3732430e13bb833b47876"
+      },
+      "debt_installments": {
+        "count": 55,
+        "hash": "1e95a7cb4659e49a67095562dba8564d"
+      },
+      "debt_payments": {
+        "count": 13,
+        "hash": "70f07b804e7ff97e70093f850ebe7271"
+      },
+      "debt_types": {
+        "count": 7,
+        "hash": "6a2514281ada56446bf21cfc5dd20ff0"
+      },
+      "debts": {
+        "count": 17,
+        "hash": "8ae2364b3c268715b566292989d3da33"
+      },
+      "excel_import_previews": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "expense_categories": {
+        "count": 1,
+        "hash": "44366e62bddf0a1df1cb5af5a2d69756"
+      },
+      "inventory_adjustment_audit": {
+        "count": 7,
+        "hash": "f83876bb33ccd86b3290eaa17a3c00f8"
+      },
+      "inventory_adjustment_requests": {
+        "count": 4,
+        "hash": "9de5e31727dbc09fe81f6f6c2ee3e0a2"
+      },
+      "inventory_cost_revaluations": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "inventory_entries": {
+        "count": 1975,
+        "hash": "c595f32fff3265667b25de55f04eb0b0"
+      },
+      "inventory_entry_items": {
+        "count": 945,
+        "hash": "f0c17ba5de87c03b11957c4faa4c2106"
+      },
+      "inventory_movements": {
+        "count": 7469,
+        "hash": "8669608c3563b331e64b58699ac7d129"
+      },
+      "lot_stock": {
+        "count": 1778,
+        "hash": "5bd87ade3bd428365a6d41b72d5e75d3"
+      },
+      "lots": {
+        "count": 1778,
+        "hash": "ca1f6a6dd9288118c222fdf4597b4bac"
+      },
+      "operational_expense_audit": {
+        "count": 173,
+        "hash": "42efc780c65cb97d78374c7bc64d8f52"
+      },
+      "operational_expense_occurrences": {
+        "count": 23,
+        "hash": "fd58e41f5d2be8ec9a35d38a8cee516b"
+      },
+      "operational_expenses": {
+        "count": 24,
+        "hash": "c33e6212b59537a2ba9714c0f47bb88e"
+      },
+      "page_data": {
+        "count": 25,
+        "hash": "d629828a8dcad3beaa71eb1072cfb1ff"
+      },
+      "product_margins": {
+        "count": 1,
+        "hash": "00f814a0cdb81ff562d251ac24c660ad"
+      },
+      "product_recipe_items": {
+        "count": 3301,
+        "hash": "173b1f9fbe9bb9053f3ca042606c6cdc"
+      },
+      "product_recipes": {
+        "count": 1635,
+        "hash": "036fa998b2576c7dd9916f2df7bde716"
+      },
+      "product_suppliers": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "production_lot_consumptions": {
+        "count": 237,
+        "hash": "037d361928c2e33e451f85ced0af13f5"
+      },
+      "production_lot_outputs": {
+        "count": 236,
+        "hash": "f5ad47f221e0a9e6dd2020ec0d1fbc69"
+      },
+      "production_order_additional_items": {
+        "count": 1,
+        "hash": "4e920e359113b693c4b3d0bb52744c85"
+      },
+      "production_order_items": {
+        "count": 3536,
+        "hash": "f8d2387a69e1434aa2ffd3ab3fb18c31"
+      },
+      "production_orders": {
+        "count": 1883,
+        "hash": "a924a513fe67b13fb546883f08b592fa"
+      },
+      "products": {
+        "count": 13378,
+        "hash": "8faeb0e7363e8d1c35720cebca4304bc"
+      },
+      "purchase_invoices": {
+        "count": 483,
+        "hash": "567cb6a95f28eba3b451130d94f006af"
+      },
+      "purchase_order_items": {
+        "count": 1708,
+        "hash": "117c280a1498913a31039f110ab477fa"
+      },
+      "purchase_orders": {
+        "count": 1580,
+        "hash": "666c8b62df72af9d0f929c2c731ff148"
+      },
+      "roles": {
+        "count": 7,
+        "hash": "32fa5b3d830ce34d24733734698544c6"
+      },
+      "sale_items": {
+        "count": 270,
+        "hash": "17f7ab89c85f4eb4196a1e63238eabb3"
+      },
+      "sale_lot_movements": {
+        "count": 156,
+        "hash": "490795e305f54d1b33a696f4a58bd9a2"
+      },
+      "sale_packaging_items": {
+        "count": 974,
+        "hash": "013178eb1f3dde30155631776b120008"
+      },
+      "sale_payment_items": {
+        "count": 112,
+        "hash": "a9c5a3237d44c5140856a37ef3e05127"
+      },
+      "sale_payments": {
+        "count": 674,
+        "hash": "b1b65be2911891e78c02cce91981675e"
+      },
+      "sales": {
+        "count": 1760,
+        "hash": "82dcd4ad88bd457bfe9ff34f5a793572"
+      },
+      "sales_entries": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "sales_payment_history": {
+        "count": 131,
+        "hash": "e50ce8e92d70caca22f13835b65f184d"
+      },
+      "sales_status_history": {
+        "count": 1082,
+        "hash": "1b1d9cd03105b5243be400700af058f6"
+      },
+      "schema_migrations": {
+        "count": 24,
+        "hash": "8370fa528feec2c4cbff49ba85941a8b"
+      },
+      "supplier_contacts": {
+        "count": 4,
+        "hash": "0a61fdb21358aab0ad67a4ebc65251f4"
+      },
+      "suppliers": {
+        "count": 1578,
+        "hash": "5bde5883d57f8ae563f05862da0416ba"
+      },
+      "users": {
+        "count": 6,
+        "hash": "ab6a0a5239e5999b7fca9015c02b7283"
+      }
+    }
+  },
+  "exit_code": 0,
+  "after": {
+    "facturacion": {
+      "bank_accounts": {
+        "count": 10,
+        "hash": "4b5593e4368bd43314f47fe9803e1ffe"
+      },
+      "bank_reconciliation_audit": {
+        "count": 3,
+        "hash": "c92b77e01c5dd5bde3ebc0ed8e795797"
+      },
+      "bank_transaction_categories": {
+        "count": 10,
+        "hash": "bc6330256a2aaa704e7247669e988171"
+      },
+      "bank_transaction_imports": {
+        "count": 2,
+        "hash": "c92c472165ef089b7ef209c98bd4d8c6"
+      },
+      "bank_transactions": {
+        "count": 2,
+        "hash": "17dd4e28d54536f4d1b6ef7c9be0325e"
+      },
+      "client_categories": {
+        "count": 13,
+        "hash": "00bd5c0af2dc3d4a6151b2cbf817d0f1"
+      },
+      "clients": {
+        "count": 12,
+        "hash": "317bca0db1678a0996118923ccb5d729"
+      },
+      "collection_actions": {
+        "count": 1,
+        "hash": "328f44e4c092701605c5f5f5aad7254a"
+      },
+      "debt_audit": {
+        "count": 4,
+        "hash": "4481be9e0801782934e9f67c941d0906"
+      },
+      "debt_installments": {
+        "count": 2,
+        "hash": "cefcffb2656500b618daa3b2b4a6632c"
+      },
+      "debt_payments": {
+        "count": 3,
+        "hash": "b20e6f6ef135855932e7e1422d349995"
+      },
+      "debt_types": {
+        "count": 7,
+        "hash": "6a2514281ada56446bf21cfc5dd20ff0"
+      },
+      "debts": {
+        "count": 1,
+        "hash": "116948217f8e487007a262531280f5eb"
+      },
+      "excel_import_previews": {
+        "count": 2,
+        "hash": "7dd66532b11a496de018e30a5ad6fca0"
+      },
+      "expense_categories": {
+        "count": 1,
+        "hash": "44366e62bddf0a1df1cb5af5a2d69756"
+      },
+      "inventory_adjustment_audit": {
+        "count": 2,
+        "hash": "b6bee8b011686fc4b406b832c24caf9c"
+      },
+      "inventory_adjustment_requests": {
+        "count": 1,
+        "hash": "b7f05273d61a0442767423bae8515a39"
+      },
+      "inventory_cost_revaluations": {
+        "count": 1,
+        "hash": "0ef457bd81e15ba2f84173de662bb428"
+      },
+      "inventory_entries": {
+        "count": 10,
+        "hash": "ee244bed883119459b135e7a74ec284a"
+      },
+      "inventory_entry_items": {
+        "count": 12,
+        "hash": "1feda9f69389f028316daccc804cdc33"
+      },
+      "inventory_movements": {
+        "count": 28,
+        "hash": "9e67d4fbeef8324834bf2180a7330b4c"
+      },
+      "lot_stock": {
+        "count": 10,
+        "hash": "632629ed1925ced13749453459574c49"
+      },
+      "lots": {
+        "count": 10,
+        "hash": "9e258a9133e428ef8bbb8d7728cfaa0f"
+      },
+      "operational_expense_audit": {
+        "count": 1,
+        "hash": "b909b75688286156efcf7c89153a6e29"
+      },
+      "operational_expense_occurrences": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "operational_expenses": {
+        "count": 1,
+        "hash": "b2bd562bd3743b1c5ef9b4bc7bd9d525"
+      },
+      "page_data": {
+        "count": 25,
+        "hash": "a5dbb5a0cd6b91613868e8e8634cc1d2"
+      },
+      "product_margins": {
+        "count": 1,
+        "hash": "00f814a0cdb81ff562d251ac24c660ad"
+      },
+      "product_recipe_items": {
+        "count": 65,
+        "hash": "65f5c4ea72a5e8aa88f4031d29087ca5"
+      },
+      "product_recipes": {
+        "count": 18,
+        "hash": "262fa4e8ef6b3eacaf454d95e789047e"
+      },
+      "product_suppliers": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "production_lot_consumptions": {
+        "count": 5,
+        "hash": "a187d253b7c3be8f34e449e216318dbe"
+      },
+      "production_lot_outputs": {
+        "count": 3,
+        "hash": "16718a101e8bf1c5f65a1d9ca2246f0f"
+      },
+      "production_order_additional_items": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "production_order_items": {
+        "count": 3,
+        "hash": "47145144f88aa08ae1dad91301ca9ed5"
+      },
+      "production_orders": {
+        "count": 3,
+        "hash": "8f84a6f0670d14ca42b375f50630b14f"
+      },
+      "products": {
+        "count": 77,
+        "hash": "57f96f082512a11a8866fab2889b1adf"
+      },
+      "purchase_invoices": {
+        "count": 1,
+        "hash": "d3637128abbd174792f6488c33f22ca7"
+      },
+      "purchase_order_items": {
+        "count": 10,
+        "hash": "9057aa2c048a5e36a7fe83cf58c88d4b"
+      },
+      "purchase_orders": {
+        "count": 8,
+        "hash": "83c0be73d1c2fc66d7e5ec7bb533b27c"
+      },
+      "roles": {
+        "count": 7,
+        "hash": "32fa5b3d830ce34d24733734698544c6"
+      },
+      "sale_items": {
+        "count": 6,
+        "hash": "6ffb1009c2e29e5d641ed53af4109ecf"
+      },
+      "sale_lot_movements": {
+        "count": 2,
+        "hash": "1e5e5ba7a0a5bcf663e55ad7c0db63d4"
+      },
+      "sale_packaging_items": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "sale_payment_items": {
+        "count": 3,
+        "hash": "e247a596a857de4235ddc9de48694adc"
+      },
+      "sale_payments": {
+        "count": 11,
+        "hash": "453ae643a222f30102d0191df4ea4141"
+      },
+      "sales": {
+        "count": 22,
+        "hash": "059eaa5217425503a62e91f8b3525aee"
+      },
+      "sales_entries": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "sales_payment_history": {
+        "count": 6,
+        "hash": "17128ec04b2884a0999ca2c5536a5bd9"
+      },
+      "sales_status_history": {
+        "count": 35,
+        "hash": "1bb1f63f438a103143f1d0b79bf78d17"
+      },
+      "schema_migrations": {
+        "count": 24,
+        "hash": "4833c690f6bb94e1de068236264417de"
+      },
+      "supplier_contacts": {
+        "count": 2,
+        "hash": "663198f4f14482e1ce048bfd563bcf0e"
+      },
+      "suppliers": {
+        "count": 11,
+        "hash": "0c9a5851cf8e37630473a8cc2ee39be4"
+      },
+      "users": {
+        "count": 6,
+        "hash": "f00be82a3060fd129792cf2758c65720"
+      }
+    },
+    "facturacion_cleanup_verify": {
+      "bank_accounts": {
+        "count": 54,
+        "hash": "b2b8db0effd2938a3c2aa5d81b6a8bc2"
+      },
+      "bank_reconciliation_audit": {
+        "count": 12,
+        "hash": "236b21780bddd0b95965635fd92ea3ae"
+      },
+      "bank_transaction_categories": {
+        "count": 10,
+        "hash": "bc6330256a2aaa704e7247669e988171"
+      },
+      "bank_transaction_imports": {
+        "count": 2,
+        "hash": "bfec931dd772f6814458ea7f9d247396"
+      },
+      "bank_transactions": {
+        "count": 25,
+        "hash": "3a5be8ad729be2014dacdd8f6e370eaf"
+      },
+      "client_categories": {
+        "count": 13,
+        "hash": "00bd5c0af2dc3d4a6151b2cbf817d0f1"
+      },
+      "clients": {
+        "count": 10,
+        "hash": "cb5943f6bf6292bb85adb7295a8e81e2"
+      },
+      "collection_actions": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "debt_audit": {
+        "count": 32,
+        "hash": "6c38cdd616f3732430e13bb833b47876"
+      },
+      "debt_installments": {
+        "count": 55,
+        "hash": "1e95a7cb4659e49a67095562dba8564d"
+      },
+      "debt_payments": {
+        "count": 13,
+        "hash": "70f07b804e7ff97e70093f850ebe7271"
+      },
+      "debt_types": {
+        "count": 7,
+        "hash": "6a2514281ada56446bf21cfc5dd20ff0"
+      },
+      "debts": {
+        "count": 17,
+        "hash": "8ae2364b3c268715b566292989d3da33"
+      },
+      "excel_import_previews": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "expense_categories": {
+        "count": 1,
+        "hash": "44366e62bddf0a1df1cb5af5a2d69756"
+      },
+      "inventory_adjustment_audit": {
+        "count": 7,
+        "hash": "f83876bb33ccd86b3290eaa17a3c00f8"
+      },
+      "inventory_adjustment_requests": {
+        "count": 4,
+        "hash": "9de5e31727dbc09fe81f6f6c2ee3e0a2"
+      },
+      "inventory_cost_revaluations": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "inventory_entries": {
+        "count": 1975,
+        "hash": "c595f32fff3265667b25de55f04eb0b0"
+      },
+      "inventory_entry_items": {
+        "count": 945,
+        "hash": "f0c17ba5de87c03b11957c4faa4c2106"
+      },
+      "inventory_movements": {
+        "count": 7469,
+        "hash": "8669608c3563b331e64b58699ac7d129"
+      },
+      "lot_stock": {
+        "count": 1778,
+        "hash": "5bd87ade3bd428365a6d41b72d5e75d3"
+      },
+      "lots": {
+        "count": 1778,
+        "hash": "ca1f6a6dd9288118c222fdf4597b4bac"
+      },
+      "operational_expense_audit": {
+        "count": 173,
+        "hash": "42efc780c65cb97d78374c7bc64d8f52"
+      },
+      "operational_expense_occurrences": {
+        "count": 23,
+        "hash": "fd58e41f5d2be8ec9a35d38a8cee516b"
+      },
+      "operational_expenses": {
+        "count": 24,
+        "hash": "c33e6212b59537a2ba9714c0f47bb88e"
+      },
+      "page_data": {
+        "count": 25,
+        "hash": "d629828a8dcad3beaa71eb1072cfb1ff"
+      },
+      "product_margins": {
+        "count": 1,
+        "hash": "00f814a0cdb81ff562d251ac24c660ad"
+      },
+      "product_recipe_items": {
+        "count": 3301,
+        "hash": "173b1f9fbe9bb9053f3ca042606c6cdc"
+      },
+      "product_recipes": {
+        "count": 1635,
+        "hash": "036fa998b2576c7dd9916f2df7bde716"
+      },
+      "product_suppliers": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "production_lot_consumptions": {
+        "count": 237,
+        "hash": "037d361928c2e33e451f85ced0af13f5"
+      },
+      "production_lot_outputs": {
+        "count": 236,
+        "hash": "f5ad47f221e0a9e6dd2020ec0d1fbc69"
+      },
+      "production_order_additional_items": {
+        "count": 1,
+        "hash": "4e920e359113b693c4b3d0bb52744c85"
+      },
+      "production_order_items": {
+        "count": 3536,
+        "hash": "f8d2387a69e1434aa2ffd3ab3fb18c31"
+      },
+      "production_orders": {
+        "count": 1883,
+        "hash": "a924a513fe67b13fb546883f08b592fa"
+      },
+      "products": {
+        "count": 13378,
+        "hash": "8faeb0e7363e8d1c35720cebca4304bc"
+      },
+      "purchase_invoices": {
+        "count": 483,
+        "hash": "567cb6a95f28eba3b451130d94f006af"
+      },
+      "purchase_order_items": {
+        "count": 1708,
+        "hash": "117c280a1498913a31039f110ab477fa"
+      },
+      "purchase_orders": {
+        "count": 1580,
+        "hash": "666c8b62df72af9d0f929c2c731ff148"
+      },
+      "roles": {
+        "count": 7,
+        "hash": "32fa5b3d830ce34d24733734698544c6"
+      },
+      "sale_items": {
+        "count": 270,
+        "hash": "17f7ab89c85f4eb4196a1e63238eabb3"
+      },
+      "sale_lot_movements": {
+        "count": 156,
+        "hash": "490795e305f54d1b33a696f4a58bd9a2"
+      },
+      "sale_packaging_items": {
+        "count": 974,
+        "hash": "013178eb1f3dde30155631776b120008"
+      },
+      "sale_payment_items": {
+        "count": 112,
+        "hash": "a9c5a3237d44c5140856a37ef3e05127"
+      },
+      "sale_payments": {
+        "count": 674,
+        "hash": "b1b65be2911891e78c02cce91981675e"
+      },
+      "sales": {
+        "count": 1760,
+        "hash": "82dcd4ad88bd457bfe9ff34f5a793572"
+      },
+      "sales_entries": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "sales_payment_history": {
+        "count": 131,
+        "hash": "e50ce8e92d70caca22f13835b65f184d"
+      },
+      "sales_status_history": {
+        "count": 1082,
+        "hash": "1b1d9cd03105b5243be400700af058f6"
+      },
+      "schema_migrations": {
+        "count": 24,
+        "hash": "8370fa528feec2c4cbff49ba85941a8b"
+      },
+      "supplier_contacts": {
+        "count": 4,
+        "hash": "0a61fdb21358aab0ad67a4ebc65251f4"
+      },
+      "suppliers": {
+        "count": 1578,
+        "hash": "5bde5883d57f8ae563f05862da0416ba"
+      },
+      "users": {
+        "count": 6,
+        "hash": "ab6a0a5239e5999b7fca9015c02b7283"
+      }
+    }
+  },
+  "changed_tables": {
+    "facturacion": [],
+    "facturacion_cleanup_verify": []
+  },
+  "suite_1": "544 passed in 191.75s (0:03:11)",
+  "suite_2": "544 passed in 190.70s (0:03:10)"
+}

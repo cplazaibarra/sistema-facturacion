@@ -1,0 +1,173 @@
+[
+  {
+    "path": "/productos",
+    "http": 200,
+    "rows": 30,
+    "pagination": "Mostrando 1–30 de 13711 registros\n‹ Anterior\nPágina 1 de 458\nSiguiente ›",
+    "nextPrevious": {
+      "second": "http://127.0.0.1:5507/productos?page=2",
+      "back": "http://127.0.0.1:5507/productos?page=1"
+    },
+    "errors": [],
+    "httpErrors": []
+  },
+  {
+    "path": "/ventas",
+    "http": 200,
+    "rows": 25,
+    "pagination": null,
+    "nextPrevious": null,
+    "errors": [],
+    "httpErrors": []
+  },
+  {
+    "path": "/ventas/cotizaciones",
+    "http": 200,
+    "rows": 1,
+    "pagination": "Mostrando 0–0 de 0 registros\n‹ Anterior\nPágina 1 de 1\nSiguiente ›",
+    "nextPrevious": null,
+    "errors": [],
+    "httpErrors": []
+  },
+  {
+    "path": "/compras/oc",
+    "http": 200,
+    "rows": 25,
+    "pagination": null,
+    "nextPrevious": null,
+    "errors": [],
+    "httpErrors": []
+  },
+  {
+    "path": "/ingreso-mercaderia",
+    "http": 200,
+    "rows": 0,
+    "pagination": null,
+    "nextPrevious": null,
+    "errors": [],
+    "httpErrors": []
+  },
+  {
+    "path": "/kardex",
+    "http": 200,
+    "rows": 25,
+    "pagination": null,
+    "nextPrevious": null,
+    "errors": [],
+    "httpErrors": []
+  },
+  {
+    "path": "/reporteria/cuentas-por-cobrar",
+    "http": 200,
+    "rows": 25,
+    "pagination": null,
+    "nextPrevious": null,
+    "errors": [],
+    "httpErrors": []
+  },
+  {
+    "path": "/reporteria/cuentas-por-pagar",
+    "http": 200,
+    "rows": 25,
+    "pagination": null,
+    "nextPrevious": null,
+    "errors": [],
+    "httpErrors": []
+  },
+  {
+    "path": "/reporteria/conciliacion-bancaria",
+    "http": 200,
+    "rows": 30,
+    "pagination": "Mostrando 1–30 de 42 registros\n‹ Anterior\nPágina 1 de 2\nSiguiente ›",
+    "nextPrevious": {
+      "second": "http://127.0.0.1:5507/reporteria/conciliacion-bancaria?page=2",
+      "back": "http://127.0.0.1:5507/reporteria/conciliacion-bancaria?page=1"
+    },
+    "errors": [],
+    "httpErrors": []
+  },
+  {
+    "path": "/reporteria/deudas",
+    "http": 200,
+    "rows": 26,
+    "pagination": "Mostrando 1–26 de 26 registros\n‹ Anterior\nPágina 1 de 1\nSiguiente ›",
+    "nextPrevious": null,
+    "errors": [],
+    "httpErrors": []
+  },
+  {
+    "path": "/reporteria/flujo-caja",
+    "http": 200,
+    "rows": 4,
+    "pagination": null,
+    "nextPrevious": null,
+    "errors": [],
+    "httpErrors": []
+  },
+  {
+    "path": "/compras/productos-comprados",
+    "http": 200,
+    "rows": 30,
+    "pagination": "Mostrando 1–30 de 826 registros\n‹ Anterior\nPágina 1 de 28\nSiguiente ›",
+    "nextPrevious": {
+      "second": "http://127.0.0.1:5507/compras/productos-comprados?page=2",
+      "back": "http://127.0.0.1:5507/compras/productos-comprados?page=1"
+    },
+    "errors": [],
+    "httpErrors": []
+  },
+  {
+    "path": "/administracion/cuentas-bancarias",
+    "http": 200,
+    "rows": 30,
+    "pagination": "Mostrando 1–30 de 98 registros\n‹ Anterior\nPágina 1 de 4\nSiguiente ›",
+    "nextPrevious": {
+      "second": "http://127.0.0.1:5507/administracion/cuentas-bancarias?page=2",
+      "back": "http://127.0.0.1:5507/administracion/cuentas-bancarias?page=1"
+    },
+    "errors": [],
+    "httpErrors": []
+  },
+  {
+    "path": "/compras/cuentas-por-pagar",
+    "http": 200,
+    "rows": 30,
+    "pagination": "Mostrando 1–30 de 455 registros\n‹ Anterior\nPágina 1 de 16\nSiguiente ›",
+    "nextPrevious": {
+      "second": "http://127.0.0.1:5507/compras/cuentas-por-pagar?page=2",
+      "back": "http://127.0.0.1:5507/compras/cuentas-por-pagar?page=1"
+    },
+    "errors": [],
+    "httpErrors": []
+  },
+  {
+    "path": "/dashboard",
+    "http": 200,
+    "rows": 5,
+    "pagination": null,
+    "nextPrevious": null,
+    "errors": [],
+    "httpErrors": []
+  },
+  {
+    "path": "purchase-invoice-remote-selectors",
+    "http": 200,
+    "rows": 5,
+    "supplierOptions": 30,
+    "resolvedSupplier": true,
+    "errors": [],
+    "httpErrors": []
+  },
+  {
+    "path": "quotation-search",
+    "url": "http://127.0.0.1:5507/ventas/cotizaciones?page=1&search=PAGINATION_MISSING_ROW_987654&filter=Activa&client=&product=",
+    "rows": 0,
+    "pagination": "Mostrando 0–0 de 0 registros\n‹ Anterior\nPágina 1 de 1\nSiguiente ›"
+  },
+  {
+    "path": "bank-search",
+    "url": "http://127.0.0.1:5507/reporteria/conciliacion-bancaria?sort_by=amount&order=asc&bank_account_id=&start_date=&end_date=&movement_type=&reconciliation_status=&category_id=&search=PAGINATION_MISSING_ROW_987654",
+    "rows": 0,
+    "pagination": "Mostrando 0–0 de 0 registros\n‹ Anterior\nPágina 1 de 1\nSiguiente ›"
+  }
+]

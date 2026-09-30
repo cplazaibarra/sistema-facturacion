@@ -35,6 +35,117 @@ def list_products() -> list[dict]:
             return [dict(row) for row in cur.fetchall()]
 
 
+def get_products_paginated(
+    page: int = 1,
+    per_page: int = 30,
+    search: str = None,
+    category: str = None,
+    product_type: str = None,
+    conn=None
+) -> dict:
+    """
+    Retorna productos paginados server-side con filtros opcionales de búsqueda, categoría y tipo.
+    - page: int >= 1 (default 1)
+    - per_page: fixed server-controlled PAGE_SIZE
+    - search: búsqueda por SKU, Nombre, Código Interno, Código de Barra, Variedad, Línea, etc.
+    - category: filtro por categoría
+    - product_type: filtro por tipo de producto
+    """
+    # 1. Sanitizar y validar parámetros
+    try:
+        page = int(page)
+        if page < 1:
+            page = 1
+    except (ValueError, TypeError):
+        page = 1
+
+    from core.pagination import PAGE_SIZE
+    per_page = PAGE_SIZE
+
+    offset = (page - 1) * per_page
+
+    def _execute(cur):
+        where_clauses = ["(is_deleted = FALSE OR is_deleted IS NULL)"]
+        params = []
+
+        if category and category.strip():
+            where_clauses.append("LOWER(category) = LOWER(%s)")
+            params.append(category.strip())
+
+        if product_type and product_type.strip():
+            where_clauses.append("LOWER(product_type) = LOWER(%s)")
+            params.append(product_type.strip())
+
+        if search and search.strip():
+            term = f"%{search.strip().lower()}%"
+            where_clauses.append(
+                """(
+                    LOWER(sku) LIKE %s OR 
+                    LOWER(name) LIKE %s OR 
+                    LOWER(COALESCE(category, '')) LIKE %s OR 
+                    LOWER(COALESCE(product_type, '')) LIKE %s OR 
+                    LOWER(COALESCE(line, '')) LIKE %s OR 
+                    LOWER(COALESCE(variety, '')) LIKE %s OR 
+                    LOWER(COALESCE(line_variety, '')) LIKE %s OR 
+                    LOWER(COALESCE(format_capacity, '')) LIKE %s OR 
+                    LOWER(COALESCE(barcode, '')) LIKE %s OR 
+                    LOWER(COALESCE(internal_code, '')) LIKE %s OR
+                    LOWER(COALESCE(subcategory_material, '')) LIKE %s
+                )"""
+            )
+            params.extend([term] * 11)
+
+        where_sql = "WHERE " + " AND ".join(where_clauses)
+
+        # Contar total de registros coincidentes
+        cur.execute(f"SELECT COUNT(*) as total FROM products {where_sql}", params)
+        total_row = cur.fetchone()
+        total_count = int(total_row["total"] if total_row else 0)
+
+        total_pages = max(1, (total_count + per_page - 1) // per_page)
+        nonlocal page
+        if page > total_pages and total_pages > 0:
+            page = total_pages
+            actual_offset = (page - 1) * per_page
+        else:
+            actual_offset = offset
+
+        # Consulta paginada
+        select_sql = f"""
+            SELECT id, sku, name, description, photo_url, barcode, internal_code,
+                   category, expiry_date, width_cm, height_cm, depth_cm, weight_kg, product_type, cost,
+                   COALESCE(requires_lot, FALSE) as requires_lot,
+                   subcategory_material, line_variety, format_capacity, associated_kg,
+                   unit_of_measure, min_stock, COALESCE(status, 'Activo') as status,
+                   notes, attachment_url, line, variety, bom_recipe, labeling
+            FROM products
+            {where_sql}
+            ORDER BY id DESC
+            LIMIT %s OFFSET %s
+        """
+        data_params = list(params) + [per_page, actual_offset]
+        cur.execute(select_sql, data_params)
+        rows = cur.fetchall()
+
+        return {
+            "items": [dict(r) for r in rows],
+            "total": total_count,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "start": actual_offset + 1 if total_count else 0,
+            "end": min(actual_offset + per_page, total_count),
+        }
+
+    if conn is not None:
+        with conn.cursor() as cur:
+            return _execute(cur)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                return _execute(cur)
+
+
 def insert_product(product: dict) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -99,6 +210,35 @@ def insert_product(product: dict) -> int:
             inserted_id = cur.fetchone()["id"]
         conn.commit()
         return inserted_id
+
+
+def create_product(
+    sku: str,
+    name: str,
+    category: str = "General",
+    product_type: str = "Final",
+    cost: float = 0.0,
+    requires_lot: bool = False,
+    unit_of_measure: str = "UN",
+    min_stock: float = 0.0,
+    status: str = "Activo",
+    **kwargs
+) -> int:
+    """Helper para creación programática de productos."""
+    product_dict = {
+        "sku": sku,
+        "name": name,
+        "category": category,
+        "product_type": product_type,
+        "cost": cost,
+        "requires_lot": requires_lot,
+        "unit_of_measure": unit_of_measure,
+        "min_stock": min_stock,
+        "status": status,
+        "created_at": datetime.now(timezone.utc).isoformat(timespec='seconds'),
+    }
+    product_dict.update(kwargs)
+    return insert_product(product_dict)
 
 
 def get_product(product_id: int) -> dict:
@@ -319,7 +459,274 @@ def get_product_calculated_cost(product_id: int) -> float | None:
             )
             last_purchase = cur.fetchone()
             if last_purchase:
-                return last_purchase["unit_price"]
+                return float(last_purchase["unit_price"])
                 
     return None
+
+
+def get_product_by_sku(sku: str) -> dict | None:
+    """Busca un producto por su SKU exacto."""
+    clean_sku = (sku or "").strip()
+    if not clean_sku:
+        return None
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, sku, name, description, photo_url, barcode, internal_code,
+                       category, expiry_date, width_cm, height_cm, depth_cm, weight_kg, product_type, cost,
+                       COALESCE(requires_lot, FALSE) as requires_lot,
+                       subcategory_material, line_variety, format_capacity, associated_kg,
+                       unit_of_measure, min_stock, COALESCE(status, 'Activo') as status
+                FROM products
+                WHERE sku = %s AND (is_deleted = FALSE OR is_deleted IS NULL)
+                ORDER BY id DESC
+                LIMIT 1;
+                """,
+                (clean_sku,)
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+
+
+def get_products_batch_calculated_cost(product_ids: list[int], conn=None) -> dict[int, float]:
+    """
+    Calcula en BATCH el costo de múltiples productos en máximo 2 consultas SQL (0 N+1 queries):
+    1. Promedio ponderado de compras en los últimos 30 días.
+    2. Si no hay compras en 30 días, el valor unitario de la última compra registrada.
+    """
+    if not product_ids:
+        return {}
+
+    from datetime import datetime, timedelta
+    limit_date = (datetime.today() - timedelta(days=30)).strftime('%Y-%m-%d')
+    pids_tuple = list(product_ids)
+
+    def _execute(cur):
+        # 1. Compras últimos 30 días
+        cur.execute(
+            """
+            SELECT items.product_id, SUM(items.total) / NULLIF(SUM(items.quantity), 0) as avg_30d
+            FROM inventory_entry_items items
+            JOIN inventory_entries entries ON items.inventory_entry_id = entries.id
+            WHERE items.product_id = ANY(%s) AND entries.entry_date >= %s
+            GROUP BY items.product_id
+            HAVING SUM(items.quantity) > 0
+            """,
+            (pids_tuple, limit_date)
+        )
+        cost_map = {}
+        for r in cur.fetchall():
+            if r["avg_30d"] is not None:
+                cost_map[r["product_id"]] = float(r["avg_30d"])
+
+        # 2. Para los productos restantes, última compra registrada
+        remaining_pids = [pid for pid in pids_tuple if pid not in cost_map]
+        if remaining_pids:
+            cur.execute(
+                """
+                SELECT DISTINCT ON (items.product_id) items.product_id, items.unit_price
+                FROM inventory_entry_items items
+                JOIN inventory_entries entries ON items.inventory_entry_id = entries.id
+                WHERE items.product_id = ANY(%s)
+                ORDER BY items.product_id, entries.entry_date DESC, entries.id DESC
+                """,
+                (remaining_pids,)
+            )
+            for r in cur.fetchall():
+                if r["unit_price"] is not None:
+                    cost_map[r["product_id"]] = float(r["unit_price"])
+
+        return cost_map
+
+    if conn is not None:
+        with conn.cursor() as cur:
+            return _execute(cur)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                return _execute(cur)
+
+
+def get_price_list_products_paginated(
+    page: int = 1,
+    per_page: int = 25,
+    search: str = None,
+    conn=None
+) -> dict:
+    """
+    Retorna productos paginados server-side para la lista de precios (excluyendo Insumos).
+    """
+    try:
+        page = int(page)
+        if page < 1:
+            page = 1
+    except (ValueError, TypeError):
+        page = 1
+
+    try:
+        per_page = int(per_page)
+        if per_page not in (25, 50, 100):
+            per_page = 25
+    except (ValueError, TypeError):
+        per_page = 25
+
+    offset = (page - 1) * per_page
+
+    def _execute(cur):
+        where_clauses = [
+            "(is_deleted = FALSE OR is_deleted IS NULL)",
+            "COALESCE(product_type, 'Final') != 'Insumo'"
+        ]
+        params = []
+
+        if search and search.strip():
+            term = f"%{search.strip().lower()}%"
+            where_clauses.append(
+                """(
+                    LOWER(sku) LIKE %s OR 
+                    LOWER(name) LIKE %s OR 
+                    LOWER(COALESCE(category, '')) LIKE %s OR
+                    LOWER(COALESCE(internal_code, '')) LIKE %s
+                )"""
+            )
+            params.extend([term] * 4)
+
+        where_sql = "WHERE " + " AND ".join(where_clauses)
+
+        # 1. Total de productos
+        cur.execute(f"SELECT COUNT(*) as total FROM products {where_sql}", params)
+        total_row = cur.fetchone()
+        total_count = int(total_row["total"] if total_row else 0)
+
+        total_pages = max(1, (total_count + per_page - 1) // per_page)
+        nonlocal page
+        if page > total_pages and total_pages > 0:
+            page = total_pages
+            actual_offset = (page - 1) * per_page
+        else:
+            actual_offset = offset
+
+        # 2. Productos paginados de la página activa
+        cur.execute(
+            f"""
+            SELECT id, sku, name, cost, category, product_type
+            FROM products
+            {where_sql}
+            ORDER BY id DESC
+            LIMIT %s OFFSET %s
+            """,
+            list(params) + [per_page, actual_offset]
+        )
+        products = [dict(r) for r in cur.fetchall()]
+
+        return {
+            "items": products,
+            "total": total_count,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+        }
+
+    if conn is not None:
+        with conn.cursor() as cur:
+            return _execute(cur)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                return _execute(cur)
+
+
+def list_all_products_for_export(search: str = None, category: str = None, product_type: str = None, conn=None) -> list[dict]:
+    """
+    Retorna el catálogo completo de productos (sin paginación) para exportación masiva en Excel,
+    soportando filtros opcionales de búsqueda, categoría y tipo.
+    """
+    def _execute(cur):
+        where_clauses = ["(is_deleted = FALSE OR is_deleted IS NULL)"]
+        params = []
+
+        if category and category.strip():
+            where_clauses.append("category = %s")
+            params.append(category.strip())
+
+        if product_type and product_type.strip():
+            where_clauses.append("product_type = %s")
+            params.append(product_type.strip())
+
+        if search and search.strip():
+            s_pat = f"%{search.strip()}%"
+            where_clauses.append(
+                """(
+                    sku ILIKE %s OR name ILIKE %s OR internal_code ILIKE %s 
+                    OR barcode ILIKE %s OR category ILIKE %s OR line ILIKE %s 
+                    OR variety ILIKE %s OR bom_recipe ILIKE %s
+                )"""
+            )
+            params.extend([s_pat, s_pat, s_pat, s_pat, s_pat, s_pat, s_pat, s_pat])
+
+        where_sql = "WHERE " + " AND ".join(where_clauses)
+
+        cur.execute(
+            f"""
+            SELECT id, sku, name, description, photo_url, barcode, internal_code,
+                   category, expiry_date, width_cm, height_cm, depth_cm, weight_kg, product_type, cost,
+                   COALESCE(requires_lot, FALSE) as requires_lot,
+                   subcategory_material, line_variety, format_capacity, associated_kg,
+                   unit_of_measure, min_stock, COALESCE(status, 'Activo') as status,
+                   notes, attachment_url, line, variety, bom_recipe, labeling
+            FROM products
+            {where_sql}
+            ORDER BY id ASC
+            """,
+            params
+        )
+        return [dict(r) for r in cur.fetchall()]
+
+    if conn is not None:
+        with conn.cursor() as cur:
+            return _execute(cur)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                return _execute(cur)
+
+
+def get_products_lookup_maps(conn=None) -> tuple[dict, dict]:
+    """
+    Retorna dos diccionarios para búsqueda rápida de productos activos:
+    - by_sku: dict[sku_lower -> product_dict]
+    - by_id: dict[id_int -> product_dict]
+    """
+    def _execute(cur):
+        cur.execute(
+            """
+            SELECT id, sku, name, description, photo_url, barcode, internal_code,
+                   category, expiry_date, width_cm, height_cm, depth_cm, weight_kg, product_type, cost,
+                   COALESCE(requires_lot, FALSE) as requires_lot,
+                   subcategory_material, line_variety, format_capacity, associated_kg,
+                   unit_of_measure, min_stock, COALESCE(status, 'Activo') as status,
+                   notes, attachment_url, line, variety, bom_recipe, labeling
+            FROM products
+            WHERE is_deleted = FALSE OR is_deleted IS NULL
+            """
+        )
+        by_sku = {}
+        by_id = {}
+        for r in cur.fetchall():
+            d = dict(r)
+            by_id[d["id"]] = d
+            sku_clean = (d.get("sku") or "").strip().lower()
+            if sku_clean:
+                by_sku[sku_clean] = d
+        return by_sku, by_id
+
+    if conn is not None:
+        with conn.cursor() as cur:
+            return _execute(cur)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                return _execute(cur)
+
 

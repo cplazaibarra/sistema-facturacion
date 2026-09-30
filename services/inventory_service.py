@@ -20,14 +20,17 @@ class InventoryService:
         - desglose de lotes activos (FIFO)
         - costo promedio ponderado (VPP)
         """
-        available = inv_repo.get_product_available_stock(product_id)
+        from services.stock_context import get_product_stock_balance
+        balance = get_product_stock_balance(product_id) or {
+            "physical_stock": 0.0, "reserved_stock": 0.0, "available_stock": 0.0
+        }
         legacy, relational, delta = inv_repo.get_stock_with_dual_read(product_id)
         lots = inv_repo.get_lot_stock_by_product(product_id)
         vpp = prod_repo.get_product_calculated_cost(product_id)
         
         return {
             "product_id": product_id,
-            "available_stock": available,
+            **balance,
             "legacy_stock": legacy,
             "relational_stock": relational,
             "delta": delta,

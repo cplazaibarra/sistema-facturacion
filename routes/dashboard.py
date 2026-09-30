@@ -1,3 +1,4 @@
+from core.presentation import line_quantity
 from flask import Blueprint, render_template, request, jsonify, make_response, redirect, url_for
 from db import (
     list_sales,
@@ -7,17 +8,26 @@ from db import (
     get_page_data,
     get_system_notifications
 )
+from security import require_permission
 
 dashboard_bp = Blueprint('dashboard', __name__)
+
+
+@dashboard_bp.before_request
+def _require_dashboard_permission():
+    @require_permission('dashboard')
+    def _authorized():
+        return None
+    return _authorized()
 
 @dashboard_bp.route('/')
 @dashboard_bp.route('/dashboard')
 def dashboard():
     """Página principal - Dashboard con gráficos y estadísticas"""
-    # Obtener solo ventas reales (prefijo VTA-), excluyendo cotizaciones (COT-)
-    sales_list = list_sales({"prefix": "VTA-", "exclude_status": "Cotización"})
+    # Obtener solo ventas/pedidos reales (prefijo P- o VTA-), excluyendo cotizaciones (COT-)
+    sales_list = list_sales({"prefix": ["P-", "VTA-"], "exclude_status": "Cotización"}, limit=5)
     recent_sales = []
-    for sale in sales_list[:5]:
+    for sale in sales_list:
         products_names = []
         for p in sale.get("products", []):
             if isinstance(p, dict):
@@ -37,7 +47,7 @@ def dashboard():
             "id": sale["sale_number"],
             "cliente": sale.get("customer_name") or "Sin cliente",
             "producto": prod_display,
-            "cantidad": len(sale.get("products", [])),
+            "cantidad": sum(line_quantity(line) for line in sale.get("products", [])),
             "total": sale.get("total_amount", 0),
             "estado": sale.get("status", "Pendiente"),
         })

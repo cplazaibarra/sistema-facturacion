@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Solicitar Ajuste de Inventario - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Solicitar Ajuste de Inventario{% endblock %}
+
+{% block content %}
+{% set ambiguous_reservations = reservation_diagnostics|default([])|selectattr('code', 'equalto', 'RESERVA_AMBIGUA')|list %}
+<div style="max-width:900px;margin:0 auto;">
+    {% if ambiguous_reservations %}<div role="alert" style="margin:0 0 14px;padding:12px;border:1px solid #fed7aa;border-radius:7px;background:#fff7ed;color:#9a3412;">
+        <strong>{{ ambiguous_reservations|length }} reservas ambiguas</strong> no se asignaron automáticamente. Documentos: {{ ambiguous_reservations[:20]|map(attribute='document_id')|unique|join(', ') }}{% if ambiguous_reservations|length > 20 %} y otros{% endif %}.
+    </div>{% endif %}
+    <div style="margin-bottom:20px;"><a href="/inventario/ajustes" class="btn-secondary btn-sm"><i class="fa-solid fa-arrow-left"></i> Volver a ajustes</a></div>
+    <div class="card" style="padding:24px;">
+        <h2 style="margin:0;color:#1e293b;font-size:21px;">Nuevo conteo físico</h2>
+        <p style="margin:7px 0 22px;color:#64748b;font-size:13px;">La solicitud queda pendiente de aprobación y no modifica el inventario.</p>
+        <form method="post" action="/inventario/ajustes/nuevo" id="inventory-adjustment-form" data-local-submit-handler="true" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
+                <div><label class="form-label" for="adjustment-product">Producto <span style="color:#dc2626">*</span></label>
+                    <select id="adjustment-product" name="product_id" class="form-control" required>
+                        <option value="">Seleccione un producto</option>
+                        {% for product in products|default([]) %}
+                        <option value="{{ product.id }}" data-stock="{{ product.physical_stock|default(product.stock|default(product.current_stock|default(0)), true) }}" data-available="{{ product.available_stock|default(product.available|default(product.stock|default(0)), true) }}" data-reserved="{{ product.reserved_stock|default(product.reserved|default(0), true) }}" {% if selected_product_id|string == product.id|string %}selected{% endif %}>{{ product.sku|default('') }} — {{ product.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div><label class="form-label" for="adjustment-warehouse">Bodega <span style="color:#dc2626">*</span></label>
+                    <select id="adjustment-warehouse" name="warehouse" class="form-control" required>
+                        <option value="">Seleccione una bodega</option>
+                        {% for warehouse in warehouses|default(warehouses_list|default([])) %}<option value="{{ warehouse }}" {% if selected_warehouse == warehouse %}selected{% endif %}>{{ warehouse }}</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div id="stock-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:22px 0;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+                <div><div style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700;">Stock sistema</div><strong id="system-stock" class="tabular-nums" style="font-size:20px;color:#334155;">—</strong></div>
+                <div><div style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700;">Conteo físico</div><strong id="display-counted" class="tabular-nums" style="font-size:20px;color:#334155;">—</strong></div>
+                <div><div style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700;">Diferencia</div><strong id="display-difference" class="tabular-nums" style="font-size:20px;color:#334155;">—</strong></div>
+            </div>
+            <div style="font-size:12px;color:#64748b;margin-top:-12px;margin-bottom:18px;">Disponible: <strong id="available-stock">—</strong> · Reservado: <strong id="reserved-stock">—</strong>. El conteo corresponde al stock físico total.</div>
+
+            <div style="display:grid;grid-template-columns:minmax(180px,1fr) minmax(240px,2fr);gap:18px;">
+                <div><label class="form-label" for="counted-quantity">Cantidad física contada <span style="color:#dc2626">*</span></label><input id="counted-quantity" name="counted_quantity" type="number" min="0" step="1" class="form-control" required inputmode="numeric"><small style="display:block;color:#64748b;margin-top:5px;">Ingrese el total encontrado en bodega. No ingrese el signo de la diferencia.</small></div>
+                <div><label class="form-label" for="adjustment-reason">Motivo <span style="color:#dc2626">*</span></label><select id="adjustment-reason" name="reason" class="form-control" required><option value="">Seleccione un motivo</option>{% for reason in adjustment_reasons|default(['CONTEO FÍSICO','MERMA','DAÑO','PÉRDIDA','ERROR DE REGISTRO','SOBRANTE','OTRO']) %}<option value="{{ reason }}">{{ reason }}</option>{% endfor %}</select></div>
+            </div>
+            <div style="margin-top:18px;"><label class="form-label" for="adjustment-observation">Observación <span id="observation-required" style="display:none;color:#dc2626">*</span></label><textarea id="adjustment-observation" name="observation" class="form-control" rows="3" maxlength="1000" placeholder="Detalle del conteo o situación encontrada"></textarea></div>
+            <div id="adjustment-warning" role="alert" style="display:none;margin-top:18px;padding:12px;border-radius:7px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:13px;"></div>
+            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:24px;"><a href="/inventario/ajustes" class="btn-secondary">Cancelar</a><button id="submit-adjustment" class="btn-primary" type="submit"><i class="fa-solid fa-paper-plane"></i> Solicitar ajuste</button></div>
+        </form>
+    </div>
+</div>
+<script>
+(function () {
+    const form = document.getElementById('inventory-adjustment-form');
+    const product = document.getElementById('adjustment-product');
+    const counted = document.getElementById('counted-quantity');
+    const reason = document.getElementById('adjustment-reason');
+    const system = document.getElementById('system-stock');
+    const displayCounted = document.getElementById('display-counted');
+    const difference = document.getElementById('display-difference');
+    const available = document.getElementById('available-stock');
+    const reserved = document.getElementById('reserved-stock');
+    const warning = document.getElementById('adjustment-warning');
+    const observation = document.getElementById('adjustment-observation');
+    function number(value) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0; }
+    function render() {
+        const option = product.options[product.selectedIndex];
+        const stock = option && option.value ? number(option.dataset.stock) : null;
+        const hasCount = counted.value !== '';
+        system.textContent = stock === null ? '—' : stock;
+        available.textContent = stock === null ? '—' : number(option.dataset.available);
+        reserved.textContent = stock === null ? '—' : number(option.dataset.reserved);
+        displayCounted.textContent = hasCount ? number(counted.value) : '—';
+        if (stock === null || !hasCount) { difference.textContent = '—'; difference.style.color = '#334155'; return; }
+        const delta = number(counted.value) - stock;
+        difference.textContent = delta > 0 ? '+' + delta : String(delta);
+        difference.style.color = delta > 0 ? '#15803d' : delta < 0 ? '#b91c1c' : '#475569';
+    }
+    product.addEventListener('change', render); counted.addEventListener('input', render);
+    reason.addEventListener('change', function () { const required = reason.value === 'OTRO'; document.getElementById('observation-required').style.display = required ? 'inline' : 'none'; observation.required = required; });
+    form.addEventListener('submit', function (event) {
+        if (form.dataset.submitting === 'true') { event.preventDefault(); return; }
+        warning.style.display = 'none';
+        if (!product.value || !document.getElementById('adjustment-warehouse').value || counted.value === '' || number(counted.value) < 0 || !reason.value || (reason.value === 'OTRO' && !observation.value.trim())) { event.preventDefault(); warning.textContent = 'Complete los campos obligatorios antes de solicitar el ajuste.'; warning.style.display = 'block'; return; }
+        form.dataset.submitting = 'true'; const button = document.getElementById('submit-adjustment'); button.disabled = true; button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando solicitud…';
+    });
+    render();
+})();
+</script>
+{% endblock %}

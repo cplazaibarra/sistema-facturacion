@@ -44,6 +44,7 @@ def test_product():
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM sale_lot_movements WHERE product_id = %s", (prod_id,))
+            cur.execute("DELETE FROM sale_items WHERE product_id = %s", (prod_id,))
             cur.execute("DELETE FROM inventory_movements WHERE product_id = %s", (prod_id,))
             cur.execute("DELETE FROM inventory_entry_items WHERE product_id = %s", (prod_id,))
             cur.execute("DELETE FROM lot_stock WHERE product_id = %s", (prod_id,))
@@ -253,7 +254,7 @@ def test_quotation_conversion_idempotent(test_product):
     Prueba de Idempotencia y Concurrencia en Conversión de Cotización a Venta.
     Dos solicitudes concurrentes convierten la misma cotización.
     Deben retornar exactamente el MISMO número de venta (VTA-XXXXX),
-    generar una sola venta en sales y descontar stock UNA sola vez.
+    generar una sola venta pendiente sin asignar stock físico.
     """
     prod_id = test_product["id"]
 
@@ -315,16 +316,25 @@ def test_quotation_conversion_idempotent(test_product):
             cur.execute("SELECT COUNT(*) as cnt FROM sales WHERE sale_number = %s", (results[0],))
             assert cur.fetchone()["cnt"] == 1
 
-            # El stock debe haber disminuido exactamente 5 unidades (20 - 5 = 15), no 10
+            # Convertir no elige la venta que bodega preparará primero.
+            cur.execute("SELECT status FROM sales WHERE sale_number = %s", (results[0],))
+            assert cur.fetchone()["status"] == "Pendiente"
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM sale_items WHERE sale_id = "
+                "(SELECT id FROM sales WHERE sale_number = %s)",
+                (results[0],),
+            )
+            assert cur.fetchone()["cnt"] == 0
             cur.execute("SELECT COALESCE(SUM(quantity), 0) as stock FROM inventory_movements WHERE product_id = %s", (prod_id,))
             stock = float(cur.fetchone()["stock"])
-            assert stock == 15.0
+            assert stock == 20.0
 
     # Cleanup cotización y venta
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM sale_payments WHERE sale_id IN (SELECT id FROM sales WHERE sale_number = %s)", (results[0],))
             cur.execute("DELETE FROM sales_status_history WHERE sale_id IN (SELECT id FROM sales WHERE sale_number = %s)", (results[0],))
+            cur.execute("DELETE FROM sale_items WHERE sale_id IN (SELECT id FROM sales WHERE sale_number = %s)", (results[0],))
             cur.execute("DELETE FROM sales WHERE sale_number = %s", (results[0],))
             cur.execute("DELETE FROM sales WHERE id = %s", (cot_id,))
         conn.commit()

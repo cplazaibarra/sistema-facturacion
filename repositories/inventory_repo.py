@@ -313,10 +313,119 @@ def get_all_lot_stock() -> list[dict]:
             return [dict(row) for row in cur.fetchall()]
 
 
-def consume_lots_for_sale(sale_id: int, lot_consumptions: list[dict], conn=None) -> None:
+def get_lot_stock_paginated(
+    page: int = 1,
+    per_page: int = 25,
+    search: str = "",
+    warehouse: str = "",
+    status: str = ""
+) -> dict:
+    """
+    Retorna los lotes de inventario paginados server-side,
+    calculando en PostgreSQL las métricas globales sobre el universo total.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # 1. Métricas globales sobre TODO el universo de lotes (independiente de filtros y página)
+            cur.execute("""
+                SELECT 
+                    COUNT(*)::int as total_lotes,
+                    COUNT(*) FILTER (WHERE ls.available_qty > 0)::int as lotes_activos,
+                    COUNT(*) FILTER (WHERE ls.available_qty <= 0)::int as lotes_agotados,
+                    COALESCE(SUM(ls.available_qty), 0)::numeric as unidades_disponibles,
+                    COALESCE(SUM(ls.available_qty * COALESCE(p.cost, 0)), 0)::numeric as valor_total_lotes
+                FROM lot_stock ls
+                JOIN products p ON p.id = ls.product_id
+            """)
+            metrics_row = cur.fetchone() or {}
+            metrics = {
+                "total_lotes": int(metrics_row.get("total_lotes") or 0),
+                "lotes_activos": int(metrics_row.get("lotes_activos") or 0),
+                "lotes_agotados": int(metrics_row.get("lotes_agotados") or 0),
+                "unidades_disponibles": float(metrics_row.get("unidades_disponibles") or 0.0),
+                "valor_total_lotes": float(metrics_row.get("valor_total_lotes") or 0.0),
+            }
+
+            # 2. Obtener lista de bodegas distintas presentes en lot_stock / inventory_entries
+            cur.execute("""
+                SELECT DISTINCT COALESCE(ls.warehouse, ie.warehouse, 'Principal') as wh
+                FROM lot_stock ls
+                LEFT JOIN inventory_entries ie ON ie.id = ls.entry_id
+                ORDER BY wh ASC
+            """)
+            warehouses = [r["wh"] for r in cur.fetchall() if r["wh"]]
+
+            # 3. Construir filtros WHERE para el listado paginado
+            where_clauses = []
+            params = []
+
+            if search and search.strip():
+                s_pat = f"%{search.strip()}%"
+                where_clauses.append(
+                    "(p.sku ILIKE %s OR p.name ILIKE %s OR ls.lot_number ILIKE %s OR p.category ILIKE %s)"
+                )
+                params.extend([s_pat, s_pat, s_pat, s_pat])
+
+            if warehouse and warehouse.strip():
+                where_clauses.append("COALESCE(ls.warehouse, ie.warehouse, 'Principal') = %s")
+                params.append(warehouse.strip())
+
+            if status == "disponible":
+                where_clauses.append("ls.available_qty > 0")
+            elif status == "agotado":
+                where_clauses.append("ls.available_qty <= 0")
+
+            where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+            # 4. Total de registros filtrados
+            count_sql = f"""
+                SELECT COUNT(*)::int as total
+                FROM lot_stock ls
+                JOIN products p ON p.id = ls.product_id
+                LEFT JOIN inventory_entries ie ON ie.id = ls.entry_id
+                {where_sql}
+            """
+            cur.execute(count_sql, tuple(params))
+            filtered_total = cur.fetchone()["total"]
+
+            total_pages = max(1, (filtered_total + per_page - 1) // per_page)
+            if page > total_pages and filtered_total > 0:
+                page = total_pages
+            offset = (page - 1) * per_page
+
+            # 5. Items de la página actual
+            data_sql = f"""
+                SELECT ls.id, ls.product_id, ls.lot_number, ls.entry_id, ls.entry_date,
+                       ls.initial_qty, ls.available_qty, p.name as product_name, p.sku,
+                       p.category, p.cost,
+                       COALESCE(ls.warehouse, ie.warehouse, 'Principal') as warehouse
+                FROM lot_stock ls
+                JOIN products p ON p.id = ls.product_id
+                LEFT JOIN inventory_entries ie ON ie.id = ls.entry_id
+                {where_sql}
+                ORDER BY p.name ASC, ls.entry_date DESC
+                LIMIT %s OFFSET %s
+            """
+            cur.execute(data_sql, tuple(params + [per_page, offset]))
+            items = [dict(r) for r in cur.fetchall()]
+
+            return {
+                "items": items,
+                "total": filtered_total,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": total_pages,
+                "metrics": metrics,
+                "warehouses": warehouses
+            }
+
+
+def consume_lots_for_sale(sale_id: int, lot_consumptions: list[dict], conn=None, update_lot_stock: bool = True) -> None:
     """
     Descuenta unidades de los lotes utilizados en una venta y registra la trazabilidad.
-    lot_consumptions: lista de dicts con keys: product_id, lot_number, quantity
+    lot_consumptions: lista de dicts con keys: product_id, lot_number, quantity, lot_id (opcional)
+    update_lot_stock: si es True descuenta de lot_stock. Si es False (ej: ya descontado por FIFO),
+                      sólo inserta los registros en sale_lot_movements.
     """
     def _execute(cur):
         now_iso = datetime.now(timezone.utc).isoformat(timespec='seconds')
@@ -337,21 +446,22 @@ def consume_lots_for_sale(sale_id: int, lot_consumptions: list[dict], conn=None)
                 if l_found:
                     lot_id = l_found["id"]
 
-            # Descontar de lot_stock bloqueando la fila
-            cur.execute(
-                """
-                UPDATE lot_stock
-                SET available_qty = GREATEST(0, available_qty - %s)
-                WHERE product_id = %s AND lot_number = %s
-                RETURNING available_qty, lot_id;
-                """,
-                (qty, pid, lot)
-            )
-            ls_row = cur.fetchone()
-            if ls_row and ls_row["available_qty"] <= 1e-6:
-                target_lid = lot_id or ls_row["lot_id"]
-                if target_lid:
-                    cur.execute("UPDATE lots SET status = 'DEPLETED' WHERE id = %s", (target_lid,))
+            if update_lot_stock:
+                # Descontar de lot_stock bloqueando la fila
+                cur.execute(
+                    """
+                    UPDATE lot_stock
+                    SET available_qty = GREATEST(0, available_qty - %s)
+                    WHERE product_id = %s AND lot_number = %s
+                    RETURNING available_qty, lot_id;
+                    """,
+                    (qty, pid, lot)
+                )
+                ls_row = cur.fetchone()
+                if ls_row and ls_row["available_qty"] <= 1e-6:
+                    target_lid = lot_id or ls_row["lot_id"]
+                    if target_lid:
+                        cur.execute("UPDATE lots SET status = 'DEPLETED' WHERE id = %s", (target_lid,))
 
             # Registrar movimiento
             cur.execute(
@@ -694,14 +804,15 @@ def get_stock_with_dual_read(product_id_or_sku, lot_number: str = None) -> tuple
     return (legacy_stock, relational_stock, delta)
 
 
-def get_product_available_stock(product_id_or_sku, lot_number: str = None) -> float:
-    """
-    Retorna el stock disponible en bodega para un producto (y lote específico si se indica).
+def get_product_physical_stock(product_id_or_sku, lot_number: str = None, conn=None) -> float:
+    """Return physical on-hand stock, excluding reservations.
+
+    Lot-controlled products use remaining lot balances; other products use the
+    relational inventory ledger. page_data.inventory_items is legacy only.
     """
     clean_lot = (lot_number or "").strip()
 
-    with get_connection() as conn:
-        with conn.cursor() as cur:
+    def _execute(cur):
             if isinstance(product_id_or_sku, int) or (isinstance(product_id_or_sku, str) and str(product_id_or_sku).isdigit()):
                 cur.execute("SELECT id, sku, requires_lot FROM products WHERE id = %s", (int(product_id_or_sku),))
             else:
@@ -717,7 +828,8 @@ def get_product_available_stock(product_id_or_sku, lot_number: str = None) -> fl
             sku = prod["sku"]
             requires_lot = bool(prod.get("requires_lot"))
 
-            # Si se consulta por un lote físico específico:
+            # A requested lot is a physical on-hand balance regardless of
+            # whether the product's general balance is lot-controlled.
             if clean_lot:
                 cur.execute(
                     "SELECT COALESCE(available_qty, 0) as qty FROM lot_stock WHERE product_id = %s AND lot_number = %s",
@@ -726,72 +838,127 @@ def get_product_available_stock(product_id_or_sku, lot_number: str = None) -> fl
                 row = cur.fetchone()
                 return float(row["qty"] or 0) if row else 0.0
 
-            # 1. Total disponible en lotes (lot_stock)
-            cur.execute(
+            # Remaining lot quantity is physical on-hand: FIFO consumption reduces
+            # this value only when the operational dispatch is recorded.
+            if requires_lot:
+                cur.execute(
                 "SELECT COALESCE(SUM(available_qty), 0) as total_lot FROM lot_stock WHERE product_id = %s",
                 (product_id,)
-            )
-            lot_row = cur.fetchone()
-            total_lot = float(lot_row["total_lot"] or 0) if lot_row else 0.0
+                )
+                lot_row = cur.fetchone()
+                return float(lot_row["total_lot"] or 0) if lot_row else 0.0
+            cur.execute("SELECT COALESCE(SUM(quantity), 0) AS stock FROM inventory_movements WHERE product_id=%s", (product_id,))
+            stock_row = cur.fetchone()
+            return float(stock_row["stock"] or 0) if stock_row else 0.0
 
-    # 2. Total disponible en inventario general (inventory_items)
-    inventory_items = get_page_data("inventory_items") or []
-    inv_stock = 0.0
-    found_in_inv = False
-    for item in inventory_items:
-        if item.get("code") == sku:
-            inv_stock = float(item.get("stock", 0) or 0)
-            found_in_inv = True
-            break
-
-    if requires_lot:
-        return total_lot
-
-    # Si no tiene lot_stock ni page_data, consultar fuente de verdad relacional (inventory_movements)
-    rel_stock = get_relational_stock(product_id)
-
-    if total_lot > 0 and inv_stock > 0:
-        return max(total_lot, inv_stock, rel_stock)
-    elif total_lot > 0:
-        return max(total_lot, rel_stock)
-    elif found_in_inv:
-        return max(inv_stock, rel_stock)
-    else:
-        return rel_stock
+    if conn is not None:
+        with conn.cursor() as cur:
+            return _execute(cur)
+    with get_connection() as active_conn:
+        with active_conn.cursor() as cur:
+            return _execute(cur)
 
 
-def validate_stock_for_sale(products_list: list) -> tuple[bool, str, dict]:
+def get_product_available_stock(product_id_or_sku, lot_number: str = None) -> float:
+    """Backward-compatible name for the unreserved physical stock source.
+
+    Callers that need promiseable stock must use StockContext and subtract
+    reservations explicitly. This alias is retained to avoid changing protected
+    transition validation semantics in this phase.
     """
-    Valida que todos los productos de la venta tengan stock disponible suficiente en bodega.
+    return get_product_physical_stock(product_id_or_sku, lot_number)
+
+
+def get_batch_products_available_stock(products: list) -> dict[int, int]:
+    """
+    Calcula el stock disponible para un listado completo de productos de manera masiva (batch)
+    en milisegundos en vez de consultas O(N).
+    Retorna saldos físicos por product_id desde la fuente oficial del producto.
+    """
+    if not products:
+        return {}
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT product_id, COALESCE(SUM(available_qty), 0) as total_lot FROM lot_stock GROUP BY product_id")
+            lot_stocks = {r["product_id"]: float(r["total_lot"] or 0) for r in cur.fetchall()}
+
+            cur.execute("SELECT product_id, COALESCE(SUM(quantity), 0.0) as stock FROM inventory_movements GROUP BY product_id")
+            rel_stocks = {r["product_id"]: float(r["stock"] or 0) for r in cur.fetchall()}
+
+    stock_map = {}
+    for p in products:
+        p_id = p.get("id")
+        req_lot = bool(p.get("requires_lot"))
+
+        total_lot = lot_stocks.get(p_id, 0.0)
+        rel_stock = rel_stocks.get(p_id, 0.0)
+
+        avail = total_lot if req_lot else rel_stock
+
+        stock_map[p_id] = float(avail)
+
+    return stock_map
+
+
+def validate_stock_for_sale(products_list: list, conn=None) -> tuple[bool, str, dict]:
+    """
+    Informa si el físico actual puede cubrir una venta todavía no preparada.
+    La demanda pendiente se informa en el balance global, pero no asigna stock
+    ni establece prioridad cronológica entre ventas.
     Retorna: (is_valid, error_message, stock_details)
     """
-    for prod in products_list:
-        if not isinstance(prod, dict):
-            continue
-        pid = prod.get("product_id") or prod.get("id")
-        pname = prod.get("product_name") or prod.get("name") or "Producto"
-        qty = int(prod.get("quantity", 0) or 0)
-        lot_num = (prod.get("lot_number") or "").strip()
+    def _validate(active_conn):
+        remaining_by_product = {}
+        remaining_by_lot = {}
+        with active_conn.cursor() as cur:
+            for prod in products_list:
+                if not isinstance(prod, dict):
+                    continue
+                pid = prod.get("product_id") or prod.get("id")
+                pname = prod.get("product_name") or prod.get("name") or "Producto"
+                qty = int(prod.get("quantity", 0) or 0)
+                lot_num = (prod.get("lot_number") or "").strip()
+                if qty <= 0:
+                    continue
 
-        if qty <= 0:
-            continue
+                if pid and str(pid).isdigit():
+                    cur.execute("SELECT id FROM products WHERE id = %s", (int(pid),))
+                else:
+                    cur.execute("SELECT id FROM products WHERE sku = %s OR LOWER(name) = LOWER(%s) ORDER BY id LIMIT 1", (str(pid or pname), str(pid or pname)))
+                product = cur.fetchone()
+                if not product:
+                    available = 0.0
+                else:
+                    product_id = product["id"]
+                    if product_id not in remaining_by_product:
+                        physical = get_product_physical_stock(product_id, conn=active_conn)
+                        remaining_by_product[product_id] = max(float(physical), 0.0)
+                    available = remaining_by_product[product_id]
+                    if lot_num:
+                        lot_key = (product_id, lot_num)
+                        if lot_key not in remaining_by_lot:
+                            remaining_by_lot[lot_key] = float(get_product_physical_stock(product_id, lot_num, conn=active_conn))
+                        available = min(available, remaining_by_lot[lot_key])
 
-        avail = get_product_available_stock(pid or pname, lot_num)
-        if qty > avail:
-            avail_display = int(avail) if avail.is_integer() else avail
-            if lot_num:
-                err_msg = (
-                    f"Stock insuficiente en bodega para el producto '{pname}' (Lote: {lot_num}). "
-                    f"Se solicitaron {qty} unidades, pero el máximo disponible en bodega para ese lote es de {avail_display} unidades."
-                )
-            else:
-                err_msg = (
-                    f"Stock insuficiente en bodega para el producto '{pname}'. "
-                    f"Se solicitaron {qty} unidades, pero el máximo disponible en bodega es de {avail_display} unidades."
-                )
-            return False, err_msg, {"product_name": pname, "requested": qty, "available": avail_display}
+                if qty > available:
+                    avail_display = int(available) if available.is_integer() else available
+                    lot_label = f" (Lote: {lot_num})" if lot_num else ""
+                    err_msg = (
+                        f"Stock insuficiente en bodega para el producto '{pname}'{lot_label}. "
+                        f"Se solicitaron {qty} unidades, pero el máximo disponible en bodega es de {avail_display} unidades."
+                    )
+                    return False, err_msg, {"product_name": pname, "requested": qty, "available": avail_display}
 
-    return True, "", {}
+                remaining_by_product[product_id] -= qty
+                if lot_num:
+                    remaining_by_lot[(product_id, lot_num)] -= qty
+        return True, "", {}
+
+    if conn is not None:
+        return _validate(conn)
+    with get_connection() as active_conn:
+        return _validate(active_conn)
 
 
 def discount_stock_for_sale(sale_id: int, products_list: list, conn=None) -> None:
@@ -810,7 +977,8 @@ def discount_stock_for_sale(sale_id: int, products_list: list, conn=None) -> Non
         name_to_sku = {p["lname"]: p["sku"] for p in all_prods if p.get("lname") and p.get("sku")}
 
         # 1. Descuento de lotes
-        lot_consumptions = []
+        explicit_lot_consumptions = []
+        fifo_lot_consumptions = []
         for prod in products_list:
             if not isinstance(prod, dict):
                 continue
@@ -834,7 +1002,7 @@ def discount_stock_for_sale(sale_id: int, products_list: list, conn=None) -> Non
             has_lots = cur.fetchone()["c"] > 0
 
             if prod.get("lot_number"):
-                lot_consumptions.append({
+                explicit_lot_consumptions.append({
                     "product_id": pid,
                     "lot_number": prod.get("lot_number"),
                     "quantity": qty
@@ -842,15 +1010,17 @@ def discount_stock_for_sale(sale_id: int, products_list: list, conn=None) -> Non
             elif req_lot or has_lots:
                 fifo_consumed = consume_fifo_lots(pid, qty, sale_id=sale_id, conn=active_conn)
                 for fc in fifo_consumed:
-                    lot_consumptions.append({
+                    fifo_lot_consumptions.append({
                         "product_id": pid,
                         "lot_number": fc["lot_number"],
                         "quantity": fc["quantity"],
                         "lot_id": fc.get("lot_id")
                     })
 
-        if lot_consumptions:
-            consume_lots_for_sale(sale_id, lot_consumptions, conn=active_conn)
+        if explicit_lot_consumptions:
+            consume_lots_for_sale(sale_id, explicit_lot_consumptions, conn=active_conn, update_lot_stock=True)
+        if fifo_lot_consumptions:
+            consume_lots_for_sale(sale_id, fifo_lot_consumptions, conn=active_conn, update_lot_stock=False)
 
         # 2. Descuento en inventory_items (stock general de inventario) dentro de la misma transacción
         cur.execute("SELECT json FROM page_data WHERE key = 'inventory_items' FOR UPDATE")
@@ -887,6 +1057,7 @@ def discount_stock_for_sale(sale_id: int, products_list: list, conn=None) -> Non
 
         # 3. Fase 2 & 5B: Registrar movimientos de salida por venta en Kardex universal (inventory_movements)
         # Agrupar lotes consumidos por product_id para Kardex
+        lot_consumptions = explicit_lot_consumptions + fifo_lot_consumptions
         prod_lot_map = {}
         for lc in lot_consumptions:
             prod_lot_map.setdefault(lc["product_id"], []).append(lc)
@@ -905,10 +1076,25 @@ def discount_stock_for_sale(sale_id: int, products_list: list, conn=None) -> Non
             sku = prod.get("sku") or id_to_sku.get(pid)
             if not pid:
                 pid = sku_to_id.get(sku) or name_to_id.get(pname)
-            if not pid:
+            if not pid or pid not in id_to_sku:
                 continue
 
+            from repositories.kardex_repo import get_current_ppp
             price = float(prod.get("unit_price") or prod.get("price") or 0.0)
+            current_cost = get_current_ppp(pid, conn=active_conn)
+            unit_cost_applied = float(current_cost if current_cost is not None and current_cost > 0 else 0.0)
+            total_cost_applied = round(qty * unit_cost_applied, 2)
+
+            # Snapshot histórico formal en sale_items
+            now_iso = datetime.now(timezone.utc).isoformat(timespec='seconds')
+            cur.execute(
+                """
+                INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, unit_cost_at_sale, total_cost_at_sale, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (sale_id, pid, qty, price, unit_cost_applied, total_cost_applied, now_iso)
+            )
+
             consumed_lots_for_prod = prod_lot_map.get(pid, [])
             if consumed_lots_for_prod:
                 for cl in consumed_lots_for_prod:
@@ -916,7 +1102,7 @@ def discount_stock_for_sale(sale_id: int, products_list: list, conn=None) -> Non
                         product_id=pid,
                         movement_type="SALE",
                         quantity=-float(cl["quantity"]),
-                        unit_cost=price,
+                        unit_cost=unit_cost_applied,
                         lot_number=cl.get("lot_number"),
                         reference_type="sale",
                         reference_id=sale_id,
@@ -930,7 +1116,7 @@ def discount_stock_for_sale(sale_id: int, products_list: list, conn=None) -> Non
                     product_id=pid,
                     movement_type="SALE",
                     quantity=-qty,
-                    unit_cost=price,
+                    unit_cost=unit_cost_applied,
                     lot_number=lot_num,
                     reference_type="sale",
                     reference_id=sale_id,
@@ -948,12 +1134,11 @@ def discount_stock_for_sale(sale_id: int, products_list: list, conn=None) -> Non
             c.commit()
 
 
-def list_inventory_entries() -> list[dict]:
-    """Obtiene los ingresos de mercadería recientes"""
+def list_inventory_entries(limit: Optional[int] = 20) -> list[dict]:
+    """Obtiene los ingresos de mercadería recientes (por defecto los últimos 20)"""
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """
+            query = """
                 SELECT ie.id, ie.entry_date as date, ie.order_number, ie.warehouse, ie.notes, ie.total_amount,
                        s.name as supplier, po.oc_number,
                        (SELECT COUNT(*) FROM inventory_entry_items WHERE inventory_entry_id = ie.id) as items_count
@@ -961,8 +1146,13 @@ def list_inventory_entries() -> list[dict]:
                 JOIN suppliers s ON ie.supplier_id = s.id
                 LEFT JOIN purchase_orders po ON ie.purchase_order_id = po.id
                 ORDER BY ie.id DESC
-                """
-            )
+            """
+            params = []
+            if limit and limit > 0:
+                query += " LIMIT %s"
+                params.append(limit)
+
+            cur.execute(query, tuple(params))
             records = []
             for row in cur.fetchall():
                 r = dict(row)
@@ -971,3 +1161,82 @@ def list_inventory_entries() -> list[dict]:
                 records.append(r)
             return records
 
+
+def get_inventory_entry_detail(entry_id: int, conn=None) -> dict | None:
+    """
+    Obtiene el detalle completo de un ingreso de mercadería específico por su ID único (inventory_entries.id),
+    incluyendo cabecera (proveedor, documento, OC, almacén) y los ítems efectivamente recibidos en ese ingreso.
+    Garantiza aislamiento total para recepciones parciales.
+    """
+    def _execute(cur):
+        cur.execute(
+            """
+            SELECT ie.id, ie.entry_date, ie.order_number, ie.warehouse, ie.notes,
+                   ie.total_amount, ie.created_at, ie.document_type, ie.document_number,
+                   ie.document_file, ie.supplier_id, s.name as supplier_name,
+                   ie.purchase_order_id, po.oc_number
+            FROM inventory_entries ie
+            JOIN suppliers s ON ie.supplier_id = s.id
+            LEFT JOIN purchase_orders po ON ie.purchase_order_id = po.id
+            WHERE ie.id = %s
+            """,
+            (entry_id,)
+        )
+        entry_row = cur.fetchone()
+        if not entry_row:
+            return None
+
+        entry = dict(entry_row)
+
+        cur.execute(
+            """
+            SELECT iei.id, iei.product_id, iei.quantity, iei.unit_price, iei.total,
+                   COALESCE(iei.lot_number, '') as lot_number,
+                   p.sku, p.name as product_name, p.category, p.unit_of_measure
+            FROM inventory_entry_items iei
+            JOIN products p ON iei.product_id = p.id
+            WHERE iei.inventory_entry_id = %s
+            ORDER BY iei.id ASC
+            """,
+            (entry_id,)
+        )
+        items = [dict(r) for r in cur.fetchall()]
+
+        # Calcular totales reales de los ítems recibidos
+        neto = sum(float(it["quantity"]) * float(it["unit_price"]) for it in items)
+        iva = round(neto * 0.19)
+        total = neto + iva
+        total_qty = sum(int(it["quantity"]) for it in items)
+
+        # Formatear etiqueta de documento
+        doc_type = entry.get("document_type") or "guia_despacho"
+        doc_num = entry.get("document_number") or ""
+        if doc_type == "factura":
+            doc_label = f"Factura de Compra N° {doc_num}" if doc_num else "Factura de Compra"
+        elif doc_type == "guia_despacho":
+            doc_label = f"Guía de Despacho N° {doc_num}" if doc_num else "Guía de Despacho"
+        else:
+            doc_label = f"{doc_type.capitalize()} N° {doc_num}".strip()
+
+        entry["document_label"] = doc_label
+        entry["neto"] = neto
+        entry["iva"] = iva
+        entry["total_calculated"] = total
+        entry["total_quantity"] = total_qty
+
+        return {
+            "entry": entry,
+            "items": items,
+            "total_quantity": total_qty,
+            "neto": neto,
+            "iva": iva,
+            "total": total
+        }
+
+    if conn is not None:
+        with conn.cursor() as cur:
+            return _execute(cur)
+    else:
+        with get_connection() as c:
+            with c.cursor() as cur:
+                return _execute(cur)

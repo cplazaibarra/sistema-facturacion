@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Editar OT {{ ot.ot_number }} (Borrador) - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Editar Orden de Trabajo (Borrador){% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumb-nav">
+    <a href="{{ url_for('dashboard.dashboard') }}"><i class="fa-solid fa-house"></i></a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{{ url_for('produccion.list_ots') }}">Producción</a>
+    <span class="breadcrumb-separator">/</span>
+    <span class="breadcrumb-current">{{ ot.ot_number }}</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px; display: flex; gap: 10px;">
+    <a href="{{ url_for('produccion.list_ots') }}" class="btn-back">
+        <i class="fa-solid fa-arrow-left"></i>
+        <span>Volver a Órdenes de Trabajo</span>
+    </a>
+</div>
+
+<div class="ingreso-container">
+    <div class="ingreso-form-card" style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #2d3748;">
+                Editar {{ ot.ot_number }}
+            </h3>
+            <span style="background: #718096; color: white; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: bold;">
+                Borrador
+            </span>
+        </div>
+
+        <form class="ingreso-form" method="POST" id="edit-ot-form">
+            <!-- Producto a fabricar y cantidad -->
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 20px;">
+                <div class="form-group">
+                    <label style="font-weight: 600; display: block; margin-bottom: 6px; color: #4a5568;">Producto Final a Fabricar *</label>
+                    <select class="form-control" name="final_product_id" id="final-product-select" required style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 6px; height: 42px;">
+                        {% for p in final_products %}
+                        <option value="{{ p.id }}" {% if p.id == ot.final_product_id %}selected{% endif %}>
+                            {{ p.name }} (SKU: {{ p.sku }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label style="font-weight: 600; display: block; margin-bottom: 6px; color: #4a5568;">Cantidad a Producir *</label>
+                    <input type="number" class="form-control" name="quantity" id="quantity-input" min="1" required value="{{ ot.quantity }}" style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 6px; height: 42px;">
+                </div>
+            </div>
+
+            <!-- Programación de producción -->
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 20px;">
+                <div class="form-group">
+                    <label style="font-weight: 600; display: block; margin-bottom: 6px; color: #4a5568;">Fecha Programada de Producción</label>
+                    <input type="date" class="form-control" name="scheduled_date" value="{{ ot.scheduled_date or '' }}" style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 6px; height: 42px;">
+                    <small style="color: #718096; font-size: 11px;">Dejar en blanco para desprogramar (enviar a "OTs Sin Programar").</small>
+                </div>
+                <div class="form-group">
+                    <label style="font-weight: 600; display: block; margin-bottom: 6px; color: #4a5568;">Orden en el Día</label>
+                    <input type="number" class="form-control" name="schedule_order" min="1" placeholder="Ej: 1" value="{{ ot.schedule_order or '' }}" style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 6px; height: 42px;">
+                </div>
+            </div>
+
+            <!-- Notas de la producción -->
+            <div class="form-group" style="margin-bottom: 24px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 6px; color: #4a5568;">Notas / Instrucciones Especiales</label>
+                <textarea class="form-control" name="notes" placeholder="Notas sobre la producción planificada" style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 6px; height: 60px; resize: vertical;">{{ ot.notes or '' }}</textarea>
+            </div>
+
+            <!-- Contenedor de visualización de Receta y Consumo Proyectado -->
+            <div id="recipe-preview-section" style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; margin-bottom: 24px;">
+                <h4 style="margin-top: 0; margin-bottom: 12px; color: #2d3748; display: flex; align-items: center; gap: 6px;">
+                    📝 Insumos Requeridos y Disponibilidad Actual
+                </h4>
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 10px; font-weight: 600; font-size: 12px; color: #718096; border-bottom: 1px solid #edf2f7; padding-bottom: 6px; margin-bottom: 8px;">
+                    <div>Insumo</div>
+                    <div style="text-align: center;">Por Unidad</div>
+                    <div style="text-align: center; color: #2b6cb0;">Total Requerido</div>
+                    <div style="text-align: right;">Stock Disponible</div>
+                    <div style="text-align: right;">Faltante</div>
+                    <div style="text-align: right; color: #744210;">Costo PPP Est.</div>
+                </div>
+                <div id="recipe-items-list">
+                    <!-- Filas dinámicas calculadas -->
+                </div>
+                <div id="recipe-cost-summary" style="display:none; margin-top: 12px; padding-top: 10px; border-top: 2px solid #e2e8f0; justify-content: flex-end; gap: 24px; font-size: 13px;">
+                    <div style="color: #4a5568;">
+                        Costo Total Estimado (PPP vigente):
+                        <strong id="recipe-total-cost" style="color: #744210; margin-left: 6px;">$0</strong>
+                    </div>
+                    <div style="color: #4a5568;">
+                        Costo Unitario Estimado:
+                        <strong id="recipe-unit-cost" style="color: #2b6cb0; margin-left: 6px;">$0</strong>
+                    </div>
+                </div>
+                <div style="margin-top: 6px; font-size: 10px; color: #a0aec0; text-align: right;">
+                    * Estimación basada en el PPP vigente al día de hoy. El costo final se calculará al momento de ejecutar la OT.
+                </div>
+            </div>
+
+            <div style="margin-top: 30px; display: flex; justify-content: flex-end; gap: 12px; align-items: center;">
+                <a href="/produccion" class="btn-secondary" style="text-decoration: none; padding: 10px 18px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fff; color: #4a5568;">Cancelar</a>
+                <button type="submit" class="btn-primary" id="save-ot-btn" style="padding: 10px 24px; border-radius: 6px; font-weight: bold; background-color: #3182ce; color: #fff; border: none; cursor: pointer;">
+                    💾 Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const productSelect = document.getElementById('final-product-select');
+    const quantityInput = document.getElementById('quantity-input');
+    const itemsList = document.getElementById('recipe-items-list');
+    let currentRecipeItems = [];
+
+    async function loadRecipe() {
+        const productId = productSelect.value;
+        const qty = parseFloat(quantityInput.value) || 0;
+
+        if (!productId) {
+            itemsList.innerHTML = '';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/productos/${productId}/receta`);
+            if (response.ok) {
+                const data = await response.json();
+                currentRecipeItems = data.items;
+                renderRecipePreview(qty);
+            } else {
+                currentRecipeItems = [];
+                itemsList.innerHTML = '<div style="color: #e53e3e; padding: 10px;">No se encontró receta para el producto seleccionado.</div>';
+            }
+        } catch (err) {
+            console.error("Error loading recipe components:", err);
+        }
+    }
+
+    function renderRecipePreview(qty) {
+        itemsList.innerHTML = '';
+        let totalCostEstimado = 0;
+
+        currentRecipeItems.forEach(item => {
+            const totalRequired = item.quantity_required * qty;
+            const stock = parseFloat(item.stock) || 0;
+            const diff = Math.max(0, totalRequired - stock);
+            const isInsuficiente = diff > 0;
+
+            const ppp = parseFloat(item.ppp_actual) || 0;
+            const costLinea = ppp * totalRequired;
+            totalCostEstimado += costLinea;
+
+            const stockColor = isInsuficiente ? '#e53e3e' : '#28a745';
+            const missingText = isInsuficiente 
+                ? `<span style="color: #e53e3e; font-weight: bold;">-${diff.toFixed(2)}</span>`
+                : `<span style="color: #718096;">0</span>`;
+
+            const pppDisplay = ppp > 0 ? `$${Math.round(ppp).toLocaleString('es-CL')}` : '<span style="color:#a0aec0;font-style:italic;font-size:10px;">Sin PPP</span>';
+            const costDisplay = ppp > 0 ? `$${Math.round(costLinea).toLocaleString('es-CL')}` : '-';
+
+            const div = document.createElement('div');
+            div.style = 'display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 10px; font-size: 13px; color: #2d3748; padding: 8px 0; border-bottom: 1px dashed #edf2f7; align-items: center;';
+            div.innerHTML = `
+                <div style="font-weight: 500;">
+                    ${item.input_name} 
+                    <span style="font-size: 10px; color: #718096; margin-left: 2px;">(SKU: ${item.input_sku})</span>
+                </div>
+                <div style="text-align: center; color: #4a5568;">${item.quantity_required}</div>
+                <div style="text-align: center; font-weight: bold; color: #2b6cb0;">${totalRequired.toFixed(2)}</div>
+                <div style="text-align: right; font-weight: 600; color: ${stockColor};">${stock.toFixed(2)}</div>
+                <div style="text-align: right;">${missingText}</div>
+                <div style="text-align: right; font-size: 12px;">
+                    <div style="color: #744210; font-weight: 600;">${costDisplay}</div>
+                    <div style="color: #a0aec0; font-size: 10px;">PPP: ${pppDisplay}</div>
+                </div>
+            `;
+            itemsList.appendChild(div);
+        });
+
+        // Resumen de costos
+        const costSummary = document.getElementById('recipe-cost-summary');
+        const totalCostEl = document.getElementById('recipe-total-cost');
+        const unitCostEl = document.getElementById('recipe-unit-cost');
+        if (qty > 0 && totalCostEstimado > 0) {
+            costSummary.style.display = 'flex';
+            totalCostEl.textContent = `$${Math.round(totalCostEstimado).toLocaleString('es-CL')}`;
+            unitCostEl.textContent = `$${Math.round(totalCostEstimado / qty).toLocaleString('es-CL')}`;
+        } else {
+            costSummary.style.display = 'none';
+        }
+    }
+
+    productSelect.addEventListener('change', loadRecipe);
+    quantityInput.addEventListener('input', () => {
+        const qty = parseFloat(quantityInput.value) || 0;
+        renderRecipePreview(qty);
+    });
+
+    // Initial load
+    loadRecipe();
+});
+</script>
+{% endblock %}

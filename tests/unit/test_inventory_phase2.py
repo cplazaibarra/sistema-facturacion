@@ -114,6 +114,12 @@ def test_purchase_increases_stock(temp_test_product):
     new_stock = get_relational_stock(pid)
     assert new_stock == 50.0
     assert get_relational_stock_by_sku(temp_test_product["sku"]) == 50.0
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT reference_type, reference_id FROM inventory_movements WHERE product_id=%s ORDER BY id DESC LIMIT 1", (pid,))
+            origin = cur.fetchone()
+    assert origin["reference_type"] == "purchase_order"
+    assert origin["reference_id"] == 99991
 
 
 def test_sale_decreases_stock(temp_test_product):
@@ -140,6 +146,14 @@ def test_sale_decreases_stock(temp_test_product):
 
     current_stock = get_relational_stock(pid)
     assert current_stock == 70.0
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT movement_type, reference_type, reference_id FROM inventory_movements WHERE product_id=%s ORDER BY id DESC LIMIT 2", (pid,))
+            origins = cur.fetchall()
+    assert {(row["movement_type"], row["reference_type"], row["reference_id"]) for row in origins} == {
+        ("SALE", "sale", 88881),
+        ("PURCHASE_RECEIPT", "purchase_order", 99992),
+    }
 
 
 def test_sale_cannot_exceed_stock(temp_test_product):
@@ -399,15 +413,18 @@ def test_vpp_fallback_last_purchase(temp_test_product):
 
 
 def test_inventory_reconciliation():
-    """Ejecuta la herramienta de reconciliación y verifica que todas las métricas sean coherentes."""
+    """El diagnóstico V2 conserva snapshot ausente separado de stock cero."""
     from tools.reconcile_inventory import reconcile_inventory
     summary, results = reconcile_inventory()
-    assert summary["total_skus"] >= 111
-    assert summary["absolute_difference_sum"] >= 0.0
+    assert summary["products_analyzed"] >= 111
+    assert summary["snapshot_present"] + summary["snapshot_missing"] == summary["products_analyzed"]
+    assert summary["automatic_quantity_corrections_identified"] == 0
     for r in results:
-        assert isinstance(r["stock_page_data"], (int, float))
-        assert isinstance(r["stock_lot_stock"], (int, float))
-        assert isinstance(r["diff"], (int, float))
+        assert isinstance(r["snapshot_present"], bool)
+        assert isinstance(r["classifications"], list)
+        if not r["snapshot_present"]:
+            assert r["snapshot_stock"] is None
+            assert "SNAPSHOT_AUSENTE" in r["classifications"]
 
 
 def test_dual_read_consistency(temp_test_product):

@@ -1,0 +1,571 @@
+{
+  "database": "facturacion",
+  "isolation": "read committed",
+  "fk": [
+    {
+      "constraint": "bank_reconciliation_audit_bank_transaction_id_fkey",
+      "child": "bank_reconciliation_audit",
+      "parent": "bank_transactions",
+      "orphans": 0
+    },
+    {
+      "constraint": "bank_transaction_imports_bank_account_id_fkey",
+      "child": "bank_transaction_imports",
+      "parent": "bank_accounts",
+      "orphans": 0
+    },
+    {
+      "constraint": "bank_transactions_bank_account_id_fkey",
+      "child": "bank_transactions",
+      "parent": "bank_accounts",
+      "orphans": 0
+    },
+    {
+      "constraint": "bank_transactions_category_id_fkey",
+      "child": "bank_transactions",
+      "parent": "bank_transaction_categories",
+      "orphans": 0
+    },
+    {
+      "constraint": "bank_transactions_import_id_fkey",
+      "child": "bank_transactions",
+      "parent": "bank_transaction_imports",
+      "orphans": 0
+    },
+    {
+      "constraint": "collection_actions_sale_id_fkey",
+      "child": "collection_actions",
+      "parent": "sales",
+      "orphans": 0
+    },
+    {
+      "constraint": "debt_audit_debt_id_fkey",
+      "child": "debt_audit",
+      "parent": "debts",
+      "orphans": 0
+    },
+    {
+      "constraint": "debt_audit_installment_id_fkey",
+      "child": "debt_audit",
+      "parent": "debt_installments",
+      "orphans": 0
+    },
+    {
+      "constraint": "debt_installments_debt_id_fkey",
+      "child": "debt_installments",
+      "parent": "debts",
+      "orphans": 0
+    },
+    {
+      "constraint": "debt_payments_bank_account_id_fkey",
+      "child": "debt_payments",
+      "parent": "bank_accounts",
+      "orphans": 0
+    },
+    {
+      "constraint": "debt_payments_debt_installment_id_fkey",
+      "child": "debt_payments",
+      "parent": "debt_installments",
+      "orphans": 0
+    },
+    {
+      "constraint": "debts_bank_account_id_fkey",
+      "child": "debts",
+      "parent": "bank_accounts",
+      "orphans": 0
+    },
+    {
+      "constraint": "debts_debt_type_id_fkey",
+      "child": "debts",
+      "parent": "debt_types",
+      "orphans": 0
+    },
+    {
+      "constraint": "inventory_adjustment_audit_actor_id_fkey",
+      "child": "inventory_adjustment_audit",
+      "parent": "users",
+      "orphans": 0
+    },
+    {
+      "constraint": "inventory_adjustment_audit_adjustment_id_fkey",
+      "child": "inventory_adjustment_audit",
+      "parent": "inventory_adjustment_requests",
+      "orphans": 0
+    },
+    {
+      "constraint": "inventory_adjustment_requests_decided_by_fkey",
+      "child": "inventory_adjustment_requests",
+      "parent": "users",
+      "orphans": 0
+    },
+    {
+      "constraint": "inventory_adjustment_requests_movement_id_fkey",
+      "child": "inventory_adjustment_requests",
+      "parent": "inventory_movements",
+      "orphans": 0
+    },
+    {
+      "constraint": "inventory_adjustment_requests_product_id_fkey",
+      "child": "inventory_adjustment_requests",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "inventory_adjustment_requests_requested_by_fkey",
+      "child": "inventory_adjustment_requests",
+      "parent": "users",
+      "orphans": 0
+    },
+    {
+      "constraint": "inventory_cost_revaluations_movement_id_fkey",
+      "child": "inventory_cost_revaluations",
+      "parent": "inventory_movements",
+      "orphans": 0
+    },
+    {
+      "constraint": "inventory_cost_revaluations_parent_revaluation_id_fkey",
+      "child": "inventory_cost_revaluations",
+      "parent": "inventory_cost_revaluations",
+      "orphans": 0
+    },
+    {
+      "constraint": "inventory_cost_revaluations_product_id_fkey",
+      "child": "inventory_cost_revaluations",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "inventory_entries_purchase_order_id_fkey",
+      "child": "inventory_entries",
+      "parent": "purchase_orders",
+      "orphans": 0
+    },
+    {
+      "constraint": "inventory_entries_supplier_id_fkey",
+      "child": "inventory_entries",
+      "parent": "suppliers",
+      "orphans": 0
+    },
+    {
+      "constraint": "inventory_entry_items_inventory_entry_id_fkey",
+      "child": "inventory_entry_items",
+      "parent": "inventory_entries",
+      "orphans": 0
+    },
+    {
+      "constraint": "inventory_entry_items_lot_id_fkey",
+      "child": "inventory_entry_items",
+      "parent": "lots",
+      "orphans": 0
+    },
+    {
+      "constraint": "inventory_entry_items_product_id_fkey",
+      "child": "inventory_entry_items",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "inventory_movements_lot_id_fkey",
+      "child": "inventory_movements",
+      "parent": "lots",
+      "orphans": 0
+    },
+    {
+      "constraint": "inventory_movements_product_id_fkey",
+      "child": "inventory_movements",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "lot_stock_entry_id_fkey",
+      "child": "lot_stock",
+      "parent": "inventory_entries",
+      "orphans": 0
+    },
+    {
+      "constraint": "lot_stock_lot_id_fkey",
+      "child": "lot_stock",
+      "parent": "lots",
+      "orphans": 0
+    },
+    {
+      "constraint": "lot_stock_product_id_fkey",
+      "child": "lot_stock",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "lots_inventory_entry_id_fkey",
+      "child": "lots",
+      "parent": "inventory_entries",
+      "orphans": 0
+    },
+    {
+      "constraint": "lots_product_id_fkey",
+      "child": "lots",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "lots_production_order_id_fkey",
+      "child": "lots",
+      "parent": "production_orders",
+      "orphans": 0
+    },
+    {
+      "constraint": "lots_purchase_order_id_fkey",
+      "child": "lots",
+      "parent": "purchase_orders",
+      "orphans": 0
+    },
+    {
+      "constraint": "lots_supplier_id_fkey",
+      "child": "lots",
+      "parent": "suppliers",
+      "orphans": 0
+    },
+    {
+      "constraint": "operational_expense_audit_changed_by_fkey",
+      "child": "operational_expense_audit",
+      "parent": "users",
+      "orphans": 0
+    },
+    {
+      "constraint": "operational_expense_audit_expense_id_fkey",
+      "child": "operational_expense_audit",
+      "parent": "operational_expenses",
+      "orphans": 0
+    },
+    {
+      "constraint": "operational_expense_occurrences_bank_account_id_fkey",
+      "child": "operational_expense_occurrences",
+      "parent": "bank_accounts",
+      "orphans": 0
+    },
+    {
+      "constraint": "operational_expense_occurrences_expense_id_fkey",
+      "child": "operational_expense_occurrences",
+      "parent": "operational_expenses",
+      "orphans": 0
+    },
+    {
+      "constraint": "operational_expenses_bank_account_id_fkey",
+      "child": "operational_expenses",
+      "parent": "bank_accounts",
+      "orphans": 0
+    },
+    {
+      "constraint": "operational_expenses_category_fk",
+      "child": "operational_expenses",
+      "parent": "expense_categories",
+      "orphans": 0
+    },
+    {
+      "constraint": "operational_expenses_created_by_fkey",
+      "child": "operational_expenses",
+      "parent": "users",
+      "orphans": 0
+    },
+    {
+      "constraint": "operational_expenses_updated_by_fkey",
+      "child": "operational_expenses",
+      "parent": "users",
+      "orphans": 0
+    },
+    {
+      "constraint": "product_recipe_items_input_product_id_fkey",
+      "child": "product_recipe_items",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "product_recipe_items_recipe_id_fkey",
+      "child": "product_recipe_items",
+      "parent": "product_recipes",
+      "orphans": 0
+    },
+    {
+      "constraint": "product_recipes_final_product_id_fkey",
+      "child": "product_recipes",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "product_suppliers_product_id_fkey",
+      "child": "product_suppliers",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "product_suppliers_supplier_id_fkey",
+      "child": "product_suppliers",
+      "parent": "suppliers",
+      "orphans": 0
+    },
+    {
+      "constraint": "production_lot_consumptions_input_lot_id_fkey",
+      "child": "production_lot_consumptions",
+      "parent": "lots",
+      "orphans": 0
+    },
+    {
+      "constraint": "production_lot_consumptions_input_product_id_fkey",
+      "child": "production_lot_consumptions",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "production_lot_consumptions_production_order_id_fkey",
+      "child": "production_lot_consumptions",
+      "parent": "production_orders",
+      "orphans": 0
+    },
+    {
+      "constraint": "production_lot_outputs_output_lot_id_fkey",
+      "child": "production_lot_outputs",
+      "parent": "lots",
+      "orphans": 0
+    },
+    {
+      "constraint": "production_lot_outputs_output_product_id_fkey",
+      "child": "production_lot_outputs",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "production_lot_outputs_production_order_id_fkey",
+      "child": "production_lot_outputs",
+      "parent": "production_orders",
+      "orphans": 0
+    },
+    {
+      "constraint": "production_order_additional_items_input_product_id_fkey",
+      "child": "production_order_additional_items",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "production_order_additional_items_production_order_id_fkey",
+      "child": "production_order_additional_items",
+      "parent": "production_orders",
+      "orphans": 0
+    },
+    {
+      "constraint": "production_order_items_input_product_id_fkey",
+      "child": "production_order_items",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "production_order_items_production_order_id_fkey",
+      "child": "production_order_items",
+      "parent": "production_orders",
+      "orphans": 0
+    },
+    {
+      "constraint": "production_orders_final_product_id_fkey",
+      "child": "production_orders",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "purchase_invoices_bank_account_id_fkey",
+      "child": "purchase_invoices",
+      "parent": "bank_accounts",
+      "orphans": 0
+    },
+    {
+      "constraint": "purchase_invoices_inventory_entry_id_fkey",
+      "child": "purchase_invoices",
+      "parent": "inventory_entries",
+      "orphans": 0
+    },
+    {
+      "constraint": "purchase_invoices_purchase_order_id_fkey",
+      "child": "purchase_invoices",
+      "parent": "purchase_orders",
+      "orphans": 0
+    },
+    {
+      "constraint": "purchase_invoices_supplier_id_fkey",
+      "child": "purchase_invoices",
+      "parent": "suppliers",
+      "orphans": 0
+    },
+    {
+      "constraint": "purchase_order_items_product_id_fkey",
+      "child": "purchase_order_items",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "purchase_order_items_purchase_order_id_fkey",
+      "child": "purchase_order_items",
+      "parent": "purchase_orders",
+      "orphans": 0
+    },
+    {
+      "constraint": "purchase_orders_approved_by_fkey",
+      "child": "purchase_orders",
+      "parent": "users",
+      "orphans": 0
+    },
+    {
+      "constraint": "purchase_orders_created_by_fkey",
+      "child": "purchase_orders",
+      "parent": "users",
+      "orphans": 0
+    },
+    {
+      "constraint": "purchase_orders_supplier_id_fkey",
+      "child": "purchase_orders",
+      "parent": "suppliers",
+      "orphans": 0
+    },
+    {
+      "constraint": "sale_items_product_id_fkey",
+      "child": "sale_items",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "sale_items_sale_id_fkey",
+      "child": "sale_items",
+      "parent": "sales",
+      "orphans": 0
+    },
+    {
+      "constraint": "sale_lot_movements_lot_id_fkey",
+      "child": "sale_lot_movements",
+      "parent": "lots",
+      "orphans": 0
+    },
+    {
+      "constraint": "sale_lot_movements_product_id_fkey",
+      "child": "sale_lot_movements",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "sale_lot_movements_sale_id_fkey",
+      "child": "sale_lot_movements",
+      "parent": "sales",
+      "orphans": 0
+    },
+    {
+      "constraint": "sale_packaging_items_inventory_movement_id_fkey",
+      "child": "sale_packaging_items",
+      "parent": "inventory_movements",
+      "orphans": 0
+    },
+    {
+      "constraint": "sale_packaging_items_product_id_fkey",
+      "child": "sale_packaging_items",
+      "parent": "products",
+      "orphans": 0
+    },
+    {
+      "constraint": "sale_packaging_items_sale_id_fkey",
+      "child": "sale_packaging_items",
+      "parent": "sales",
+      "orphans": 0
+    },
+    {
+      "constraint": "sale_payment_items_bank_account_id_fkey",
+      "child": "sale_payment_items",
+      "parent": "bank_accounts",
+      "orphans": 0
+    },
+    {
+      "constraint": "sale_payment_items_sale_id_fkey",
+      "child": "sale_payment_items",
+      "parent": "sales",
+      "orphans": 0
+    },
+    {
+      "constraint": "sale_payments_sale_id_fkey",
+      "child": "sale_payments",
+      "parent": "sales",
+      "orphans": 0
+    },
+    {
+      "constraint": "sales_payment_history_sale_id_fkey",
+      "child": "sales_payment_history",
+      "parent": "sales",
+      "orphans": 0
+    },
+    {
+      "constraint": "sales_status_history_sale_id_fkey",
+      "child": "sales_status_history",
+      "parent": "sales",
+      "orphans": 0
+    },
+    {
+      "constraint": "supplier_contacts_supplier_id_fkey",
+      "child": "supplier_contacts",
+      "parent": "suppliers",
+      "orphans": 0
+    },
+    {
+      "constraint": "users_role_id_fkey",
+      "child": "users",
+      "parent": "roles",
+      "orphans": 0
+    }
+  ],
+  "indexes": [
+    {
+      "name": "idx_sale_items_product_id",
+      "definition": "CREATE INDEX idx_sale_items_product_id ON public.sale_items USING btree (product_id)"
+    },
+    {
+      "name": "idx_sale_items_sale_id",
+      "definition": "CREATE INDEX idx_sale_items_sale_id ON public.sale_items USING btree (sale_id)"
+    },
+    {
+      "name": "sale_items_pkey",
+      "definition": "CREATE UNIQUE INDEX sale_items_pkey ON public.sale_items USING btree (id)"
+    },
+    {
+      "name": "idx_sale_lot_movements_product_id",
+      "definition": "CREATE INDEX idx_sale_lot_movements_product_id ON public.sale_lot_movements USING btree (product_id)"
+    },
+    {
+      "name": "idx_sale_lot_movements_sale_id",
+      "definition": "CREATE INDEX idx_sale_lot_movements_sale_id ON public.sale_lot_movements USING btree (sale_id)"
+    },
+    {
+      "name": "idx_slm_lot_id",
+      "definition": "CREATE INDEX idx_slm_lot_id ON public.sale_lot_movements USING btree (lot_id)"
+    },
+    {
+      "name": "sale_lot_movements_pkey",
+      "definition": "CREATE UNIQUE INDEX sale_lot_movements_pkey ON public.sale_lot_movements USING btree (id)"
+    },
+    {
+      "name": "idx_sales_customer_name",
+      "definition": "CREATE INDEX idx_sales_customer_name ON public.sales USING btree (customer_name)"
+    },
+    {
+      "name": "idx_sales_reversal_applied",
+      "definition": "CREATE INDEX idx_sales_reversal_applied ON public.sales USING btree (reversal_applied)"
+    },
+    {
+      "name": "idx_sales_sale_date",
+      "definition": "CREATE INDEX idx_sales_sale_date ON public.sales USING btree (sale_date)"
+    },
+    {
+      "name": "idx_sales_status",
+      "definition": "CREATE INDEX idx_sales_status ON public.sales USING btree (status)"
+    },
+    {
+      "name": "sales_pkey",
+      "definition": "CREATE UNIQUE INDEX sales_pkey ON public.sales USING btree (id)"
+    },
+    {
+      "name": "sales_sale_number_key",
+      "definition": "CREATE UNIQUE INDEX sales_sale_number_key ON public.sales USING btree (sale_number)"
+    }
+  ],
+  "ephemeral_databases": []
+}

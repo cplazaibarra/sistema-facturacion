@@ -10,8 +10,8 @@
         <h2 style="margin: 0; font-size: 18px; color: #1e293b; font-weight: 700;">Gestión de Cotizaciones</h2>
     </div>
     <div class="sf-action-right">
-        <a href="{{ url_for('ventas.nueva_cotizacion') }}" class="sf-btn-primary" style="background-color: #ED8936; border: none; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
-            <span>📋</span>
+        <a href="{{ url_for('ventas.nueva_cotizacion') }}" class="btn btn-primary btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-plus"></i>
             <span>Nueva Cotización</span>
         </a>
     </div>
@@ -43,7 +43,7 @@
     <div class="sf-toolbar-left" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; flex: 1;">
         <div class="sf-search-box" style="min-width: 200px;">
             <span class="sf-search-icon">🔍</span>
-            <input type="text" id="sf-search-input-cot" placeholder="Buscar cotizaciones..." class="sf-search-input" onkeyup="filterCotizacionesTable()">
+            <input type="text" id="sf-search-input-cot" placeholder="Buscar cotizaciones..." class="sf-search-input" value="{{ request.args.get('search', '') }}" onkeyup="scheduleQuotationSearch(event)">
         </div>
 
         <!-- Filtro por Estado -->
@@ -63,7 +63,7 @@
             <select id="sf-client-filter-cot" onchange="filterCotizacionesTable()" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; max-width: 170px;">
                 <option value="">-- Todos los Clientes --</option>
                 {% for client_name in all_clients %}
-                <option value="{{ client_name }}">{{ client_name }}</option>
+                <option value="{{ client_name }}" {% if request.args.get("client") == client_name %}selected{% endif %}>{{ client_name }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -74,7 +74,7 @@
             <select id="sf-product-filter-cot" onchange="filterCotizacionesTable()" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; outline: none; background: white; max-width: 180px;">
                 <option value="">-- Todos los Productos --</option>
                 {% for prod_name in all_products %}
-                <option value="{{ prod_name }}">{{ prod_name }}</option>
+                <option value="{{ prod_name }}" {% if request.args.get("product") == prod_name %}selected{% endif %}>{{ prod_name }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -84,7 +84,7 @@
         </button>
     </div>
     <div class="sf-toolbar-right">
-        <span class="sf-record-count" id="sf-record-count-cot">{{ cotizaciones_records|length }} registros</span>
+        <span class="sf-record-count" id="sf-record-count-cot">{{ pagination.total }} registros</span>
     </div>
 </div>
 
@@ -149,7 +149,7 @@
         </thead>
         <tbody>
             {% for sale in cotizaciones_records %}
-            <tr class="sf-table-row" data-status="{{ sale.quotation_status or 'Activa' }}" data-customer="{{ sale.customer.name }} {{ sale.customer.email }}" data-products="{% for product in sale.products %}{% if product is mapping %}{{ product.product_name or product.name }} {% else %}{{ product }} {% endif %}{% endfor %}">
+            <tr class="sf-table-row" data-status="{{ sale.quotation_status or 'Activa' }}" data-customer="{{ sale.customer.name }} {{ sale.customer.email or '' }}" data-products="{% for product in sale.products %}{% if product is mapping %}{{ product.product_name or product.name }} {% else %}{{ product }} {% endif %}{% endfor %}">
                 <td>
                     <input type="checkbox" class="sf-checkbox">
                 </td>
@@ -160,10 +160,10 @@
                 </td>
                 <td>
                     <div class="sf-cell-user" style="cursor: pointer;" onclick='openEditClientModal({{ sale.customer|tojson|safe }})' title="Clic para ver y editar datos del cliente">
-                        <div class="sf-avatar">{{ sale.customer.initials }}</div>
+                        <div class="sf-avatar">{{ sale.customer.initials or '' }}</div>
                         <div class="sf-user-info">
                             <div class="sf-user-name" style="color: #0284c7; font-weight: 600; text-decoration: underline;">{{ sale.customer.name }}</div>
-                            <div class="sf-user-detail">{{ sale.customer.email }}</div>
+                            <div class="sf-user-detail">{{ sale.customer.email or '' }}</div>
                         </div>
                     </div>
                 </td>
@@ -215,37 +215,43 @@
                 </td>
                 <td>
                     <div class="sf-cell-user">
-                        <div class="sf-avatar sf-avatar-seller">{{ sale.seller.initials }}</div>
-                        <div class="sf-user-name">{{ sale.seller.name }}</div>
+                        <div class="sf-avatar sf-avatar-seller">{{ sale.seller.initials or '' }}</div>
+                        <div class="sf-user-name">{{ sale.seller.name or '' }}</div>
                     </div>
                 </td>
                 <td style="text-align: center; white-space: nowrap;">
                     <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
-                        <button type="button" onclick="openChangeStatusModal({{ sale.id }}, '{{ sale.sale_number }}', '{{ sale.quotation_status }}', {{ sale.win_probability }})" class="sf-btn-secondary" style="padding: 6px 8px; font-size: 12px; cursor: pointer; background: #ffffff; color: #334155; border-radius: 4px; border: 1px solid #cbd5e1; font-weight: 600;" title="Actualizar Estado / Probabilidad">
-                            🎯 Estado
+                        <button type="button" onclick="openChangeStatusModal({{ sale.id }}, '{{ sale.sale_number }}', '{{ sale.quotation_status }}', {{ sale.win_probability }})" class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Actualizar Estado / Probabilidad">
+                            <i class="fa-solid fa-sliders"></i>
+                            <span>Estado</span>
                         </button>
-                        <a href="{{ url_for('ventas.nueva_cotizacion') }}?clone_id={{ sale.id }}" class="sf-btn-secondary" style="padding: 6px 10px; font-size: 12px; text-decoration: none; font-weight: 600; background: #edf2f7; color: #2d3748; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;" title="Clonar y Modificar">
-                            📋 Clonar
+                        <a href="{{ url_for('ventas.nueva_cotizacion') }}?clone_id={{ sale.id }}" class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;" title="Clonar y Modificar">
+                            <i class="fa-solid fa-copy"></i>
+                            <span>Clonar</span>
                         </a>
                         {% if sale.status.label == 'Borrador' %}
-                        <a href="{{ url_for('ventas.nueva_cotizacion') }}?edit_id={{ sale.id }}" class="sf-btn-secondary" style="padding: 6px 10px; font-size: 12px; text-decoration: none; font-weight: 600; background: #fffbeb; color: #92400e; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #fcd34d;" title="Editar Borrador">
-                            ✏️ Editar
+                        <a href="{{ url_for('ventas.nueva_cotizacion') }}?edit_id={{ sale.id }}" class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; background: #fffbeb; color: #92400e; border-color: #fcd34d;" title="Editar Borrador">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                            <span>Editar</span>
                         </a>
                         <form method="POST" action="{{ url_for('ventas.emitir_cotizacion', sale_id=sale.id) }}" onsubmit="return confirm('¿Emitir esta cotización oficialmente?');" style="display: inline;">
-                            <button type="submit" class="sf-btn-primary" style="padding: 6px 12px; font-size: 12px; background-color: #3182CE; border: none; font-weight: 600;" title="Hacer Cotización">
-                                🚀 Hacer Cotización
+                            <button type="submit" class="btn btn-primary btn-sm" style="padding: 4px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" title="Emitir Cotización">
+                                <i class="fa-solid fa-paper-plane"></i>
+                                <span>Emitir</span>
                             </button>
                         </form>
                         {% else %}
                             {% if 'Venta Generada:' in (sale.notes or '') %}
                                 {% set vta_num = sale.notes.split('Venta Generada:')[1].split('\n')[0].strip() %}
-                                <a href="{{ url_for('ventas.ventas') }}?open_vta={{ vta_num }}" class="sf-btn-secondary" style="padding: 6px 10px; font-size: 12px; text-decoration: none; font-weight: 600; background: #e0f2fe; color: #0369a1; border-radius: 4px; display: inline-flex; align-items: center; border: 1px solid #bae6fd;" title="Ver Venta {{ vta_num }}">
-                                    🔗 {{ vta_num }}
+                                <a href="{{ url_for('ventas.ventas') }}?open_vta={{ vta_num }}" class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; background: #e0f2fe; color: #0369a1; border-color: #bae6fd;" title="Ver Venta {{ vta_num }}">
+                                    <i class="fa-solid fa-link"></i>
+                                    <span>{{ vta_num }}</span>
                                 </a>
                             {% else %}
                                 <form method="POST" action="{{ url_for('ventas.convertir_cotizacion', sale_id=sale.id) }}" onsubmit="return confirm('¿Emitir esta cotización como venta real?');" style="display: inline;">
-                                    <button type="submit" class="sf-btn-primary" style="padding: 6px 12px; font-size: 12px; background-color: #ED8936; border: none; font-weight: 600;" title="Emitir Venta">
-                                        ⚡ Emitir Venta
+                                    <button type="submit" class="btn btn-primary btn-sm" style="padding: 4px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;" title="Emitir Venta">
+                                        <i class="fa-solid fa-bolt"></i>
+                                        <span>Emitir Venta</span>
                                     </button>
                                 </form>
                             {% endif %}
@@ -262,6 +268,7 @@
             {% endfor %}
         </tbody>
     </table>
+    {% include "_pagination.html" %}
 </div>
 
 <!-- Modal para ver Cotización en formato de creación -->
@@ -284,7 +291,10 @@
                 <div><strong>RUT:</strong> <span id="modal-cot-rut">-</span></div>
                 <div><strong>Razón Social / Nombre:</strong> <span id="modal-cot-customer">-</span></div>
                 <div><strong>Correo Electrónico:</strong> <span id="modal-cot-email">-</span></div>
+                <div><strong>Categoría Cliente:</strong> <span id="modal-cot-category">-</span></div>
+                <div><strong>Dirección de despacho:</strong> <span id="modal-cot-delivery-address">-</span></div>
                 <div><strong>Forma / Condición de Pago:</strong> <span id="modal-cot-payment-method" style="font-weight: 600; color: #3182ce;">-</span></div>
+                <div><strong>Vendedor Responsable:</strong> <span id="modal-cot-seller" style="font-weight: 600; color: #1e293b;">-</span></div>
                 <div><strong>Estado de Negociación:</strong> <span id="modal-cot-status">-</span></div>
                 <div><strong>Probabilidad de Cierre:</strong> <span id="modal-cot-probability">-</span></div>
             </div>
@@ -364,106 +374,26 @@
 </div>
 
 <script>
-function onStatusSelectChange() {
-    const statusSelect = document.getElementById('sf-status-filter-cot');
-    const val = statusSelect ? statusSelect.value : '';
-    updateActiveFilterUI(val);
+let quotationSearchTimer;
+function onStatusSelectChange() { filterCotizacionesTable(); }
+function setQuotationCardFilter(value) {
+    document.getElementById('sf-status-filter-cot').value = value;
     filterCotizacionesTable();
 }
-
-function setQuotationCardFilter(filterVal) {
-    const statusSelect = document.getElementById('sf-status-filter-cot');
-    if (statusSelect) {
-        statusSelect.value = filterVal;
-    }
-    updateActiveFilterUI(filterVal);
-    filterCotizacionesTable();
-}
-
-function updateActiveFilterUI(filterVal) {
-    const normVal = (filterVal || '').toLowerCase().trim();
-
-    // 1. Actualizar tarjetas métricas
-    const cards = document.querySelectorAll('.sf-metrics-grid .sf-metric-card');
-    cards.forEach(card => {
-        const cardVal = (card.getAttribute('data-filter-val') || '').toLowerCase().trim();
-        if ((normVal === '' && cardVal === '') || (cardVal !== '' && cardVal === normVal)) {
-            card.classList.add('active-filter');
-        } else {
-            card.classList.remove('active-filter');
-        }
-    });
-
-    // 2. Actualizar banner de filtro activo
-    const banner = document.getElementById('cot-active-filter-banner');
-    const filterName = document.getElementById('cot-active-filter-name');
-    if (banner) {
-        if (normVal && !['', 'all', 'todas'].includes(normVal)) {
-            banner.style.display = 'flex';
-            if (filterName) filterName.textContent = filterVal;
-        } else {
-            banner.style.display = 'none';
-        }
-    }
-
-    // 3. Actualizar URL silenciosamente para mantener consistencia
-    try {
-        const newUrl = filterVal ? `?filter=${encodeURIComponent(filterVal)}` : `?filter=`;
-        window.history.replaceState(null, '', newUrl);
-    } catch(e) {}
-}
-
 function filterCotizacionesTable() {
-    const searchInput = document.getElementById('sf-search-input-cot');
-    const statusSelect = document.getElementById('sf-status-filter-cot');
-    const clientSelect = document.getElementById('sf-client-filter-cot');
-    const productSelect = document.getElementById('sf-product-filter-cot');
-
-    const searchVal = (searchInput ? searchInput.value : '').toLowerCase().trim();
-    const statusVal = (statusSelect ? statusSelect.value : '').toLowerCase().trim();
-    const clientVal = (clientSelect ? clientSelect.value : '').toLowerCase().trim();
-    const productVal = (productSelect ? productSelect.value : '').toLowerCase().trim();
-
-    const rows = document.querySelectorAll('.sf-table tbody tr.sf-table-row');
-    let visibleCount = 0;
-
-    rows.forEach(row => {
-        const rowStatus = (row.getAttribute('data-status') || 'activa').toLowerCase();
-        const customerData = (row.getAttribute('data-customer') || '').toLowerCase();
-        const productsData = (row.getAttribute('data-products') || '').toLowerCase();
-        const fullText = (row.textContent || '').toLowerCase();
-
-        const matchSearch = !searchVal || fullText.includes(searchVal);
-        const matchStatus = !statusVal || rowStatus === statusVal;
-        const matchClient = !clientVal || customerData.includes(clientVal);
-        const matchProduct = !productVal || productsData.includes(productVal);
-
-        if (matchSearch && matchStatus && matchClient && matchProduct) {
-            row.style.display = '';
-            visibleCount++;
-        } else {
-            row.style.display = 'none';
-        }
-    });
-
-    const displayCounter = document.getElementById('sf-record-count-cot');
-    if (displayCounter) {
-        displayCounter.textContent = `${visibleCount} registros`;
+    const url = new URL(window.location.href);
+    for (const [key,id] of Object.entries({search:'sf-search-input-cot',filter:'sf-status-filter-cot',client:'sf-client-filter-cot',product:'sf-product-filter-cot'})) {
+        url.searchParams.set(key, document.getElementById(id).value);
     }
+    url.searchParams.set('page','1');
+    window.location.assign(url.toString());
 }
-
-function clearCotizacionesFilters() {
-    if (document.getElementById('sf-search-input-cot')) document.getElementById('sf-search-input-cot').value = '';
-    if (document.getElementById('sf-status-filter-cot')) document.getElementById('sf-status-filter-cot').value = '';
-    if (document.getElementById('sf-client-filter-cot')) document.getElementById('sf-client-filter-cot').value = '';
-    if (document.getElementById('sf-product-filter-cot')) document.getElementById('sf-product-filter-cot').value = '';
-    updateActiveFilterUI('');
-    filterCotizacionesTable();
+function scheduleQuotationSearch(event) {
+    clearTimeout(quotationSearchTimer);
+    if (event.key === 'Enter') filterCotizacionesTable();
+    else quotationSearchTimer = setTimeout(filterCotizacionesTable, 500);
 }
-
-document.addEventListener('DOMContentLoaded', function() {
-    filterCotizacionesTable();
-});
+function clearCotizacionesFilters() { window.location.assign('?filter=&page=1'); }
 
 function openCotizacionDetail(sale) {
     const modal = document.getElementById('modal-view-cotizacion');
@@ -471,6 +401,8 @@ function openCotizacionDetail(sale) {
     document.getElementById('modal-cot-date').textContent = sale.date || '-';
     document.getElementById('modal-cot-customer').textContent = sale.customer.name || '-';
     document.getElementById('modal-cot-email').textContent = sale.customer.email || '-';
+    document.getElementById('modal-cot-category').textContent = sale.customer.category_snapshot || sale.customer.category_id || '-';
+    document.getElementById('modal-cot-delivery-address').textContent = sale.customer.delivery_address || 'No informado';
 
     // Parse RUT y Tipo Documento desde notas si existen
     const notesStr = sale.notes || '';
@@ -498,6 +430,7 @@ function openCotizacionDetail(sale) {
     document.getElementById('modal-cot-doctype').textContent = docType;
     document.getElementById('modal-cot-rut').textContent = rutStr;
     document.getElementById('modal-cot-payment-method').textContent = sale.payment_method || sale.payment || 'Efectivo';
+    document.getElementById('modal-cot-seller').textContent = (sale.seller && sale.seller.name) ? sale.seller.name : (sale.seller_name || 'No especificado');
     document.getElementById('modal-cot-notes').textContent = cleanNotes || 'Sin observaciones adicionales';
 
     // Renderizar Estado y Probabilidad
@@ -588,7 +521,7 @@ function openCotizacionDetail(sale) {
             formModalConvert.action = `/ventas/cotizacion/${sale.id}/emitir-cotizacion`;
             formModalConvert.onsubmit = () => confirm('¿Emitir esta cotización oficialmente?');
             btnModalAction.style.backgroundColor = '#3182CE';
-            btnModalAction.innerHTML = '🚀 Hacer Cotización';
+            btnModalAction.innerHTML = '🚀 Emitir Cotización';
         } else {
             formModalConvert.action = `/ventas/cotizacion/${sale.id}/convertir`;
             formModalConvert.onsubmit = () => confirm('¿Emitir esta cotización como venta real?');
@@ -615,6 +548,7 @@ function openEditClientModal(customer) {
     document.getElementById('edit_client_tipo_compra').value = customer.tipo_compra || 'Del Giro';
     document.getElementById('edit_client_category_id').value = customer.category_id || '';
     document.getElementById('edit_client_direccion').value = customer.direccion || '';
+    document.getElementById('edit_client_delivery_address').value = customer.delivery_address || '';
     document.getElementById('edit_client_giro').value = customer.giro || '';
 
     document.getElementById('modal-edit-client').style.display = 'flex';
@@ -636,7 +570,7 @@ function openChangeStatusModal(saleId, saleNumber, currentStatus, currentProb) {
 
     const prob = (currentProb !== undefined && currentProb !== null && currentProb !== '') ? parseInt(currentProb) : 50;
     updateChangeProbFromRange(prob);
-    handleChangeStatusSelectChange();
+    handleChangeStatusSelectChange(true);
 
     modal.style.display = 'flex';
 }
@@ -664,21 +598,28 @@ function updateChangeProbFromNumber(val) {
     updateChangeProbFromRange(val);
 }
 
-function handleChangeStatusSelectChange() {
+function handleChangeStatusSelectChange(isInit) {
     const status = document.getElementById('change_status_select').value;
     const notice = document.getElementById('modal-ganada-sale-notice');
+    const rangeInput = document.getElementById('change_prob_range');
+    const numInput = document.getElementById('change_prob_input');
+
     if (status === 'Ganada') {
         updateChangeProbFromRange(100);
+        if (rangeInput) rangeInput.disabled = false;
+        if (numInput) numInput.readOnly = false;
         if (notice) notice.style.display = 'block';
     } else if (status === 'Perdida') {
         updateChangeProbFromRange(0);
+        if (rangeInput) rangeInput.disabled = true;
+        if (numInput) numInput.readOnly = true;
         if (notice) notice.style.display = 'none';
     } else if (status === 'Activa') {
+        if (rangeInput) rangeInput.disabled = false;
+        if (numInput) numInput.readOnly = false;
         if (notice) notice.style.display = 'none';
-        const cur = parseInt(document.getElementById('change_prob_input').value) || 0;
-        if (cur === 0 || cur === 100) {
-            updateChangeProbFromRange(50);
-        }
+        // Regla 5: NO inventar automáticamente probabilidad nueva al pasar de Perdida a otro estado.
+        // Queda en su valor actual (0%) salvo que el usuario decida ajustarla.
     }
 }
 </script>
@@ -749,6 +690,10 @@ function handleChangeStatusSelectChange() {
                 <div>
                     <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Dirección</label>
                     <input type="text" id="edit_client_direccion" name="direccion" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Dirección de despacho</label>
+                    <input type="text" id="edit_client_delivery_address" name="delivery_address" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 14px;">
                 </div>
                 <div>
                     <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Giro Comercial</label>

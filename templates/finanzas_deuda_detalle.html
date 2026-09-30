@@ -1,0 +1,501 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle Deuda: {{ debt.name }}{% endblock %}
+{% block page_title %}Finanzas > Deudas > {{ debt.name }}{% endblock %}
+
+{% block content %}
+<!-- Barra de navegación y acciones superiores -->
+<div class="sf-action-bar" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div class="sf-action-left" style="display: flex; align-items: center; gap: 12px;">
+        <a href="{{ url_for('reportes.finanzas_deudas') }}" class="btn-secondary" style="text-decoration: none; padding: 8px 12px; border: 1px solid #cbd5e1; background: #fff; color: #475569; border-radius: 6px; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-arrow-left"></i> Volver a Deudas
+        </a>
+        <h3 style="margin: 0; font-size: 19px; font-weight: 700; color: #1e293b;">
+            {{ debt.name }}
+        </h3>
+        {% if debt.status == 'ACTIVA' %}
+            <span style="background: #e0f2fe; color: #0369a1; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;">ACTIVA</span>
+        {% elif debt.status == 'PAGADA' %}
+            <span style="background: #dcfce7; color: #15803d; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;">PAGADA</span>
+        {% else %}
+            <span style="background: #f1f5f9; color: #64748b; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;">{{ debt.status }}</span>
+        {% endif %}
+    </div>
+
+    <div class="sf-action-right" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <a href="{{ url_for('reportes.exportar_plan_cuotas_excel', debt_id=debt.id) }}" class="btn-secondary" style="text-decoration: none; padding: 9px 14px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; color: #166534; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-file-excel"></i> Exportar Plan Excel
+        </a>
+        {% if debt.paid_installments_count == 0 %}
+        <button onclick="abrirModalImportarCuotas()" class="btn-secondary" style="padding: 9px 14px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; color: #1e3a8a; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+            <i class="fa-solid fa-cloud-arrow-up"></i> Importar Plan Excel
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Ficha Resumen de Deuda -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    <!-- Datos de la obligación -->
+    <div style="background: white; border-radius: 10px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-top: 4px solid #1e40af;">
+        <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 700; color: #1e293b; text-transform: uppercase;">
+            <i class="fa-solid fa-landmark" style="color: #2563eb; margin-right: 6px;"></i> Condiciones del Crédito
+        </h4>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
+            <div><span style="color: #64748b;">Tipo:</span> <strong>{{ debt.debt_type_name }}</strong></div>
+            <div><span style="color: #64748b;">Acreedor:</span> <strong>{{ debt.creditor_name }}</strong></div>
+            <div><span style="color: #64748b;">RUT:</span> <span>{{ debt.creditor_rut or '-' }}</span></div>
+            <div><span style="color: #64748b;">Contrato:</span> <span>{{ debt.contract_number or '-' }}</span></div>
+            <div><span style="color: #64748b;">Fecha Inicio:</span> <span>{{ debt.start_date }}</span></div>
+            <div><span style="color: #64748b;">Moneda:</span> <span>{{ debt.currency }}</span></div>
+            <div><span style="color: #64748b;">Periodicidad:</span> <span>{{ debt.periodicity }}</span></div>
+            <div><span style="color: #64748b;">Tasa Interés:</span> <span>{{ debt.interest_rate or 0 }}%</span></div>
+            <div style="grid-column: span 2;"><span style="color: #64748b;">Cuenta Habitual:</span> <span>{{ debt.bank_name or '-' }} {% if debt.bank_account_number %}({{ debt.bank_account_number }}){% endif %}</span></div>
+            {% if debt.notes %}
+            <div style="grid-column: span 2; font-size: 12px; color: #475569; background: #f8fafc; padding: 8px; border-radius: 6px;">
+                <strong>Obs:</strong> {{ debt.notes }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Balance y Progreso -->
+    <div style="background: white; border-radius: 10px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-top: 4px solid #10b981;">
+        <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 700; color: #1e293b; text-transform: uppercase;">
+            <i class="fa-solid fa-chart-pie" style="color: #10b981; margin-right: 6px;"></i> Estado de Amortización
+        </h4>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+            <div>
+                <span style="color: #64748b; font-size: 11px;">Monto Original:</span>
+                <div style="font-size: 18px; font-weight: 700; color: #334155;">${{ "{:,.0f}".format(debt.original_amount) }}</div>
+            </div>
+            <div>
+                <span style="color: #64748b; font-size: 11px;">Saldo Pendiente:</span>
+                <div style="font-size: 18px; font-weight: 800; color: #b91c1c;">${{ "{:,.0f}".format(debt.total_balance) }}</div>
+            </div>
+            <div>
+                <span style="color: #64748b; font-size: 11px;">Total Pagado:</span>
+                <div style="font-size: 18px; font-weight: 700; color: #166534;">${{ "{:,.0f}".format(debt.total_paid) }}</div>
+            </div>
+            <div>
+                <span style="color: #64748b; font-size: 11px;">Cuotas Pagadas:</span>
+                <div style="font-size: 18px; font-weight: 700; color: #1e40af;">{{ debt.paid_installments_count }} / {{ debt.total_installments }}</div>
+            </div>
+            {% if debt.next_installment %}
+            <div style="grid-column: span 2; background: #eff6ff; padding: 10px 14px; border-radius: 8px; border: 1px solid #bfdbfe;">
+                <span style="font-size: 11px; font-weight: 700; color: #1e40af; text-transform: uppercase;">Próxima Cuota a Vencer (#{{ debt.next_installment.installment_number }})</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                    <span style="font-size: 15px; font-weight: 700; color: #1e3a8a;">{{ debt.next_installment.due_date }}</span>
+                    <span style="font-size: 16px; font-weight: 800; color: #1e3a8a;">${{ "{:,.0f}".format(debt.next_installment.balance) }}</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Tabs: Plan de Cuotas y Historial de Pagos -->
+<div style="margin-bottom: 24px;">
+    <div style="display: flex; border-bottom: 2px solid #e2e8f0; margin-bottom: 16px; gap: 8px;">
+        <button id="tabBtnCuotas" onclick="cambiarTab('cuotas')" style="padding: 10px 18px; border: none; background: none; font-size: 14px; font-weight: 700; color: #1e40af; border-bottom: 3px solid #1e40af; cursor: pointer;">
+            <i class="fa-solid fa-list-ol"></i> Plan de Cuotas ({{ installments|length }})
+        </button>
+        <button id="tabBtnPagos" onclick="cambiarTab('pagos')" style="padding: 10px 18px; border: none; background: none; font-size: 14px; font-weight: 600; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer;">
+            <i class="fa-solid fa-clock-rotate-left"></i> Historial de Pagos ({{ payments|length }})
+        </button>
+    </div>
+
+    <!-- SECCIÓN 1: PLAN DE CUOTAS -->
+    <div id="seccionCuotas" style="background: white; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden;">
+        <div style="overflow-x: auto;">
+            <table class="table" style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                    <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; text-align: left; color: #475569;">
+                        <th style="padding: 11px 12px; text-align: center; width: 60px;">N°</th>
+                        <th style="padding: 11px 12px;">Vencimiento</th>
+                        <th style="padding: 11px 12px; text-align: right;">Capital</th>
+                        <th style="padding: 11px 12px; text-align: right;">Interés</th>
+                        <th style="padding: 11px 12px; text-align: right;">Otros / Seg.</th>
+                        <th style="padding: 11px 12px; text-align: right;">Total Cuota</th>
+                        <th style="padding: 11px 12px; text-align: right;">Pagado</th>
+                        <th style="padding: 11px 12px; text-align: right;">Saldo</th>
+                        <th style="padding: 11px 12px; text-align: center;">Estado</th>
+                        <th style="padding: 11px 12px; text-align: center;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inst in installments %}
+                    <tr style="border-bottom: 1px solid #f1f5f9; {% if inst.status == 'VENCIDA' %}background: #fef2f2;{% elif inst.status == 'PAGADA' %}background: #f0fdf4;{% endif %}">
+                        <td style="padding: 11px 12px; text-align: center; font-weight: 700; color: #475569;">
+                            #{{ inst.installment_number }}
+                        </td>
+                        <td style="padding: 11px 12px;">
+                            <strong>{{ inst.due_date }}</strong>
+                            {% if inst.paid_date %}
+                            <div style="font-size: 11px; color: #166534;"><i class="fa-solid fa-check"></i> Pagado: {{ inst.paid_date }}</div>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 11px 12px; text-align: right; color: #334155;">
+                            ${{ "{:,.0f}".format(inst.capital) }}
+                        </td>
+                        <td style="padding: 11px 12px; text-align: right; color: #334155;">
+                            ${{ "{:,.0f}".format(inst.interest) }}
+                        </td>
+                        <td style="padding: 11px 12px; text-align: right; color: #64748b; font-size: 12px;">
+                            ${{ "{:,.0f}".format((inst.fees or 0) + (inst.insurance or 0) + (inst.other_charges or 0)) }}
+                        </td>
+                        <td style="padding: 11px 12px; text-align: right; font-weight: 700; color: #1e3a8a;">
+                            ${{ "{:,.0f}".format(inst.total_amount) }}
+                        </td>
+                        <td style="padding: 11px 12px; text-align: right; font-weight: 600; color: #166534;">
+                            ${{ "{:,.0f}".format(inst.paid_amount) }}
+                        </td>
+                        <td style="padding: 11px 12px; text-align: right; font-weight: 700; color: {% if inst.balance > 0 %}#b91c1c{% else %}#166534{% endif %};">
+                            ${{ "{:,.0f}".format(inst.balance) }}
+                        </td>
+                        <td style="padding: 11px 12px; text-align: center;">
+                            {% if inst.status == 'PAGADA' %}
+                                <span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;">PAGADA</span>
+                            {% elif inst.status == 'PAGO_PARCIAL' %}
+                                <span style="background: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;">PARCIAL</span>
+                            {% elif inst.status == 'VENCIDA' %}
+                                <span style="background: #fee2e2; color: #b91c1c; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;">VENCIDA</span>
+                            {% else %}
+                                <span style="background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;">PENDIENTE</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 11px 12px; text-align: center; white-space: nowrap;">
+                            {% if inst.status != 'PAGADA' %}
+                            <button onclick="abrirModalPago({{ inst.id }}, {{ inst.installment_number }}, '{{ inst.due_date }}', {{ inst.balance }})" class="btn-primary" style="padding: 5px 10px; border-radius: 4px; background: #166534; color: #fff; border: none; font-size: 12px; font-weight: 600; cursor: pointer; margin-right: 4px;">
+                                <i class="fa-solid fa-money-bill-wave"></i> Pagar
+                            </button>
+                            <button onclick="abrirModalEditarCuota({{ inst.id }}, {{ inst.installment_number }}, '{{ inst.due_date }}', {{ inst.capital }}, {{ inst.interest }}, {{ inst.fees }}, {{ inst.insurance }}, {{ inst.other_charges }}, '{{ inst.notes or '' }}')" class="btn-secondary" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff; color: #334155; font-size: 12px; cursor: pointer;" title="Editar detalles de cuota">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            {% else %}
+                            <span style="font-size: 11px; color: #166534; font-weight: 600;">
+                                <i class="fa-solid fa-check-double"></i> Completa
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SECCIÓN 2: HISTORIAL DE PAGOS -->
+    <div id="seccionPagos" style="display: none; background: white; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden;">
+        <div style="overflow-x: auto;">
+            <table class="table" style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                    <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; text-align: left; color: #475569;">
+                        <th style="padding: 11px 12px;">Fecha Pago</th>
+                        <th style="padding: 11px 12px;">Cuota</th>
+                        <th style="padding: 11px 12px; text-align: right;">Monto Pagado</th>
+                        <th style="padding: 11px 12px;">Cuenta Bancaria</th>
+                        <th style="padding: 11px 12px;">Método / Ref</th>
+                        <th style="padding: 11px 12px;">Comprobante</th>
+                        <th style="padding: 11px 12px;">Registrado Por</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if payments %}
+                        {% for p in payments %}
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 11px 12px; font-weight: 600; color: #1e293b;">
+                                {{ p.payment_date }}
+                            </td>
+                            <td style="padding: 11px 12px;">
+                                <span style="font-weight: 700; color: #1e40af;">Cuota #{{ p.installment_number }}</span>
+                            </td>
+                            <td style="padding: 11px 12px; text-align: right; font-weight: 700; color: #166534;">
+                                ${{ "{:,.0f}".format(p.payment_amount) }}
+                            </td>
+                            <td style="padding: 11px 12px;">
+                                {{ p.bank_name }} ({{ p.bank_account_number }})
+                            </td>
+                            <td style="padding: 11px 12px; font-size: 12px;">
+                                <div>{{ p.payment_method }}</div>
+                                {% if p.reference %}<div style="color: #64748b;">Ref: {{ p.reference }}</div>{% endif %}
+                            </td>
+                            <td style="padding: 11px 12px;">
+                                {% if p.proof_file %}
+                                <a href="/uploads/comprobantes_pagos/{{ p.proof_file }}" target="_blank" style="color: #2563eb; text-decoration: underline; font-size: 12px; font-weight: 600;">
+                                    <i class="fa-solid fa-file-arrow-down"></i> Ver
+                                </a>
+                                {% else %}
+                                <span style="color: #94a3b8; font-size: 12px;">-</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 11px 12px; font-size: 12px; color: #64748b;">
+                                {{ p.created_by }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 28px; color: #94a3b8;">
+                                Aún no se han registrado pagos para esta deuda.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: REGISTRAR PAGO DE CUOTA -->
+<div id="modalPagoCuota" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1050; align-items: center; justify-content: center;">
+    <div style="background: white; border-radius: 12px; width: 90%; max-width: 500px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 16px;">
+            <h4 style="margin: 0; font-size: 17px; font-weight: 700; color: #1e293b;">
+                <i class="fa-solid fa-money-bill-wave" style="color: #166534;"></i> Registrar Pago de Cuota
+            </h4>
+            <button onclick="cerrarModalPago()" style="background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer;">&times;</button>
+        </div>
+
+        <form id="formPagoCuota" method="POST" enctype="multipart/form-data">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 14px; font-size: 13px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="color: #64748b;">Deuda:</span>
+                    <strong>{{ debt.name }}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="color: #64748b;">Cuota:</span>
+                    <strong id="pagoCuotaNum">#</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="color: #64748b;">Vencimiento:</span>
+                    <span id="pagoCuotaVence">-</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #64748b;">Saldo Pendiente:</span>
+                    <strong id="pagoCuotaSaldo" style="color: #b91c1c; font-size: 15px;">$0</strong>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px;">Fecha Pago *</label>
+                    <input type="date" name="payment_date" id="pagoFecha" required style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px;">Monto Pagado * ($)</label>
+                    <input type="number" step="0.01" name="payment_amount" id="pagoMonto" required style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 700;">
+                </div>
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px;">Cuenta Bancaria de Egreso *</label>
+                <select name="bank_account_id" required style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                    <option value="">-- Seleccionar cuenta bancaria --</option>
+                    {% for ba in bank_accounts %}
+                    <option value="{{ ba.id }}" {% if debt.bank_account_id == ba.id %}selected{% endif %}>{{ ba.bank_name }} - {{ ba.account_number }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px;">Medio de Pago</label>
+                    <select name="payment_method" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="PAC">PAC (Pago Automático)</option>
+                        <option value="Cheque">Cheque</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px;">N° Referencia / Operación</label>
+                    <input type="text" name="reference" placeholder="Ej: OP-84920" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px;">Comprobante de Pago (PDF / Imagen)</label>
+                <input type="file" name="proof_file" accept=".pdf,image/*" style="width: 100%; font-size: 12px;">
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px;">Observaciones</label>
+                <input type="text" name="notes" placeholder="Detalle adicional del pago..." style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" onclick="cerrarModalPago()" style="padding: 8px 16px; border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; font-size: 13px; cursor: pointer;">Cancelar</button>
+                <button type="submit" class="btn-primary" style="padding: 8px 18px; background: #166534; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">
+                    Confirmar Pago
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: EDITAR CUOTA -->
+<div id="modalEditarCuota" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1050; align-items: center; justify-content: center;">
+    <div style="background: white; border-radius: 12px; width: 90%; max-width: 500px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 16px;">
+            <h4 style="margin: 0; font-size: 17px; font-weight: 700; color: #1e293b;">
+                <i class="fa-solid fa-pen-to-square" style="color: #2563eb;"></i> Editar Cuota <span id="editCuotaNum">#</span>
+            </h4>
+            <button onclick="cerrarModalEditarCuota()" style="background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer;">&times;</button>
+        </div>
+
+        <form id="formEditarCuota" method="POST">
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px;">Fecha de Vencimiento *</label>
+                <input type="date" name="due_date" id="editDueDate" required style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 600; color: #475569; margin-bottom: 2px;">Capital *</label>
+                    <input type="number" step="0.01" name="capital" id="editCapital" oninput="recalcEditTotal()" required style="width: 100%; padding: 7px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 600; color: #475569; margin-bottom: 2px;">Interés *</label>
+                    <input type="number" step="0.01" name="interest" id="editInterest" oninput="recalcEditTotal()" required style="width: 100%; padding: 7px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 600; color: #475569; margin-bottom: 2px;">Comisiones</label>
+                    <input type="number" step="0.01" name="fees" id="editFees" oninput="recalcEditTotal()" value="0" style="width: 100%; padding: 7px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 600; color: #475569; margin-bottom: 2px;">Seguros</label>
+                    <input type="number" step="0.01" name="insurance" id="editInsurance" oninput="recalcEditTotal()" value="0" style="width: 100%; padding: 7px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
+                <div style="grid-column: span 2;">
+                    <label style="display: block; font-size: 11px; font-weight: 600; color: #475569; margin-bottom: 2px;">Otros Cargos</label>
+                    <input type="number" step="0.01" name="other_charges" id="editOther" oninput="recalcEditTotal()" value="0" style="width: 100%; padding: 7px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                </div>
+            </div>
+
+            <div style="background: #eff6ff; padding: 10px; border-radius: 6px; border: 1px solid #bfdbfe; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 600; color: #1e40af; font-size: 12px;">Total Cuota Calculado:</span>
+                <span id="editTotalCalculado" style="font-size: 15px; font-weight: 800; color: #1e3a8a;">$0</span>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px;">Observaciones</label>
+                <input type="text" name="notes" id="editNotes" placeholder="Detalle de cuota variable o seguro..." style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" onclick="cerrarModalEditarCuota()" style="padding: 8px 16px; border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; font-size: 13px; cursor: pointer;">Cancelar</button>
+                <button type="submit" class="btn-primary" style="padding: 8px 18px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">
+                    Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL: IMPORTAR PLAN DE CUOTAS EXCEL -->
+<div id="modalImportarCuotas" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1050; align-items: center; justify-content: center;">
+    <div style="background: white; border-radius: 12px; width: 90%; max-width: 480px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 16px;">
+            <h4 style="margin: 0; font-size: 17px; font-weight: 700; color: #1e293b;">
+                <i class="fa-solid fa-file-excel" style="color: #166534;"></i> Importar Plan de Cuotas
+            </h4>
+            <button onclick="cerrarModalImportarCuotas()" style="background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer;">&times;</button>
+        </div>
+
+        <form method="POST" action="{{ url_for('reportes.importar_plan_cuotas_excel', debt_id=debt.id) }}" enctype="multipart/form-data">
+            <p style="font-size: 13px; color: #64748b; margin-top: 0;">
+                Sube el archivo Excel con el calendario entregado por la entidad financiera. Si no tienes la plantilla, primero puedes exportar el plan actual en Excel, editar los valores reales y re-subirlo aquí.
+            </p>
+            <div style="margin-bottom: 18px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 6px;">Archivo Excel (.xlsx) *</label>
+                <input type="file" name="file" accept=".xlsx" required style="width: 100%; font-size: 13px;">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" onclick="cerrarModalImportarCuotas()" style="padding: 8px 16px; border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; font-size: 13px; cursor: pointer;">Cancelar</button>
+                <button type="submit" class="btn-primary" style="padding: 8px 18px; background: #1e40af; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">
+                    Importar y Actualizar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function cambiarTab(tab) {
+    if (tab === 'cuotas') {
+        document.getElementById('seccionCuotas').style.display = 'block';
+        document.getElementById('seccionPagos').style.display = 'none';
+        document.getElementById('tabBtnCuotas').style.color = '#1e40af';
+        document.getElementById('tabBtnCuotas').style.borderBottomColor = '#1e40af';
+        document.getElementById('tabBtnPagos').style.color = '#64748b';
+        document.getElementById('tabBtnPagos').style.borderBottomColor = 'transparent';
+    } else {
+        document.getElementById('seccionCuotas').style.display = 'none';
+        document.getElementById('seccionPagos').style.display = 'block';
+        document.getElementById('tabBtnPagos').style.color = '#1e40af';
+        document.getElementById('tabBtnPagos').style.borderBottomColor = '#1e40af';
+        document.getElementById('tabBtnCuotas').style.color = '#64748b';
+        document.getElementById('tabBtnCuotas').style.borderBottomColor = 'transparent';
+    }
+}
+
+// Modal Pago
+function abrirModalPago(instId, num, due, balance) {
+    document.getElementById('formPagoCuota').action = `/reporteria/deudas/cuotas/${instId}/pago`;
+    document.getElementById('pagoCuotaNum').innerText = `#${num}`;
+    document.getElementById('pagoCuotaVence').innerText = due;
+    document.getElementById('pagoCuotaSaldo').innerText = `$${Number(balance).toLocaleString('es-CL')}`;
+    document.getElementById('pagoMonto').value = balance;
+    const fechaPago = document.getElementById('pagoFecha');
+    const hoy = new Date().toISOString().split('T')[0];
+    if (fechaPago._flatpickr) {
+        fechaPago._flatpickr.setDate(hoy, true);
+    } else {
+        fechaPago.value = hoy;
+    }
+    document.getElementById('modalPagoCuota').style.display = 'flex';
+}
+function cerrarModalPago() {
+    document.getElementById('modalPagoCuota').style.display = 'none';
+}
+
+// Modal Editar Cuota
+function abrirModalEditarCuota(instId, num, due, cap, inte, fees, ins, oth, notes) {
+    document.getElementById('formEditarCuota').action = `/reporteria/deudas/cuotas/${instId}/editar`;
+    document.getElementById('editCuotaNum').innerText = `#${num}`;
+    document.getElementById('editDueDate').value = due;
+    document.getElementById('editCapital').value = cap;
+    document.getElementById('editInterest').value = inte;
+    document.getElementById('editFees').value = fees;
+    document.getElementById('editInsurance').value = ins;
+    document.getElementById('editOther').value = oth;
+    document.getElementById('editNotes').value = notes;
+    recalcEditTotal();
+    document.getElementById('modalEditarCuota').style.display = 'flex';
+}
+function cerrarModalEditarCuota() {
+    document.getElementById('modalEditarCuota').style.display = 'none';
+}
+
+function recalcEditTotal() {
+    const c = parseFloat(document.getElementById('editCapital').value) || 0;
+    const i = parseFloat(document.getElementById('editInterest').value) || 0;
+    const f = parseFloat(document.getElementById('editFees').value) || 0;
+    const s = parseFloat(document.getElementById('editInsurance').value) || 0;
+    const o = parseFloat(document.getElementById('editOther').value) || 0;
+    const tot = c + i + f + s + o;
+    document.getElementById('editTotalCalculado').innerText = `$${Math.round(tot).toLocaleString('es-CL')}`;
+}
+
+// Modal Importar
+function abrirModalImportarCuotas() {
+    document.getElementById('modalImportarCuotas').style.display = 'flex';
+}
+function cerrarModalImportarCuotas() {
+    document.getElementById('modalImportarCuotas').style.display = 'none';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Ajustes de Inventario - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Ajustes de Inventario{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px;">
+    <div>
+        <h2 style="margin:0;color:#1e293b;font-size:22px;">Ajustes de Inventario</h2>
+        <p style="margin:5px 0 0;color:#64748b;font-size:13px;">Registre diferencias de conteo físico y gestione su aprobación.</p>
+    </div>
+    <a href="/inventario/ajustes/nuevo" class="btn-primary"><i class="fa-solid fa-plus"></i> Solicitar ajuste</a>
+</div>
+
+<div class="card" style="padding:16px;margin-bottom:18px;">
+    <form method="get" action="/inventario/ajustes" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;">
+        <div style="min-width:170px;flex:1;"><label class="form-label" for="adjustment-status">Estado</label>
+            <select id="adjustment-status" name="status" class="form-control">
+                {% set current_status = selected_status|default(request.args.get('status','')) %}
+                <option value="">Todos</option>
+                {% for status in ['PENDIENTE','APLICADO','APROBADO','RECHAZADO'] %}<option value="{{ status }}" {% if current_status == status %}selected{% endif %}>{{ status|title }}</option>{% endfor %}
+            </select>
+        </div>
+        <div style="min-width:220px;flex:2;"><label class="form-label" for="adjustment-search">Producto o SKU</label>
+            <input id="adjustment-search" name="search" value="{{ search|default(request.args.get('search','')) }}" class="form-control" placeholder="Buscar producto o SKU">
+        </div>
+        <button class="btn-secondary" type="submit"><i class="fa-solid fa-filter"></i> Filtrar</button>
+        <a href="/inventario/ajustes" class="btn-secondary">Limpiar</a>
+    </form>
+</div>
+
+<div class="table-container">
+    <table class="data-table">
+        <thead><tr><th>ID</th><th>Producto</th><th>Bodega</th><th>Stock al contar</th><th>Conteo físico</th><th>Diferencia</th><th>Motivo</th><th>Solicitado por</th><th>Fecha</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <tbody>
+        {% for adjustment in adjustments|default([]) %}
+        {% set status = (adjustment.status or 'PENDING')|upper %}
+        {% set status_label = {'PENDING':'PENDIENTE','APPLIED':'APROBADO','REJECTED':'RECHAZADO'}.get(status, status) %}
+        {% set difference = adjustment.difference|default(0) %}
+        <tr>
+            <td><strong>#{{ adjustment.id }}</strong></td>
+            <td><strong>{{ adjustment.product_name|default('-') }}</strong><br><small style="color:#64748b;">{{ adjustment.sku|default('') }}</small></td>
+            <td>{{ adjustment.warehouse|default('-') }}</td>
+            <td class="tabular-nums">{{ adjustment.system_stock|default(adjustment.stock_system_at_request, true)|default(0) }}</td>
+            <td class="tabular-nums">{{ adjustment.counted_quantity|default(0) }}</td>
+            <td class="tabular-nums" style="font-weight:700;color:{% if difference > 0 %}#15803d{% elif difference < 0 %}#b91c1c{% else %}#475569{% endif %};">{% if difference > 0 %}+{% endif %}{{ difference }}</td>
+            <td>{{ adjustment.reason|default('-') }}</td>
+            <td>{{ adjustment.requested_by_name|default(adjustment.requested_by|default('-')) }}</td>
+            <td>{{ adjustment.requested_at|default(adjustment.created_at|default('-')) }}</td>
+            <td><span class="badge {% if status == 'REJECTED' %}badge-danger{% elif status == 'APPLIED' %}badge-success{% else %}badge-warning{% endif %}">{{ status_label|title }}</span></td>
+            <td><a class="btn-secondary btn-sm" href="/inventario/ajustes/{{ adjustment.id }}">Ver detalle</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="11" style="text-align:center;padding:40px;color:#64748b;"><i class="fa-solid fa-clipboard-check" style="font-size:24px;display:block;margin-bottom:8px;"></i>No hay solicitudes de ajuste para los filtros seleccionados.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

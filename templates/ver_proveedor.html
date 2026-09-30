@@ -3,10 +3,26 @@
 {% block title %}{{ supplier.name }} - Facturación Bodega Miel{% endblock %}
 {% block page_title %}{{ supplier.name }}{% endblock %}
 
+{% block breadcrumbs %}
+<nav class="breadcrumb-nav">
+    <a href="{{ url_for('dashboard.dashboard') }}"><i class="fa-solid fa-house"></i></a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{{ url_for('proveedores.proveedores') }}">Proveedores</a>
+    <span class="breadcrumb-separator">/</span>
+    <span class="breadcrumb-current">{{ supplier.name }}</span>
+</nav>
+{% endblock %}
+
 {% block content %}
-    <div style="display: flex; gap: 10px;">
-        <a href="{{ url_for('proveedores.proveedores') }}" class="btn-secondary">← Volver</a>
-        <a href="{{ url_for('proveedores.editar_proveedor', supplier_id=supplier.id) }}" class="btn-primary">✏️ Editar Proveedor</a>
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+        <a href="{{ url_for('proveedores.proveedores') }}" class="btn-back">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Volver a Proveedores</span>
+        </a>
+        <a href="{{ url_for('proveedores.editar_proveedor', supplier_id=supplier.id) }}" class="btn-primary btn-sm">
+            <i class="fa-solid fa-pen-to-square"></i>
+            <span>Editar Proveedor</span>
+        </a>
     </div>
 
 <!-- Información del proveedor -->
@@ -20,7 +36,15 @@
             <div><strong>Razón Social:</strong> {{ supplier.razon_social or supplier.name }}</div>
             <div><strong>Dirección:</strong> {{ supplier.direccion or 'No especificada' }}</div>
             <div><strong>Comuna / Ciudad:</strong> {{ supplier.comuna or '-' }} / {{ supplier.ciudad or '-' }}</div>
-            <div><strong>Sitio Web:</strong> 
+            <div>
+                <strong>Forma de Pago (Predeterminada):</strong> 
+                <span style="font-weight: 600; color: #0284c7;">
+                    {% if supplier.default_payment_terms == 'CASH' %}Al contado
+                    {% elif supplier.default_payment_terms == 'NET_60' %}A 60 días
+                    {% else %}A 30 días{% endif %}
+                </span>
+            </div>
+            <div style="grid-column: span 2;"><strong>Sitio Web:</strong> 
                 {% if supplier.website %}
                 {% set web_link = supplier.website if (supplier.website.startswith('http://') or supplier.website.startswith('https://')) else 'https://' ~ supplier.website %}
                 <a href="{{ web_link }}" target="_blank" style="color: #0284c7; text-decoration: underline;">{{ supplier.website }}</a>

@@ -260,12 +260,12 @@
         <a href="{{ url_for('ventas.cotizaciones') }}" class="cotizacion-close-btn" title="Cerrar">✕</a>
     </div>
 
-    <form method="post" id="cotizacion-form">
+    <form method="post" id="cotizacion-form" data-local-submit-handler="true">
         {% if is_edit_mode and cloned_quotation %}
         <input type="hidden" name="edit_id" value="{{ cloned_quotation.id }}">
         {% endif %}
-        <!-- Fila 1: Tipo de documento y Fecha -->
-        <div class="form-grid-2">
+        <!-- Fila 1: Tipo de documento, Fecha y Vendedor -->
+        <div class="form-grid-3">
             <div class="form-group-field">
                 <label>Tipo de documento</label>
                 <select name="doc_type" class="form-field-input">
@@ -277,9 +277,17 @@
                 <label>Fecha</label>
                 <input type="date" name="sale_date" class="form-field-input" value="{{ default_date }}" required>
             </div>
+            <div class="form-group-field">
+                <label>Vendedor Responsable</label>
+                <div style="display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; font-weight: 600; color: #1e293b;" title="Vendedor asignado">
+                    <span style="font-size: 16px;">👤</span>
+                    <span>{{ cloned_quotation.seller_name if cloned_quotation and cloned_quotation.seller_name else current_seller_name }}</span>
+                </div>
+            </div>
         </div>
 
         <!-- Fila 2: Datos de Cliente (RUT, Razón Social, Email, Categoría) -->
+        <input type="hidden" name="customer_id" id="customer-id-input" value="{{ cloned_quotation.customer_id if cloned_quotation else '' }}">
         <div class="form-grid-2" style="margin-bottom: 12px;">
             <div class="form-group-field">
                 <label>RUT</label>
@@ -311,6 +319,10 @@
                     <option value="{{ cat.id }}" {% if cloned_quotation and cloned_quotation.customer_category == cat.id %}selected{% endif %}>{{ cat.name }} ({{ cat.margin }}% margen)</option>
                     {% endfor %}
                 </select>
+            </div>
+            <div class="form-group-field">
+                <label>Dirección de despacho</label>
+                <input type="text" name="customer_delivery_address" id="customer-delivery-address" value="{{ cloned_quotation.customer_delivery_address if cloned_quotation else '' }}" readonly class="form-field-input" placeholder="Se carga desde el cliente">
             </div>
         </div>
 
@@ -408,13 +420,16 @@
         <input type="hidden" name="status" id="cotizacion-status-input" value="Cotización">
 
         <!-- Botones de Acción -->
-        <div class="actions-footer-row">
-            <button type="submit" onclick="document.getElementById('cotizacion-status-input').value = 'Borrador';" class="btn-draft-secondary" style="cursor: pointer;">
-                📂 Guardar borrador
+        <div class="actions-footer-row" style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+            <a href="{{ url_for('ventas.cotizaciones') }}" class="btn-secondary" style="text-decoration: none;">
+                Cancelar
+            </a>
+            <button type="submit" data-save-quotation="Borrador" onclick="document.getElementById('cotizacion-status-input').value = 'Borrador';" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                <i class="fa-solid fa-floppy-disk"></i> Guardar borrador
             </button>
-            <button type="submit" onclick="document.getElementById('cotizacion-status-input').value = 'Cotización';" class="btn-submit-primary" style="cursor: pointer;">
-                <span>🚀</span>
-                <span>Emitir documento</span>
+            <button type="submit" data-save-quotation="Cotización" onclick="document.getElementById('cotizacion-status-input').value = 'Cotización';" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+                <i class="fa-solid fa-paper-plane"></i>
+                <span>Emitir Cotización</span>
             </button>
         </div>
     </form>
@@ -429,6 +444,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalSpan = document.getElementById('total-val');
     const emailInput = document.querySelector('input[name="customer_email"]');
     const categorySelect = document.getElementById('customer-category-select');
+    const customerIdInput = document.getElementById('customer-id-input');
+    const deliveryAddressInput = document.getElementById('customer-delivery-address');
     
     // Lista de productos y mapa de precios cargados desde Flask
     const allProducts = {{ products|tojson|safe }};
@@ -452,6 +469,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Caja visual que simula el select
         const customSelect = document.createElement('div');
         customSelect.className = 'product-custom-select';
+        customSelect.setAttribute('role', 'button');
+        customSelect.setAttribute('tabindex', '0');
+        customSelect.setAttribute('aria-label', 'Seleccionar producto');
         customSelect.style.cursor = 'pointer';
         customSelect.style.padding = '8px 12px';
         customSelect.style.border = '1px solid #E2E8F0';
@@ -481,7 +501,6 @@ document.addEventListener('DOMContentLoaded', () => {
         hiddenInput.type = 'hidden';
         hiddenInput.name = 'product_id[]';
         hiddenInput.className = 'product-select';
-        hiddenInput.required = true;
 
         // Dropdown menú con buscador
         const dropdownMenu = document.createElement('div');
@@ -532,11 +551,10 @@ document.addEventListener('DOMContentLoaded', () => {
         optionsList.style.overflowY = 'auto';
         dropdownMenu.appendChild(optionsList);
 
-        // Cargar opciones
-        function buildOptions() {
+        // Renderizar opciones dinámicamente con límite de 50 elementos para máxima fluidez
+        function renderOptions(filteredList) {
             optionsList.innerHTML = '';
-            
-            // Opción por defecto
+
             const defaultOpt = document.createElement('div');
             defaultOpt.textContent = 'Seleccionar producto';
             defaultOpt.style.padding = '6px 8px';
@@ -546,19 +564,22 @@ document.addEventListener('DOMContentLoaded', () => {
             defaultOpt.addEventListener('click', () => {
                 selectValue('', 'Seleccionar producto');
             });
-            optionsList.appendChild(defaultOpt);
-
-            allProducts.forEach(p => {
+            const toShow = filteredList.slice(0, 50);
+            toShow.forEach(p => {
                 const opt = document.createElement('div');
                 opt.className = 'dropdown-opt';
+                opt.setAttribute('role', 'option');
+                opt.setAttribute('tabindex', '0');
+                opt.setAttribute('data-product-id', p.id);
+                opt.setAttribute('aria-label', p.name);
                 opt.style.padding = '8px';
                 opt.style.fontSize = '12.5px';
                 opt.style.cursor = 'pointer';
                 opt.style.borderRadius = '4px';
                 opt.style.transition = 'background 0.2s';
-                
+
                 const stockVal = (p.available_stock !== undefined) ? p.available_stock : 0;
-                const stockBadge = stockVal > 0 
+                const stockBadge = stockVal > 0
                     ? `<span style="display:inline-block; font-size:11px; padding:2px 7px; border-radius:10px; background:#e6fffa; color:#234e52; font-weight:600; margin-left:6px; white-space:nowrap;">Disp: ${stockVal}</span>`
                     : `<span style="display:inline-block; font-size:11px; padding:2px 7px; border-radius:10px; background:#fff5f5; color:#c53030; font-weight:600; margin-left:6px; white-space:nowrap;">Sin stock</span>`;
 
@@ -566,16 +587,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div><span style="font-weight: 500;">${p.name}</span> <span style="color: #a0aec0; font-size: 11px;">(SKU: ${p.sku})</span></div>
                     ${stockBadge}
                 </div>`;
-                
+
                 opt.addEventListener('mouseenter', () => opt.style.backgroundColor = '#f7fafc');
                 opt.addEventListener('mouseleave', () => opt.style.backgroundColor = 'transparent');
-                
+
                 opt.addEventListener('click', () => {
                     selectValue(p.id, `${p.name} (SKU: ${p.sku})`);
                 });
 
                 optionsList.appendChild(opt);
             });
+
+            if (filteredList.length > 50) {
+                const moreNotice = document.createElement('div');
+                moreNotice.style.padding = '6px 8px';
+                moreNotice.style.fontSize = '11px';
+                moreNotice.style.color = '#718096';
+                moreNotice.style.fontStyle = 'italic';
+                moreNotice.style.textAlign = 'center';
+                moreNotice.textContent = `Mostrando 50 de ${filteredList.length} productos. Escribe para acotar...`;
+                optionsList.appendChild(moreNotice);
+            }
+        }
+
+        // Cargar opciones iniciales
+        function buildOptions() {
+            renderOptions(allProducts);
         }
         buildOptions();
 
@@ -606,14 +643,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         function filterOptions(query) {
-            const cleanQuery = query.toLowerCase();
-            const opts = optionsList.querySelectorAll('.dropdown-opt');
-            opts.forEach(opt => {
-                const text = opt.textContent.toLowerCase();
-                // No filtrar la opción vacía inicial
-                if (opt.textContent === 'Seleccionar producto') return;
-                opt.style.display = text.includes(cleanQuery) ? 'block' : 'none';
+            const cleanQuery = (query || '').toLowerCase().trim();
+            if (!cleanQuery) {
+                renderOptions(allProducts);
+                return;
+            }
+            const filtered = allProducts.filter(p => {
+                const name = (p.name || '').toLowerCase();
+                const sku = (p.sku || '').toLowerCase();
+                return name.includes(cleanQuery) || sku.includes(cleanQuery);
             });
+            renderOptions(filtered);
         }
 
         function selectValue(id, label) {
@@ -720,6 +760,9 @@ document.addEventListener('DOMContentLoaded', () => {
         qtyInput.min = '1';
         qtyInput.required = true;
         qtyInput.value = initialQty || 1;
+        qtyInput.placeholder = 'Cant.';
+        qtyInput.setAttribute('aria-label', 'Cantidad');
+        qtyInput.setAttribute('title', 'Cantidad');
         tdQty.appendChild(qtyInput);
 
         const stockFeedback = document.createElement('div');
@@ -741,6 +784,8 @@ document.addEventListener('DOMContentLoaded', () => {
         priceInput.min = '0';
         priceInput.required = true;
         priceInput.placeholder = '0.00';
+        priceInput.setAttribute('aria-label', 'Precio unitario');
+        priceInput.setAttribute('title', 'Precio unitario');
 
         if (initialPrice !== null && initialPrice !== undefined && initialPrice !== '') {
             priceInput.value = initialPrice;
@@ -764,6 +809,8 @@ document.addEventListener('DOMContentLoaded', () => {
         discountInput.max = '100';
         discountInput.step = '1';
         discountInput.placeholder = '0%';
+        discountInput.setAttribute('aria-label', 'Descuento (%)');
+        discountInput.setAttribute('title', 'Descuento (%)');
         discountInput.value = initialDiscount || 0;
         tdDiscount.appendChild(discountInput);
         
@@ -959,6 +1006,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function fillClientData(c) {
         if (!c) return;
+        if (customerIdInput) customerIdInput.value = c.id || '';
         if (c.rut && rutInput) {
             rutInput.value = c.rut;
             rutInput.style.borderColor = '#38a169';
@@ -979,9 +1027,16 @@ document.addEventListener('DOMContentLoaded', () => {
             categorySelect.value = c.category_id;
             categorySelect.dispatchEvent(new Event('change'));
         }
+        if (deliveryAddressInput) deliveryAddressInput.value = c.delivery_address || '';
         if (suggestionsBox) {
             suggestionsBox.style.display = 'none';
         }
+    }
+
+    if (nameInput && customerIdInput && nameInput.value && !customerIdInput.value) {
+        // El usuario puede escribir un cliente nuevo; en ese caso el backend
+        // crea/actualiza el maestro y toma el snapshot al guardar.
+        customerIdInput.value = '';
     }
 
     // Búsqueda por Nombre / Razón Social
@@ -1173,6 +1228,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Validar RUT y Stock antes de enviar el formulario
     document.getElementById('cotizacion-form')?.addEventListener('submit', (e) => {
+        const submitter = e.submitter || document.querySelector('[data-save-quotation]');
         const rut = (rutInput ? rutInput.value : '').trim();
         const dv = (dvInput ? dvInput.value : '').trim();
         if (rut && dv) {
@@ -1183,22 +1239,43 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Si la cotización se marca como 'Ganada', se debe asegurar que hay stock disponible suficiente en bodega para generar la venta
-        const statusSelected = document.querySelector('input[name="quotation_status"]:checked')?.value;
-        if (statusSelected === 'Ganada') {
-            const rows = container.querySelectorAll('.product-row-tr');
-            for (const r of rows) {
-                const qtyInput = r.querySelector('input[name="quantity[]"]');
-                const maxStock = parseInt(qtyInput?.dataset?.maxStock ?? '-1');
-                const qty = parseInt(qtyInput?.value || 0);
-                const prodName = qtyInput?.dataset?.prodName || 'Producto';
-                if (maxStock >= 0 && qty > maxStock) {
-                    e.preventDefault();
-                    alert(`⚠️ No es posible generar la venta: Stock insuficiente en bodega para "${prodName}".\n\nSe solicitaron ${qty} unidades, pero el máximo disponible en bodega es de ${maxStock} unidades.\n\nPor favor reduzca la cantidad al stock disponible antes de guardar como 'Ganada'.`);
-                    qtyInput.focus();
-                    return;
-                }
+        // Si la cotización se marca como 'Ganada' con stock insuficiente, se permite crear/guardar la venta comercialmente sin bloquear el formulario.
+        // La venta nacerá en Pendiente en espera de abastecimiento físico.
+
+        // Validar que exista al menos una fila con producto seleccionado
+        const productInputs = container.querySelectorAll('input[name="product_id[]"]');
+        let hasValidProduct = false;
+        for (const inp of productInputs) {
+            if (inp.value && inp.value.trim() !== '') {
+                hasValidProduct = true;
+                break;
             }
+        }
+        if (!hasValidProduct) {
+            e.preventDefault();
+            alert('Por favor seleccione al menos un producto para la cotización.');
+            form.dataset.submitting = 'false';
+            return;
+        }
+
+        // Evitar dobles POST y mostrar feedback mientras Flask procesa la
+        // operación. Si la solicitud falla, el navegador se libera al volver
+        // a cargar la página o al usar Atrás.
+        const form = e.currentTarget;
+        if (form.dataset.submitting === 'true') {
+            e.preventDefault();
+            return;
+        }
+        form.dataset.submitting = 'true';
+        document.querySelectorAll('[data-save-quotation]').forEach(button => {
+            button.disabled = true;
+            button.style.opacity = '0.65';
+            button.style.cursor = 'wait';
+        });
+        if (submitter) {
+            const label = submitter.querySelector('span');
+            if (label) label.textContent = 'Guardando…';
+            else submitter.append(' Guardando…');
         }
     });
 
@@ -1212,6 +1289,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
                 categorySelect.value = data.category_id;
                 categorySelect.dispatchEvent(new Event('change'));
+                if (deliveryAddressInput) deliveryAddressInput.value = data.delivery_address || '';
                 emailInput.style.borderColor = '#38a169';
             } else {
                 emailInput.style.borderColor = '#cbd5e0';
@@ -1268,15 +1346,21 @@ function updateProbColor(val) {
 
 function handleQuotationStatusChange() {
     const status = document.getElementById('quotation_status').value;
+    const rangeInput = document.getElementById('win_probability_range');
+    const numInput = document.getElementById('win_probability');
+
     if (status === 'Ganada') {
         updateProbabilityFromRange(100);
+        if (rangeInput) rangeInput.disabled = false;
+        if (numInput) numInput.readOnly = false;
     } else if (status === 'Perdida') {
         updateProbabilityFromRange(0);
+        if (rangeInput) rangeInput.disabled = true;
+        if (numInput) numInput.readOnly = true;
     } else if (status === 'Activa') {
-        const cur = parseInt(document.getElementById('win_probability').value) || 0;
-        if (cur === 0 || cur === 100) {
-            updateProbabilityFromRange(50);
-        }
+        if (rangeInput) rangeInput.disabled = false;
+        if (numInput) numInput.readOnly = false;
+        // Regla 5: NO inventar automáticamente probabilidad nueva al pasar de Perdida a otro estado.
     }
 }
 </script>

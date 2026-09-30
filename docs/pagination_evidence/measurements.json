@@ -1,0 +1,98 @@
+[
+  {
+    "route": "/dashboard",
+    "http": 200,
+    "backend_ms": 68.39,
+    "payload_bytes": 44314,
+    "queries": 1,
+    "fetched_rows_all_queries": 5,
+    "html_first_table_rows": 5,
+    "detail_queries": [
+      {
+        "fetched": 5,
+        "ms": 10.083,
+        "sql": "\n                SELECT s.id, s.sale_number, s.customer_name, s.customer_email, s.customer_initials,\n                       s.sale_date, s.sale_time, s.products_json, s.total_amount, s.status,\n                       s.seller_name, s.seller_initials, s.payment_method, s.payment_status,\n                       s.delivery_status, s.notes, s.quotation_status, s.win_probability, s.created_at,\n                       sp.invoice_due_date, sp.payment_date, sp.payment_proof_file, sp.invoice_file, sp.invoice_number\n                FROM sales s\n                LEFT JOIN sale_payments sp ON sp.sale_id = s.id\n                WHERE 1=1\n             AND s.status != 'Cotización' AND (s.sale_number LIKE 'P-%' OR s.sale_number LIKE 'VTA-%') ORDER BY (COALESCE(NULLIF(s.sale_date, ''), '1970-01-01') || ' ' || COALESCE(NULLIF(s.sale_time, ''), '00:00:00'))::timestamp DESC, s.id DESC LIMIT 5"
+      }
+    ]
+  },
+  {
+    "route": "/reporteria/conciliacion-bancaria",
+    "http": 200,
+    "backend_ms": 163.2,
+    "payload_bytes": 442390,
+    "queries": 5,
+    "fetched_rows_all_queries": 863,
+    "html_first_table_rows": 30,
+    "detail_queries": [
+      {
+        "fetched": 30,
+        "ms": 5.189,
+        "sql": "\n                SELECT \n                    bt.id,\n                    bt.bank_account_id,\n                    bt.import_id,\n                    bt.transaction_date,\n                    bt.value_date,\n                    bt.description,\n                    bt.reference,\n                    bt.doc_number,\n                    bt.charge,\n                    bt.credit,\n                    bt.amount,\n                    bt.movement_type,\n                    bt.balance,\n                    bt.currency,\n                    bt.category_id,\n                    bt.reconciliation_status,\n                    bt.reconciled_type,\n                    bt.reconciled_id,\n                    bt.reconciled_at,\n                    bt.reconciled_by,\n                    bt.notes,\n                    bt.fingerprint,\n                    bt.created_at,\n                    ba.bank_name,\n                    ba.account_number,\n                    ba.account_type,\n                    btc.name as category_name,\n                    btc.flow_type as category_flow_type\n                FROM bank_transactions bt\n                JOIN bank_accounts ba ON bt.bank_account_id = ba.id\n                LEFT JOIN bank_transaction_categories btc ON bt.category_id = btc.id\n                WHERE 1=1\n                ORDER BY bt.transaction_date DESC, bt.id DESC\n             LIMIT 30 OFFSET 0"
+      }
+    ]
+  },
+  {
+    "route": "/ventas/cotizaciones",
+    "http": 200,
+    "backend_ms": 123.29,
+    "payload_bytes": 222511,
+    "queries": 10,
+    "fetched_rows_all_queries": 68,
+    "html_first_table_rows": 23,
+    "detail_queries": [
+      {
+        "fetched": 23,
+        "ms": 7.955,
+        "sql": "\n                SELECT s.id, s.sale_number, s.customer_name, s.customer_email, s.customer_initials,\n                       s.sale_date, s.sale_time, s.products_json, s.total_amount, s.status,\n                       s.seller_name, s.seller_initials, s.payment_method, s.payment_status,\n                       s.delivery_status, s.notes, s.quotation_status, s.win_probability, s.created_at,\n                       s.customer_delivery_address, s.customer_category_snapshot,\n                       sp.invoice_due_date, sp.payment_date, sp.payment_proof_file, sp.invoice_file, sp.invoice_number\n                FROM sales s\n                LEFT JOIN sale_payments sp ON sp.sale_id = s.id\n                WHERE (s.status = 'Cotización' OR s.sale_number LIKE 'COT-%') AND COALESCE(NULLIF(s.quotation_status,''), CASE WHEN POSITION('Venta Generada:' IN COALESCE(s.notes,'')) > 0 THEN 'Ganada' ELSE 'Activa' END) = 'Activa'\n                ORDER BY (COALESCE(NULLIF(s.sale_date, ''), '1970-01-01') || ' ' || COALESCE(NULLIF(s.sale_time, ''), '00:00:00'))::timestamp DESC, s.id DESC\n                LIMIT 30 OFFSET 0\n    "
+      }
+    ]
+  },
+  {
+    "route": "/compras/productos-comprados",
+    "http": 200,
+    "backend_ms": 117.09,
+    "payload_bytes": 206076,
+    "queries": 6,
+    "fetched_rows_all_queries": 46,
+    "html_first_table_rows": 30,
+    "detail_queries": [
+      {
+        "fetched": 30,
+        "ms": 5.946,
+        "sql": "WITH monthly AS (\n        SELECT p.id AS product_id, COALESCE(NULLIF(p.sku,''),'SIN-SKU') AS sku,\n               p.name AS product_name, COALESCE(NULLIF(p.category,''),'Sin Categoría') AS category,\n               COALESCE(NULLIF(p.unit_of_measure,''),'UN') AS unit_of_measure,\n               SUBSTRING(po.order_date,6,2)::int AS month_num,\n               TRUNC(SUM(poi.quantity_ordered)::numeric) AS qty,\n               SUM(COALESCE(poi.total_price,poi.quantity_ordered*poi.unit_price,0)) AS amount\n        FROM purchase_order_items poi\n        JOIN purchase_orders po ON po.id=poi.purchase_order_id\n        JOIN products p ON p.id=poi.product_id\n        WHERE po.status NOT IN ('Cancelada', 'Borrador') AND SUBSTRING(po.order_date, 1, 4)::int = 2026\n        GROUP BY p.id,p.sku,p.name,p.category,p.unit_of_measure,month_num\n    ), grouped AS (\n        SELECT product_id,sku,product_name,category,unit_of_measure,\n               jsonb_object_agg(month_num,qty) AS months,\n               SUM(qty) AS total_qty,SUM(amount) AS total_amount\n        FROM monthly GROUP BY product_id,sku,product_name,category,unit_of_measure\n    ) SELECT * FROM grouped ORDER BY total_qty DESC, product_name ASC, product_id ASC LIMIT 30 OFFSET 0"
+      }
+    ]
+  },
+  {
+    "route": "/administracion/cuentas-bancarias",
+    "http": 200,
+    "backend_ms": 28.6,
+    "payload_bytes": 117235,
+    "queries": 2,
+    "fetched_rows_all_queries": 31,
+    "html_first_table_rows": 30,
+    "detail_queries": [
+      {
+        "fetched": 30,
+        "ms": 1.995,
+        "sql": "SELECT id, bank_name, account_number, account_type, holder_name,\n                                  holder_rut, email, status, created_at\n                           FROM bank_accounts ORDER BY id DESC LIMIT 30 OFFSET 0"
+      }
+    ]
+  },
+  {
+    "route": "/compras/cuentas-por-pagar",
+    "http": 200,
+    "backend_ms": 179.56,
+    "payload_bytes": 260971,
+    "queries": 5,
+    "fetched_rows_all_queries": 33,
+    "html_first_table_rows": 30,
+    "detail_queries": [
+      {
+        "fetched": 30,
+        "ms": 7.217,
+        "sql": "SELECT pi.*,s.name AS supplier_name,ie.order_number AS entry_number,\n                ie.entry_date,COALESCE(pi.purchase_order_id,ie.purchase_order_id) AS purchase_order_id,\n                po.oc_number,ba.bank_name,ba.account_number,ba.account_type\n                FROM purchase_invoices pi\n        LEFT JOIN suppliers s ON s.id=pi.supplier_id\n        LEFT JOIN inventory_entries ie ON ie.id=pi.inventory_entry_id\n        LEFT JOIN purchase_orders po ON po.id=COALESCE(pi.purchase_order_id,ie.purchase_order_id)\n        LEFT JOIN bank_accounts ba ON ba.id=pi.bank_account_id WHERE pi.payment_status = ANY(ARRAY['Pendiente','Vencida'])\n                ORDER BY CASE pi.payment_status WHEN 'Vencida' THEN 1 WHEN 'Pendiente' THEN 2\n                         WHEN 'Pagada' THEN 3 ELSE 4 END,\n                         COALESCE(pi.due_date,pi.created_at) ASC,pi.id ASC\n                LIMIT 30 OFFSET 0"
+      }
+    ]
+  }
+]

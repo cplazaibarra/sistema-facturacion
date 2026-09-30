@@ -1,0 +1,44 @@
+{% extends 'operario/base_operario.html' %}
+
+{% block title %}Perfil de Operario{% endblock %}
+
+{% block content %}
+<header class="operario-header">
+  <div class="title-area">
+    <a href="/operario" style="color: #64748B; text-decoration: none; font-size: 14px; font-weight: 700; display: block; margin-bottom: 2px;">
+      <i class="fa-solid fa-chevron-left"></i> Inicio
+    </a>
+    <h1>Perfil</h1>
+  </div>
+</header>
+
+<main class="operario-container">
+
+  <div class="card-item-box" style="text-align: center; padding: 24px 16px; margin-bottom: 20px;">
+    <div style="width: 70px; height: 70px; border-radius: 50%; background: #EFF6FF; color: #2563EB; display: inline-flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; margin-bottom: 12px;">
+      {{ session.get('user_initials', 'OP') }}
+    </div>
+    <div style="font-size: 19px; font-weight: 800; color: #0F172A;">{{ session.get('full_name', 'Operario') }}</div>
+    <div style="font-size: 14px; color: #64748B; margin-top: 2px;">@{{ session.get('username', '') }}</div>
+    <div style="margin-top: 8px;">
+      <span style="background: #D1FAE5; color: #065F46; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 12px;">
+        Rol: {{ session.get('role_name', 'Operario de Bodega') }}
+      </span>
+    </div>
+  </div>
+
+  <div class="card-item-box" style="margin-bottom: 20px;">
+    <div style="font-size: 15px; font-weight: 800; color: #0F172A; margin-bottom: 10px;">Información de Operación</div>
+    <div style="font-size: 14px; color: #475569; line-height: 1.6;">
+      <strong>Bodega activa:</strong> Bodega Principal<br>
+      <strong>Permiso de acceso:</strong> OPERARIO_BODEGA<br>
+      <strong>Versión PWA:</strong> 1.0 Mobile
+    </div>
+  </div>
+
+  <a href="/logout" class="btn-big btn-secondary" style="color: #EF4444; border-color: #FCA5A5;">
+    <i class="fa-solid fa-right-from-bracket" style="margin-right: 8px;"></i> Cerrar Sesión
+  </a>
+
+</main>
+{% endblock %}

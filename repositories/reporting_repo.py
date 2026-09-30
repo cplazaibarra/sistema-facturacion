@@ -7,6 +7,8 @@ Preserves exact implementation, parameters, locks, and return types.
 import os
 import json
 import re
+import math
+import calendar
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 import psycopg2
@@ -31,14 +33,14 @@ def get_sales_metrics() -> dict:
 
             # 1. Ventas hoy vs ayer
             cur.execute(
-                "SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE sale_date = %s AND status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'",
+                "SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE sale_date = %s AND status NOT IN ('Cancelada', 'Cotización') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')",
                 (today_str,)
             )
             row_today = cur.fetchone()
             total_today = float(row_today["total"]) if row_today else 0.0
 
             cur.execute(
-                "SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE sale_date = %s AND status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'",
+                "SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE sale_date = %s AND status NOT IN ('Cancelada', 'Cotización') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')",
                 (yesterday_str,)
             )
             row_yesterday = cur.fetchone()
@@ -56,7 +58,17 @@ def get_sales_metrics() -> dict:
                 ventas_trend_type = "neutral"
 
             # 2. Stock total y productos con bajo stock (fuente oficial: inventory_movements)
-            cur.execute("SELECT COALESCE(SUM(quantity), 0) as total_units FROM inventory_movements")
+            cur.execute("""
+                SELECT COALESCE(SUM(CASE WHEN COALESCE(p.requires_lot,FALSE)
+                                         THEN COALESCE(ls.stock,0)
+                                         ELSE COALESCE(ms.stock,0) END),0) AS total_units
+                FROM products p
+                LEFT JOIN (SELECT product_id, SUM(quantity) AS stock
+                           FROM inventory_movements GROUP BY product_id) ms ON ms.product_id=p.id
+                LEFT JOIN (SELECT product_id, SUM(available_qty) AS stock
+                           FROM lot_stock GROUP BY product_id) ls ON ls.product_id=p.id
+                WHERE p.is_deleted IS NOT TRUE
+            """)
             row_stk = cur.fetchone()
             total_stock = int(row_stk["total_units"]) if row_stk and row_stk["total_units"] is not None else 0
 
@@ -65,27 +77,18 @@ def get_sales_metrics() -> dict:
                 FROM (
                     SELECT p.id
                     FROM products p
-                    LEFT JOIN inventory_movements im ON im.product_id = p.id
-                    GROUP BY p.id, p.min_stock
-                    HAVING COALESCE(SUM(im.quantity), 0) <= COALESCE(p.min_stock, 10)
+                    LEFT JOIN (SELECT product_id, SUM(quantity) AS stock
+                               FROM inventory_movements GROUP BY product_id) ms ON ms.product_id=p.id
+                    LEFT JOIN (SELECT product_id, SUM(available_qty) AS stock
+                               FROM lot_stock GROUP BY product_id) ls ON ls.product_id=p.id
+                    WHERE p.is_deleted IS NOT TRUE
+                    AND CASE WHEN COALESCE(p.requires_lot,FALSE)
+                             THEN COALESCE(ls.stock,0) ELSE COALESCE(ms.stock,0) END <= COALESCE(p.min_stock,10)
                 ) sub
             """)
             row_low = cur.fetchone()
             low_stock_count = int(row_low["low_count"]) if row_low else 0
 
-            # Fallback legacy si movements estuviera vacío
-            if total_stock == 0:
-                cur.execute("SELECT json FROM page_data WHERE key = 'inventory_items'")
-                row_inv = cur.fetchone()
-                items = []
-                if row_inv and row_inv["json"]:
-                    try:
-                        items = json.loads(row_inv["json"])
-                    except Exception:
-                        items = []
-                total_stock = sum(int(it.get("stock", 0)) for it in items)
-                low_stock_count = sum(1 for it in items if int(it.get("stock", 0)) <= int(it.get("min_stock", 10)))
-            
             if low_stock_count > 0:
                 stock_trend_text = f"{low_stock_count} bajo stock"
                 stock_trend_type = "warning"
@@ -95,13 +98,17 @@ def get_sales_metrics() -> dict:
 
             # 3. Órdenes pendientes vs total
             cur.execute(
-                "SELECT COUNT(*) as count FROM sales WHERE status = 'Pendiente' AND sale_number LIKE 'VTA-%%'"
+                """SELECT COUNT(*) as count FROM sales
+                   WHERE status = 'Pendiente'
+                     AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')"""
             )
             row_pend = cur.fetchone()
             total_pending = int(row_pend["count"]) if row_pend else 0
 
             cur.execute(
-                "SELECT COUNT(*) as count FROM sales WHERE status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'"
+                """SELECT COUNT(*) as count FROM sales
+                   WHERE status NOT IN ('Cancelada', 'Cotización')
+                     AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')"""
             )
             row_tot_ord = cur.fetchone()
             total_orders = int(row_tot_ord["count"]) if row_tot_ord else 0
@@ -117,6 +124,13 @@ def get_sales_metrics() -> dict:
                 pend_trend_text = f"{total_pending} activas"
                 pend_trend_type = "warning"
 
+            # La tarjeta de ventas debe cubrir el mismo universo que el
+            # listado: todas las VTA activas. Los estados intermedios
+            # (En Preparación/Para Despacho) también son ventas gestionadas,
+            # por lo que se agrupan junto a completadas para que las métricas
+            # no omitan registros visibles en /ventas.
+            total_completed = max(total_orders - total_pending, 0)
+
             # 4. Clientes activos y compras recientes (últimos 60 días)
             cur.execute(
                 "SELECT COUNT(*) as count FROM clients"
@@ -126,7 +140,7 @@ def get_sales_metrics() -> dict:
 
             since_60d = (now - timedelta(days=60)).strftime('%Y-%m-%d')
             cur.execute(
-                "SELECT COUNT(DISTINCT customer_name) as count FROM sales WHERE sale_number LIKE 'VTA-%%' AND sale_date >= %s",
+                "SELECT COUNT(DISTINCT customer_name) as count FROM sales WHERE (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%') AND sale_date >= %s",
                 (since_60d,)
             )
             row_rec = cur.fetchone()
@@ -149,7 +163,7 @@ def get_sales_metrics() -> dict:
                 "ventas_pendientes": total_pending,
                 "clientes_activos": total_customers,
                 "clientes_activos_trend": {"text": cli_trend_text, "type": cli_trend_type},
-                "ventas_completadas": total_orders - total_pending,
+                "ventas_completadas": total_completed,
             }
 
 
@@ -163,7 +177,7 @@ def get_sales_chart_data(year: int = None, period: str = "6months") -> dict:
                     SELECT TO_CHAR(sale_date::date, 'YYYY-MM') as month,
                            COALESCE(SUM(total_amount), 0) as total
                     FROM sales
-                    WHERE TO_CHAR(sale_date::date, 'YYYY') = %s AND status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'
+                    WHERE TO_CHAR(sale_date::date, 'YYYY') = %s AND status NOT IN ('Cancelada', 'Cotización') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
                     GROUP BY month
                     ORDER BY month ASC
                     """,
@@ -177,7 +191,7 @@ def get_sales_chart_data(year: int = None, period: str = "6months") -> dict:
                     SELECT TO_CHAR(sale_date::date, 'YYYY-MM') as month,
                            COALESCE(SUM(total_amount), 0) as total
                     FROM sales
-                    WHERE status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'
+                    WHERE status NOT IN ('Cancelada', 'Cotización') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
                     GROUP BY month
                     ORDER BY month DESC
                     LIMIT %s
@@ -213,7 +227,7 @@ def get_top_products(year: int = None, period: str = "year") -> dict:
                     """
                     SELECT products_json
                     FROM sales
-                    WHERE TO_CHAR(sale_date::date, 'YYYY') = %s AND status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'
+                    WHERE TO_CHAR(sale_date::date, 'YYYY') = %s AND status NOT IN ('Cancelada', 'Cotización') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
                     """,
                     (str(year),)
                 )
@@ -224,7 +238,7 @@ def get_top_products(year: int = None, period: str = "year") -> dict:
                     """
                     SELECT products_json
                     FROM sales
-                    WHERE TO_CHAR(sale_date::date, 'YYYY-MM') = %s AND status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'
+                    WHERE TO_CHAR(sale_date::date, 'YYYY-MM') = %s AND status NOT IN ('Cancelada', 'Cotización') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
                     """,
                     (current_month,)
                 )
@@ -234,7 +248,7 @@ def get_top_products(year: int = None, period: str = "year") -> dict:
                     """
                     SELECT products_json
                     FROM sales
-                    WHERE status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'
+                    WHERE status NOT IN ('Cancelada', 'Cotización') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
                     """
                 )
                 rows = cur.fetchall()
@@ -301,109 +315,80 @@ def get_purchase_years() -> list[int]:
             return sorted(list(set(years)), reverse=True)
 
 
-def get_purchased_products_matrix(year: int, category: str = None) -> dict:
-    """
-    Genera la matriz mensual de productos comprados por SKU para un año determinado.
-    """
+def get_purchased_products_matrix(year: int, category: str = None, search: str = None, page: int = None, per_page: int = None) -> dict:
+    """Monthly product groups paged in SQL; aggregates and CSV cover all matches."""
+    from core.pagination import PAGE_SIZE, pagination_meta
+    paginated = page is not None or per_page is not None
+    clauses = ["po.status NOT IN ('Cancelada', 'Borrador')",
+               "SUBSTRING(po.order_date, 1, 4)::int = %s"]
+    params = [year]
+    if category and category != 'all':
+        clauses.append("p.category = %s")
+        params.append(category)
+    if search and search.strip():
+        clauses.append("(p.sku ILIKE %s OR p.name ILIKE %s)")
+        params.extend([f"%{search.strip()}%"] * 2)
+    cte = f"""WITH monthly AS (
+        SELECT p.id AS product_id, COALESCE(NULLIF(p.sku,''),'SIN-SKU') AS sku,
+               p.name AS product_name, COALESCE(NULLIF(p.category,''),'Sin Categoría') AS category,
+               COALESCE(NULLIF(p.unit_of_measure,''),'UN') AS unit_of_measure,
+               SUBSTRING(po.order_date,6,2)::int AS month_num,
+               TRUNC(SUM(poi.quantity_ordered)::numeric) AS qty,
+               SUM(COALESCE(poi.total_price,poi.quantity_ordered*poi.unit_price,0)) AS amount
+        FROM purchase_order_items poi
+        JOIN purchase_orders po ON po.id=poi.purchase_order_id
+        JOIN products p ON p.id=poi.product_id
+        WHERE {' AND '.join(clauses)}
+        GROUP BY p.id,p.sku,p.name,p.category,p.unit_of_measure,month_num
+    ), grouped AS (
+        SELECT product_id,sku,product_name,category,unit_of_measure,
+               jsonb_object_agg(month_num,qty) AS months,
+               SUM(qty) AS total_qty,SUM(amount) AS total_amount
+        FROM monthly GROUP BY product_id,sku,product_name,category,unit_of_measure
+    ) """
     with get_connection() as conn:
         with conn.cursor() as cur:
-            query = """
-                SELECT 
-                    p.id as product_id,
-                    COALESCE(NULLIF(p.sku, ''), 'SIN-SKU') as sku,
-                    p.name as product_name,
-                    COALESCE(NULLIF(p.category, ''), 'Sin Categoría') as category,
-                    COALESCE(NULLIF(p.unit_of_measure, ''), 'UN') as unit_of_measure,
-                    SUBSTRING(po.order_date, 6, 2)::int as month_num,
-                    SUM(poi.quantity_ordered) as total_qty,
-                    SUM(COALESCE(poi.total_price, poi.quantity_ordered * poi.unit_price, 0)) as total_amount
-                FROM purchase_order_items poi
-                JOIN purchase_orders po ON poi.purchase_order_id = po.id
-                JOIN products p ON poi.product_id = p.id
-                WHERE po.status NOT IN ('Cancelada', 'Borrador')
-                  AND SUBSTRING(po.order_date, 1, 4)::int = %s
-            """
-            params = [year]
-            if category and category != 'all':
-                query += " AND p.category = %s"
-                params.append(category)
-
-            query += """
-                GROUP BY p.id, p.sku, p.name, p.category, p.unit_of_measure, month_num
-                ORDER BY p.name, month_num
-            """
-            cur.execute(query, tuple(params))
-            rows = cur.fetchall()
-
-            # Obtener todas las categorías para filtros
-            cur.execute("""
-                SELECT DISTINCT COALESCE(NULLIF(p.category, ''), 'Sin Categoría') as cat
-                FROM purchase_order_items poi
-                JOIN purchase_orders po ON poi.purchase_order_id = po.id
-                JOIN products p ON poi.product_id = p.id
-                WHERE po.status NOT IN ('Cancelada', 'Borrador')
-                  AND SUBSTRING(po.order_date, 1, 4)::int = %s
-                ORDER BY cat
-            """, (year,))
-            categories = [r['cat'] for r in cur.fetchall() if r['cat']]
-
-    # Estructurar la matriz
-    products_map = {}
-    monthly_totals = {m: 0 for m in range(1, 13)}
-    monthly_amounts = {m: 0.0 for m in range(1, 13)}
-
-    for row in rows:
-        pid = row['product_id']
-        m = row['month_num']
-        qty = int(row['total_qty'] or 0)
-        amt = float(row['total_amount'] or 0.0)
-
-        if pid not in products_map:
-            products_map[pid] = {
-                'product_id': pid,
-                'sku': row['sku'],
-                'product_name': row['product_name'],
-                'category': row['category'],
-                'unit_of_measure': row['unit_of_measure'],
-                'months': {i: 0 for i in range(1, 13)},
-                'total_qty': 0,
-                'total_amount': 0.0
-            }
-
-        products_map[pid]['months'][m] += qty
-        products_map[pid]['total_qty'] += qty
-        products_map[pid]['total_amount'] += amt
-
-        if 1 <= m <= 12:
-            monthly_totals[m] += qty
-            monthly_amounts[m] += amt
-
-    products_list = sorted(products_map.values(), key=lambda x: x['total_qty'], reverse=True)
+            cur.execute(cte + "SELECT COUNT(*) AS n FROM grouped", params)
+            total_skus = cur.fetchone()['n']
+            pagination = pagination_meta(total_skus, page)
+            cur.execute(cte + "SELECT month_num,SUM(qty) AS qty,SUM(amount) AS amount FROM monthly GROUP BY month_num", params)
+            totals = {r['month_num']: r for r in cur.fetchall()}
+            monthly_totals = {m: int(totals.get(m, {}).get('qty') or 0) for m in range(1,13)}
+            monthly_amounts = {m: float(totals.get(m, {}).get('amount') or 0) for m in range(1,13)}
+            order = " ORDER BY total_qty DESC, product_name ASC, product_id ASC"
+            cur.execute(cte + "SELECT sku,product_name,total_qty FROM grouped" + order + " LIMIT 1", params)
+            top = cur.fetchone()
+            detail = cte + "SELECT * FROM grouped" + order
+            detail_params = list(params)
+            if paginated:
+                detail += " LIMIT %s OFFSET %s"
+                detail_params.extend([PAGE_SIZE, pagination['offset']])
+            cur.execute(detail, detail_params)
+            products = []
+            for row in cur.fetchall():
+                row = dict(row)
+                row['months'] = {m: int(row['months'].get(str(m),0)) for m in range(1,13)}
+                row['total_qty'] = int(row['total_qty'] or 0)
+                row['total_amount'] = float(row['total_amount'] or 0)
+                products.append(row)
+            cur.execute("""SELECT DISTINCT COALESCE(NULLIF(p.category,''),'Sin Categoría') AS cat
+                FROM purchase_order_items poi JOIN purchase_orders po ON po.id=poi.purchase_order_id
+                JOIN products p ON p.id=poi.product_id
+                WHERE po.status NOT IN ('Cancelada','Borrador')
+                AND SUBSTRING(po.order_date,1,4)::int=%s ORDER BY cat""", (year,))
+            categories = [r['cat'] for r in cur.fetchall()]
     grand_total_qty = sum(monthly_totals.values())
-    grand_total_amount = sum(monthly_amounts.values())
-
-    month_names = {
-        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
-        5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
-        9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
-    }
-
-    top_month_num = max(monthly_totals, key=monthly_totals.get) if grand_total_qty > 0 else None
-    top_month = f"{month_names[top_month_num]} ({monthly_totals[top_month_num]:,} u)" if top_month_num and monthly_totals[top_month_num] > 0 else "—"
-    top_product = f"{products_list[0]['sku']} - {products_list[0]['product_name']} ({products_list[0]['total_qty']:,} u)" if products_list else "—"
-
-    return {
-        'year': year,
-        'products': products_list,
-        'monthly_totals': monthly_totals,
-        'monthly_amounts': monthly_amounts,
-        'grand_total_qty': grand_total_qty,
-        'grand_total_amount': grand_total_amount,
-        'categories': categories,
-        'top_product': top_product,
-        'top_month': top_month,
-        'total_skus': len(products_list)
-    }
+    names = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+    top_m = max(monthly_totals,key=monthly_totals.get) if grand_total_qty > 0 else None
+    return dict(year=year,products=products,monthly_totals=monthly_totals,
+                monthly_amounts=monthly_amounts,grand_total_qty=grand_total_qty,
+                grand_total_amount=sum(monthly_amounts.values()),categories=categories,
+                top_product=f"{top['sku']} - {top['product_name']} ({int(top['total_qty']):,} u)" if top else '—',
+                top_month=f"{names[top_m-1]} ({monthly_totals[top_m]:,} u)" if top_m else '—',
+                total_skus=total_skus,page=pagination['page'] if paginated else 1,
+                per_page=PAGE_SIZE if paginated else total_skus,
+                total_pages=pagination['total_pages'] if paginated else 1,
+                pagination=pagination)
 
 
 def get_income_report_data() -> dict:
@@ -574,6 +559,27 @@ def get_cash_flow_data() -> dict:
             for mes, val in list(pagos_facturas.items()) + list(gastos_entradas.items()):
                 gastos_reales[mes] = gastos_reales.get(mes, 0.0) + val
 
+            cur.execute("""
+                SELECT TO_CHAR(paid_date, 'YYYY-MM') AS mes,
+                       SUM(COALESCE(payment_amount, amount, 0)) AS total
+                FROM operational_expense_occurrences
+                WHERE status = 'Pagado' AND paid_date IS NOT NULL
+                GROUP BY mes
+            """)
+            for row in cur.fetchall():
+                gastos_reales[row['mes']] = gastos_reales.get(row['mes'], 0.0) + float(row['total'] or 0)
+
+            # Pagos reales de cuotas de deudas financieras
+            cur.execute("""
+                SELECT TO_CHAR(payment_date, 'YYYY-MM') AS mes,
+                       SUM(payment_amount) AS total
+                FROM debt_payments
+                WHERE payment_date IS NOT NULL AND payment_amount > 0
+                GROUP BY mes
+            """)
+            for row in cur.fetchall():
+                gastos_reales[row['mes']] = gastos_reales.get(row['mes'], 0.0) + float(row['total'] or 0)
+
             # Facturas de proveedores por pagar (futuros compromisos)
             cur.execute("""
                 SELECT SUBSTRING(COALESCE(due_date, invoice_date, created_at), 1, 7) AS mes_vence,
@@ -583,6 +589,17 @@ def get_cash_flow_data() -> dict:
                 GROUP BY mes_vence
             """)
             gastos_por_pagar_mes = {row['mes_vence']: float(row['total'] or 0) for row in cur.fetchall()}
+
+            # Cuotas de deudas financieras por pagar (futuros compromisos proyectados)
+            cur.execute("""
+                SELECT TO_CHAR(due_date, 'YYYY-MM') AS mes_vence,
+                       SUM(balance) AS total
+                FROM debt_installments
+                WHERE status IN ('PENDIENTE', 'PAGO_PARCIAL', 'VENCIDA') AND balance > 0
+                GROUP BY mes_vence
+            """)
+            for row in cur.fetchall():
+                gastos_por_pagar_mes[row['mes_vence']] = gastos_por_pagar_mes.get(row['mes_vence'], 0.0) + float(row['total'] or 0)
 
             # ── Facturas impagas por mes de vencimiento ──────────────────────
             cur.execute("""
@@ -642,6 +659,15 @@ def get_cash_flow_data() -> dict:
     avg_ing = sum(recent_ing) / len(recent_ing) if recent_ing else 0
     avg_gas = sum(recent_gas) / len(recent_gas) if recent_gas else 0
 
+    from repositories.operational_expenses_repo import project_operational_expenses
+    projection_start = today.replace(day=1)
+    last_projection_month = date.fromisoformat(fut_months[-1] + '-01')
+    projection_end = last_projection_month.replace(day=calendar.monthrange(last_projection_month.year, last_projection_month.month)[1])
+    operational_projection = {}
+    for occurrence in project_operational_expenses(projection_start, projection_end):
+        key = occurrence['due_date'].strftime('%Y-%m')
+        operational_projection[key] = operational_projection.get(key, 0.0) + occurrence['amount']
+
     rows = []
     acumulado = 0.0
     for m in all_months:
@@ -655,7 +681,7 @@ def get_cash_flow_data() -> dict:
             imp  = impagas_por_mes.get(m, 0.0)
             gas_comp = gastos_por_pagar_mes.get(m, 0.0)
             ing  = avg_ing + imp   # tendencia + facturas clientes por cobrar
-            gas  = avg_gas + gas_comp # tendencia + facturas proveedores por pagar
+            gas  = avg_gas + gas_comp + operational_projection.get(m, 0.0)
             tipo = 'proyectado'
 
         neto = ing - gas
@@ -769,6 +795,33 @@ def get_cash_flow_data_weekly() -> dict:
                 except Exception:
                     pass
 
+            cur.execute("""
+                SELECT paid_date, COALESCE(payment_amount, amount, 0) AS total
+                FROM operational_expense_occurrences
+                WHERE status = 'Pagado' AND paid_date IS NOT NULL
+            """)
+            for row in cur.fetchall():
+                try:
+                    d = date.fromisoformat(str(row['paid_date'])[:10])
+                    wk = week_key(d)
+                    gastos_reales[wk] = gastos_reales.get(wk, 0.0) + float(row['total'] or 0)
+                except Exception:
+                    pass
+
+            # Pagos reales de cuotas de deudas
+            cur.execute("""
+                SELECT payment_date, payment_amount
+                FROM debt_payments
+                WHERE payment_date IS NOT NULL AND payment_amount > 0
+            """)
+            for row in cur.fetchall():
+                try:
+                    d = date.fromisoformat(str(row['payment_date'])[:10])
+                    wk = week_key(d)
+                    gastos_reales[wk] = gastos_reales.get(wk, 0.0) + float(row['payment_amount'])
+                except Exception:
+                    pass
+
             # Facturas de proveedores por pagar (futuros compromisos)
             cur.execute("""
                 SELECT COALESCE(due_date, invoice_date, created_at) AS due_d, invoice_amount
@@ -781,6 +834,20 @@ def get_cash_flow_data_weekly() -> dict:
                     d = date.fromisoformat(str(row['due_d'])[:10])
                     wk = week_key(d)
                     gastos_por_pagar_sem[wk] = gastos_por_pagar_sem.get(wk, 0.0) + float(row['invoice_amount'])
+                except Exception:
+                    pass
+
+            # Cuotas de deudas financieras pendientes (futuros compromisos)
+            cur.execute("""
+                SELECT due_date, balance
+                FROM debt_installments
+                WHERE status IN ('PENDIENTE', 'PAGO_PARCIAL', 'VENCIDA') AND balance > 0
+            """)
+            for row in cur.fetchall():
+                try:
+                    d = date.fromisoformat(str(row['due_date'])[:10])
+                    wk = week_key(d)
+                    gastos_por_pagar_sem[wk] = gastos_por_pagar_sem.get(wk, 0.0) + float(row['balance'])
                 except Exception:
                     pass
 
@@ -814,6 +881,14 @@ def get_cash_flow_data_weekly() -> dict:
     avg_ing = sum(recent_ing) / len(recent_ing) if recent_ing else 0
     avg_gas = sum(recent_gas) / len(recent_gas) if recent_gas else 0
 
+    from repositories.operational_expenses_repo import project_operational_expenses
+    monday_start = today - timedelta(days=today.weekday())
+    projection_end = monday_start + timedelta(weeks=6)
+    operational_projection = {}
+    for occurrence in project_operational_expenses(monday_start, projection_end):
+        key = week_key(occurrence['due_date'])
+        operational_projection[key] = operational_projection.get(key, 0.0) + occurrence['amount']
+
     rows = []
     acumulado = 0.0
     for wk in all_weeks:
@@ -827,7 +902,7 @@ def get_cash_flow_data_weekly() -> dict:
             imp      = impagas_por_semana.get(wk, 0.0)
             gas_comp = gastos_por_pagar_sem.get(wk, 0.0)
             ing      = avg_ing + imp
-            gas      = avg_gas + gas_comp
+            gas      = avg_gas + gas_comp + operational_projection.get(wk, 0.0)
             tipo     = 'proyectado'
 
         neto = ing - gas
@@ -904,11 +979,17 @@ def get_system_notifications() -> list[dict]:
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT p.id, p.name, p.sku, COALESCE(p.min_stock, 10) as min_stock,
-                       COALESCE(SUM(im.quantity), 0) as current_stock
+                       CASE WHEN COALESCE(p.requires_lot,FALSE)
+                            THEN COALESCE(ls.stock,0) ELSE COALESCE(ms.stock,0) END AS current_stock
                 FROM products p
-                LEFT JOIN inventory_movements im ON im.product_id = p.id
-                GROUP BY p.id, p.name, p.sku, p.min_stock
-                HAVING COALESCE(SUM(im.quantity), 0) <= COALESCE(p.min_stock, 10)
+                LEFT JOIN (SELECT product_id, SUM(quantity) AS stock
+                           FROM inventory_movements GROUP BY product_id) ms ON ms.product_id=p.id
+                LEFT JOIN (SELECT product_id, SUM(available_qty) AS stock
+                           FROM lot_stock GROUP BY product_id) ls ON ls.product_id=p.id
+                WHERE p.is_deleted IS NOT TRUE
+                  AND CASE WHEN COALESCE(p.requires_lot,FALSE)
+                           THEN COALESCE(ls.stock,0) ELSE COALESCE(ms.stock,0) END <= COALESCE(p.min_stock,10)
+                ORDER BY current_stock ASC, p.id ASC
                 LIMIT 5
             """)
             low_rows = cur.fetchall()
@@ -928,7 +1009,7 @@ def get_system_notifications() -> list[dict]:
     # 3. Ventas pendientes por gestionar
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) as count FROM sales WHERE status = 'Pendiente' AND sale_number LIKE 'VTA-%%'")
+            cur.execute("SELECT COUNT(*) as count FROM sales WHERE status = 'Pendiente' AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')")
             row_pend = cur.fetchone()
             pend = int(row_pend['count']) if row_pend else 0
             if pend > 0:
@@ -959,7 +1040,7 @@ def get_sales_report_data(year: Optional[int] = None) -> dict:
                 SELECT id, sale_number, total_amount, sale_date, products_json
                 FROM sales
                 WHERE status NOT IN ('Cancelada', 'Cotización')
-                  AND sale_number LIKE 'VTA-%%'
+                  AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
             """
             params = []
             if year:
@@ -1110,7 +1191,7 @@ def get_expenses_report_data(month: Optional[str] = None) -> dict:
             cur.execute("""
                 SELECT COALESCE(SUM(total_amount), 0) as total_sales
                 FROM sales
-                WHERE status NOT IN ('Cancelada', 'Cotización') AND sale_number LIKE 'VTA-%%'
+                WHERE status NOT IN ('Cancelada', 'Cotización') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
             """)
             row_sales = cur.fetchone()
             total_sales = float(row_sales["total_sales"]) if row_sales else 0.0
@@ -1130,3 +1211,1073 @@ def get_expenses_report_data(month: Optional[str] = None) -> dict:
     }
 
 
+def get_purchases_and_expenses_report_data(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    doc_type: Optional[str] = "all",
+    supplier_beneficiary: Optional[str] = None,
+    category: Optional[str] = None,
+    payment_status: Optional[str] = "all",
+    search: Optional[str] = None,
+    page: Optional[int] = 1,
+    per_page: Optional[int] = 25,
+    sort_by: Optional[str] = "date",
+    sort_order: Optional[str] = "desc",
+) -> dict:
+    """
+    Reporte Consolidado: Facturas de Compra y Gastos (Histórico / Documental).
+    Unifica:
+    1. Facturas de compra (purchase_invoices con proveedor, OC y recepción).
+    2. Gastos operacionales registrados (operational_expense_occurrences con categoría).
+    """
+    records = []
+
+    # Validar y normalizar parámetros
+    try:
+        page = int(page) if page is not None else 1
+        if page < 1:
+            page = 1
+    except (ValueError, TypeError):
+        page = 1
+
+    if per_page is not None:
+        try:
+            per_page = int(per_page)
+            if per_page not in (25, 50, 100):
+                per_page = 25
+        except (ValueError, TypeError):
+            per_page = 25
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # 1. Facturas de Compra (si doc_type in ('all', 'factura'))
+            if doc_type in ("all", "factura", "", None):
+                query_invoices = """
+                    SELECT
+                        pi.id AS id,
+                        'Factura de Compra' AS doc_type,
+                        'factura' AS doc_type_code,
+                        COALESCE(NULLIF(pi.invoice_date, ''), SUBSTRING(pi.created_at, 1, 10)) AS doc_date,
+                        COALESCE(NULLIF(pi.due_date, ''), '') AS due_date,
+                        COALESCE(NULLIF(pi.invoice_number, ''), 'Sin Factura') AS doc_number,
+                        COALESCE(s.name, 'Proveedor no especificado') AS party_name,
+                        COALESCE(s.rut, '') || CASE WHEN s.dv IS NOT NULL AND s.dv <> '' THEN '-' || s.dv ELSE '' END AS party_rut,
+                        'Compras / Insumos' AS category_name,
+                        COALESCE(NULLIF(pi.notes, ''), 'Factura de compra / recepción de mercadería') AS description,
+                        COALESCE(po.oc_number, '') AS oc_number,
+                        COALESCE(po.id, ie.purchase_order_id) AS purchase_order_id,
+                        ie.id AS inventory_entry_id,
+                        ie.order_number AS entry_order_number,
+                        COALESCE(pi.invoice_amount, 0.0) AS total_amount,
+                        ie.total_amount AS entry_net_amount,
+                        COALESCE(pi.payment_amount, 0.0) AS payment_amount,
+                        pi.payment_status AS payment_status,
+                        COALESCE(pi.payment_date, '') AS payment_date,
+                        COALESCE(pi.payment_method, '') AS payment_method,
+                        COALESCE(ba.bank_name, '') AS bank_name,
+                        COALESCE(ba.account_number, '') AS bank_account_number,
+                        pi.document_file AS doc_file,
+                        pi.payment_proof_file AS payment_proof_file
+                    FROM purchase_invoices pi
+                    LEFT JOIN suppliers s ON s.id = pi.supplier_id
+                    LEFT JOIN inventory_entries ie ON ie.id = pi.inventory_entry_id
+                    LEFT JOIN purchase_orders po ON po.id = COALESCE(pi.purchase_order_id, ie.purchase_order_id)
+                    LEFT JOIN bank_accounts ba ON ba.id = pi.bank_account_id
+                """
+                cur.execute(query_invoices)
+                for row in cur.fetchall():
+                    total = float(row["total_amount"] or 0.0)
+                    entry_net = row["entry_net_amount"]
+
+                    # Cálculo exacto Neto / IVA
+                    if entry_net is not None and float(entry_net) > 0 and float(entry_net) <= total:
+                        neto = round(float(entry_net), 2)
+                        iva = round(total - neto, 2)
+                    elif total > 0:
+                        neto = round(total / 1.19, 2)
+                        iva = round(total - neto, 2)
+                    else:
+                        neto = 0.0
+                        iva = 0.0
+
+                    pay_status = row["payment_status"] or "Pendiente"
+                    paid_amt = float(row["payment_amount"] or 0.0)
+                    if pay_status == "Pagada" and paid_amt == 0.0:
+                        paid_amt = total
+                    pending_amt = 0.0 if pay_status == "Pagada" else max(0.0, total - paid_amt)
+
+                    records.append({
+                        "id": row["id"],
+                        "origin_type": "Factura de Compra",
+                        "origin_code": "factura",
+                        "doc_date": row["doc_date"] or "",
+                        "due_date": row["due_date"] or "",
+                        "doc_number": row["doc_number"] or "Sin N°",
+                        "party_name": row["party_name"] or "",
+                        "party_rut": row["party_rut"] or "",
+                        "category_name": row["category_name"] or "Compras",
+                        "description": row["description"] or "",
+                        "oc_number": row["oc_number"] or "",
+                        "purchase_order_id": row["purchase_order_id"],
+                        "inventory_entry_id": row["inventory_entry_id"],
+                        "entry_order_number": row["entry_order_number"] or "",
+                        "neto": neto,
+                        "iva": iva,
+                        "total": total,
+                        "paid_amount": paid_amt,
+                        "pending_amount": pending_amt,
+                        "payment_status": pay_status,
+                        "payment_date": row["payment_date"] or "",
+                        "payment_method": row["payment_method"] or "",
+                        "bank_name": row["bank_name"] or "",
+                        "bank_account_number": row["bank_account_number"] or "",
+                        "doc_file": row["doc_file"] or "",
+                        "payment_proof_file": row["payment_proof_file"] or "",
+                        "expense_id": None,
+                    })
+
+            # 2. Gastos Operacionales (si doc_type in ('all', 'gasto'))
+            if doc_type in ("all", "gasto", "", None):
+                query_expenses = """
+                    SELECT
+                        o.id AS occurrence_id,
+                        e.id AS expense_id,
+                        'Gasto Operacional' AS doc_type,
+                        'gasto' AS doc_type_code,
+                        TO_CHAR(COALESCE(o.due_date, e.start_date), 'YYYY-MM-DD') AS doc_date,
+                        TO_CHAR(COALESCE(o.due_date, e.start_date), 'YYYY-MM-DD') AS due_date,
+                        'GOP-' || LPAD(o.id::text, 5, '0') AS doc_number,
+                        e.name AS expense_name,
+                        COALESCE(NULLIF(e.beneficiary, ''), e.name) AS party_name,
+                        '' AS party_rut,
+                        COALESCE(c.name, e.category, 'Operacional') AS category_name,
+                        COALESCE(NULLIF(o.notes, ''), NULLIF(e.description, ''), e.name) AS description,
+                        '' AS oc_number,
+                        NULL::integer AS purchase_order_id,
+                        NULL::integer AS inventory_entry_id,
+                        '' AS entry_order_number,
+                        COALESCE(o.amount, e.amount, 0.0) AS total_amount,
+                        COALESCE(o.payment_amount, o.amount, 0.0) AS payment_amount,
+                        o.status AS status,
+                        TO_CHAR(o.paid_date, 'YYYY-MM-DD') AS payment_date,
+                        'Transferencia' AS payment_method,
+                        COALESCE(ba.bank_name, '') AS bank_name,
+                        COALESCE(ba.account_number, '') AS bank_account_number,
+                        '' AS doc_file,
+                        '' AS payment_proof_file
+                    FROM operational_expense_occurrences o
+                    JOIN operational_expenses e ON e.id = o.expense_id
+                    LEFT JOIN expense_categories c ON c.id = e.category_id
+                    LEFT JOIN bank_accounts ba ON ba.id = COALESCE(o.bank_account_id, e.bank_account_id)
+                    WHERE o.status <> 'Anulado'
+                """
+                cur.execute(query_expenses)
+                for row in cur.fetchall():
+                    total = float(row["total_amount"] or 0.0)
+                    st = row["status"] or "Proyectado"
+                    pay_status = "Pagada" if st == "Pagado" else ("Pendiente" if st in ("Proyectado", "Pendiente") else st)
+                    paid_amt = float(row["payment_amount"] or total) if pay_status == "Pagada" else 0.0
+                    pending_amt = max(0.0, total - paid_amt) if pay_status != "Pagada" else 0.0
+
+                    records.append({
+                        "id": row["occurrence_id"],
+                        "origin_type": "Gasto Operacional",
+                        "origin_code": "gasto",
+                        "doc_date": row["doc_date"] or "",
+                        "due_date": row["due_date"] or "",
+                        "doc_number": row["doc_number"] or "",
+                        "party_name": row["party_name"] or "",
+                        "party_rut": "",
+                        "category_name": row["category_name"] or "Operacional",
+                        "description": row["description"] or "",
+                        "oc_number": "",
+                        "purchase_order_id": None,
+                        "inventory_entry_id": None,
+                        "entry_order_number": "",
+                        "neto": total,
+                        "iva": 0.0,
+                        "total": total,
+                        "paid_amount": paid_amt,
+                        "pending_amount": pending_amt,
+                        "payment_status": pay_status,
+                        "payment_date": row["payment_date"] or "",
+                        "payment_method": row["payment_method"] or "",
+                        "bank_name": row["bank_name"] or "",
+                        "bank_account_number": row["bank_account_number"] or "",
+                        "expense_name": row.get("expense_name") or "",
+                        "expense_id": row["expense_id"],
+                    })
+
+            # 3. Cuotas de Deudas Financieras (si doc_type in ('all', 'deuda'))
+            if doc_type in ("all", "deuda", "", None):
+                query_debts = """
+                    SELECT
+                        di.id AS installment_id,
+                        d.id AS debt_id,
+                        'Cuota Financiera' AS doc_type,
+                        'deuda' AS doc_type_code,
+                        TO_CHAR(d.start_date, 'YYYY-MM-DD') AS doc_date,
+                        TO_CHAR(di.due_date, 'YYYY-MM-DD') AS due_date,
+                        'DEU-' || LPAD(d.id::text, 4, '0') || ' C' || di.installment_number::text AS doc_number,
+                        d.name AS debt_name,
+                        d.creditor_name AS party_name,
+                        COALESCE(d.creditor_rut, '') AS party_rut,
+                        dt.name AS category_name,
+                        COALESCE(di.notes, d.name) AS description,
+                        COALESCE(d.contract_number, '') AS oc_number,
+                        NULL::integer AS purchase_order_id,
+                        NULL::integer AS inventory_entry_id,
+                        '' AS entry_order_number,
+                        di.total_amount,
+                        di.paid_amount,
+                        di.balance,
+                        di.status AS status,
+                        TO_CHAR(di.paid_date, 'YYYY-MM-DD') AS payment_date,
+                        'Transferencia' AS payment_method,
+                        COALESCE(ba.bank_name, '') AS bank_name,
+                        COALESCE(ba.account_number, '') AS bank_account_number
+                    FROM debt_installments di
+                    JOIN debts d ON di.debt_id = d.id
+                    JOIN debt_types dt ON d.debt_type_id = dt.id
+                    LEFT JOIN bank_accounts ba ON d.bank_account_id = ba.id
+                    WHERE di.status <> 'ANULADA'
+                """
+                cur.execute(query_debts)
+                for row in cur.fetchall():
+                    tot = float(row["total_amount"] or 0.0)
+                    paid = float(row["paid_amount"] or 0.0)
+                    bal = float(row["balance"] or 0.0)
+                    st = row["status"]
+                    # Mapear estados a convención Cuentas por Pagar
+                    if st == "PAGADA":
+                        pay_st = "Pagada"
+                    elif st == "VENCIDA":
+                        pay_st = "Vencida"
+                    else:
+                        pay_st = "Pendiente"
+
+                    records.append({
+                        "id": row["installment_id"],
+                        "origin_type": "Cuota Financiera",
+                        "origin_code": "deuda",
+                        "doc_date": row["doc_date"] or "",
+                        "due_date": row["due_date"] or "",
+                        "doc_number": row["doc_number"] or "",
+                        "party_name": row["party_name"] or "",
+                        "party_rut": row["party_rut"] or "",
+                        "category_name": row["category_name"] or "Deuda Financiera",
+                        "description": row["description"] or "",
+                        "oc_number": row["oc_number"] or "",
+                        "purchase_order_id": None,
+                        "inventory_entry_id": None,
+                        "entry_order_number": "",
+                        "neto": tot,
+                        "iva": 0.0,
+                        "total": tot,
+                        "paid_amount": paid,
+                        "pending_amount": bal,
+                        "payment_status": pay_st,
+                        "payment_date": row["payment_date"] or "",
+                        "payment_method": row["payment_method"] or "",
+                        "bank_name": row["bank_name"] or "",
+                        "bank_account_number": row["bank_account_number"] or "",
+                        "debt_name": row["debt_name"],
+                        "debt_id": row["debt_id"],
+                    })
+
+    # Filtrado en memoria estructurado y consistente
+    filtered = []
+    for r in records:
+        # Filtro de Fechas (por doc_date)
+        if date_from and r["doc_date"] and r["doc_date"] < date_from:
+            continue
+        if date_to and r["doc_date"] and r["doc_date"] > date_to:
+            continue
+
+        # Filtro Tipo de Documento
+        if doc_type and doc_type not in ("all", ""):
+            if doc_type == "factura" and r["origin_code"] != "factura":
+                continue
+            if doc_type == "gasto" and r["origin_code"] != "gasto":
+                continue
+
+        # Filtro Proveedor / Beneficiario
+        if supplier_beneficiary and supplier_beneficiary.strip():
+            sb_clean = supplier_beneficiary.strip().lower()
+            if sb_clean not in r["party_name"].lower() and sb_clean not in r["party_rut"].lower() and sb_clean not in r.get("expense_name", "").lower():
+                continue
+
+        # Filtro Categoría
+        if category and category.strip() and category != "all":
+            if category.strip().lower() != r["category_name"].lower():
+                continue
+
+        # Filtro Estado de Pago
+        if payment_status and payment_status not in ("all", ""):
+            ps_clean = payment_status.strip().lower()
+            if ps_clean == "pendiente" and r["payment_status"].lower() not in ("pendiente", "proyectado"):
+                continue
+            elif ps_clean == "pagada" and r["payment_status"].lower() not in ("pagada", "pagado"):
+                continue
+            elif ps_clean == "vencida" and r["payment_status"].lower() != "vencida":
+                continue
+            elif ps_clean not in ("pendiente", "pagada", "vencida") and ps_clean != r["payment_status"].lower():
+                continue
+
+        # Búsqueda general: doc_number, party_name, party_rut, description, oc_number, expense_name
+        if search and search.strip():
+            q = search.strip().lower()
+            match = (
+                q in r["doc_number"].lower() or
+                q in r["party_name"].lower() or
+                q in r["party_rut"].lower() or
+                q in r["description"].lower() or
+                q in r["oc_number"].lower() or
+                q in r.get("expense_name", "").lower()
+            )
+            if not match:
+                continue
+
+        filtered.append(r)
+
+    # Ordenamiento seguro (Whitelist)
+    sort_key_map = {
+        "date": lambda x: (x["doc_date"] or "", x["id"]),
+        "due_date": lambda x: (x["due_date"] or "", x["id"]),
+        "doc_number": lambda x: (x["doc_number"] or "", x["id"]),
+        "origin": lambda x: (x["origin_type"], x["id"]),
+        "supplier": lambda x: (x["party_name"].lower(), x["id"]),
+        "category": lambda x: (x["category_name"].lower(), x["id"]),
+        "neto": lambda x: (x["neto"], x["id"]),
+        "iva": lambda x: (x["iva"], x["id"]),
+        "total": lambda x: (x["total"], x["id"]),
+        "payment_status": lambda x: (x["payment_status"], x["id"]),
+    }
+    sort_fn = sort_key_map.get(sort_by, sort_key_map["date"])
+    reverse = (sort_order or "desc").lower() == "desc"
+    filtered.sort(key=sort_fn, reverse=reverse)
+
+    # KPIs sobre el conjunto filtrado completo
+    total_docs = len(filtered)
+    total_neto = round(sum(r["neto"] for r in filtered), 2)
+    total_iva = round(sum(r["iva"] for r in filtered), 2)
+    total_general = round(sum(r["total"] for r in filtered), 2)
+    total_pendiente = round(sum(r["pending_amount"] for r in filtered), 2)
+    total_pagado = round(sum(r["paid_amount"] for r in filtered), 2)
+
+    # Paginación server-side
+    if per_page is not None:
+        total_pages = max(1, math.ceil(total_docs / per_page)) if total_docs > 0 else 1
+        if page > total_pages:
+            page = total_pages
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        paged_items = filtered[start_idx:end_idx]
+    else:
+        page = 1
+        per_page = total_docs
+        total_pages = 1
+        paged_items = filtered
+
+    return {
+        "items": paged_items,
+        "all_filtered_items": filtered,
+        "metrics": {
+            "total_documentos": total_docs,
+            "total_neto": total_neto,
+            "total_iva": total_iva,
+            "total_general": total_general,
+            "total_pendiente": total_pendiente,
+            "total_pagado": total_pagado,
+        },
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "total": total_docs,
+        "filters": {
+            "date_from": date_from or "",
+            "date_to": date_to or "",
+            "doc_type": doc_type or "all",
+            "supplier_beneficiary": supplier_beneficiary or "",
+            "category": category or "",
+            "payment_status": payment_status or "all",
+            "search": search or "",
+            "sort_by": sort_by or "date",
+            "sort_order": sort_order or "desc",
+        },
+    }
+
+
+def get_accounts_payable_report_data(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    due_date_from: Optional[str] = None,
+    due_date_to: Optional[str] = None,
+    doc_type: Optional[str] = "all",
+    supplier_beneficiary: Optional[str] = None,
+    category: Optional[str] = None,
+    status: Optional[str] = "all",
+    search: Optional[str] = None,
+    page: Optional[int] = 1,
+    per_page: Optional[int] = 25,
+    sort_by: Optional[str] = "due_date",
+    sort_order: Optional[str] = "asc",
+) -> dict:
+    """
+    Reporte Operacional Financiero: CUENTAS POR PAGAR.
+    Muestra exclusivamente obligaciones vigentes con SALDO PENDIENTE > 0.
+    Orden por defecto: Fecha Vencimiento ASC (las más urgentes primero).
+    KPIs calculados sobre SALDO PENDIENTE:
+    - Total Por Pagar (saldo total pendiente)
+    - Total Vencido (saldo con due_date < hoy)
+    - Vence en próximos 7 días (0 <= dias_vencimiento <= 7)
+    - Vence en próximos 30 días (0 <= dias_vencimiento <= 30)
+    """
+    today_date = datetime.now().date()
+    today_str = today_date.isoformat()
+
+    # Primero traer todos los registros mediante la fuente consolidada sin paginar
+    base_report = get_purchases_and_expenses_report_data(
+        date_from=date_from,
+        date_to=date_to,
+        doc_type=doc_type,
+        supplier_beneficiary=supplier_beneficiary,
+        category=category,
+        payment_status="all",
+        search=search,
+        page=1,
+        per_page=None,
+        sort_by="due_date",
+        sort_order="asc",
+    )
+
+    all_items = base_report["all_filtered_items"]
+    payable_items = []
+
+    for it in all_items:
+        # REGLA FUNDAMENTAL: Saldo pendiente > 0
+        pending_amount = round(it["pending_amount"], 2)
+        if pending_amount <= 0:
+            continue
+
+        # Si ya está marcada como Pagada en el sistema, no es cuenta por pagar activa
+        if it["payment_status"].lower() in ("pagada", "pagado"):
+            continue
+
+        due_date_str = it["due_date"]
+        dias_vencimiento = None
+        due_badge_type = "normal"  # normal, proxima, vence_hoy, vencida
+
+        if due_date_str:
+            try:
+                due_d = datetime.strptime(due_date_str, "%Y-%m-%d").date()
+                dias_vencimiento = (due_d - today_date).days
+                if dias_vencimiento < 0:
+                    due_badge_type = "vencida"
+                elif dias_vencimiento == 0:
+                    due_badge_type = "vence_hoy"
+                elif 0 < dias_vencimiento <= 7:
+                    due_badge_type = "proxima_7"
+                elif 7 < dias_vencimiento <= 30:
+                    due_badge_type = "proxima_30"
+            except Exception:
+                dias_vencimiento = None
+
+        # Clasificación de Estado Operacional Dinámico
+        paid_amt = round(it["paid_amount"], 2)
+        total_amt = round(it["total"], 2)
+
+        if dias_vencimiento is not None and dias_vencimiento < 0:
+            computed_status = "Vencida"
+        elif paid_amt > 0 and pending_amount > 0:
+            computed_status = "Parcial"
+        else:
+            computed_status = "Pendiente"
+
+        # Filtro de fecha de vencimiento específica
+        if due_date_from and due_date_str and due_date_str < due_date_from:
+            continue
+        if due_date_to and due_date_str and due_date_str > due_date_to:
+            continue
+
+        # Filtro de Estado Cuentas por Pagar ('Pendiente', 'Parcial', 'Vencida')
+        if status and status not in ("all", ""):
+            st_clean = status.strip().lower()
+            if st_clean != computed_status.lower():
+                continue
+
+        payable_record = dict(it)
+        payable_record.update({
+            "computed_status": computed_status,
+            "dias_vencimiento": dias_vencimiento,
+            "due_badge_type": due_badge_type,
+        })
+        payable_items.append(payable_record)
+
+    # Ordenamiento
+    sort_key_map = {
+        "due_date": lambda x: (x["due_date"] == "", x["due_date"] or "9999-99-99", x["id"]),
+        "date": lambda x: (x["doc_date"] or "", x["id"]),
+        "doc_number": lambda x: (x["doc_number"] or "", x["id"]),
+        "supplier": lambda x: (x["party_name"].lower(), x["id"]),
+        "total": lambda x: (x["total"], x["id"]),
+        "paid": lambda x: (x["paid_amount"], x["id"]),
+        "pending": lambda x: (x["pending_amount"], x["id"]),
+        "days": lambda x: (x["dias_vencimiento"] if x["dias_vencimiento"] is not None else 9999, x["id"]),
+        "status": lambda x: (x["computed_status"], x["id"]),
+    }
+    sort_fn = sort_key_map.get(sort_by, sort_key_map["due_date"])
+    reverse = (sort_order or "asc").lower() == "desc"
+    payable_items.sort(key=sort_fn, reverse=reverse)
+
+    # KPIs calculados ESTRICTAMENTE sobre SALDO PENDIENTE
+    total_por_pagar = round(sum(p["pending_amount"] for p in payable_items), 2)
+    total_vencido = round(
+        sum(p["pending_amount"] for p in payable_items if p["dias_vencimiento"] is not None and p["dias_vencimiento"] < 0),
+        2
+    )
+    vence_7_dias = round(
+        sum(p["pending_amount"] for p in payable_items if p["dias_vencimiento"] is not None and 0 <= p["dias_vencimiento"] <= 7),
+        2
+    )
+    vence_30_dias = round(
+        sum(p["pending_amount"] for p in payable_items if p["dias_vencimiento"] is not None and 0 <= p["dias_vencimiento"] <= 30),
+        2
+    )
+
+    total_records = len(payable_items)
+
+    # Paginación
+    try:
+        page = int(page) if page is not None else 1
+        if page < 1:
+            page = 1
+    except (ValueError, TypeError):
+        page = 1
+
+    if per_page is not None:
+        try:
+            per_page = int(per_page)
+            if per_page not in (25, 50, 100):
+                per_page = 25
+        except (ValueError, TypeError):
+            per_page = 25
+        total_pages = max(1, math.ceil(total_records / per_page)) if total_records > 0 else 1
+        if page > total_pages:
+            page = total_pages
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        paged_items = payable_items[start_idx:end_idx]
+    else:
+        page = 1
+        per_page = total_records
+        total_pages = 1
+        paged_items = payable_items
+
+    return {
+        "items": paged_items,
+        "all_filtered_items": payable_items,
+        "metrics": {
+            "total_por_pagar": total_por_pagar,
+            "total_vencido": total_vencido,
+            "vence_7_dias": vence_7_dias,
+            "vence_30_dias": vence_30_dias,
+            "count_obligaciones": total_records,
+        },
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "total": total_records,
+        "filters": {
+            "date_from": date_from or "",
+            "date_to": date_to or "",
+            "due_date_from": due_date_from or "",
+            "due_date_to": due_date_to or "",
+            "doc_type": doc_type or "all",
+            "supplier_beneficiary": supplier_beneficiary or "",
+            "category": category or "",
+            "status": status or "all",
+            "search": search or "",
+            "sort_by": sort_by or "due_date",
+            "sort_order": sort_order or "asc",
+        },
+    }
+
+
+def get_accounts_receivable_report_data(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    due_date_from: Optional[str] = None,
+    due_date_to: Optional[str] = None,
+    customer: Optional[str] = None,
+    payment_status: Optional[str] = "all",
+    sale_status: Optional[str] = "all",
+    quick_filter: Optional[str] = "all",
+    filter_gestion: Optional[str] = "all",
+    filter_antiguedad_gestion: Optional[str] = "all",
+    filter_tipo_gestion: Optional[str] = "all",
+    search: Optional[str] = None,
+    page: Optional[int] = 1,
+    per_page: Optional[int] = 25,
+    sort_by: Optional[str] = "due_date",
+    sort_order: Optional[str] = "asc",
+) -> dict:
+    """
+    Reporte Operacional Financiero: CUENTAS POR COBRAR.
+    Muestra exclusivamente ventas no canceladas con SALDO PENDIENTE > 0.
+    
+    Criterios fundamentales:
+    - Saldo Pendiente = max(0.0, total_amount - pagos_aplicados).
+    - Excluye ventas canceladas ('Cancelada', 'Cancelado') y cotizaciones ('Cotización', 'COT-%').
+    - Si payment_status == 'Pagado' o Saldo == 0, se excluye del listado activo.
+    - Soporta múltiples pagos parciales por venta agrupando atómicamente (sin duplicar filas).
+    - Orden por defecto: Fecha Vencimiento ASC (más urgentes primero).
+    - KPIs calculados ESTRICTAMENTE sobre SALDO PENDIENTE.
+    """
+    today_date = datetime.now().date()
+    today_str = today_date.isoformat()
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # 1. Obtenemos las ventas con sus pagos asociados agrupados
+            query = """
+                SELECT 
+                    s.id,
+                    s.sale_number,
+                    s.customer_name,
+                    s.customer_email,
+                    s.customer_initials,
+                    s.sale_date,
+                    s.sale_time,
+                    s.total_amount,
+                    s.status AS sale_status,
+                    s.seller_name,
+                    s.payment_method,
+                    s.payment_status,
+                    s.delivery_status,
+                    s.notes,
+                    sp.invoice_number,
+                    sp.invoice_due_date,
+                    sp.payment_date AS header_payment_date,
+                    sp.payment_amount AS header_payment_amount,
+                    sp.payment_proof_file AS header_payment_proof,
+                    COALESCE(spi_agg.total_paid_items, 0.0) AS items_paid_amount,
+                    spi_agg.last_payment_date,
+                    spi_agg.payment_items_count,
+                    ca_last.last_action_type,
+                    ca_last.last_action_date,
+                    ca_last.last_action_time,
+                    ca_last.last_action_contact,
+                    ca_last.last_action_result,
+                    ca_last.last_next_action,
+                    ca_last.last_next_action_date,
+                    ca_last.last_commitment_date,
+                    ca_last.last_commitment_amount,
+                    ca_last.last_action_user,
+                    COALESCE(ca_last.total_actions_count, 0) AS collection_actions_count
+                FROM sales s
+                LEFT JOIN sale_payments sp ON sp.sale_id = s.id
+                LEFT JOIN (
+                    SELECT 
+                        sale_id,
+                        SUM(payment_amount) AS total_paid_items,
+                        MAX(payment_date) AS last_payment_date,
+                        COUNT(id) AS payment_items_count
+                    FROM sale_payment_items
+                    WHERE COALESCE(accounting_approved, 1) = 1
+                    GROUP BY sale_id
+                ) spi_agg ON spi_agg.sale_id = s.id
+                LEFT JOIN (
+                    SELECT DISTINCT ON (sale_id)
+                        sale_id,
+                        action_type AS last_action_type,
+                        action_date AS last_action_date,
+                        action_time AS last_action_time,
+                        contact_name AS last_action_contact,
+                        result AS last_action_result,
+                        next_action AS last_next_action,
+                        next_action_date AS last_next_action_date,
+                        payment_commitment_date AS last_commitment_date,
+                        payment_commitment_amount AS last_commitment_amount,
+                        user_name AS last_action_user,
+                        COUNT(id) OVER (PARTITION BY sale_id) AS total_actions_count
+                    FROM collection_actions
+                    ORDER BY sale_id, action_date DESC, action_time DESC, id DESC
+                ) ca_last ON ca_last.sale_id = s.id
+                WHERE s.status NOT IN ('Cancelada', 'Cancelado', 'Cotización')
+                  AND s.sale_number NOT LIKE 'COT-%%'
+            """
+            cur.execute(query)
+            rows = cur.fetchall()
+
+            # 2. Cargar mapa de clientes para enriquecimiento de RUT, teléfono y dirección
+            clients_map = {}
+            cur.execute("SELECT * FROM clients")
+            for c in cur.fetchall():
+                c_dict = dict(c)
+                if c_dict.get("email"):
+                    clients_map[c_dict["email"].lower().strip()] = c_dict
+                if c_dict.get("razon_social"):
+                    clients_map[c_dict["razon_social"].lower().strip()] = c_dict
+                if c_dict.get("rut"):
+                    clients_map[c_dict["rut"].strip()] = c_dict
+
+            # 3. Procesar y clasificar cada venta
+            receivable_items = []
+
+            for r in rows:
+                raw_p_status = (r.get("payment_status") or "").strip()
+                if raw_p_status.lower() in ("pagado", "pagada"):
+                    continue
+
+                total_amount = round(float(r.get("total_amount") or 0.0), 2)
+                
+                # Monto pagado: si hay items individuales se prioriza la suma de items, de lo contrario el header
+                items_paid = round(float(r.get("items_paid_amount") or 0.0), 2)
+                header_paid = round(float(r.get("header_payment_amount") or 0.0), 2)
+                paid_amount = items_paid if items_paid > 0 else header_paid
+                paid_amount = round(min(paid_amount, total_amount), 2)
+
+                pending_amount = round(max(0.0, total_amount - paid_amount), 2)
+
+                # REGLA FUNDAMENTAL: Saldo por cobrar > 0
+                if pending_amount <= 0:
+                    continue
+
+                # Fecha de vencimiento: invoice_due_date si es válida, o sale_date en su defecto
+                due_date_str = r.get("invoice_due_date")
+                if not due_date_str or due_date_str in ("-", ""):
+                    due_date_str = r.get("sale_date") or ""
+
+                dias_vencimiento = None
+                due_badge_type = "normal"
+
+                if due_date_str:
+                    try:
+                        due_d = datetime.strptime(due_date_str, "%Y-%m-%d").date()
+                        dias_vencimiento = (due_d - today_date).days
+                        if dias_vencimiento < 0:
+                            due_badge_type = "vencida"
+                        elif dias_vencimiento == 0:
+                            due_badge_type = "vence_hoy"
+                        elif 0 < dias_vencimiento <= 7:
+                            due_badge_type = "proxima_7"
+                        elif 7 < dias_vencimiento <= 30:
+                            due_badge_type = "proxima_30"
+                    except Exception:
+                        dias_vencimiento = None
+
+                # Clasificación de Estado Financiero Computado
+                if dias_vencimiento is not None and dias_vencimiento < 0:
+                    computed_status = "Vencida"
+                elif paid_amount > 0 and pending_amount > 0:
+                    computed_status = "Parcial"
+                else:
+                    computed_status = "Pendiente"
+
+                # Enriquecimiento de datos del cliente
+                c_email = (r.get("customer_email") or "").lower().strip()
+                c_name = (r.get("customer_name") or "").lower().strip()
+                c_data = clients_map.get(c_email) or clients_map.get(c_name) or {}
+
+                notes_str = r.get("notes") or ""
+                rut_val = c_data.get("rut") or ""
+                dv_val = c_data.get("dv") or ""
+                if not rut_val and "RUT:" in notes_str:
+                    try:
+                        rut_part = notes_str.split("RUT:")[1].split("|")[0].strip()
+                        if "-" in rut_part:
+                            rut_val, dv_val = rut_part.split("-", 1)
+                        else:
+                            rut_val = rut_part
+                    except Exception:
+                        pass
+                rut_formatted = f"{rut_val}-{dv_val}" if rut_val and dv_val else rut_val
+
+                # Documento asignado
+                doc_number = r.get("invoice_number") or ""
+                if not doc_number:
+                    if "Doc: Factura" in notes_str:
+                        doc_number = f"FACT-{r['id']:05d}"
+                    elif "Doc: Boleta" in notes_str:
+                        doc_number = f"BOL-{r['id']:05d}"
+                    else:
+                        doc_number = f"DOC-{r['id']:05d}"
+
+                last_payment_date = r.get("last_payment_date") or r.get("header_payment_date") or ""
+
+                # --- Gestión y Seguimiento de Cobranza ---
+                last_action_type = r.get("last_action_type") or ""
+                last_action_date = r.get("last_action_date") or ""
+                last_action_time = r.get("last_action_time") or ""
+                last_action_contact = r.get("last_action_contact") or ""
+                last_action_result = r.get("last_action_result") or ""
+                last_next_action = r.get("last_next_action") or ""
+                last_next_action_date = r.get("last_next_action_date") or ""
+                last_commitment_date = r.get("last_commitment_date") or ""
+                last_commitment_amount = float(r.get("last_commitment_amount") or 0.0) if r.get("last_commitment_amount") is not None else None
+                last_action_user = r.get("last_action_user") or ""
+                total_actions_count = int(r.get("collection_actions_count") or 0)
+
+                dias_sin_gestion = None
+                gestion_badge_type = "sin_gestion"
+
+                if last_action_date:
+                    try:
+                        act_d = datetime.strptime(last_action_date, "%Y-%m-%d").date()
+                        dias_sin_gestion = (today_date - act_d).days
+                        if dias_sin_gestion <= 3:
+                            gestion_badge_type = "reciente"
+                        elif dias_sin_gestion <= 7:
+                            gestion_badge_type = "normal"
+                        elif dias_sin_gestion <= 15:
+                            gestion_badge_type = "atencion"
+                        else:
+                            gestion_badge_type = "critico"
+                    except Exception:
+                        dias_sin_gestion = None
+                        gestion_badge_type = "normal"
+                else:
+                    gestion_badge_type = "sin_gestion"
+
+                proxima_gestion_atrasada = False
+                if last_next_action_date:
+                    try:
+                        nxt_d = datetime.strptime(last_next_action_date, "%Y-%m-%d").date()
+                        if nxt_d < today_date:
+                            proxima_gestion_atrasada = True
+                    except Exception:
+                        pass
+
+                item = {
+                    "id": r["id"],
+                    "sale_number": r["sale_number"],
+                    "customer_name": r["customer_name"],
+                    "customer_rut": rut_formatted,
+                    "customer_email": r.get("customer_email") or "",
+                    "customer_phone": c_data.get("phone") or "",
+                    "sale_date": r["sale_date"] or "",
+                    "due_date": due_date_str,
+                    "dias_vencimiento": dias_vencimiento,
+                    "due_badge_type": due_badge_type,
+                    "doc_number": doc_number,
+                    "payment_method": r.get("payment_method") or "Efectivo",
+                    "sale_status": r["sale_status"],
+                    "delivery_status": r.get("delivery_status") or "Pendiente",
+                    "computed_status": computed_status,
+                    "total_amount": total_amount,
+                    "paid_amount": paid_amount,
+                    "pending_amount": pending_amount,
+                    "last_payment_date": last_payment_date,
+                    "payment_items_count": r.get("payment_items_count") or (1 if paid_amount > 0 else 0),
+                    "notes": notes_str,
+                    # Campos de Gestión de Cobranza
+                    "last_action_type": last_action_type,
+                    "last_action_date": last_action_date,
+                    "last_action_time": last_action_time,
+                    "last_action_contact": last_action_contact,
+                    "last_action_result": last_action_result,
+                    "last_next_action": last_next_action,
+                    "last_next_action_date": last_next_action_date,
+                    "last_commitment_date": last_commitment_date,
+                    "last_commitment_amount": last_commitment_amount,
+                    "last_action_user": last_action_user,
+                    "total_actions_count": total_actions_count,
+                    "dias_sin_gestion": dias_sin_gestion,
+                    "gestion_badge_type": gestion_badge_type,
+                    "proxima_gestion_atrasada": proxima_gestion_atrasada,
+                }
+
+                # 4. APLICACIÓN DE FILTROS
+
+                # Filtro Fecha Venta Desde / Hasta
+                if date_from and item["sale_date"] and item["sale_date"] < date_from:
+                    continue
+                if date_to and item["sale_date"] and item["sale_date"] > date_to:
+                    continue
+
+                # Filtro Fecha Vencimiento Desde / Hasta
+                if due_date_from and item["due_date"] and item["due_date"] < due_date_from:
+                    continue
+                if due_date_to and item["due_date"] and item["due_date"] > due_date_to:
+                    continue
+
+                # Filtro Cliente
+                if customer and customer.strip():
+                    c_filter = customer.strip().lower()
+                    if c_filter not in item["customer_name"].lower() and c_filter not in item["customer_rut"].lower():
+                        continue
+
+                # Filtro Estado de Pago ('Pendiente', 'Parcial', 'Vencida')
+                if payment_status and payment_status not in ("all", ""):
+                    if payment_status.strip().lower() != item["computed_status"].lower():
+                        continue
+
+                # Filtro Estado de Venta / Logístico
+                if sale_status and sale_status not in ("all", ""):
+                    if sale_status.strip().lower() != item["sale_status"].lower():
+                        continue
+
+                # Filtro Rápido de Cobranza ('vencidas', 'hoy', 'proximas_7', 'proximas_30')
+                if quick_filter and quick_filter not in ("all", ""):
+                    qf = quick_filter.strip().lower()
+                    if qf == "vencidas":
+                        if item["dias_vencimiento"] is None or item["dias_vencimiento"] >= 0:
+                            continue
+                    elif qf == "hoy":
+                        if item["dias_vencimiento"] != 0:
+                            continue
+                    elif qf == "proximas_7":
+                        if item["dias_vencimiento"] is None or not (0 <= item["dias_vencimiento"] <= 7):
+                            continue
+                    elif qf == "proximas_30":
+                        if item["dias_vencimiento"] is None or not (0 <= item["dias_vencimiento"] <= 30):
+                            continue
+
+                # Filtro Por Gestión ('con_gestion', 'sin_gestion')
+                if filter_gestion and filter_gestion not in ("all", ""):
+                    fg = filter_gestion.strip().lower()
+                    if fg == "con_gestion" and not item["last_action_date"]:
+                        continue
+                    elif fg == "sin_gestion" and item["last_action_date"]:
+                        continue
+
+                # Filtro Antigüedad de Gestión ('hoy', 'ultimos_7', 'mas_7', 'mas_15', 'mas_30')
+                if filter_antiguedad_gestion and filter_antiguedad_gestion not in ("all", ""):
+                    fag = filter_antiguedad_gestion.strip().lower()
+                    dsg = item["dias_sin_gestion"]
+                    if dsg is None:
+                        # Si no tiene gestión, se excluye de estos filtros específicos de antigüedad
+                        continue
+                    if fag == "hoy" and dsg != 0:
+                        continue
+                    elif fag == "ultimos_7" and not (0 <= dsg <= 7):
+                        continue
+                    elif fag == "mas_7" and dsg <= 7:
+                        continue
+                    elif fag == "mas_15" and dsg <= 15:
+                        continue
+                    elif fag == "mas_30" and dsg <= 30:
+                        continue
+
+                # Filtro Tipo de Última Gestión
+                if filter_tipo_gestion and filter_tipo_gestion not in ("all", ""):
+                    if filter_tipo_gestion.strip().lower() != (item["last_action_type"] or "").strip().lower():
+                        continue
+
+                # Búsqueda por texto (número de venta, documento, cliente, RUT, notas)
+                if search and search.strip():
+                    term = search.strip().lower()
+                    matches = (
+                        term in item["sale_number"].lower()
+                        or term in item["doc_number"].lower()
+                        or term in item["customer_name"].lower()
+                        or term in item["customer_rut"].lower()
+                        or term in item["notes"].lower()
+                        or term in (item["last_action_contact"] or "").lower()
+                        or term in (item["last_action_result"] or "").lower()
+                    )
+                    if not matches:
+                        continue
+
+                receivable_items.append(item)
+
+    # 5. ORDENAMIENTO (Predeterminado: Fecha Vencimiento ASC)
+    sort_key_map = {
+        "due_date": lambda x: (x["due_date"] == "", x["due_date"] or "9999-99-99", x["id"]),
+        "date": lambda x: (x["sale_date"] or "", x["id"]),
+        "sale_number": lambda x: (x["sale_number"] or "", x["id"]),
+        "doc_number": lambda x: (x["doc_number"] or "", x["id"]),
+        "customer": lambda x: (x["customer_name"].lower(), x["id"]),
+        "total": lambda x: (x["total_amount"], x["id"]),
+        "paid": lambda x: (x["paid_amount"], x["id"]),
+        "pending": lambda x: (x["pending_amount"], x["id"]),
+        "days": lambda x: (x["dias_vencimiento"] if x["dias_vencimiento"] is not None else 9999, x["id"]),
+        "payment_status": lambda x: (x["computed_status"], x["id"]),
+        "sale_status": lambda x: (x["sale_status"], x["id"]),
+        "last_action": lambda x: (x["last_action_date"] == "", x["last_action_date"] or "0000-00-00", x["id"]),
+        "days_without_action": lambda x: (x["dias_sin_gestion"] is None, x["dias_sin_gestion"] if x["dias_sin_gestion"] is not None else -1, x["id"]),
+        "next_action": lambda x: (x["last_next_action_date"] == "", x["last_next_action_date"] or "9999-99-99", x["id"]),
+    }
+    sort_fn = sort_key_map.get(sort_by, sort_key_map["due_date"])
+    reverse = (sort_order or "asc").lower() == "desc"
+    receivable_items.sort(key=sort_fn, reverse=reverse)
+
+    # 6. KPIS CALCULADOS ESTRICTAMENTE SOBRE SALDO POR COBRAR
+    total_por_cobrar = round(sum(p["pending_amount"] for p in receivable_items), 2)
+    total_vencido = round(
+        sum(p["pending_amount"] for p in receivable_items if p["dias_vencimiento"] is not None and p["dias_vencimiento"] < 0),
+        2
+    )
+    vence_7_dias = round(
+        sum(p["pending_amount"] for p in receivable_items if p["dias_vencimiento"] is not None and 0 <= p["dias_vencimiento"] <= 7),
+        2
+    )
+    vence_30_dias = round(
+        sum(p["pending_amount"] for p in receivable_items if p["dias_vencimiento"] is not None and 0 <= p["dias_vencimiento"] <= 30),
+        2
+    )
+    clientes_con_deuda = len({p["customer_name"].strip().lower() for p in receivable_items if p["customer_name"]})
+    cuentas_parciales = sum(1 for p in receivable_items if p["paid_amount"] > 0)
+    total_records = len(receivable_items)
+
+    # 7. PAGINACIÓN SERVER-SIDE
+    try:
+        page = int(page) if page is not None else 1
+        if page < 1:
+            page = 1
+    except (ValueError, TypeError):
+        page = 1
+
+    if per_page is not None:
+        try:
+            per_page = int(per_page)
+            if per_page <= 0:
+                per_page = 25
+        except (ValueError, TypeError):
+            per_page = 25
+        total_pages = max(1, math.ceil(total_records / per_page)) if total_records > 0 else 1
+        if page > total_pages:
+            page = total_pages
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        paged_items = receivable_items[start_idx:end_idx]
+    else:
+        page = 1
+        per_page = total_records
+        total_pages = 1
+        paged_items = receivable_items
+
+    return {
+        "items": paged_items,
+        "all_filtered_items": receivable_items,
+        "metrics": {
+            "total_por_cobrar": total_por_cobrar,
+            "total_vencido": total_vencido,
+            "vence_7_dias": vence_7_dias,
+            "vence_30_dias": vence_30_dias,
+            "clientes_con_deuda": clientes_con_deuda,
+            "cuentas_parciales": cuentas_parciales,
+            "count_cuentas": total_records,
+        },
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "total": total_records,
+        "filters": {
+            "date_from": date_from or "",
+            "date_to": date_to or "",
+            "due_date_from": due_date_from or "",
+            "due_date_to": due_date_to or "",
+            "customer": customer or "",
+            "payment_status": payment_status or "all",
+            "sale_status": sale_status or "all",
+            "quick_filter": quick_filter or "all",
+            "filter_gestion": filter_gestion or "all",
+            "filter_antiguedad_gestion": filter_antiguedad_gestion or "all",
+            "filter_tipo_gestion": filter_tipo_gestion or "all",
+            "search": search or "",
+            "sort_by": sort_by or "due_date",
+            "sort_order": sort_order or "asc",
+        },
+    }

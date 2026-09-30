@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Página No Encontrada (404) - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Página No Encontrada{% endblock %}
+
+{% block content %}
+<div style="max-width: 650px; margin: 40px auto; text-align: center; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+    <div style="font-size: 56px; color: #3b82f6; margin-bottom: 20px;">
+        <i class="fa-solid fa-magnifying-glass-chart"></i>
+    </div>
+    <h2 style="font-size: 24px; font-weight: 700; color: #1e293b; margin-bottom: 12px;">Página No Encontrada (Error 404)</h2>
+    <p style="color: #64748b; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
+        La ruta o el recurso solicitado no existe o ha sido movido. Verifique la dirección ingresada o regrese al panel de navegación principal.
+    </p>
+    <div style="display: flex; justify-content: center; gap: 15px;">
+        <a href="{{ url_for('dashboard.dashboard') }}" class="btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-house"></i> Ir al Dashboard
+        </a>
+        <a href="javascript:history.back()" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-arrow-left"></i> Volver atrás
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends 'operario/base_operario.html' %}
+
+{% block title %}Recepción de Mercadería{% endblock %}
+
+{% block content %}
+<header class="operario-header">
+  <div class="title-area">
+    <a href="/operario" style="color: #64748B; text-decoration: none; font-size: 14px; font-weight: 700; display: block; margin-bottom: 2px;">
+      <i class="fa-solid fa-chevron-left"></i> Volver
+    </a>
+    <h1>Recepción OC</h1>
+  </div>
+  <a href="/operario/escanear" class="header-action-btn" title="Escanear OC">
+    <i class="fa-solid fa-barcode"></i>
+  </a>
+</header>
+
+<main class="operario-container">
+
+  <!-- Buscador rápido de OC -->
+  <form method="GET" action="/operario/recepcion" style="margin-bottom: 16px;">
+    <div style="display: flex; gap: 8px;">
+      <input type="text" name="q" value="{{ query }}" placeholder="Buscar por OC o Proveedor..." class="touch-input" style="flex: 1;">
+      <button type="submit" class="btn-big btn-green" style="width: 54px; min-height: 54px; margin-top: 0; padding: 0;">
+        <i class="fa-solid fa-magnifying-glass"></i>
+      </button>
+    </div>
+  </form>
+
+  <div class="section-header">
+    <h2>Órdenes Pendientes ({{ purchase_orders|length }})</h2>
+  </div>
+
+  {% if purchase_orders %}
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      {% for po in purchase_orders %}
+        <div class="card-item-box">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+            <div class="card-item-title" style="color: #059669;">{{ po.oc_number }}</div>
+            <span style="background: #E0F2FE; color: #0369A1; font-size: 12px; font-weight: 700; padding: 4px 8px; border-radius: 8px;">
+              {{ po.status }}
+            </span>
+          </div>
+          <div style="font-size: 15px; font-weight: 700; color: #1E293B;">{{ po.supplier_name }}</div>
+          <div class="card-item-desc" style="margin-bottom: 12px;">
+            Fecha: {{ po.order_date }} · {{ po.pending_items_count }} ítems pendientes
+          </div>
+          
+          <a href="/operario/recepcion/{{ po.id }}" class="btn-big btn-green" style="font-size: 16px; min-height: 50px;">
+            <i class="fa-solid fa-boxes-packing" style="margin-right: 8px;"></i> RECIBIR MERCADERÍA
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card-item-box" style="text-align: center; padding: 30px 10px;">
+      <i class="fa-solid fa-clipboard-check" style="font-size: 40px; color: #94A3B8; margin-bottom: 12px;"></i>
+      <div style="font-size: 16px; font-weight: 700; color: #475569;">No hay órdenes de compra pendientes</div>
+      <div style="font-size: 14px; color: #94A3B8; margin-top: 4px;">Todas las recepciones están al día.</div>
+    </div>
+  {% endif %}
+
+</main>
+{% endblock %}

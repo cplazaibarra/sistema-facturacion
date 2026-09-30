@@ -1,6 +1,7 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, send_from_directory, current_app, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, send_from_directory, current_app, jsonify, session, Response, send_file
 from werkzeug.utils import secure_filename
 import os
+import io
 from datetime import datetime, timezone
 from db import (
     get_page_data,
@@ -21,9 +22,137 @@ from db import (
     list_sales
 )
 
-from security import allowed_file, validate_and_sanitize_filename
+from security import allowed_file, validate_and_sanitize_filename, require_permission
 
 inventario_bp = Blueprint('inventario', __name__)
+
+
+@inventario_bp.before_request
+def _require_inventory_or_product_permission():
+    if request.path.startswith('/uploads/'):
+        return None
+    permission = 'productos' if request.path.startswith('/productos') or request.path.startswith('/kardex') else 'inventario'
+    @require_permission(permission)
+    def _authorized():
+        return None
+    return _authorized()
+
+
+def _adjustment_actor():
+    return session.get('user_id'), session.get('full_name') or session.get('username') or 'Usuario'
+
+
+@inventario_bp.route('/inventario/ajustes', methods=['GET'])
+@require_permission('inventory_adjustment_request')
+def ajustes_inventario():
+    from repositories.inventory_adjustments_repo import list_adjustments
+    status_raw = (request.args.get('status') or '').strip().upper()
+    status = {'PENDIENTE': 'PENDING', 'APROBADO': 'APPLIED', 'APLICADO': 'APPLIED', 'RECHAZADO': 'REJECTED'}.get(status_raw, status_raw) or None
+    adjustments = list_adjustments(status=status, warehouse=(request.args.get('warehouse') or '').strip() or None)
+    search = (request.args.get('search') or '').strip().lower()
+    if search:
+        adjustments = [a for a in adjustments if search in str(a.get('sku','')).lower() or search in str(a.get('product_name','')).lower()]
+    return render_template('ajustes_inventario.html', adjustments=adjustments, selected_status=status_raw, search=search)
+
+
+@inventario_bp.route('/inventario/ajustes/nuevo', methods=['GET', 'POST'])
+@require_permission('inventory_adjustment_request')
+def nuevo_ajuste_inventario():
+    from services.inventory_adjustment_service import ADJUSTMENT_REASONS
+    from repositories.inventory_adjustments_repo import create_adjustment
+    products = list_products()
+    from services.stock_context import get_reserved_stock_by_sku
+    reservation_diagnostics = []
+    reserved_by_sku = get_reserved_stock_by_sku(
+        products, list_sales({'status': 'Pendiente'}), reservation_diagnostics
+    )
+    from repositories.inventory_repo import get_batch_products_available_stock
+    physical_by_id = get_batch_products_available_stock(products)
+    for product in products:
+        physical = float(physical_by_id.get(product['id'], 0) or 0)
+        reserved = float(reserved_by_sku.get(product.get('sku'), 0) or 0)
+        product['physical_stock'] = physical
+        product['reserved_stock'] = reserved
+        product['available_stock'] = max(physical - reserved, 0.0)
+    warehouses = sorted(set(get_page_data('ingreso_warehouses') or ['Almacén Principal']))
+    if request.method == 'POST':
+        try:
+            product_id = request.form.get('product_id', type=int)
+            counted = float(request.form.get('counted_quantity', ''))
+            row = create_adjustment(product_id=product_id, warehouse=request.form.get('warehouse'),
+                                    counted_quantity=counted, reason=request.form.get('reason'),
+                                    observation=request.form.get('observation'), requested_by=session.get('user_id'),
+                                    requested_by_name=session.get('full_name') or session.get('username') or 'Usuario')
+            flash('Solicitud de ajuste creada correctamente.', 'success')
+            return redirect(url_for('inventario.detalle_ajuste_inventario', adjustment_id=row['id']))
+        except (TypeError, ValueError) as exc:
+            flash(str(exc), 'danger')
+        except Exception:
+            current_app.logger.exception('Error creando solicitud de ajuste')
+            flash('No fue posible crear la solicitud de ajuste.', 'danger')
+    return render_template('nuevo_ajuste_inventario.html', products=products, warehouses=warehouses,
+                           adjustment_reasons=ADJUSTMENT_REASONS,
+                           reservation_diagnostics=reservation_diagnostics,
+                           selected_product_id=request.args.get('product_id'), selected_warehouse=request.args.get('warehouse'))
+
+
+@inventario_bp.route('/inventario/ajustes/<int:adjustment_id>', methods=['GET'])
+@require_permission('inventory_adjustment_request')
+def detalle_ajuste_inventario(adjustment_id):
+    from repositories.inventory_adjustments_repo import get_adjustment, _reserved, _stock
+    from core.database import get_connection
+    adjustment = get_adjustment(adjustment_id)
+    if not adjustment:
+        flash('Solicitud de ajuste no encontrada.', 'danger')
+        return redirect(url_for('inventario.ajustes_inventario'))
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            current = _stock(cur, adjustment['product_id'], adjustment['warehouse'])
+            is_pending = (adjustment.get('status') or '').upper() == 'PENDING'
+            adjustment['inventory_changed'] = is_pending and abs(current - float(adjustment['stock_snapshot'])) > 1e-6
+            adjustment['current_reserved'] = _reserved(cur, adjustment['product_id'])
+            adjustment['current_stock'] = current
+            adjustment['resulting_stock'] = current + float(adjustment['difference']) if is_pending else current
+    return render_template('detalle_ajuste_inventario.html', adjustment=adjustment)
+
+
+@inventario_bp.route('/inventario/ajustes/<int:adjustment_id>/aprobar', methods=['POST'])
+@require_permission('inventory_adjustment_approve')
+def aprobar_ajuste_inventario(adjustment_id):
+    from repositories.inventory_adjustments_repo import approve_adjustment
+    try:
+        actor_id, actor_name = _adjustment_actor()
+        # El rol administrativo es el aprobador de máxima confianza en este
+        # entorno; conserva el permiso específico y permite completar pruebas
+        # de solicitudes creadas por el administrador. Otros roles mantienen
+        # la segregación y no pueden autoaprobarse.
+        admin_self_approval = (session.get('role_name') or '').lower() in ('admin', 'administrador', 'administrativo')
+        approve_adjustment(adjustment_id, actor_id=actor_id, actor_name=actor_name,
+                           approver_may_self_approve=admin_self_approval)
+        flash('Ajuste aprobado y aplicado correctamente.', 'success')
+    except ValueError as exc:
+        flash(str(exc), 'danger')
+    except Exception:
+        current_app.logger.exception('Error aprobando ajuste %s', adjustment_id)
+        flash('No fue posible aprobar el ajuste.', 'danger')
+    return redirect(url_for('inventario.detalle_ajuste_inventario', adjustment_id=adjustment_id))
+
+
+@inventario_bp.route('/inventario/ajustes/<int:adjustment_id>/rechazar', methods=['POST'])
+@require_permission('inventory_adjustment_approve')
+def rechazar_ajuste_inventario(adjustment_id):
+    from repositories.inventory_adjustments_repo import reject_adjustment
+    try:
+        actor_id, actor_name = _adjustment_actor()
+        reject_adjustment(adjustment_id, actor_id=actor_id, actor_name=actor_name,
+                          comment=request.form.get('approver_comment', ''))
+        flash('Solicitud rechazada.', 'success')
+    except ValueError as exc:
+        flash(str(exc), 'danger')
+    except Exception:
+        current_app.logger.exception('Error rechazando ajuste %s', adjustment_id)
+        flash('No fue posible rechazar el ajuste.', 'danger')
+    return redirect(url_for('inventario.detalle_ajuste_inventario', adjustment_id=adjustment_id))
 
 def handle_photo_upload(product_id):
     """Maneja la subida de foto de producto. Retorna la ruta de la foto o None"""
@@ -59,80 +188,16 @@ def inventario():
     
     # 2. Cargar todos los productos para mapeo ID -> SKU y Nombre -> SKU
     products_db = list_products()
+    product_by_sku = {p.get('sku'): p for p in products_db}
     id_to_sku = {p['id']: p['sku'] for p in products_db}
     name_to_sku = {p['name'].strip().lower(): p['sku'] for p in products_db}
     
-    # 3. Calcular stock reservado por SKU
-    reserved_by_sku = {}
-    for sale in pending_sales:
-        for p in sale.get('products', []):
-            qty = 0
-            sku = None
-            if isinstance(p, dict):
-                qty = p.get('quantity', 0)
-                p_id = p.get('product_id')
-                p_name = p.get('product_name', '')
-                if p_id and p_id in id_to_sku:
-                    sku = id_to_sku[p_id]
-                elif p_name:
-                    p_name_clean = p_name.strip().lower()
-                    if p_name_clean in name_to_sku:
-                        sku = name_to_sku[p_name_clean]
-                    else:
-                        for name_db, sku_db in name_to_sku.items():
-                            if name_db in p_name_clean or p_name_clean in name_db:
-                                sku = sku_db
-                                break
-            elif isinstance(p, str):
-                match = re.match(r'^(.*?)\s*\((\d+)\)$', p.strip())
-                if match:
-                    p_name = match.group(1).strip().lower()
-                    qty = int(match.group(2))
-                    if p_name in name_to_sku:
-                        sku = name_to_sku[p_name]
-                    else:
-                        for name_db, sku_db in name_to_sku.items():
-                            if name_db in p_name or p_name in name_db:
-                                sku = sku_db
-                                break
-            
-            if sku and qty > 0:
-                reserved_by_sku[sku] = reserved_by_sku.get(sku, 0) + qty
-
-    # 3.5. Obtener insumos reservados de OTs activas (Aprobadas)
-    from db import get_connection
+    from services.stock_context import get_reserved_stock_by_sku
+    reservation_diagnostics = []
+    reserved_by_sku = get_reserved_stock_by_sku(products_db, pending_sales, reservation_diagnostics)
+    from core.database import get_connection
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # 3.5.1 Insumos iniciales planificados en OTs Aprobadas
-            cur.execute(
-                """
-                SELECT poi.quantity_required, p.sku
-                FROM production_order_items poi
-                JOIN production_orders po ON poi.production_order_id = po.id
-                JOIN products p ON poi.input_product_id = p.id
-                WHERE po.status = 'Aprobada'
-                """
-            )
-            for row in cur.fetchall():
-                sku = row["sku"]
-                qty = row["quantity_required"]
-                reserved_by_sku[sku] = reserved_by_sku.get(sku, 0) + qty
-
-            # 3.5.2 Insumos adicionales sumados en OTs Aprobadas
-            cur.execute(
-                """
-                SELECT poai.quantity, p.sku
-                FROM production_order_additional_items poai
-                JOIN production_orders po ON poai.production_order_id = po.id
-                JOIN products p ON poai.input_product_id = p.id
-                WHERE po.status = 'Aprobada'
-                """
-            )
-            for row in cur.fetchall():
-                sku = row["sku"]
-                qty = row["quantity"]
-                reserved_by_sku[sku] = reserved_by_sku.get(sku, 0) + qty
-
             # 3.6 Obtener la distribución del stock físico ingresado por bodegas para cada producto
             cur.execute(
                 """
@@ -152,13 +217,56 @@ def inventario():
                     warehouse_distribution[sku] = {}
                 warehouse_distribution[sku][warehouse] = qty
 
-    # 4. Aumentar cada ítem del inventario con su stock reservado, total y distribución de bodegas
+    # 4.1 Aumentar cada ítem con stock reservado, total, bodegas, PPP y Valoración
+    from repositories.kardex_repo import get_all_products_kardex_summary
     low_stock_count = 0
+    total_bodega_value = 0.0
+
+    # Carga BATCH de Kardex y PPP para todo el catálogo en una sola pasada (0 consultas N+1)
+    kardex_summary = get_all_products_kardex_summary()
+    kardex_by_id = {p['id']: p for p in kardex_summary.get('products', [])}
+
+    # Diccionario SKU -> ID para mapeo rápido
+    sku_to_id = {p['sku']: p['id'] for p in products_db}
+
+    from repositories.inventory_repo import get_batch_products_available_stock
+    physical_by_id = get_batch_products_available_stock(products_db)
     for item in inventory_items:
         sku = item.get("code")
+        product_ref = product_by_sku.get(sku) or {}
+        # Las limpiezas de datos de prueba pueden dejar proyecciones legacy sin
+        # precio. La pantalla debe tolerar esa fila y usar el costo/catalogo
+        # como fallback; no se modifica el ledger ni el stock oficial.
+        if item.get("price") is None:
+            item["price"] = item.get("cost")
+        if item.get("price") is None:
+            item["price"] = product_ref.get("cost") or 0.0
         reserved = reserved_by_sku.get(sku, 0)
+        physical = float(physical_by_id.get(sku_to_id.get(sku), 0) or 0)
+        available = max(physical - float(reserved or 0), 0.0)
+        item["physical_stock"] = physical
         item["reserved"] = reserved
-        item["total_stock"] = item["stock"] + reserved
+        item["total_stock"] = physical
+        item["stock"] = available
+
+        # Obtener PPP y valor inventario desde el mapa consolidado de Kardex
+        p_id = sku_to_id.get(sku)
+        item["product_id"] = p_id
+        item_ppp = float(item.get("cost") or 0.0)
+        item_val = 0.0
+
+        if p_id and p_id in kardex_by_id:
+            kp = kardex_by_id[p_id]
+            item_ppp = kp["current_ppp"]
+            item["movement_stock"] = kp["current_stock"]
+            item["stock_delta"] = round(kp["current_stock"] - item["physical_stock"], 3)
+            item_val = round(item["physical_stock"] * item_ppp, 2)
+        else:
+            item_val = round(item["physical_stock"] * item_ppp, 2)
+
+        item["ppp"] = item_ppp
+        item["inventory_value"] = item_val
+        total_bodega_value += item_val
         
         # Calcular distribución proporcional por bodegas basándose en los ingresos históricos de mercadería
         dist_map = warehouse_distribution.get(sku, {})
@@ -167,7 +275,7 @@ def inventario():
         warehouse_shares = []
         if total_ingresos > 0:
             # Distribuir el stock disponible actual proporcionalmente
-            remaining_stock = item["stock"]
+            remaining_stock = item["physical_stock"]
             keys = list(dist_map.keys())
             for i, wh in enumerate(keys):
                 if i == len(keys) - 1:
@@ -175,7 +283,7 @@ def inventario():
                     wh_qty = remaining_stock
                 else:
                     share = dist_map[wh] / total_ingresos
-                    wh_qty = round(item["stock"] * share)
+                    wh_qty = round(item["physical_stock"] * share)
                     remaining_stock -= wh_qty
                 
                 if wh_qty > 0:
@@ -184,8 +292,8 @@ def inventario():
                     warehouse_shares.append(f"{wh}({wh_qty_display})")
         else:
             # Fallback si no hay ingresos previos registrados: poner todo el stock en la bodega 'Principal'
-            if item["stock"] > 0:
-                wh_qty_display = int(item["stock"]) if isinstance(item["stock"], (int, float)) and float(item["stock"]).is_integer() else item["stock"]
+            if item["physical_stock"] > 0:
+                wh_qty_display = int(item["physical_stock"]) if float(item["physical_stock"]).is_integer() else item["physical_stock"]
                 warehouse_shares.append(f"Principal({wh_qty_display})")
                 
         item["warehouse_display"] = ", ".join(warehouse_shares) if warehouse_shares else "Sin Stock"
@@ -200,6 +308,7 @@ def inventario():
         item["stock_percent"] = min(100, int((item["total_stock"] / max(1, item["stock"] + 100)) * 100))
         
     inventory_stats["low_stock"] = low_stock_count
+    inventory_stats["total_value"] = round(total_bodega_value, 2)
     
     from db import get_all_lot_stock
     lot_stock_list = get_all_lot_stock()
@@ -218,6 +327,7 @@ def inventario():
         inventory_stock_filters=inventory_stock_filters,
         lot_stock_list=lot_stock_list,
         warehouses_list=warehouses_list,
+        reservation_diagnostics=reservation_diagnostics,
     )
 
 @inventario_bp.route('/ingreso-mercaderia', methods=['GET', 'POST'])
@@ -313,6 +423,14 @@ def ingreso_mercaderia():
             doc_file_path = f"documentos_compra/{filename}"
 
         try:
+            # Recalcular obligatoriamente en el backend como fuente de verdad:
+            # Neto = suma de (cantidad * precio_unitario) de los productos recibidos
+            # IVA = 19% del Neto
+            # Total = Neto + IVA
+            neto_receipt = sum(item["quantity"] * item["unit_price"] for item in items)
+            iva_receipt = round(neto_receipt * 0.19)
+            total_receipt = neto_receipt + iva_receipt
+
             entry_id = register_inventory_entry(
                 po_id, order_number, ingreso_date, warehouse, notes, items,
                 document_type=document_type,
@@ -320,12 +438,14 @@ def ingreso_mercaderia():
                 document_file=doc_file_path,
             )
 
-            # Si es factura → crear registro en purchase_invoices como "Pendiente"
-            # Si es guía de despacho → crear registro como "Sin Factura" (alerta activa)
+            # Si es factura → crear registro en purchase_invoices como "Pendiente" con monto total calculado (Neto + IVA)
+            # Si es guía de despacho → crear registro como "Sin Factura" (alerta activa) con monto estimado
             if document_type == 'factura':
                 inv_status = 'Pendiente'
+                calculated_invoice_amount = total_receipt
             else:
                 inv_status = 'Sin Factura'   # guía: aún no llega la factura
+                calculated_invoice_amount = total_receipt
 
             # Obtener supplier_id de la OC
             from db import get_purchase_order
@@ -337,12 +457,12 @@ def ingreso_mercaderia():
                 'purchase_order_id':  po_id,
                 'supplier_id':        supplier_id,
                 'invoice_number':     document_number if document_type == 'factura' else '',
-                'invoice_amount':     invoice_amount or sum(item["quantity"] * item["unit_price"] for item in items),
+                'invoice_amount':     calculated_invoice_amount,
                 'invoice_date':       invoice_date,
                 'due_date':           due_date,
                 'document_file':      doc_file_path,
                 'payment_status':     inv_status,
-                'notes':              f"Doc. tipo: {document_type} N°{document_number}",
+                'notes':              f"Doc. tipo: {document_type} N°{document_number} (Neto: ${neto_receipt:,.0f} + IVA: ${iva_receipt:,.0f})",
             })
 
             flash(f"Ingreso de mercadería #{order_number} registrado con éxito y stock actualizado.", "success")
@@ -353,7 +473,7 @@ def ingreso_mercaderia():
 
     suppliers       = list_suppliers()
     warehouses      = get_page_data("ingreso_warehouses")
-    recent_ingresos = list_inventory_entries()
+    recent_ingresos = list_inventory_entries(limit=20)
     selected_po_id  = request.args.get('po_id', type=int)
 
     # Cargar OCs activas disponibles para recepcionar
@@ -518,10 +638,35 @@ def productos():
             return redirect(f"{return_to}{separator}product_id={product_id}")
         return redirect(url_for('inventario.productos'))
 
-    products = list_products()
+    from db import get_products_paginated
+
+    from core.pagination import PAGE_SIZE, parse_page
+    page = parse_page(request.args.get('page'))
+    per_page = PAGE_SIZE
+
+    search_query = (request.args.get('search') or '').strip()
+    selected_cat_filter = (request.args.get('category') or '').strip()
+    selected_type_filter = (request.args.get('product_type') or '').strip()
+
+    paginated_result = get_products_paginated(
+        page=page,
+        per_page=per_page,
+        search=search_query,
+        category=selected_cat_filter or None,
+        product_type=selected_type_filter or None
+    )
+
     return render_template(
         'productos.html',
-        products=products,
+        products=paginated_result["items"],
+        pagination=paginated_result,
+        search_query=search_query,
+        current_category=selected_cat_filter,
+        current_product_type=selected_type_filter,
+        per_page=paginated_result["per_page"],
+        current_page=paginated_result["page"],
+        total_pages=paginated_result["total_pages"],
+        total_products=paginated_result["total"],
         categories=categories,
         category_descriptions=category_descriptions,
         category_message=category_message,
@@ -530,6 +675,150 @@ def productos():
         supplier_id=supplier_id,
         supplier=supplier,
     )
+
+
+@inventario_bp.route('/productos/exportar')
+def exportar_productos_excel():
+    """Exporta el catálogo de productos (filtrado o completo) en formato Excel .xlsx"""
+    from db import list_all_products_for_export
+    from repositories.kardex_repo import get_all_products_kardex_summary
+    from services.products_excel_service import generate_products_excel
+
+    search_query = (request.args.get('search') or '').strip()
+    category_filter = (request.args.get('category') or '').strip()
+    type_filter = (request.args.get('product_type') or '').strip()
+
+    # 1. Obtener catálogo según filtros (o completo si no hay filtros)
+    products = list_all_products_for_export(
+        search=search_query or None,
+        category=category_filter or None,
+        product_type=type_filter or None
+    )
+
+    # 2. Cargar en BATCH Stock y PPP referencial de Kardex (0 queries N+1)
+    kardex_summary = get_all_products_kardex_summary()
+    for p in products:
+        sku = p.get("sku")
+        k_data = kardex_summary.get(sku, {})
+        p["current_stock"] = k_data.get("stock", 0)
+        p["ppp_cost"] = k_data.get("ppp", p.get("cost", 0.0))
+
+    excel_io = generate_products_excel(products, is_template=False)
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    filename = f"productos_{today_str}.xlsx"
+
+    return send_file(
+        excel_io,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=filename
+    )
+
+
+@inventario_bp.route('/productos/plantilla-excel')
+def plantilla_productos_excel():
+    """Descarga la plantilla vacía oficial de productos en formato Excel .xlsx"""
+    from services.products_excel_service import generate_products_excel
+
+    excel_io = generate_products_excel([], is_template=True)
+    filename = "plantilla_productos.xlsx"
+
+    return send_file(
+        excel_io,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=filename
+    )
+
+
+@inventario_bp.route('/productos/importar/preview', methods=['POST'])
+def importar_productos_preview():
+    """Valida el archivo Excel subido y genera la previsualización de diferencias"""
+    from db import get_products_lookup_maps
+    from services.products_excel_service import parse_and_validate_products_excel
+
+    if 'file' not in request.files:
+        flash("No se ha seleccionado ningún archivo para importar.", "danger")
+        return redirect(url_for('inventario.productos'))
+
+    file = request.files['file']
+    if not file or not file.filename:
+        flash("Archivo no válido o vacío.", "danger")
+        return redirect(url_for('inventario.productos'))
+
+    if not file.filename.lower().endswith('.xlsx'):
+        flash("El archivo debe tener extensión .xlsx (Excel).", "danger")
+        return redirect(url_for('inventario.productos'))
+
+    by_sku, by_id = get_products_lookup_maps()
+    result = parse_and_validate_products_excel(file.stream, by_sku, by_id)
+
+    if not result["success"]:
+        flash(result["error"], "danger")
+        return redirect(url_for('inventario.productos'))
+
+    # Guardar en almacenamiento temporal del servidor (server-side cache) con import_id seguro
+    from services.products_excel_service import store_preview_cache, pop_preview_cache
+    user_id = session.get('user_id', 'anonymous')
+    import_id = store_preview_cache(user_id, result["items"], result["summary"])
+    session['products_import_id'] = import_id
+
+    return render_template(
+        'productos_import_preview.html',
+        items=result["items"],
+        summary=result["summary"],
+        import_id=import_id
+    )
+
+
+@inventario_bp.route('/productos/importar/confirmar', methods=['POST'])
+def importar_productos_confirmar():
+    """Aplica las creaciones y actualizaciones validadas de productos en la base de datos"""
+    from db import insert_product, update_product, get_connection
+    from services.products_excel_service import pop_preview_cache
+
+    user_id = session.get('user_id', 'anonymous')
+    import_id = request.form.get('import_id') or session.pop('products_import_id', None)
+    session.pop('products_import_id', None)
+
+    if not import_id:
+        flash("La sesión de importación expiró o no es válida. Por favor vuelva a subir el archivo.", "warning")
+        return redirect(url_for('inventario.productos'))
+
+    preview_data = pop_preview_cache(import_id, user_id)
+    if not preview_data or 'items' not in preview_data:
+        flash("La sesión de importación expiró o no es válida. Por favor vuelva a subir el archivo.", "warning")
+        return redirect(url_for('inventario.productos'))
+
+    items = preview_data["items"]
+    created_count = 0
+    updated_count = 0
+    errors_count = 0
+
+    with get_connection() as conn:
+        for item in items:
+            action = item.get("action")
+            payload = item.get("payload", {})
+            target_id = item.get("target_id")
+
+            try:
+                if action == "NUEVO":
+                    payload["created_at"] = datetime.now(timezone.utc).isoformat(timespec='seconds')
+                    insert_product(payload)
+                    created_count += 1
+                elif action == "MODIFICADO" and target_id:
+                    update_product(target_id, payload)
+                    updated_count += 1
+            except Exception as e:
+                errors_count += 1
+
+    msg = f"Importación finalizada con éxito: {created_count} producto(s) creados, {updated_count} producto(s) actualizados."
+    if errors_count > 0:
+        msg += f" {errors_count} registro(s) tuvieron errores al persistir."
+    flash(msg, "success" if errors_count == 0 else "warning")
+
+    return redirect(url_for('inventario.productos'))
+
 
 @inventario_bp.route('/productos/<int:product_id>/editar', methods=['GET', 'POST'])
 def editar_producto(product_id):
@@ -705,3 +994,158 @@ def product_entries_api(code):
                 "avg_price": round(avg_price, 2),
                 "entries": entries
             })
+
+@inventario_bp.route('/kardex')
+def ver_kardex():
+    """
+    Página centralizada del Kardex Valorizado / PPP con paginación server-side.
+    - Si no se especifica producto (o product_id vacío): Muestra el listado paginado (25 por pág) con búsqueda server-side y tarjetas globales.
+    - Si se especifica product_id: Muestra los movimientos paginados (25 por pág) preservando con exactitud el cálculo continuo del PPP.
+    """
+    from db import (
+        get_product,
+        get_product_kardex_history,
+        get_all_products_kardex_paginated,
+        list_products,
+        MOVEMENT_TYPE_LABELS
+    )
+
+    all_products_list = list_products()
+    product_id = request.args.get('product_id', type=int)
+
+    selected_product = None
+    kardex_data = None
+    current_filters = {}
+
+    try:
+        page = int(request.args.get('page', 1))
+    except (ValueError, TypeError):
+        page = 1
+
+    try:
+        per_page = int(request.args.get('per_page', 25))
+    except (ValueError, TypeError):
+        per_page = 25
+
+    search_query = request.args.get('search', '').strip()
+
+    if product_id:
+        selected_product = get_product(product_id)
+        if not selected_product:
+            flash("El producto seleccionado no existe.", "warning")
+            return redirect(url_for('inventario.ver_kardex'))
+
+        order_dir = request.args.get('order', 'desc')
+        order_asc = (order_dir.lower() == 'asc')
+        start_date = request.args.get('start_date') or None
+        end_date = request.args.get('end_date') or None
+        movement_type_filter = request.args.get('movement_type') or None
+
+        kardex_data = get_product_kardex_history(
+            product_id=product_id,
+            start_date=start_date,
+            end_date=end_date,
+            movement_type_filter=movement_type_filter,
+            order_asc=order_asc,
+            page=page,
+            per_page=per_page
+        )
+        from services.stock_context import get_operational_balance
+        kardex_data['operational_balance'] = get_operational_balance(selected_product['sku'])
+        if kardex_data['operational_balance'] is not None:
+            kardex_data['stock_delta'] = round(kardex_data['current_stock'] - kardex_data['operational_balance']['physical'], 3)
+        current_filters = {
+            "order": "asc" if order_asc else "desc",
+            "start_date": start_date or "",
+            "end_date": end_date or "",
+            "movement_type": movement_type_filter or "",
+            "page": kardex_data.get("page", 1),
+            "per_page": kardex_data.get("per_page", 25)
+        }
+        all_summary = None
+    else:
+        all_summary = get_all_products_kardex_paginated(
+            page=page,
+            per_page=per_page,
+            search=search_query
+        )
+        current_filters = {
+            "search": search_query,
+            "page": all_summary["page"],
+            "per_page": all_summary["per_page"]
+        }
+
+    return render_template(
+        'kardex.html',
+        all_products=all_products_list,
+        selected_product=selected_product,
+        kardex=kardex_data,
+        all_summary=all_summary,
+        movement_type_labels=MOVEMENT_TYPE_LABELS,
+        current_filters=current_filters
+    )
+
+
+@inventario_bp.route('/productos/<int:product_id>/kardex')
+def ver_kardex_producto(product_id):
+    """Redirección o vista directa del Kardex para un producto específico conservando query params."""
+    args = dict(request.args)
+    args['product_id'] = product_id
+    return redirect(url_for('inventario.ver_kardex', **args))
+
+
+@inventario_bp.route('/api/productos/<int:product_id>/kardex')
+def api_kardex_producto(product_id):
+    """Endpoint API JSON para consultar el Kardex Valorizado de un producto con filtros y paginación opcional."""
+    from db import get_product_kardex_history
+    order_dir = request.args.get('order', 'desc')
+    order_asc = (order_dir.lower() == 'asc')
+    start_date = request.args.get('start_date') or None
+    end_date = request.args.get('end_date') or None
+    movement_type_filter = request.args.get('movement_type') or None
+    page = request.args.get('page', type=int)
+    per_page = request.args.get('per_page', type=int)
+
+    kardex_data = get_product_kardex_history(
+        product_id=product_id,
+        start_date=start_date,
+        end_date=end_date,
+        movement_type_filter=movement_type_filter,
+        order_asc=order_asc,
+        page=page,
+        per_page=per_page
+    )
+    if not kardex_data:
+        return jsonify({"error": "Producto no encontrado"}), 404
+
+    return jsonify(kardex_data)
+
+@inventario_bp.route('/api/recepciones/<int:entry_id>')
+def api_inventory_entry_detail(entry_id):
+    """
+    Endpoint API JSON para consultar el detalle completo de un ingreso de mercadería
+    específico por su ID real (inventory_entries.id).
+    Aplica RBAC y autenticación.
+    """
+    if 'user_id' not in session:
+        return jsonify({"status": "error", "message": "Autenticación requerida"}), 401
+
+    # RBAC: Requiere permiso de inventario, compras o administración/crear_registros
+    user_perms = session.get('permissions', {})
+    user_role = session.get('role_name', '')
+    has_permission = (
+        user_role in ('Administrativo', 'Gerente') or
+        user_perms.get('inventario') is True or
+        user_perms.get('compras') is True or
+        user_perms.get('productos') is True or
+        user_perms.get('administracion') is True
+    )
+    if not has_permission:
+        return jsonify({"status": "error", "message": "Acceso no autorizado a recepciones de inventario."}), 403
+
+    from db import get_inventory_entry_detail
+    detail = get_inventory_entry_detail(entry_id)
+    if not detail:
+        return jsonify({"status": "error", "message": "Ingreso de mercadería no encontrado."}), 404
+
+    return jsonify({"status": "success", "data": detail})

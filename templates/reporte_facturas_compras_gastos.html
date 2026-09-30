@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+
+{% block title %}Facturas de Compra y Gastos - Finanzas{% endblock %}
+{% block page_title %}Finanzas > Facturas de Compra y Gastos{% endblock %}
+
+{% block content %}
+<!-- Barra superior de acciones -->
+<div class="sf-action-bar" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div class="sf-action-left">
+        <h3 style="margin: 0; font-size: 20px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-file-invoice-dollar" style="color: #1e3a8a;"></i> Facturas de Compra y Gastos Operacionales
+        </h3>
+        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 13px;">
+            Visión histórica y consolidada de egresos, compras a proveedores y gastos registrados oficialmente.
+        </p>
+    </div>
+    <div class="sf-action-right" style="display: flex; gap: 10px; align-items: center;">
+        <a href="{{ url_for('reportes.reportes_cuentas_por_pagar') }}" class="btn-secondary" style="text-decoration: none; padding: 9px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; color: #991b1b; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-clock-rotate-left"></i> Ir a Cuentas por Pagar
+        </a>
+        <a href="{{ url_for('reportes.exportar_facturas_compras_gastos_excel', **filters) }}" class="btn-primary" style="text-decoration: none; padding: 9px 18px; border-radius: 6px; background: #166534; color: #fff; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+            <i class="fa-solid fa-file-excel"></i> Exportar a Excel
+        </a>
+    </div>
+</div>
+
+<!-- Tarjetas KPI Resumen -->
+<div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #3b82f6;">
+        <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Total Documentos</div>
+        <div style="font-size: 24px; font-weight: 700; color: #0f172a; margin-top: 4px;">{{ metrics.total_documentos }}</div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Registros filtrados</div>
+    </div>
+    <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #64748b;">
+        <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Total Neto</div>
+        <div style="font-size: 24px; font-weight: 700; color: #334155; margin-top: 4px;">${{ "{:,.0f}".format(metrics.total_neto) }}</div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Base imponible total</div>
+    </div>
+    <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #8b5cf6;">
+        <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Total IVA</div>
+        <div style="font-size: 24px; font-weight: 700; color: #6d28d9; margin-top: 4px;">${{ "{:,.0f}".format(metrics.total_iva) }}</div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Crédito fiscal facturas</div>
+    </div>
+    <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #1e3a8a;">
+        <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Total General</div>
+        <div style="font-size: 24px; font-weight: 700; color: #1e3a8a; margin-top: 4px;">${{ "{:,.0f}".format(metrics.total_general) }}</div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Neto + IVA consolidado</div>
+    </div>
+    <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #ef4444;">
+        <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Pendiente de Pago</div>
+        <div style="font-size: 24px; font-weight: 700; color: #b91c1c; margin-top: 4px;">${{ "{:,.0f}".format(metrics.total_pendiente) }}</div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Saldo por pagar</div>
+    </div>
+    <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #10b981;">
+        <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Total Pagado</div>
+        <div style="font-size: 24px; font-weight: 700; color: #047857; margin-top: 4px;">${{ "{:,.0f}".format(metrics.total_pagado) }}</div>
+        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Egresos ejecutados</div>
+    </div>
+</div>
+
+<!-- Panel de Filtros y Tabla -->
+<div style="background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); padding: 20px;">
+    <!-- Formulario de Filtros Server-side -->
+    <form method="GET" action="{{ url_for('reportes.reportes_facturas_compras_gastos') }}" id="filter-form" style="margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+        <input type="hidden" name="per_page" id="per_page_input" value="{{ per_page }}">
+        <input type="hidden" name="page" value="1">
+        <input type="hidden" name="sort_by" value="{{ filters.sort_by }}">
+        <input type="hidden" name="sort_order" value="{{ filters.sort_order }}">
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; align-items: flex-end;">
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Fecha Desde</label>
+                <input type="date" name="date_from" value="{{ filters.date_from }}" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Fecha Hasta</label>
+                <input type="date" name="date_to" value="{{ filters.date_to }}" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Tipo Origen</label>
+                <select name="doc_type" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white;">
+                    <option value="all" {% if filters.doc_type == 'all' %}selected{% endif %}>Todos los tipos</option>
+                    <option value="factura" {% if filters.doc_type == 'factura' %}selected{% endif %}>Factura de Compra</option>
+                    <option value="gasto" {% if filters.doc_type == 'gasto' %}selected{% endif %}>Gasto Operacional</option>
+                </select>
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Proveedor / Beneficiario</label>
+                <input type="text" name="supplier_beneficiary" value="{{ filters.supplier_beneficiary }}" placeholder="Nombre o RUT..." style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Categoría</label>
+                <select name="category" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white;">
+                    <option value="">Todas las categorías</option>
+                    <option value="Compras / Insumos" {% if filters.category == 'Compras / Insumos' %}selected{% endif %}>Compras / Insumos</option>
+                    {% for c in categories %}
+                    <option value="{{ c.name }}" {% if filters.category == c.name %}selected{% endif %}>{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px;">Estado de Pago</label>
+                <select name="payment_status" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white;">
+                    <option value="all" {% if filters.payment_status == 'all' %}selected{% endif %}>Todos los estados</option>
+                    <option value="Pendiente" {% if filters.payment_status == 'Pendiente' %}selected{% endif %}>Pendiente</option>
+                    <option value="Vencida" {% if filters.payment_status == 'Vencida' %}selected{% endif %}>Vencida</option>
+                    <option value="Pagada" {% if filters.payment_status == 'Pagada' %}selected{% endif %}>Pagada</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 14px;">
+            <div style="flex: 1; max-width: 450px;">
+                <input type="text" name="search" value="{{ filters.search }}" placeholder="Buscar por N° documento, concepto, RUT, OC..." style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <button type="submit" style="padding: 8px 16px; background: #3182ce; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-magnifying-glass"></i> Filtrar
+                </button>
+                {% if filters.date_from or filters.date_to or (filters.doc_type and filters.doc_type != 'all') or filters.supplier_beneficiary or filters.category or (filters.payment_status and filters.payment_status != 'all') or filters.search %}
+                <a href="{{ url_for('reportes.reportes_facturas_compras_gastos') }}" style="text-decoration: none; padding: 8px 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #475569; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-rotate-left"></i> Limpiar
+                </a>
+                {% endif %}
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label for="per_page_select" style="font-size: 13px; color: #475569; font-weight: 600;">Mostrar:</label>
+                <select id="per_page_select" onchange="changePerPage(this.value)" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 600; background: white; cursor: pointer;">
+                    <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                </select>
+                <span style="font-size: 13px; color: #64748b; font-weight: 500;">de <strong>{{ total_records }}</strong> docs</span>
+            </div>
+        </div>
+    </form>
+
+    <!-- Tabla de Datos -->
+    <div class="table-responsive" style="overflow-x: auto;">
+        <table class="data-table" style="width: 100%; border-collapse: collapse; min-width: 1100px; font-size: 13px;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #64748b;">
+                    <th style="padding: 10px 12px;">Fecha</th>
+                    <th style="padding: 10px 12px;">Tipo Origen</th>
+                    <th style="padding: 10px 12px;">N° Documento</th>
+                    <th style="padding: 10px 12px;">Proveedor / Beneficiario</th>
+                    <th style="padding: 10px 12px;">Categoría / Glosa</th>
+                    <th style="padding: 10px 12px; text-align: center;">N° OC</th>
+                    <th style="padding: 10px 12px; text-align: right;">Neto</th>
+                    <th style="padding: 10px 12px; text-align: right;">IVA</th>
+                    <th style="padding: 10px 12px; text-align: right;">Total</th>
+                    <th style="padding: 10px 12px; text-align: center;">Estado Pago</th>
+                    <th style="padding: 10px 12px; text-align: center;">Detalle / Archivo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if items %}
+                    {% for it in items %}
+                    <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s ease;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                        <td style="padding: 10px 12px; white-space: nowrap; color: #334155;">
+                            {{ it.doc_date or '—' }}
+                            {% if it.due_date and it.payment_status != 'Pagada' %}
+                            <div style="font-size: 11px; color: #94a3b8;">Vence: {{ it.due_date }}</div>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px;">
+                            {% if it.origin_code == 'factura' %}
+                            <span style="background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px;">
+                                <i class="fa-solid fa-receipt"></i> Factura Compra
+                            </span>
+                            {% else %}
+                            <span style="background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px;">
+                                <i class="fa-solid fa-bolt"></i> Gasto Operacional
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px; font-family: monospace; font-weight: 600; color: #0f172a;">
+                            {{ it.doc_number }}
+                        </td>
+                        <td style="padding: 10px 12px;">
+                            <div style="font-weight: 600; color: #1e293b;">{{ it.party_name }}</div>
+                            {% if it.party_rut %}
+                            <div style="font-size: 11px; color: #64748b;">RUT: {{ it.party_rut }}</div>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px;">
+                            <span style="font-weight: 500; color: #475569;">{{ it.category_name }}</span>
+                            {% if it.description %}
+                            <div style="font-size: 11px; color: #94a3b8; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                {{ it.description }}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: center;">
+                            {% if it.oc_number %}
+                            <span style="background: #f1f5f9; color: #334155; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; font-weight: 600;">
+                                {{ it.oc_number }}
+                            </span>
+                            {% else %}
+                            <span style="color: #cbd5e1;">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: right; color: #475569;">
+                            ${{ "{:,.0f}".format(it.neto) }}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: right; color: #6d28d9;">
+                            ${{ "{:,.0f}".format(it.iva) }}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: right; font-weight: 700; color: #0f172a;">
+                            ${{ "{:,.0f}".format(it.total) }}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: center;">
+                            {% if it.payment_status in ('Pagada', 'Pagado') %}
+                            <span style="background: #def7ec; color: #03543f; font-weight: 600; padding: 3px 8px; border-radius: 12px; font-size: 11px;">
+                                <i class="fa-solid fa-circle-check"></i> Pagada
+                            </span>
+                            {% elif it.payment_status == 'Vencida' %}
+                            <span style="background: #fde8e8; color: #9b1c1c; font-weight: 600; padding: 3px 8px; border-radius: 12px; font-size: 11px;">
+                                <i class="fa-solid fa-triangle-exclamation"></i> Vencida
+                            </span>
+                            {% else %}
+                            <span style="background: #fef08a; color: #713f12; font-weight: 600; padding: 3px 8px; border-radius: 12px; font-size: 11px;">
+                                <i class="fa-solid fa-clock"></i> Pendiente
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px 12px; text-align: center;">
+                            {% if it.doc_file %}
+                            <a href="/uploads/{{ it.doc_file }}" target="_blank" title="Ver comprobante adjunto" style="color: #2563eb; font-size: 14px; text-decoration: none; padding: 4px 6px;">
+                                <i class="fa-solid fa-file-pdf"></i>
+                            </a>
+                            {% elif it.origin_code == 'factura' %}
+                            <a href="{{ url_for('compras.cuentas_por_pagar') }}?open_attach={{ it.id }}" title="Gestionar en Cuentas por Pagar" style="color: #64748b; font-size: 12px; text-decoration: none;">
+                                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                            </a>
+                            {% else %}
+                            <span style="color: #cbd5e1;">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="11" style="text-align: center; color: #64748b; padding: 36px;">
+                            <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">No se encontraron facturas o gastos</div>
+                            <div style="font-size: 13px;">Prueba ajustando los filtros de búsqueda o fechas.</div>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginación Server-side -->
+    {% if total_pages > 1 %}
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 20px; padding-top: 14px; border-top: 1px solid #e2e8f0;">
+        <div style="font-size: 13px; color: #64748b;">
+            Página <strong>{{ current_page }}</strong> de <strong>{{ total_pages }}</strong> (Total: {{ total_records }} registros)
+        </div>
+        <div style="display: flex; gap: 6px;">
+            {% if current_page > 1 %}
+            <a href="{{ url_for('reportes.reportes_facturas_compras_gastos', page=current_page-1, per_page=per_page, **filters) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; text-decoration: none; background: white; font-weight: 600;">
+                ◀ Anterior
+            </a>
+            {% endif %}
+
+            {% for p in range(1, total_pages + 1) %}
+                {% if p == current_page %}
+                <span style="padding: 6px 12px; border: 1px solid #3182ce; border-radius: 6px; font-size: 13px; background: #3182ce; color: white; font-weight: 600;">
+                    {{ p }}
+                </span>
+                {% elif p <= 3 or p >= total_pages - 1 or (p >= current_page - 1 and p <= current_page + 1) %}
+                <a href="{{ url_for('reportes.reportes_facturas_compras_gastos', page=p, per_page=per_page, **filters) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; text-decoration: none; background: white; font-weight: 600;">
+                    {{ p }}
+                </a>
+                {% elif p == 4 or p == total_pages - 2 %}
+                <span style="padding: 6px 8px; color: #94a3b8;">...</span>
+                {% endif %}
+            {% endfor %}
+
+            {% if current_page < total_pages %}
+            <a href="{{ url_for('reportes.reportes_facturas_compras_gastos', page=current_page+1, per_page=per_page, **filters) }}" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; text-decoration: none; background: white; font-weight: 600;">
+                Siguiente ▶
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function changePerPage(val) {
+    document.getElementById('per_page_input').value = val;
+    document.getElementById('filter-form').submit();
+}
+</script>
+{% endblock %}

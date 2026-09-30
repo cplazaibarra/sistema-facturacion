@@ -1,4 +1,10 @@
 import pytest
+from core.test_database_guard import assert_current_test_database_authorized
+
+# This runs before dotenv or application imports. A normal .env is never a
+# permissible implicit target for pytest.
+assert_current_test_database_authorized()
+
 from dotenv import load_dotenv
 load_dotenv()
 from app import app

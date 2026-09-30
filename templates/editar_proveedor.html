@@ -45,8 +45,16 @@
                 </div>
             </div>
 
-            <!-- Sitio Web y Descripción -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+            <!-- Sitio Web, Descripción y Forma de Pago -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                <div>
+                    <label style="font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Forma de Pago (Predeterminada) *</label>
+                    <select name="default_payment_terms" class="form-control" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: white;">
+                        <option value="CASH" {% if supplier.default_payment_terms == 'CASH' %}selected{% endif %}>Al contado</option>
+                        <option value="NET_30" {% if not supplier.default_payment_terms or supplier.default_payment_terms == 'NET_30' %}selected{% endif %}>A 30 días</option>
+                        <option value="NET_60" {% if supplier.default_payment_terms == 'NET_60' %}selected{% endif %}>A 60 días</option>
+                    </select>
+                </div>
                 <div>
                     <label style="font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Sitio Web</label>
                     <input type="text" name="website" class="form-control" value="{{ supplier.website or '' }}" placeholder="www.proveedor.com" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">

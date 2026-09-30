@@ -107,11 +107,17 @@
                         {% endif %}
                     </td>
                     <td>{{ user.created_at[:10] }}</td>
-                    <td>
-                        <a href="{{ url_for('usuarios.editar_usuario', user_id=user.id) }}" class="btn-small">Editar</a>
-                        <form method="POST" action="{{ url_for('usuarios.eliminar_usuario', user_id=user.id) }}" style="display: inline;" onsubmit="return confirm('¿Estás seguro?');">
-                            <button type="submit" class="btn-small" style="background-color: #D91C1C;">Eliminar</button>
-                        </form>
+                    <td class="actions-cell">
+                        <div style="display: inline-flex; gap: 6px; justify-content: flex-end;">
+                            <a href="{{ url_for('usuarios.editar_usuario', user_id=user.id) }}" class="btn-icon" style="color: #2563eb;" title="Editar Usuario">
+                                <i class="fa-solid fa-user-pen"></i>
+                            </a>
+                            <form method="POST" action="{{ url_for('usuarios.eliminar_usuario', user_id=user.id) }}" style="display: inline; margin: 0;" onsubmit="return confirm('¿Estás seguro de eliminar este usuario?');">
+                                <button type="submit" class="btn-icon" style="color: #dc2626;" title="Eliminar Usuario">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}

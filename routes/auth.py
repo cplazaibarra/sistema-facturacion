@@ -62,7 +62,21 @@ def login():
 
             log_security_event('LOGIN_SUCCESS', username, f"Rol: {user['role_name']}")
             flash(f'¡Bienvenido {user["full_name"]}!', 'success')
-            return redirect(url_for('dashboard.dashboard'))
+            if user['role_name'] == 'Operario de Bodega' or perms.get('operario_bodega'):
+                return redirect(url_for('operario.home'))
+            if perms.get('dashboard') or user['role_name'].lower() in ('administrativo', 'administrador', 'admin'):
+                return redirect(url_for('dashboard.dashboard'))
+            if perms.get('ventas'):
+                return redirect(url_for('ventas.ventas'))
+            if perms.get('inventario'):
+                return redirect(url_for('inventario.inventario'))
+            if perms.get('productos'):
+                return redirect(url_for('inventario.productos'))
+            if perms.get('reportes'):
+                return redirect(url_for('reportes.reportes_cuentas_por_cobrar'))
+            if perms.get('usuarios'):
+                return redirect(url_for('usuarios.usuarios'))
+            return render_template('403.html', permission='un módulo autorizado'), 403
         else:
             log_security_event('LOGIN_FAILED', username, "Credenciales inválidas o usuario inactivo", level='warning')
             flash('Usuario o contraseña incorrectos.', 'danger')

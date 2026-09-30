@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Error Interno del Sistema (500) - Facturación Bodega Miel{% endblock %}
+{% block page_title %}Error del Servidor{% endblock %}
+
+{% block content %}
+<div style="max-width: 650px; margin: 40px auto; text-align: center; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+    <div style="font-size: 56px; color: #ef4444; margin-bottom: 20px;">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+    </div>
+    <h2 style="font-size: 24px; font-weight: 700; color: #1e293b; margin-bottom: 12px;">Ocurrió un problema al procesar la solicitud (500)</h2>
+    <p style="color: #64748b; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
+        El sistema encontró una dificultad inesperada al procesar su solicitud. Sus datos transaccionales se encuentran a salvo y el incidente ha quedado registrado en el registro técnico.
+    </p>
+    {% if error_ref %}
+    <div style="display: inline-block; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 6px 14px; margin-bottom: 24px; font-size: 13px; color: #475569;">
+        Código de referencia para soporte: <strong style="font-family: monospace; color: #1e293b;">{{ error_ref }}</strong>
+    </div>
+    {% endif %}
+    <div style="display: flex; justify-content: center; gap: 15px;">
+        <a href="{{ url_for('dashboard.dashboard') }}" class="btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-house"></i> Ir al Dashboard
+        </a>
+        <a href="javascript:location.reload()" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-rotate-right"></i> Reintentar
+        </a>
+    </div>
+</div>
+{% endblock %}

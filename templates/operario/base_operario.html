@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#10B981">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}Bodega{% endblock %} - ERP Operario</title>
+  
+  <link rel="manifest" href="/operario/manifest.json">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/operario.css') }}?v=1">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+  <!-- Banner Offline Dinámico -->
+  <div id="offline-banner">
+    <i class="fa-solid fa-triangle-exclamation"></i> SIN CONEXIÓN — No se pudo confirmar la operación con el servidor.
+  </div>
+
+  <!-- Contenido Específico de cada Pantalla -->
+  {% block content %}{% endblock %}
+
+  <!-- Navegación Inferior Fija (Inicio | Escanear | Perfil) -->
+  <nav class="bottom-nav">
+    <a href="/operario" class="nav-tab {% if request.path == '/operario' %}active{% endif %}">
+      <i class="fa-solid fa-house"></i>
+      <span>Inicio</span>
+    </a>
+    <a href="/operario/escanear" class="nav-tab {% if request.path == '/operario/escanear' %}active{% endif %}">
+      <i class="fa-solid fa-barcode"></i>
+      <span>Escanear</span>
+    </a>
+    <a href="/operario/perfil" class="nav-tab {% if request.path == '/operario/perfil' %}active{% endif %}">
+      <i class="fa-solid fa-user"></i>
+      <span>Perfil</span>
+    </a>
+  </nav>
+
+  <script>
+    // Detector de conectividad
+    function updateOnlineStatus() {
+      const banner = document.getElementById('offline-banner');
+      if (!navigator.onLine) {
+        banner.style.display = 'block';
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    updateOnlineStatus();
+
+    // Anti Doble-Submit en formularios
+    document.addEventListener('DOMContentLoaded', () => {
+      const forms = document.querySelectorAll('form');
+      forms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+          if (!navigator.onLine) {
+            e.preventDefault();
+            alert("SIN CONEXIÓN: Conéctese a internet para confirmar la operación.");
+            return false;
+          }
+          const submitBtn = form.querySelector('button[type="submit"]');
+          if (submitBtn) {
+            if (submitBtn.classList.contains('is-loading')) {
+              e.preventDefault();
+              return false;
+            }
+            submitBtn.classList.add('is-loading');
+            submitBtn.disabled = true;
+          }
+        });
+      });
+    });
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
