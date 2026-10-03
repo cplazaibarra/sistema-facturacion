@@ -205,3 +205,151 @@ def calculate_next_occurrence_date(expense, as_of=None):
     dates = _occurrence_dates(exp_copy, as_of, date(as_of.year + 2, 12, 31))
     return dates[0] if dates else None
 
+
+def get_operational_expense_occurrence(occurrence_id):
+    """Obtiene una ocurrencia específica con los datos de su regla maestra de gasto."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT o.*,
+                       e.name AS expense_name,
+                       e.category,
+                       COALESCE(c.name, e.category, 'Operacional') AS category_name,
+                       e.beneficiary,
+                       e.amount AS default_amount,
+                       e.amount_type,
+                       ba.bank_name,
+                       ba.account_number
+                FROM operational_expense_occurrences o
+                JOIN operational_expenses e ON e.id = o.expense_id
+                LEFT JOIN expense_categories c ON c.id = e.category_id
+                LEFT JOIN bank_accounts ba ON ba.id = COALESCE(o.bank_account_id, e.bank_account_id)
+                WHERE o.id = %s
+            """, (occurrence_id,))
+            row = cur.fetchone()
+            return dict(row) if row else None
+
+
+def list_occurrences_for_expense(expense_id):
+    """Lista las ocurrencias registradas para una regla de gasto."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT o.*, ba.bank_name, ba.account_number
+                FROM operational_expense_occurrences o
+                LEFT JOIN bank_accounts ba ON ba.id = o.bank_account_id
+                WHERE o.expense_id = %s
+                ORDER BY o.due_date DESC
+            """, (expense_id,))
+            return [dict(r) for r in cur.fetchall()]
+
+
+def materialize_next_occurrence(expense_id, user_id=None, override_due_date=None, override_amount=None):
+    """
+    Materializa en operational_expense_occurrences la próxima ocurrencia de la regla recurrente.
+    Si ya existe una ocurrencia para esa fecha, retorna la existente.
+    """
+    expense = get_operational_expense(expense_id)
+    if not expense:
+        raise ValueError("El gasto operacional no existe.")
+    if expense.get("status") != "Activo":
+        raise ValueError("No se pueden generar ocurrencias para un gasto inactivo.")
+
+    due_d = override_due_date or calculate_next_occurrence_date(expense)
+    if not due_d:
+        due_d = expense.get("start_date") or date.today()
+
+    if isinstance(due_d, str):
+        from datetime import datetime
+        due_d = datetime.strptime(due_d.split("T")[0], "%Y-%m-%d").date()
+
+    amount = override_amount if override_amount is not None else float(expense["amount"])
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id FROM operational_expense_occurrences
+                WHERE expense_id = %s AND due_date = %s
+            """, (expense_id, due_d))
+            existing = cur.fetchone()
+            if existing:
+                return existing["id"]
+
+            notes = f"Período generado: {due_d.strftime('%m/%Y')}"
+            cur.execute("""
+                INSERT INTO operational_expense_occurrences
+                (expense_id, due_date, amount, status, notes, bank_account_id)
+                VALUES (%s, %s, %s, 'Proyectado', %s, %s)
+                RETURNING id
+            """, (expense_id, due_d, amount, notes, expense.get("bank_account_id")))
+            occ_id = cur.fetchone()["id"]
+            _audit(cur, expense_id, "OCCURRENCE_CREATED", user_id, {
+                "occurrence_id": occ_id,
+                "due_date": str(due_d),
+                "amount": amount
+            })
+        conn.commit()
+    return occ_id
+
+
+def update_operational_expense_occurrence(occurrence_id, data, user_id=None):
+    """
+    Actualiza la ocurrencia específica del período (monto real, factura, adjunto o pago).
+    REGLA ARQUITECTÓNICA: NUNCA altera la regla recurrente en operational_expenses.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, expense_id, amount, status FROM operational_expense_occurrences WHERE id = %s FOR UPDATE", (occurrence_id,))
+            occ = cur.fetchone()
+            if not occ:
+                return False
+
+            expense_id = occ["expense_id"]
+            amount = data.get("amount")
+            if amount is None:
+                amount = occ["amount"]
+
+            due_date = data.get("due_date")
+            invoice_number = data.get("invoice_number")
+            invoice_date = data.get("invoice_date")
+            document_file = data.get("document_file")
+            notes = data.get("notes")
+            status = data.get("status") or occ["status"]
+            paid_date = data.get("paid_date")
+            payment_amount = data.get("payment_amount")
+            bank_account_id = data.get("bank_account_id")
+
+            cur.execute("""
+                UPDATE operational_expense_occurrences
+                SET amount = %s,
+                    due_date = COALESCE(%s, due_date),
+                    invoice_number = COALESCE(%s, invoice_number),
+                    invoice_date = COALESCE(%s, invoice_date),
+                    document_file = COALESCE(%s, document_file),
+                    notes = COALESCE(%s, notes),
+                    status = %s,
+                    paid_date = %s,
+                    payment_amount = %s,
+                    bank_account_id = %s
+                WHERE id = %s
+            """, (
+                amount,
+                due_date,
+                invoice_number,
+                invoice_date,
+                document_file,
+                notes,
+                status,
+                paid_date,
+                payment_amount,
+                bank_account_id,
+                occurrence_id
+            ))
+            _audit(cur, expense_id, "OCCURRENCE_UPDATED", user_id, {
+                "occurrence_id": occurrence_id,
+                "changes": data
+            })
+        conn.commit()
+    return True
+
+

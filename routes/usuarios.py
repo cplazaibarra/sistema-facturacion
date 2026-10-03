@@ -76,8 +76,14 @@ def gastos_operacionales():
             flash('Frecuencia o tipo de monto inválido.', 'danger')
         else:
             try:
-                create_operational_expense(data, session.get('user_id'))
+                expense_id = create_operational_expense(data, session.get('user_id'))
                 log_security_event('OPERATIONAL_EXPENSE_CREATED', session.get('username'), data['name'])
+                if data.get('status', 'Activo') == 'Activo':
+                    from repositories.operational_expenses_repo import materialize_next_occurrence
+                    try:
+                        materialize_next_occurrence(expense_id, session.get('user_id'))
+                    except Exception:
+                        pass
                 flash('Gasto operacional creado correctamente.', 'success')
             except ValueError as exc:
                 flash(str(exc), 'warning')
@@ -184,6 +190,113 @@ def eliminar_gasto_operacional(expense_id):
     else:
         flash('Este gasto posee historial y no puede eliminarse físicamente. Puedes desactivarlo.', 'warning')
     return redirect(url_for('usuarios.gastos_operacionales'))
+
+
+@usuarios_bp.route('/administracion/gastos-operacionales/<int:expense_id>/generar-ocurrencia', methods=['POST'])
+@require_permission('administracion')
+def generar_ocurrencia_gasto_operacional(expense_id):
+    """Genera la ocurrencia periódica de este gasto en Cuentas por Pagar."""
+    from repositories.operational_expenses_repo import materialize_next_occurrence
+    try:
+        override_due_date = request.form.get('due_date') or None
+        override_amount = float(request.form.get('amount')) if request.form.get('amount') else None
+        occ_id = materialize_next_occurrence(expense_id, session.get('user_id'), override_due_date=override_due_date, override_amount=override_amount)
+        flash(f'Período generado exitosamente en Cuentas por Pagar (ID #{occ_id}).', 'success')
+    except Exception as exc:
+        flash(f'Error al generar período: {str(exc)}', 'danger')
+
+    redirect_to = request.form.get('redirect_to')
+    if redirect_to == 'cxp':
+        return redirect(url_for('reportes.reportes_cuentas_por_pagar'))
+    return redirect(url_for('usuarios.gastos_operacionales'))
+
+
+@usuarios_bp.route('/administracion/gastos-operacionales/ocurrencias/<int:occurrence_id>/editar', methods=['POST'])
+def editar_ocurrencia_gasto_operacional(occurrence_id):
+    """
+    Actualiza la ocurrencia específica del período (monto real, factura, adjunto o pago).
+    Permite acceso a usuarios con permiso de 'reportes' o 'administracion'.
+    """
+    perms = session.get('permissions', {})
+    if not (perms.get('reportes') or perms.get('administracion')):
+        flash('No tienes permisos para gestionar obligaciones.', 'danger')
+        return redirect(url_for('reportes.reportes_cuentas_por_pagar'))
+
+    from repositories.operational_expenses_repo import get_operational_expense_occurrence, update_operational_expense_occurrence
+    import os
+    from werkzeug.utils import secure_filename
+    from utils import allowed_file
+
+    occ = get_operational_expense_occurrence(occurrence_id)
+    if not occ:
+        flash('La ocurrencia de gasto operacional no existe.', 'warning')
+        return redirect(url_for('reportes.reportes_cuentas_por_pagar'))
+
+    # Manejar subida de archivo de factura si viene
+    document_file_path = occ.get('document_file')
+    doc_file = request.files.get('document_file')
+    if doc_file and doc_file.filename:
+        if allowed_file(doc_file.filename):
+            upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'documentos_compra')
+            os.makedirs(upload_dir, exist_ok=True)
+            clean_name = secure_filename(doc_file.filename)
+            ext = os.path.splitext(clean_name)[1].lower()
+            safe_base = secure_filename(f"gasto_gop_{occurrence_id}_{clean_name[:15]}")
+            filename = f"{safe_base}{ext}"
+            dest_path = os.path.join(upload_dir, filename)
+            doc_file.save(dest_path)
+            document_file_path = f"documentos_compra/{filename}"
+        else:
+            flash("Formato de archivo no permitido. Use PNG, JPG, PDF o WEBP.", "danger")
+            return redirect(url_for('reportes.reportes_cuentas_por_pagar'))
+
+    try:
+        new_amount = float(request.form.get('amount')) if request.form.get('amount') else float(occ['amount'])
+    except (ValueError, TypeError):
+        new_amount = float(occ['amount'])
+
+    due_date = request.form.get('due_date') or str(occ.get('due_date'))
+    invoice_number = request.form.get('invoice_number', '').strip() or None
+    invoice_date = request.form.get('invoice_date') or None
+    notes = request.form.get('notes', '').strip() or None
+
+    # Pago opcional directo desde el modal de CxP
+    mark_as_paid = request.form.get('mark_as_paid') == '1'
+    status = occ.get('status', 'Proyectado')
+    paid_date = occ.get('paid_date')
+    payment_amount = occ.get('payment_amount')
+    bank_account_id = occ.get('bank_account_id')
+
+    if mark_as_paid:
+        status = 'Pagado'
+        paid_date = request.form.get('paid_date') or date.today().isoformat()
+        try:
+            payment_amount = float(request.form.get('payment_amount')) if request.form.get('payment_amount') else new_amount
+        except (ValueError, TypeError):
+            payment_amount = new_amount
+        try:
+            bank_account_id = int(request.form.get('bank_account_id')) if request.form.get('bank_account_id') else None
+        except (ValueError, TypeError):
+            bank_account_id = None
+
+    data_update = {
+        'amount': new_amount,
+        'due_date': due_date,
+        'invoice_number': invoice_number,
+        'invoice_date': invoice_date,
+        'document_file': document_file_path,
+        'notes': notes,
+        'status': status,
+        'paid_date': paid_date,
+        'payment_amount': payment_amount,
+        'bank_account_id': bank_account_id,
+    }
+
+    update_operational_expense_occurrence(occurrence_id, data_update, session.get('user_id'))
+    log_security_event('OPERATIONAL_EXPENSE_OCCURRENCE_UPDATED', session.get('username'), f'Ocurrencia {occurrence_id}')
+    flash('Obligación de gasto actualizada correctamente. La regla recurrente maestra se mantiene intacta.', 'success')
+
+    return redirect(url_for('reportes.reportes_cuentas_por_pagar'))
 
 @usuarios_bp.route('/administracion/listas-precios', methods=['GET', 'POST'])
 @require_permission('administracion')

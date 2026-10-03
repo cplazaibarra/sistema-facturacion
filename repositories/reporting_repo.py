@@ -1344,9 +1344,10 @@ def get_purchases_and_expenses_report_data(
                         e.id AS expense_id,
                         'Gasto Operacional' AS doc_type,
                         'gasto' AS doc_type_code,
-                        TO_CHAR(COALESCE(o.due_date, e.start_date), 'YYYY-MM-DD') AS doc_date,
+                        TO_CHAR(COALESCE(o.invoice_date, o.due_date, e.start_date), 'YYYY-MM-DD') AS doc_date,
                         TO_CHAR(COALESCE(o.due_date, e.start_date), 'YYYY-MM-DD') AS due_date,
-                        'GOP-' || LPAD(o.id::text, 5, '0') AS doc_number,
+                        COALESCE(NULLIF(o.invoice_number, ''), 'GOP-' || LPAD(o.id::text, 5, '0')) AS doc_number,
+                        o.invoice_number,
                         e.name AS expense_name,
                         COALESCE(NULLIF(e.beneficiary, ''), e.name) AS party_name,
                         '' AS party_rut,
@@ -1363,7 +1364,7 @@ def get_purchases_and_expenses_report_data(
                         'Transferencia' AS payment_method,
                         COALESCE(ba.bank_name, '') AS bank_name,
                         COALESCE(ba.account_number, '') AS bank_account_number,
-                        '' AS doc_file,
+                        COALESCE(o.document_file, '') AS doc_file,
                         '' AS payment_proof_file
                     FROM operational_expense_occurrences o
                     JOIN operational_expenses e ON e.id = o.expense_id
@@ -1386,6 +1387,8 @@ def get_purchases_and_expenses_report_data(
                         "doc_date": row["doc_date"] or "",
                         "due_date": row["due_date"] or "",
                         "doc_number": row["doc_number"] or "",
+                        "invoice_number": row["invoice_number"] or "",
+                        "doc_file": row["doc_file"] or "",
                         "party_name": row["party_name"] or "",
                         "party_rut": "",
                         "category_name": row["category_name"] or "Operacional",

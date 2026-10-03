@@ -235,9 +235,18 @@
                             <a href="{{ url_for('compras.cuentas_por_pagar') }}?open_pay={{ it.id }}" title="Registrar Pago Oficial" style="padding: 5px 10px; background: #059669; color: white; border-radius: 5px; text-decoration: none; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
                                 <i class="fa-solid fa-credit-card"></i> Pagar
                             </a>
+                            {% elif it.origin_code == 'gasto' %}
+                            <button type="button" onclick='openGastoOccurrenceModal({{ it|tojson|safe }})' title="Ajustar Monto / Subir Factura / Pagar" style="padding: 5px 10px; background: #2563eb; color: white; border: none; border-radius: 5px; font-size: 11px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="fa-solid fa-file-invoice"></i> Gestionar
+                            </button>
+                            {% if it.doc_file %}
+                            <a href="/uploads/{{ it.doc_file }}" target="_blank" title="Ver Factura Adjunta" style="padding: 5px 8px; background: #f1f5f9; color: #1e40af; border: 1px solid #cbd5e1; border-radius: 5px; text-decoration: none; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; margin-left: 4px;">
+                                <i class="fa-solid fa-paperclip"></i>
+                            </a>
+                            {% endif %}
                             {% else %}
-                            <a href="{{ url_for('usuarios.gastos_operacionales') }}" title="Ir a Gastos Operacionales" style="padding: 5px 10px; background: #475569; color: white; border-radius: 5px; text-decoration: none; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
-                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver Gasto
+                            <a href="{{ url_for('reportes.finanzas_deudas') }}" title="Ir a Deudas" style="padding: 5px 10px; background: #475569; color: white; border-radius: 5px; text-decoration: none; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver Deuda
                             </a>
                             {% endif %}
                         </td>
@@ -294,10 +303,140 @@
     {% endif %}
 </div>
 
+<!-- Modal para Gestionar Ocurrencia de Gasto Operacional (Ajustar monto, N° Factura, Archivo, Pago) -->
+<div id="gasto-occurrence-modal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); z-index:2500; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:#fff; border-radius:12px; width:580px; max-width:100%; max-height:92vh; overflow-y:auto; box-shadow:0 20px 25px -5px rgba(0,0,0,0.2); padding:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">
+            <div>
+                <h3 style="margin:0; font-size:18px; color:#1e293b; font-weight:700;" id="gasto-modal-title">
+                    <i class="fa-solid fa-file-invoice-dollar" style="color:#2563eb;"></i> Gestionar Período de Gasto
+                </h3>
+                <p style="margin:4px 0 0 0; color:#64748b; font-size:12px;" id="gasto-modal-subtitle">
+                    Obligación de período. Los ajustes aquí aplicados no modifican la regla maestra recurrente.
+                </p>
+            </div>
+            <button type="button" onclick="closeGastoOccurrenceModal()" style="background:none; border:none; font-size:20px; color:#94a3b8; cursor:pointer;">&times;</button>
+        </div>
+
+        <form id="gasto-occurrence-form" method="POST" enctype="multipart/form-data">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;">Gasto / Concepto</label>
+                    <input type="text" id="gasto-concept" readonly style="width:100%; padding:8px 10px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#334155;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;">Vencimiento del Período *</label>
+                    <input type="date" name="due_date" id="gasto-due-date" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;">Monto Real / Cobrado ($) *</label>
+                    <input type="number" step="0.01" min="0" name="amount" id="gasto-amount" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:700; color:#1e293b;">
+                    <span style="font-size:11px; color:#64748b;">Ajustar si difiere del monto estimado base</span>
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;">N° Factura / Boleta / Folio</label>
+                    <input type="text" name="invoice_number" id="gasto-invoice-number" placeholder="Ej: FAC-10492" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                </div>
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Factura o Comprobante Adjunto (PDF, Imagen)
+                </label>
+                <input type="file" name="document_file" id="gasto-doc-file" accept=".pdf,.png,.jpg,.jpeg,.webp" style="width:100%; padding:7px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; background:#fff;">
+                <div id="gasto-current-doc" style="font-size:11px; margin-top:4px; color:#2563eb; display:none;"></div>
+            </div>
+
+            <div style="margin-bottom:16px;">
+                <label style="display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:4px;">Notas u Observaciones del Período</label>
+                <textarea name="notes" id="gasto-notes" rows="2" placeholder="Detalles de la factura o cobro..." style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;"></textarea>
+            </div>
+
+            <!-- Bloque opcional de pago inmediato -->
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:16px;">
+                <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#1e293b; cursor:pointer;">
+                    <input type="checkbox" name="mark_as_paid" value="1" id="gasto-mark-paid" onchange="toggleGastoPaymentFields(this.checked)">
+                    <span>Registrar pago ejecutado para esta obligación</span>
+                </label>
+                <div id="gasto-payment-fields" style="display:none; margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div>
+                        <label style="display:block; font-size:11px; font-weight:600; color:#64748b; margin-bottom:3px;">Fecha de Pago</label>
+                        <input type="date" name="paid_date" id="gasto-paid-date" style="width:100%; padding:6px 8px; border:1px solid #cbd5e1; border-radius:5px; font-size:12px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:11px; font-weight:600; color:#64748b; margin-bottom:3px;">Cuenta Bancaria de Salida</label>
+                        <select name="bank_account_id" id="gasto-bank-account" style="width:100%; padding:6px 8px; border:1px solid #cbd5e1; border-radius:5px; font-size:12px; background:white;">
+                            <option value="">-- Sin cuenta --</option>
+                            {% for b in bank_accounts %}
+                            <option value="{{ b.id }}">{{ b.bank_name }} · {{ b.account_number }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #e2e8f0; padding-top:14px;">
+                <button type="button" onclick="closeGastoOccurrenceModal()" style="padding:8px 16px; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#475569; cursor:pointer;">
+                    Cancelar
+                </button>
+                <button type="submit" style="padding:8px 18px; background:#2563eb; border:none; border-radius:6px; font-size:13px; font-weight:600; color:white; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                    <i class="fa-solid fa-floppy-disk"></i> Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 function changePerPage(val) {
     document.getElementById('per_page_input').value = val;
     document.getElementById('filter-form').submit();
 }
+
+function openGastoOccurrenceModal(item) {
+    const form = document.getElementById('gasto-occurrence-form');
+    form.action = `/administracion/gastos-operacionales/ocurrencias/${item.id}/editar`;
+    document.getElementById('gasto-concept').value = `${item.party_name} (${item.category_name})`;
+    document.getElementById('gasto-due-date').value = item.due_date || '';
+    document.getElementById('gasto-amount').value = item.total || '';
+    document.getElementById('gasto-invoice-number').value = item.invoice_number || '';
+    document.getElementById('gasto-notes').value = item.description || '';
+
+    const docDiv = document.getElementById('gasto-current-doc');
+    if (item.doc_file) {
+        docDiv.innerHTML = `<i class="fa-solid fa-paperclip"></i> Archivo actual: <a href="/uploads/${item.doc_file}" target="_blank" style="color:#2563eb; text-decoration:underline;">Ver documento</a>`;
+        docDiv.style.display = 'block';
+    } else {
+        docDiv.style.display = 'none';
+    }
+
+    const markPaidCheckbox = document.getElementById('gasto-mark-paid');
+    markPaidCheckbox.checked = false;
+    toggleGastoPaymentFields(false);
+
+    document.getElementById('gasto-occurrence-modal').style.display = 'flex';
+}
+
+function closeGastoOccurrenceModal() {
+    document.getElementById('gasto-occurrence-modal').style.display = 'none';
+}
+
+function toggleGastoPaymentFields(show) {
+    const fields = document.getElementById('gasto-payment-fields');
+    fields.style.display = show ? 'grid' : 'none';
+    if (show) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('gasto-paid-date').value = todayStr;
+    }
+}
+
+document.getElementById('gasto-occurrence-modal').addEventListener('click', function(e) {
+    if (e.target.id === 'gasto-occurrence-modal') {
+        closeGastoOccurrenceModal();
+    }
+});
 </script>
 {% endblock %}
