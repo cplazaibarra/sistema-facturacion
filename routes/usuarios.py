@@ -40,6 +40,7 @@ def _operational_expense_form_data():
         'category_id': request.form.get('category_id', type=int),
         'description': request.form.get('description', '').strip(),
         'amount_type': request.form.get('amount_type', 'Fijo').strip(),
+        'tax_condition': request.form.get('tax_condition', 'IVA incluido').strip(),
         'frequency': request.form.get('frequency', 'Mensual').strip(),
         'start_date': request.form.get('start_date', '').strip(),
         'due_rule': request.form.get('due_rule', 'Día del mes').strip(),
@@ -72,8 +73,8 @@ def gastos_operacionales():
         data = _operational_expense_form_data()
         if not data['name'] or not data.get('category_id') or data['amount'] <= 0 or not data['start_date']:
             flash('Nombre, categoría, monto y fecha de inicio son obligatorios.', 'warning')
-        elif data['frequency'] not in {'Una vez', 'Diario', 'Semanal', 'Quincenal', 'Mensual', 'Bimestral', 'Trimestral', 'Semestral', 'Anual'} or data['amount_type'] not in {'Fijo', 'Estimado'}:
-            flash('Frecuencia o tipo de monto inválido.', 'danger')
+        elif data['frequency'] not in {'Una vez', 'Diario', 'Semanal', 'Quincenal', 'Mensual', 'Bimestral', 'Trimestral', 'Semestral', 'Anual'} or data['amount_type'] not in {'Fijo', 'Estimado'} or data['tax_condition'] not in {'IVA incluido', 'Exento de IVA'}:
+            flash('Frecuencia, tipo de monto o condición de IVA inválido.', 'danger')
         else:
             try:
                 expense_id = create_operational_expense(data, session.get('user_id'))

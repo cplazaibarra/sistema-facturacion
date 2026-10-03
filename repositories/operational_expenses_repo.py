@@ -60,12 +60,12 @@ def create_operational_expense(data, user_id=None):
             if not category:
                 raise ValueError('La categoría seleccionada no existe.')
             cur.execute("""INSERT INTO operational_expenses
-                (name, category, category_id, description, amount, amount_type, frequency, start_date,
+                (name, category, category_id, description, amount, amount_type, tax_condition, frequency, start_date,
                  due_rule, due_day, end_date, bank_account_id, beneficiary, observations,
                  status, created_by, updated_by)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
                 (data['name'], category['name'], data['category_id'], data.get('description'), data['amount'], data['amount_type'],
-                 data['frequency'], data['start_date'], data['due_rule'], data.get('due_day'), data.get('end_date'),
+                 data.get('tax_condition', 'IVA incluido'), data['frequency'], data['start_date'], data['due_rule'], data.get('due_day'), data.get('end_date'),
                  data.get('bank_account_id'), data.get('beneficiary'), data.get('observations'), data.get('status', 'Activo'), user_id, user_id))
             expense_id = cur.fetchone()['id']
             _audit(cur, expense_id, 'CREATED', user_id, data)
@@ -84,12 +84,13 @@ def update_operational_expense(expense_id, data, user_id=None):
             if not cur.fetchone():
                 return False
             cur.execute("""UPDATE operational_expenses SET name=%s, category=%s, category_id=%s, description=%s,
-                amount=%s, amount_type=%s, frequency=%s, start_date=%s, due_rule=%s, due_day=%s,
+                amount=%s, amount_type=%s, tax_condition=%s, frequency=%s, start_date=%s, due_rule=%s, due_day=%s,
                 end_date=%s, bank_account_id=%s, beneficiary=%s, observations=%s, status=%s,
                 updated_by=%s, updated_at=CURRENT_TIMESTAMP WHERE id=%s""",
-                (data['name'], category['name'], data['category_id'], data.get('description'), data['amount'], data['amount_type'], data['frequency'],
-                 data['start_date'], data['due_rule'], data.get('due_day'), data.get('end_date'), data.get('bank_account_id'),
-                 data.get('beneficiary'), data.get('observations'), data.get('status', 'Activo'), user_id, expense_id))
+                (data['name'], category['name'], data['category_id'], data.get('description'), data['amount'], data['amount_type'],
+                 data.get('tax_condition', 'IVA incluido'), data['frequency'], data['start_date'], data['due_rule'], data.get('due_day'),
+                 data.get('end_date'), data.get('bank_account_id'), data.get('beneficiary'), data.get('observations'), data.get('status', 'Activo'),
+                 user_id, expense_id))
             _audit(cur, expense_id, 'UPDATED', user_id, data)
         conn.commit()
     return True

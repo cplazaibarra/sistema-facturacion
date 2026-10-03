@@ -33,10 +33,14 @@ def test_operational_expense_crud_and_status():
         conn.commit()
     expense_id = create_operational_expense(_data(marker, category_id=category_id), 1)
     try:
-        assert any(e['id'] == expense_id for e in list_operational_expenses(category=f'QA {marker}'))
+        exp = next(e for e in list_operational_expenses(category=f'QA {marker}') if e['id'] == expense_id)
+        assert exp['tax_condition'] == 'IVA incluido'
         changed = _data(marker, 2500, category_id)
+        changed['tax_condition'] = 'Exento de IVA'
         changed['status'] = 'Inactivo'
         assert update_operational_expense(expense_id, changed, 1)
+        exp_updated = next(e for e in list_operational_expenses(category=f'QA {marker}') if e['id'] == expense_id)
+        assert exp_updated['tax_condition'] == 'Exento de IVA'
         assert set_operational_expense_status(expense_id, 'Activo', 1)
         projected = project_operational_expenses(date.today(), date.today() + timedelta(days=370))
         assert any(p['expense_id'] == expense_id and p['amount'] == 2500 for p in projected)
