@@ -72,7 +72,7 @@ def gastos_operacionales():
         data = _operational_expense_form_data()
         if not data['name'] or not data.get('category_id') or data['amount'] <= 0 or not data['start_date']:
             flash('Nombre, categoría, monto y fecha de inicio son obligatorios.', 'warning')
-        elif data['frequency'] not in {'Diario', 'Semanal', 'Quincenal', 'Mensual', 'Bimestral', 'Trimestral', 'Semestral', 'Anual'} or data['amount_type'] not in {'Fijo', 'Estimado'}:
+        elif data['frequency'] not in {'Una vez', 'Diario', 'Semanal', 'Quincenal', 'Mensual', 'Bimestral', 'Trimestral', 'Semestral', 'Anual'} or data['amount_type'] not in {'Fijo', 'Estimado'}:
             flash('Frecuencia o tipo de monto inválido.', 'danger')
         else:
             try:

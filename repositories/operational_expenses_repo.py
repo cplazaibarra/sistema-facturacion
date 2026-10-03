@@ -134,7 +134,11 @@ def _occurrence_dates(expense, from_date, to_date):
     if current > end:
         return []
     dates = []
-    if expense['frequency'] == 'Diario':
+    if expense['frequency'] == 'Una vez':
+        if from_date <= expense['start_date'] <= end:
+            dates.append(expense['start_date'])
+        return dates
+    elif expense['frequency'] == 'Diario':
         while current <= end:
             dates.append(current)
             current += timedelta(days=1)
