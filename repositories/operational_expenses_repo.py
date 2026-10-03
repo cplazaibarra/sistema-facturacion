@@ -181,3 +181,27 @@ def project_operational_expenses(from_date, to_date):
         for e in list_operational_expenses(status='Activo')
         for due in _occurrence_dates(e, from_date, to_date)
     ]
+
+
+def calculate_next_occurrence_date(expense, as_of=None):
+    """Calcula la próxima fecha de pago a partir de una fecha de referencia (por defecto hoy)."""
+    if expense.get('status') != 'Activo':
+        return None
+    if not as_of:
+        as_of = date.today()
+    exp_copy = dict(expense)
+    if isinstance(exp_copy.get('start_date'), str):
+        from datetime import datetime
+        try:
+            exp_copy['start_date'] = datetime.strptime(exp_copy['start_date'].split('T')[0], '%Y-%m-%d').date()
+        except Exception:
+            pass
+    if isinstance(exp_copy.get('end_date'), str):
+        from datetime import datetime
+        try:
+            exp_copy['end_date'] = datetime.strptime(exp_copy['end_date'].split('T')[0], '%Y-%m-%d').date()
+        except Exception:
+            pass
+    dates = _occurrence_dates(exp_copy, as_of, date(as_of.year + 2, 12, 31))
+    return dates[0] if dates else None
+

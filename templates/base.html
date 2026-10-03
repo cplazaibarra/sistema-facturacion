@@ -158,16 +158,19 @@
                 {% endif %}
 
                 <!-- 6. Reportería y Análisis -->
-                {% if session.get('permissions', {}).get('reportes') %}
+                {% if session.get('permissions', {}).get('reportes') or session.get('permissions', {}).get('administracion') %}
                 <div class="nav-section">
-                    <button class="nav-item nav-toggle {% if request.endpoint in ['ventas.proyeccion_ventas', 'reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos', 'reportes.reportes_flujo_caja', 'reportes.reportes_inventario_lotes', 'reportes.reportes_facturas_compras_gastos', 'reportes.reportes_cuentas_por_pagar', 'reportes.reportes_cuentas_por_cobrar', 'reportes.conciliacion_bancaria', 'reportes.finanzas_deudas', 'reportes.detalle_deuda'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['ventas.proyeccion_ventas', 'reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos', 'reportes.reportes_flujo_caja', 'reportes.reportes_inventario_lotes', 'reportes.reportes_facturas_compras_gastos', 'reportes.reportes_cuentas_por_pagar', 'reportes.reportes_cuentas_por_cobrar', 'reportes.conciliacion_bancaria', 'reportes.finanzas_deudas', 'reportes.detalle_deuda', 'usuarios.gastos_operacionales', 'usuarios.editar_gasto_operacional', 'usuarios.cambiar_estado_gasto_operacional', 'usuarios.eliminar_gasto_operacional'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
                         <span class="icon"><i class="fa-solid fa-chart-column"></i></span>
                         <span>Finanzas</span>
                         <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
-                    <div class="nav-submenu {% if request.endpoint in ['ventas.proyeccion_ventas', 'reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos', 'reportes.reportes_flujo_caja', 'reportes.reportes_inventario_lotes', 'reportes.reportes_facturas_compras_gastos', 'reportes.reportes_cuentas_por_pagar', 'reportes.reportes_cuentas_por_cobrar', 'reportes.conciliacion_bancaria', 'reportes.finanzas_deudas', 'reportes.detalle_deuda'] %}open{% endif %}">
+                    <div class="nav-submenu {% if request.endpoint in ['ventas.proyeccion_ventas', 'reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos', 'reportes.reportes_flujo_caja', 'reportes.reportes_inventario_lotes', 'reportes.reportes_facturas_compras_gastos', 'reportes.reportes_cuentas_por_pagar', 'reportes.reportes_cuentas_por_cobrar', 'reportes.conciliacion_bancaria', 'reportes.finanzas_deudas', 'reportes.detalle_deuda', 'usuarios.gastos_operacionales', 'usuarios.editar_gasto_operacional', 'usuarios.cambiar_estado_gasto_operacional', 'usuarios.eliminar_gasto_operacional'] %}open{% endif %}">
                         <a href="{{ url_for('reportes.finanzas_deudas') }}" class="nav-item nav-subitem {% if request.endpoint in ['reportes.finanzas_deudas', 'reportes.detalle_deuda'] %}active{% endif %}">
                             <span>Deudas</span>
+                        </a>
+                        <a href="{{ url_for('usuarios.gastos_operacionales') }}" class="nav-item nav-subitem {% if request.endpoint in ['usuarios.gastos_operacionales', 'usuarios.editar_gasto_operacional', 'usuarios.cambiar_estado_gasto_operacional', 'usuarios.eliminar_gasto_operacional'] %}active{% endif %}">
+                            <span>Gastos Operacionales</span>
                         </a>
                         <a href="{{ url_for('reportes.conciliacion_bancaria') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.conciliacion_bancaria' %}active{% endif %}">
                             <span>Conciliación Bancaria</span>
@@ -206,17 +209,14 @@
                 <!-- 7. Administración y Seguridad -->
                 {% if session.get('permissions', {}).get('administracion') or session.get('permissions', {}).get('usuarios') %}
                 <div class="nav-section">
-                    <button class="nav-item nav-toggle {% if request.endpoint in ['usuarios.cuentas_bancarias', 'usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol', 'usuarios.gastos_operacionales', 'usuarios.editar_gasto_operacional', 'usuarios.cambiar_estado_gasto_operacional', 'usuarios.eliminar_gasto_operacional'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['usuarios.cuentas_bancarias', 'usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
                         <span class="icon"><i class="fa-solid fa-sliders"></i></span>
                         <span>Administración</span>
                         <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
-                    <div class="nav-submenu {% if request.endpoint in ['usuarios.cuentas_bancarias', 'usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol', 'usuarios.gastos_operacionales', 'usuarios.editar_gasto_operacional', 'usuarios.cambiar_estado_gasto_operacional', 'usuarios.eliminar_gasto_operacional'] %}open{% endif %}">
+                    <div class="nav-submenu {% if request.endpoint in ['usuarios.cuentas_bancarias', 'usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol'] %}open{% endif %}">
                         <a href="{{ url_for('usuarios.cuentas_bancarias') }}" class="nav-item nav-subitem {% if request.endpoint == 'usuarios.cuentas_bancarias' %}active{% endif %}">
                             <span>Cuentas Bancarias</span>
-                        </a>
-                        <a href="{{ url_for('usuarios.gastos_operacionales') }}" class="nav-item nav-subitem {% if request.endpoint in ['usuarios.gastos_operacionales', 'usuarios.editar_gasto_operacional', 'usuarios.cambiar_estado_gasto_operacional', 'usuarios.eliminar_gasto_operacional'] %}active{% endif %}">
-                            <span>Gastos Operacionales</span>
                         </a>
                         <a href="{{ url_for('usuarios.usuarios') }}" class="nav-item nav-subitem {% if request.endpoint in ['usuarios.usuarios', 'usuarios.crear_usuario', 'usuarios.editar_usuario'] %}active{% endif %}">
                             <span>Usuarios</span>

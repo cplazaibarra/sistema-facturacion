@@ -82,9 +82,12 @@ def gastos_operacionales():
             except ValueError as exc:
                 flash(str(exc), 'warning')
         return redirect(url_for('usuarios.gastos_operacionales'))
+    from repositories.operational_expenses_repo import calculate_next_occurrence_date
     expenses = list_operational_expenses(request.args.get('search', '').strip() or None, request.args.get('category') or None, request.args.get('status') or None)
     # Jinja/JSON necesita valores serializables para el formulario de edición.
     for expense in expenses:
+        next_due = calculate_next_occurrence_date(expense)
+        expense['next_due_date'] = next_due.isoformat() if next_due else None
         for key in ('start_date', 'end_date', 'created_at', 'updated_at'):
             if expense.get(key) is not None and hasattr(expense[key], 'isoformat'):
                 expense[key] = expense[key].isoformat()
