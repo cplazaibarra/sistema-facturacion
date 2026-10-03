@@ -225,7 +225,7 @@ def editar_ocurrencia_gasto_operacional(occurrence_id):
     from repositories.operational_expenses_repo import get_operational_expense_occurrence, update_operational_expense_occurrence
     import os
     from werkzeug.utils import secure_filename
-    from utils import allowed_file
+    from security import allowed_file
 
     occ = get_operational_expense_occurrence(occurrence_id)
     if not occ:
