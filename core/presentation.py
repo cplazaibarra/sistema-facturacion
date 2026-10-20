@@ -23,6 +23,6 @@ def money_cl(value):
         amount = Decimal(str(value or 0))
         if not amount.is_finite():
             return '—'
-        return '$' + format(amount, ',.2f').translate(str.maketrans({',': '.', '.': ','}))
+        return '$' + f"{int(round(amount)):,}".replace(',', '.')
     except (InvalidOperation, ValueError):
         return '—'

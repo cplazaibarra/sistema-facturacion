@@ -557,7 +557,7 @@
 
                 <div class="sf-form-group" style="margin-bottom: 15px;">
                     <label class="sf-label" style="display: block; font-weight: 500; font-size: 13px; color: #4a5568; margin-bottom: 6px;">Monto pagado *</label>
-                    <input type="number" step="0.01" min="0.01" class="sf-input" id="edit_payment_amount" name="payment_amount" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;">
+                    <input type="number" step="1" min="1" class="sf-input" id="edit_payment_amount" name="payment_amount" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;">
                 </div>
 
                 <div id="paid_fields" style="display: none;">
@@ -1156,7 +1156,7 @@
         const saleMethod = element.getAttribute('data-method') || '';
         const bankAccountId = element.getAttribute('data-bank-account-id');
         const invoiceNumber = element.getAttribute('data-invoice-number');
-        const rawHistory = element.getAttribute('data-history') || '[]';
+        const rawHistory = element.getAttribute('data-payment-history') || element.getAttribute('data-history') || '[]';
         let paymentDetail = {};
         try { paymentDetail = JSON.parse(element.getAttribute('data-payment-detail') || '{}'); } catch (_) {}
         
@@ -1166,7 +1166,7 @@
         document.getElementById('label_payment_customer').innerText = customer;
         document.getElementById('label_payment_pending').innerText = '$' + Math.round(pending).toLocaleString('es-CL');
         
-        const invLabel = document.getElementById('label_payment_invoice_number');
+        const invLabel = document.getElementById('label_sale_invoice_number') || document.getElementById('label_payment_invoice_number');
         if (invLabel) {
             invLabel.innerText = invoiceNumber ? invoiceNumber : 'Sin Factura asignada';
         }
@@ -1175,7 +1175,7 @@
         document.getElementById('payment-modal-title').textContent = isPaid ? 'Detalle del Pago' : 'Registrar Pago';
         document.getElementById('edit_payment_method').value = paymentDetail.payment_method || saleMethod || '';
         document.getElementById('edit_payment_date').value = paymentDetail.payment_date || ((paymentDate && paymentDate !== '-') ? paymentDate : new Date().toISOString().substring(0, 10));
-        document.getElementById('edit_payment_amount').value = isPaid ? (paymentDetail.payment_amount || totalRaw) : pending.toFixed(2);
+        document.getElementById('edit_payment_amount').value = isPaid ? Math.round(paymentDetail.payment_amount || totalRaw) : Math.round(pending);
         document.getElementById('edit_bank_account_id').value = bankAccountId || '';
         document.getElementById('edit_payment_notes').value = paymentDetail.payment_notes || '';
         document.getElementById('edit_payment_file').value = '';
@@ -1201,6 +1201,10 @@
         const form = document.getElementById('editPaymentForm');
         form.dataset.submitting = 'false';
         const submit = document.getElementById('payment-submit-button');
+        submit.disabled = false;
+        submit.textContent = 'Registrar Pago';
+        submit.style.pointerEvents = 'auto';
+        submit.style.opacity = '1';
         submit.style.display = isPaid ? 'none' : 'inline-block';
         form.querySelectorAll('input, select, textarea').forEach(field => {
             if (field.id !== 'edit_sale_id' && field.id !== 'payment_idempotency_key') field.disabled = isPaid;
@@ -1272,11 +1276,33 @@
     }
 
     document.getElementById('editPaymentForm')?.addEventListener('submit', function(event) {
-        if (this.dataset.submitting === 'true') { event.preventDefault(); return; }
-        this.dataset.submitting = 'true';
+        const method = document.getElementById('edit_payment_method').value;
+        const amount = parseFloat(document.getElementById('edit_payment_amount').value || '0');
+        if (!method || amount <= 0) {
+            event.preventDefault();
+            alert('Por favor selecciona el medio de pago e ingresa un monto válido.');
+            return;
+        }
+        if (method === 'Transferencia') {
+            const bankAcc = document.getElementById('edit_bank_account_id').value;
+            const fileInput = document.getElementById('edit_payment_file');
+            if (!bankAcc) {
+                event.preventDefault();
+                alert('Por favor selecciona una cuenta bancaria de destino.');
+                return;
+            }
+            if (!fileInput.files || fileInput.files.length === 0) {
+                event.preventDefault();
+                alert('Por favor adjunta el comprobante de transferencia.');
+                return;
+            }
+        }
         const button = document.getElementById('payment-submit-button');
-        button.disabled = true;
-        button.textContent = 'Registrando pago…';
+        if (button) {
+            button.textContent = 'Registrando pago…';
+            button.style.pointerEvents = 'none';
+            button.style.opacity = '0.7';
+        }
     });
 
     function zoomPaymentImage(imgSrc) {

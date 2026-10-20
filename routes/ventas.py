@@ -176,7 +176,7 @@ def _get_formatted_sales_data():
                     "date": sale["sale_date"],
                     "time": sale["sale_time"],
                     "products": sale["products"],
-                    "total": f"${sale['total_amount']:.2f}",
+                    "total": f"${int(round(float(sale['total_amount'] or 0))):,}".replace(",", "."),
                     "total_raw": sale['total_amount'],
                     "payment_method": sale.get("payment_method") or "Efectivo",
                     "payment_status": calculated_payment_status,
