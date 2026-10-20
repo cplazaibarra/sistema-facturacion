@@ -308,9 +308,9 @@
                     <tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1; text-align: left;">
                         <th style="padding: 8px 12px;">Producto</th>
                         <th style="padding: 8px 12px; text-align: center;">Cant.</th>
-                        <th style="padding: 8px 12px; text-align: right;">Precio Unit.</th>
+                        <th style="padding: 8px 12px; text-align: right;">Precio Neto</th>
                         <th style="padding: 8px 12px; text-align: center;">Desc. (%)</th>
-                        <th style="padding: 8px 12px; text-align: right;">Subtotal</th>
+                        <th style="padding: 8px 12px; text-align: right;">Subtotal Neto</th>
                     </tr>
                 </thead>
                 <tbody id="modal-cot-products-body">
@@ -466,6 +466,12 @@ function openCotizacionDetail(sale) {
         totalRaw = parseFloat(sale.total.replace('$', '').replace('.', '').replace(',', '.')) || 0;
     }
 
+    function formatMoneyCl(val) {
+        const rounded = Math.round(Number(val) || 0);
+        return '$' + rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+
+    let netoSum = 0;
     if (Array.isArray(sale.products)) {
         sale.products.forEach(p => {
             const tr = document.createElement('tr');
@@ -475,25 +481,33 @@ function openCotizacionDetail(sale) {
             const pQty = p.quantity || 1;
             const pPrice = p.price || p.unit_price || 0;
             const pDisc = p.discount || 0;
-            const pSub = p.subtotal || (pQty * pPrice * (1 - (pDisc / 100)));
+            const pSub = p.subtotal !== undefined && p.subtotal !== null ? Number(p.subtotal) : (pQty * pPrice * (1 - (pDisc / 100)));
+            netoSum += pSub;
 
             tr.innerHTML = `
                 <td style="padding: 10px 12px; font-weight: 500;">${pName}</td>
                 <td style="padding: 10px 12px; text-align: center;">${pQty}</td>
-                <td style="padding: 10px 12px; text-align: right;">$${Math.round(pPrice).toLocaleString('es-CL')}</td>
+                <td style="padding: 10px 12px; text-align: right;">${formatMoneyCl(pPrice)}</td>
                 <td style="padding: 10px 12px; text-align: center;">${pDisc}%</td>
-                <td style="padding: 10px 12px; text-align: right; font-weight: 600;">$${Math.round(pSub).toLocaleString('es-CL')}</td>
+                <td style="padding: 10px 12px; text-align: right; font-weight: 600;">${formatMoneyCl(pSub)}</td>
             `;
             tbody.appendChild(tr);
         });
     }
 
-    const neto = Math.round(totalRaw / 1.19);
-    const iva = totalRaw - neto;
+    let netoRounded = Math.round(netoSum);
+    let ivaRounded = Math.round(netoRounded * 0.19);
+    let totalComputed = netoRounded + ivaRounded;
 
-    document.getElementById('modal-cot-neto').textContent = '$' + neto.toLocaleString('es-CL');
-    document.getElementById('modal-cot-iva').textContent = '$' + iva.toLocaleString('es-CL');
-    document.getElementById('modal-cot-total').textContent = '$' + Math.round(totalRaw).toLocaleString('es-CL');
+    if (totalRaw && Math.round(totalRaw) > 0 && netoSum === 0) {
+        netoRounded = Math.round(totalRaw / 1.19);
+        ivaRounded = Math.round(totalRaw) - netoRounded;
+        totalComputed = Math.round(totalRaw);
+    }
+
+    document.getElementById('modal-cot-neto').textContent = formatMoneyCl(netoRounded);
+    document.getElementById('modal-cot-iva').textContent = formatMoneyCl(ivaRounded);
+    document.getElementById('modal-cot-total').textContent = formatMoneyCl(totalComputed);
 
     // Configurar botones de acción del modal y Venta Asociada
     const assocBox = document.getElementById('modal-cot-associated-sale-box');

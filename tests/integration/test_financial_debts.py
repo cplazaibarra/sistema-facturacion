@@ -91,14 +91,20 @@ def test_create_debt_and_schedule(test_bank_account):
     assert len(types) > 0
     debt_type_id = types[0]["id"]
 
+    future_due = (date.today() + timedelta(days=30)).replace(day=5)
+    if future_due <= date.today():
+        future_due = (date.today() + timedelta(days=60)).replace(day=5)
+    start_str = (future_due - timedelta(days=5)).strftime("%Y-%m-%d")
+    first_due_str = future_due.strftime("%Y-%m-%d")
+
     success, msg, debt_id = create_debt_with_schedule(
         name="Crédito Test Banco",
         debt_type_id=debt_type_id,
         creditor_name="Banco Santander",
         original_amount=12000000,
-        start_date="2026-10-01",
+        start_date=start_str,
         installments_count=12,
-        first_due_date="2026-10-05",
+        first_due_date=first_due_str,
         bank_account_id=acc_id,
         created_by="Admin Test",
     )
@@ -115,12 +121,15 @@ def test_create_debt_and_schedule(test_bank_account):
     installments = list_debt_installments(debt_id)
     assert len(installments) == 12
     assert installments[0]["installment_number"] == 1
-    assert installments[0]["due_date"] == date(2026, 10, 5)
+    assert installments[0]["due_date"] == future_due
     assert installments[0]["total_amount"] == Decimal("1000000.00")
     assert installments[0]["balance"] == Decimal("1000000.00")
     assert installments[0]["status"] == "PENDIENTE"
     assert installments[11]["installment_number"] == 12
-    assert installments[11]["due_date"] == date(2027, 9, 5)
+    # 12 cuotas mensuales: la cuota 12 es 11 meses después de la primera
+    expected_month = (future_due.month - 1 + 11) % 12 + 1
+    expected_year = future_due.year + ((future_due.month - 1 + 11) // 12)
+    assert installments[11]["due_date"] == date(expected_year, expected_month, future_due.day)
 
 
 def test_edit_installment_and_reject_modifying_paid(test_bank_account):
@@ -322,14 +331,17 @@ def test_accounts_payable_integration(test_bank_account):
     debt_type_id = list_debt_types()[0]["id"]
     unique_creditor = f"Acreedor AP {uuid.uuid4().hex[:6]}"
 
+    future_due_dt = date.today() + timedelta(days=15)
+    future_due_str = future_due_dt.strftime("%Y-%m-%d")
+
     _, _, debt_id = create_debt_with_schedule(
         name="Deuda Test AP",
         debt_type_id=debt_type_id,
         creditor_name=unique_creditor,
         original_amount=400000,
-        start_date="2026-10-01",
+        start_date=date.today().strftime("%Y-%m-%d"),
         installments_count=1,
-        first_due_date="2026-10-15",
+        first_due_date=future_due_str,
         bank_account_id=acc_id,
     )
 

@@ -300,8 +300,29 @@
 
 <!-- Listado de Clientes Registrados -->
 <div class="client-card">
-    <div class="client-card-header">
-        <h3>LISTADO DE CLIENTES (RECEPTORES)</h3>
+    <div class="client-card-header" style="flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <h3>LISTADO DE CLIENTES (RECEPTORES)</h3>
+            <span style="font-size: 13px; color: #64748b; background: #e2e8f0; padding: 2px 8px; border-radius: 12px; font-weight: 600;">
+                {{ clients|length }}
+            </span>
+        </div>
+        <form method="GET" action="{{ url_for('ventas.clientes') }}" style="display: flex; align-items: center; gap: 8px; margin: 0;">
+            <div style="position: relative; width: 280px; max-width: 100%;">
+                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 13px;"></i>
+                <input type="text" name="search" value="{{ search_query or '' }}" placeholder="Buscar por Razón Social o RUT..."
+                       style="width: 100%; padding: 7px 10px 7px 30px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; background: #fff;">
+            </div>
+            <button type="submit" class="btn-primary" style="padding: 7px 14px; font-size: 13px;">
+                Buscar
+            </button>
+            {% if search_query %}
+            <a href="{{ url_for('ventas.clientes') }}" title="Limpiar filtro"
+               style="text-decoration: none; padding: 7px 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #475569; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">
+                <i class="fa-solid fa-rotate-left" style="font-size: 11px;"></i> Limpiar
+            </a>
+            {% endif %}
+        </form>
     </div>
     <div style="overflow-x: auto;">
         <table class="clients-table">
@@ -356,7 +377,14 @@
                 {% else %}
                 <tr>
                     <td colspan="8" style="text-align: center; color: #94a3b8; padding: 32px;">
+                        {% if search_query %}
+                        No se encontraron clientes que coincidan con <strong>"{{ search_query }}"</strong>.
+                        <div style="margin-top: 8px;">
+                            <a href="{{ url_for('ventas.clientes') }}" style="color: #2563eb; text-decoration: underline; font-weight: 600;">Ver todos los clientes</a>
+                        </div>
+                        {% else %}
                         No hay clientes registrados en el sistema. Haz clic en <strong>"+ Registrar Nuevo Cliente"</strong> para agregar el primero.
+                        {% endif %}
                     </td>
                 </tr>
                 {% endif %}

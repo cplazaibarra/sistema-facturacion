@@ -498,7 +498,7 @@ def cotizaciones():
                     "date": sale["sale_date"],
                     "time": sale["sale_time"],
                     "products": products,
-                    "total": f"${sale['total_amount']:.2f}",
+                    "total": f"${int(round(float(sale['total_amount'] or 0))):,}".replace(",", "."),
                     "total_raw": sale['total_amount'],
                     "payment_method": sale.get("payment_method") or "Efectivo",
                     "payment_status": calculated_payment_status,
@@ -2223,7 +2223,8 @@ def clientes():
             
         return redirect(url_for('ventas.clientes'))
 
-    clients_list = list_clients()
+    search_query = request.args.get('search', '').strip()
+    clients_list = list_clients(search=search_query if search_query else None)
     config = get_page_data("price_list_config") or {}
     categories = config.get("categories", [
         {"id": "cat_0", "name": "Categoría A", "margin": 5.0},
@@ -2231,7 +2232,7 @@ def clientes():
         {"id": "cat_2", "name": "Categoría C", "margin": 15.0},
         {"id": "cat_3", "name": "Categoría D", "margin": 20.0}
     ])
-    return render_template('clientes.html', clients=clients_list, categories=categories)
+    return render_template('clientes.html', clients=clients_list, categories=categories, search_query=search_query)
 
 
 @ventas_bp.route('/ventas/clientes/<int:client_id>/editar', methods=['POST'])

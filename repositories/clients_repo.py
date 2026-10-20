@@ -17,14 +17,29 @@ from core.database import get_connection
 from core.utils import normalize_rut_str
 
 
-def list_clients() -> list:
+def list_clients(search: Optional[str] = None) -> list:
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
-                SELECT c.*
-                FROM clients c
-                ORDER BY c.razon_social ASC
-            """)
+            if search and search.strip():
+                s = search.strip()
+                s_clean = s.replace(".", "").replace("-", "")
+                pattern = f"%{s}%"
+                pattern_clean = f"%{s_clean}%"
+                cur.execute("""
+                    SELECT c.*
+                    FROM clients c
+                    WHERE c.razon_social ILIKE %s
+                       OR c.rut ILIKE %s
+                       OR REPLACE(REPLACE(c.rut, '.', ''), '-', '') ILIKE %s
+                       OR (REPLACE(REPLACE(c.rut, '.', ''), '-', '') || UPPER(COALESCE(c.dv, ''))) ILIKE %s
+                    ORDER BY c.razon_social ASC
+                """, (pattern, pattern, pattern_clean, pattern_clean))
+            else:
+                cur.execute("""
+                    SELECT c.*
+                    FROM clients c
+                    ORDER BY c.razon_social ASC
+                """)
             return cur.fetchall()
 
 

@@ -340,9 +340,9 @@
                 <tr>
                     <th style="width: 38%;">Producto</th>
                     <th style="width: 12%; text-align: center;">Cant.</th>
-                    <th style="width: 18%; text-align: right;">Precio</th>
+                    <th style="width: 18%; text-align: right;">Precio Neto</th>
                     <th style="width: 14%; text-align: center;">Desc. (%)</th>
-                    <th style="width: 18%; text-align: right;">Subtotal</th>
+                    <th style="width: 18%; text-align: right;">Subtotal Neto</th>
                     <th style="width: 30px;"></th>
                 </tr>
             </thead>
@@ -450,9 +450,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Lista de productos y mapa de precios cargados desde Flask
     const allProducts = {{ products|tojson|safe }};
     const productPricesMap = {{ products_prices_map|tojson|safe }};
-
+ 
     function formatMoney(val) {
-        return '$' + Math.round(val).toLocaleString('es-CL');
+        const rounded = Math.round(Number(val) || 0);
+        return '$' + rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     }
     
     function createRow(selectedProdId = null, initialQty = 1, initialPrice = null, initialDiscount = 0, initialLot = null) {
@@ -942,7 +943,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function calculateTotal() {
-        let total = 0;
+        let neto = 0;
         const rows = container.querySelectorAll('.product-row-tr');
         rows.forEach(r => {
             const qtyInput = r.querySelector('input[name="quantity[]"]');
@@ -951,14 +952,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const qty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
             const price = parseFloat(priceInput ? priceInput.value : 0) || 0;
             const discount = parseFloat(discountInput ? discountInput.value : 0) || 0;
-            total += qty * price * (1 - (discount / 100));
+            neto += qty * price * (1 - (discount / 100));
         });
 
-        const neto = Math.round(total / 1.19);
-        const iva = total - neto;
+        const netoRounded = Math.round(neto);
+        const ivaRounded = Math.round(netoRounded * 0.19);
+        const total = netoRounded + ivaRounded;
 
-        netoSpan.textContent = formatMoney(neto);
-        ivaSpan.textContent = formatMoney(iva);
+        netoSpan.textContent = formatMoney(netoRounded);
+        ivaSpan.textContent = formatMoney(ivaRounded);
         totalSpan.textContent = formatMoney(total);
     }
     

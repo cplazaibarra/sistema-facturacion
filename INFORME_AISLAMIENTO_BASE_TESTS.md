@@ -1,6 +1,6 @@
 # Informe de aislamiento de base de tests
 
-**Fecha:** 2026-10-03T03:18:47+00:00
+**Fecha:** 2026-10-20T04:29:58+00:00
 **Base normal:** `facturacion`
 **Base de plantilla test (persistente, inmutable durante suites):** `facturacion_cleanup_verify`
 **Aislamiento por suite:** copia PostgreSQL efímera `facturacion_test_run_<12 hex>`; se elimina en `finally`.
@@ -13,18 +13,18 @@ Los conteos normal/template se toman con transacción `READ ONLY`. Cada suite cl
 | Entidad | Cantidad |
 |---|---:|
 | Productos | 82 |
-| Ventas | 29 |
+| Ventas | 30 |
 | Órdenes de Compra | 9 |
 | Recepciones | 14 |
-| Movimientos | 41 |
+| Movimientos | 42 |
 | Lotes | 12 |
 | OT | 4 |
-| Clientes | 16 |
+| Clientes | 17 |
 | Proveedores | 14 |
 | Cuentas | 15 |
 | Deudas | 4 |
 | Revaluaciones | 1 |
-| Cotizaciones | 16 |
+| Cotizaciones | 17 |
 
 ## Suites y comparación de conteos
 
@@ -33,36 +33,36 @@ Los conteos normal/template se toman con transacción `READ ONLY`. Cada suite cl
 | Entidad | Antes | Después | Delta |
 |---|---:|---:|---:|
 | Productos | 82 | 82 | 0 |
-| Ventas | 29 | 29 | 0 |
+| Ventas | 30 | 30 | 0 |
 | Órdenes de Compra | 9 | 9 | 0 |
 | Recepciones | 14 | 14 | 0 |
-| Movimientos | 41 | 41 | 0 |
+| Movimientos | 42 | 42 | 0 |
 | Lotes | 12 | 12 | 0 |
 | OT | 4 | 4 | 0 |
-| Clientes | 16 | 16 | 0 |
+| Clientes | 17 | 17 | 0 |
 | Proveedores | 14 | 14 | 0 |
 | Cuentas | 15 | 15 | 0 |
 | Deudas | 4 | 4 | 0 |
 | Revaluaciones | 1 | 1 | 0 |
-| Cotizaciones | 16 | 16 | 0 |
+| Cotizaciones | 17 | 17 | 0 |
 
 ### Suite completa #2: GREEN
 
 | Entidad | Antes | Después | Delta |
 |---|---:|---:|---:|
 | Productos | 82 | 82 | 0 |
-| Ventas | 29 | 29 | 0 |
+| Ventas | 30 | 30 | 0 |
 | Órdenes de Compra | 9 | 9 | 0 |
 | Recepciones | 14 | 14 | 0 |
-| Movimientos | 41 | 41 | 0 |
+| Movimientos | 42 | 42 | 0 |
 | Lotes | 12 | 12 | 0 |
 | OT | 4 | 4 | 0 |
-| Clientes | 16 | 16 | 0 |
+| Clientes | 17 | 17 | 0 |
 | Proveedores | 14 | 14 | 0 |
 | Cuentas | 15 | 15 | 0 |
 | Deudas | 4 | 4 | 0 |
 | Revaluaciones | 1 | 1 | 0 |
-| Cotizaciones | 16 | 16 | 0 |
+| Cotizaciones | 17 | 17 | 0 |
 
 ## Base persistente de test
 
