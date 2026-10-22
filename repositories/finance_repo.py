@@ -448,57 +448,75 @@ def update_invoice_payment_status() -> int:
 
 
 def register_purchase_payment(invoice_id: int, data: dict, conn=None) -> bool:
-    """Registra el pago de una factura de proveedor indicando cuenta bancaria de egreso de forma atómica e idempotente."""
+    """Append an installment under the invoice lock; never rewrite prior payments."""
+    from decimal import Decimal, InvalidOperation
+    from datetime import date
+    import hashlib
+    try:
+        amount = Decimal(str(data.get('payment_amount', '')))
+        if not amount.is_finite() or amount <= 0 or amount != amount.quantize(Decimal('.01')):
+            return False
+        payment_date = date.fromisoformat(str(data.get('payment_date', '')))
+    except (InvalidOperation, ValueError, TypeError):
+        return False
+    method = str(data.get('payment_method') or '')
+    account = data.get('bank_account_id') or None
+    # Older callers have no key: identical requests are defensive retries.
+    payload = [str(amount.normalize()), str(payment_date), method, str(account)]
+    key = str(data.get('idempotency_key') or hashlib.sha256(json.dumps(payload).encode()).hexdigest())
+    if len(key) > 200 or not method:
+        return False
+
     def _execute(cur):
-        # 1. Bloquear la factura de compra
-        cur.execute(
-            """
-            SELECT id, invoice_number, invoice_amount, payment_status, payment_amount
-            FROM purchase_invoices
-            WHERE id = %s
-            FOR UPDATE
-            """,
-            (invoice_id,)
-        )
+        cur.execute("SELECT * FROM purchase_invoices WHERE id=%s FOR UPDATE", (invoice_id,))
         inv = cur.fetchone()
-        if not inv:
+        if not inv or inv['payment_status'] in ('Anulada', 'Anulado'):
             return False
-
-        # Si ya está pagada, rechazar pago duplicado (idempotencia defensiva)
-        if inv["payment_status"] == 'Pagada':
+        cur.execute("SELECT * FROM purchase_payment_items WHERE invoice_id=%s AND idempotency_key=%s", (invoice_id,key))
+        previous = cur.fetchone()
+        if previous:
+            if not data.get('idempotency_key'):return False
+            return (previous['payment_amount'] == amount and previous['payment_date'] == payment_date
+                    and previous['bank_account_id'] == account and previous['payment_method'] == method)
+        cur.execute("SELECT COALESCE(SUM(payment_amount),0) AS paid,COUNT(*) AS n FROM purchase_payment_items WHERE invoice_id=%s", (invoice_id,))
+        ledger = cur.fetchone()
+        legacy_paid = Decimal(str(inv['payment_amount'] or 0))
+        # A previously closed legacy invoice remains closed, even without metadata.
+        if not ledger['n'] and inv['payment_status'] in ('Pagada','Pagado') and legacy_paid == 0:
             return False
-
-        # 2. Actualizar estado y registrar pago
-        cur.execute("""
-            UPDATE purchase_invoices SET
-                payment_status     = 'Pagada',
-                payment_date       = %s,
-                payment_amount     = %s,
-                payment_method     = %s,
-                bank_account_id    = %s,
-                payment_proof_file = %s,
-                notes              = COALESCE(notes, '') || %s
-            WHERE id = %s
-        """, (
-            data.get('payment_date', ''),
-            data.get('payment_amount', 0),
-            data.get('payment_method', ''),
-            data.get('bank_account_id'),
-            data.get('payment_proof_file'),
-            ('\nPago: ' + data.get('payment_notes', '')) if data.get('payment_notes') else '',
-            invoice_id,
-        ))
-        return cur.rowcount > 0
+        cur.execute('SELECT payment_amount FROM purchase_payment_openings WHERE invoice_id=%s',(invoice_id,))
+        opening=cur.fetchone()
+        paid = ledger['paid'] + (opening['payment_amount'] if opening else Decimal(0)) if ledger['n'] else legacy_paid
+        total = Decimal(str(inv['invoice_amount'] or 0))
+        if not total.is_finite() or not paid.is_finite() or total <= 0 or paid < 0 or amount > total-paid:
+            return False
+        if account:
+            cur.execute("SELECT id FROM bank_accounts WHERE id=%s AND status='Activa'", (account,))
+            if not cur.fetchone(): return False
+        elif method != 'Efectivo':
+            return False
+        if not ledger['n'] and legacy_paid > 0:
+            if not inv.get('payment_date'):return False
+            cur.execute('''INSERT INTO purchase_payment_openings(invoice_id,payment_amount,payment_date,payment_method,bank_account_id,payment_proof_file)
+                VALUES(%s,%s,%s,%s,%s,%s)''',(invoice_id,legacy_paid,inv['payment_date'],inv.get('payment_method'),inv.get('bank_account_id'),inv.get('payment_proof_file')))
+        cur.execute("""INSERT INTO purchase_payment_items
+            (invoice_id,payment_amount,payment_date,payment_method,bank_account_id,payment_proof_file,notes,idempotency_key)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (invoice_id,amount,payment_date,method,account,data.get('payment_proof_file'),data.get('payment_notes') or '',key))
+        cumulative = paid + amount
+        due = str(inv.get('due_date') or '')
+        status = 'Pagada' if cumulative == total else ('Vencida' if due and due < date.today().isoformat() else 'Pendiente')
+        cur.execute("""UPDATE purchase_invoices SET payment_status=%s,payment_date=%s,
+            payment_amount=%s,payment_method=%s,bank_account_id=%s,payment_proof_file=%s WHERE id=%s""",
+            (status,str(payment_date),cumulative,method,account,data.get('payment_proof_file'),invoice_id))
+        return True
 
     if conn is not None:
-        with conn.cursor() as cur:
-            return _execute(cur)
-    else:
-        with get_connection() as c:
-            with c.cursor() as cur:
-                res = _execute(cur)
-            c.commit()
-            return res
+        with conn.cursor() as cur: return _execute(cur)
+    with get_connection() as c:
+        with c.cursor() as cur: result = _execute(cur)
+        c.commit()
+        return result
 
 
 def list_pending_invoice_alerts(days_ahead: int = 7) -> list:

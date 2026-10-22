@@ -617,6 +617,8 @@ def get_suggested_reconciliation_matches(transaction_id: int) -> Dict[str, Any]:
                     FROM sale_payment_items spi
                     JOIN sales s ON spi.sale_id = s.id
                     WHERE spi.payment_amount = %s
+                      AND spi.bank_account_id = %s
+                      AND COALESCE(spi.accounting_approved,1)=1
                       AND (spi.payment_date BETWEEN %s AND %s)
                       AND NOT EXISTS (
                           SELECT 1 FROM bank_transactions bt 
@@ -629,7 +631,7 @@ def get_suggested_reconciliation_matches(transaction_id: int) -> Dict[str, Any]:
                       ABS(spi.payment_date::date - %s::date) ASC, spi.id DESC
                     LIMIT 10
                     """,
-                    (abs_amt, min_date, max_date, tx["bank_account_id"], tx_dt),
+                    (abs_amt, tx["bank_account_id"], min_date, max_date, tx["bank_account_id"], tx_dt),
                 )
                 for row in cur.fetchall():
                     account_match = (row["bank_account_id"] == tx["bank_account_id"])
@@ -662,6 +664,7 @@ def get_suggested_reconciliation_matches(transaction_id: int) -> Dict[str, Any]:
                     FROM purchase_invoices pi
                     LEFT JOIN suppliers sup ON pi.supplier_id = sup.id
                     WHERE COALESCE(pi.payment_amount, pi.invoice_amount) = %s
+                      AND NOT EXISTS (SELECT 1 FROM purchase_payment_items p WHERE p.invoice_id=pi.id)
                       AND pi.payment_date IS NOT NULL
                       AND (pi.payment_date BETWEEN %s AND %s)
                       AND NOT EXISTS (
@@ -691,6 +694,30 @@ def get_suggested_reconciliation_matches(transaction_id: int) -> Dict[str, Any]:
                         "score": score,
                     })
 
+                cur.execute("""SELECT p.*,pi.invoice_number FROM purchase_payment_items p
+                    JOIN purchase_invoices pi ON pi.id=p.invoice_id
+                    WHERE p.payment_amount=%s AND p.payment_date BETWEEN %s AND %s
+                      AND p.bank_account_id=%s AND NOT EXISTS(
+                        SELECT 1 FROM bank_transactions bt WHERE bt.reconciled_type='PURCHASE_PAYMENT_ITEM'
+                        AND bt.reconciled_id=p.id AND bt.reconciliation_status='CONCILIADO')
+                    ORDER BY p.payment_date,p.id LIMIT 10""", (abs_amt,min_date,max_date,tx['bank_account_id']))
+                for row in cur.fetchall():
+                    matches.append({'match_type':'PURCHASE_PAYMENT_ITEM','id':row['id'],
+                        'title':f"Abono Factura: {row['invoice_number']}",
+                        'detail':f"Monto: ${row['payment_amount']:,.0f} | Fecha: {row['payment_date']}",
+                        'date':str(row['payment_date']),'amount':float(row['payment_amount']),'score':90})
+
+                cur.execute("""SELECT p.*,o.expense_id FROM expense_payment_items p
+                    JOIN operational_expense_occurrences o ON o.id=p.occurrence_id
+                    WHERE p.payment_amount=%s AND p.payment_date BETWEEN %s AND %s AND p.bank_account_id=%s
+                    AND NOT EXISTS(SELECT 1 FROM bank_transactions bt WHERE bt.reconciled_type='EXPENSE_PAYMENT_ITEM'
+                        AND bt.reconciled_id=p.id AND bt.reconciliation_status='CONCILIADO')
+                    ORDER BY p.payment_date,p.id LIMIT 10""", (abs_amt,min_date,max_date,tx['bank_account_id']))
+                for row in cur.fetchall():
+                    matches.append({'match_type':'EXPENSE_PAYMENT_ITEM','id':row['id'],
+                        'title':f"Abono Gasto #{row['expense_id']}", 'detail':f"Monto: ${row['payment_amount']:,.0f}",
+                        'date':str(row['payment_date']),'amount':float(row['payment_amount']),'score':90})
+
                 # Operational Expenses
                 cur.execute(
                     """
@@ -703,7 +730,8 @@ def get_suggested_reconciliation_matches(transaction_id: int) -> Dict[str, Any]:
                         oeo.bank_account_id
                     FROM operational_expense_occurrences oeo
                     JOIN operational_expenses oe ON oeo.expense_id = oe.id
-                    WHERE COALESCE(oeo.payment_amount, oeo.amount) = %s
+                    WHERE NOT EXISTS(SELECT 1 FROM expense_payment_items p WHERE p.occurrence_id=oeo.id)
+                      AND COALESCE(oeo.payment_amount, oeo.amount) = %s
                       AND oeo.paid_date IS NOT NULL
                       AND (oeo.paid_date BETWEEN %s AND %s)
                       AND NOT EXISTS (
@@ -793,12 +821,26 @@ def reconcile_transaction(
     Reconciles a bank transaction against an ERP operation or internal transfer.
     Never alters or creates financial records in ERP tables.
     """
-    valid_types = {"SALE_PAYMENT", "PURCHASE_PAYMENT", "EXPENSE", "DEBT_PAYMENT", "INTERNAL_TRANSFER"}
+    valid_types = {"SALE_PAYMENT", "PURCHASE_PAYMENT", "PURCHASE_PAYMENT_ITEM", "EXPENSE_PAYMENT_ITEM", "EXPENSE", "DEBT_PAYMENT", "INTERNAL_TRANSFER"}
     if reconciled_type not in valid_types:
         return False, f"Tipo de conciliación inválido: {reconciled_type}"
 
     with get_connection() as conn:
         with conn.cursor() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(38471, 1)")
+            # Backward-compatible unambiguous links: a document with exactly
+            # one installment identifies that payment, never its aggregate.
+            if reconciled_type in ('PURCHASE_PAYMENT','EXPENSE'):
+                table, foreign, individual = ('purchase_payment_items','invoice_id','PURCHASE_PAYMENT_ITEM') if reconciled_type=='PURCHASE_PAYMENT' else ('expense_payment_items','occurrence_id','EXPENSE_PAYMENT_ITEM')
+                opening_table='purchase_payment_openings' if reconciled_type=='PURCHASE_PAYMENT' else 'expense_payment_openings'
+                cur.execute(f'SELECT 1 FROM {opening_table} WHERE {foreign}=%s',(reconciled_id,))
+                has_opening=bool(cur.fetchone())
+                cur.execute(f'SELECT id FROM {table} WHERE {foreign}=%s ORDER BY id',(reconciled_id,))
+                items=cur.fetchall()
+                if not has_opening and len(items)>1:return False,'Seleccione el abono individual; el documento contiene varios pagos'
+                if items and not has_opening:reconciled_type,reconciled_id=individual,items[0]['id']
+
+            # Serialize competing links to one ERP target, including two bank rows.
             cur.execute(
                 "SELECT * FROM bank_transactions WHERE id = %s FOR UPDATE",
                 (transaction_id,),
@@ -825,26 +867,52 @@ def reconcile_transaction(
             if conflict:
                 return False, f"La operación de destino ya fue conciliada con el movimiento #{conflict['id']}"
 
-            # Verify target existence
-            if reconciled_type == "SALE_PAYMENT":
-                cur.execute("SELECT id FROM sale_payment_items WHERE id = %s", (reconciled_id,))
-                if not cur.fetchone():
-                    return False, f"Pago de venta #{reconciled_id} no existe"
-            elif reconciled_type == "PURCHASE_PAYMENT":
-                cur.execute("SELECT id FROM purchase_invoices WHERE id = %s", (reconciled_id,))
-                if not cur.fetchone():
-                    return False, f"Factura de compra #{reconciled_id} no existe"
-            elif reconciled_type == "EXPENSE":
-                cur.execute("SELECT id FROM operational_expense_occurrences WHERE id = %s", (reconciled_id,))
-                if not cur.fetchone():
-                    return False, f"Ocurrencia de gasto #{reconciled_id} no existe"
-            elif reconciled_type == "INTERNAL_TRANSFER":
-                cur.execute("SELECT id, bank_account_id, amount FROM bank_transactions WHERE id = %s FOR UPDATE", (reconciled_id,))
-                c_tx = cur.fetchone()
-                if not c_tx:
-                    return False, f"Movimiento de contraparte #{reconciled_id} no existe"
-                if c_tx["bank_account_id"] == tx["bank_account_id"]:
-                    return False, "Una transferencia interna debe ser entre cuentas bancarias distintas"
+            from decimal import Decimal, InvalidOperation
+            target = None
+            tables = {
+                'SALE_PAYMENT': ('sale_payment_items', 'payment_amount', 'payment_date', 1),
+                'PURCHASE_PAYMENT': ('purchase_invoices', 'payment_amount', 'payment_date', -1),
+                'PURCHASE_PAYMENT_ITEM': ('purchase_payment_items', 'payment_amount', 'payment_date', -1),
+                'EXPENSE': ('operational_expense_occurrences', 'payment_amount', 'paid_date', -1),
+                'EXPENSE_PAYMENT_ITEM': ('expense_payment_items','payment_amount','payment_date',-1),
+                'DEBT_PAYMENT': ('debt_payments', 'payment_amount', 'payment_date', -1),
+            }
+            if reconciled_type in tables:
+                table, field, date_field, direction = tables[reconciled_type]
+                # Identifiers are exclusively from the fixed mapping above.
+                cur.execute(f"SELECT * FROM {table} WHERE id=%s FOR UPDATE", (reconciled_id,))
+                target = cur.fetchone()
+                if not target or not target.get(date_field):
+                    return False, "El destino no es un pago efectivo registrado"
+                if reconciled_type=='SALE_PAYMENT' and target.get('accounting_approved') not in (None,1,True):
+                    return False,'El cobro no está aprobado contablemente'
+                if reconciled_type in ('PURCHASE_PAYMENT','EXPENSE'):
+                    opening_table,foreign=('purchase_payment_openings','invoice_id') if reconciled_type=='PURCHASE_PAYMENT' else ('expense_payment_openings','occurrence_id')
+                    cur.execute(f'SELECT * FROM {opening_table} WHERE {foreign}=%s',(reconciled_id,))
+                    snapshot=cur.fetchone()
+                    if snapshot:target=snapshot
+                    elif reconciled_type=='EXPENSE' and target.get('status')!='Pagado':
+                        return False,'El gasto no está pagado'
+                expected = Decimal(str(target.get(field) or 0)) * direction
+                if target.get('bank_account_id') != tx['bank_account_id']:
+                    return False, "La cuenta bancaria no corresponde al pago"
+            else:
+                # Lock both bank legs in stable order, so opposite retries cannot deadlock.
+                cur.execute("SELECT * FROM bank_transactions WHERE id=%s FOR UPDATE", (reconciled_id,))
+                target = cur.fetchone()
+                if not target or target['bank_account_id'] == tx['bank_account_id']:
+                    return False, "Una transferencia requiere otra cuenta bancaria"
+                if target['reconciliation_status'] == 'CONCILIADO':
+                    return False, "La contraparte ya está conciliada"
+                expected = -Decimal(str(target['amount']))
+            actual = Decimal(str(tx['amount']))
+            if (not actual.is_finite() or not expected.is_finite() or actual == 0
+                    or actual != expected or actual != actual.quantize(Decimal('.01'))):
+                return False, "El importe o signo bancario no coincide exactamente con el pago"
+            if (tx.get('currency') or 'CLP') != 'CLP':
+                return False, "Moneda no compatible con el pago ERP (CLP)"
+            if reconciled_type == 'INTERNAL_TRANSFER' and (target.get('currency') or 'CLP') != 'CLP':
+                return False, "Las monedas de la transferencia no coinciden"
 
             prev_state = {
                 "reconciliation_status": tx["reconciliation_status"],
@@ -930,6 +998,7 @@ def unreconcile_transaction(
     """
     with get_connection() as conn:
         with conn.cursor() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(38471, 1)")
             cur.execute(
                 "SELECT * FROM bank_transactions WHERE id = %s FOR UPDATE",
                 (transaction_id,),

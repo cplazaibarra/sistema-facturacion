@@ -19,6 +19,12 @@
         <a href="{{ module.link }}" class="btn-primary">{{ module.action }}</a>
     </div>
     {% endfor %}
+    <div class="admin-card">
+        <div class="admin-icon"><i class="fa-solid fa-building"></i></div>
+        <h3>Información</h3>
+        <p>Configurar el logo de la empresa para las cotizaciones.</p>
+        <a href="{{ url_for('usuarios.informacion') }}" class="btn-primary">Administrar</a>
+    </div>
 </div>
 
 <div class="settings-section">

@@ -3,9 +3,10 @@ import psycopg2
 import pytest
 
 from core.test_database_guard import (
-    RUN_MARKER_PREFIX,
     UnsafeTestDatabase,
+    validate_connection_parameters,
     validate_test_database_config,
+    verify_test_connection,
 )
 
 
@@ -13,17 +14,31 @@ def pytest_configure(config):
     import os
     try:
         target = validate_test_database_config(os.environ)
-        conn = psycopg2.connect(
+        original_connect = psycopg2.connect
+        conn = original_connect(
             host=target["host"], port=target["port"], dbname=target["database"],
             user=target["user"], password=target["password"], connect_timeout=5,
         )
         try:
-            with conn.cursor() as cur:
-                cur.execute("SELECT shobj_description(oid, 'pg_database') FROM pg_database WHERE datname=current_database()")
-                row = cur.fetchone()
-                marker = row[0] if row else None
-            validate_test_database_config(os.environ, database_marker=marker)
+            verify_test_connection(conn)
         finally:
             conn.close()
+
+        # Cover direct psycopg2 calls in repositories, migration helpers,
+        # concurrency tests, and child code imported after pytest startup.
+        def guarded_connect(dsn=None, *args, **kwargs):
+            params = dict(kwargs)
+            if dsn is not None:
+                params["dsn"] = dsn
+            validate_connection_parameters(os.environ, params)
+            opened = original_connect(dsn, *args, **kwargs) if dsn is not None else original_connect(*args, **kwargs)
+            try:
+                verify_test_connection(opened)
+            except Exception:
+                opened.close()
+                raise
+            return opened
+
+        psycopg2.connect = guarded_connect
     except (UnsafeTestDatabase, psycopg2.Error) as exc:
         raise pytest.UsageError(f"{exc}") from exc

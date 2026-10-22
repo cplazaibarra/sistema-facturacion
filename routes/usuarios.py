@@ -1,7 +1,10 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session, current_app, send_file, abort
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 import json
+import os
+import uuid
+from werkzeug.utils import secure_filename
 from security import require_permission, log_security_event
 from db import (
     get_page_data,
@@ -31,6 +34,75 @@ def administracion():
         modules.insert(2, {"icon": "💸", "title": "Gastos Operacionales", "desc": "Administrar gastos recurrentes y sus proyecciones", "action": "Administrar", "link": "/administracion/gastos-operacionales"})
     settings = get_page_data("admin_settings")
     return render_template('administracion.html', modules=modules, settings=settings)
+
+
+@usuarios_bp.route('/administracion/informacion', methods=['GET', 'POST'])
+@require_permission('administracion')
+def informacion():
+    from security import allowed_file
+    from PIL import Image, UnidentifiedImageError
+
+    company_info = get_page_data('company_information') or {}
+    if request.method == 'POST':
+        logo = request.files.get('company_logo')
+        if not logo or not logo.filename:
+            flash('Selecciona una imagen para cargar.', 'warning')
+        elif not allowed_file(logo.filename) or logo.filename.rsplit('.', 1)[1].lower() == 'pdf':
+            flash('El archivo debe ser una imagen PNG, JPG, JPEG o WEBP.', 'danger')
+        else:
+            try:
+                with Image.open(logo.stream) as image:
+                    if image.format not in {'PNG', 'JPEG', 'WEBP'}:
+                        raise ValueError('Formato de imagen no permitido')
+                    image.verify()
+                logo.stream.seek(0)
+            except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
+                flash('El archivo no es una imagen PNG, JPG o WEBP válida. Exporta la imagen en uno de esos formatos.', 'danger')
+                return redirect(url_for('usuarios.informacion'))
+            extension = secure_filename(logo.filename).rsplit('.', 1)[1].lower()
+            filename = f'company_logo_{uuid.uuid4().hex}.{extension}'
+            upload_dir = os.path.abspath(current_app.config['UPLOAD_FOLDER'])
+            os.makedirs(upload_dir, exist_ok=True)
+            logo.save(os.path.join(upload_dir, filename))
+            company_info['quotation_logo'] = url_for('static', filename=f'uploads/{filename}')
+            set_page_data('company_information', company_info)
+            log_security_event('COMPANY_QUOTATION_LOGO_UPDATED', session.get('username'), filename)
+            flash('Logo de cotizaciones guardado correctamente.', 'success')
+        return redirect(url_for('usuarios.informacion'))
+
+    return render_template('informacion.html', company_info=company_info)
+
+
+@usuarios_bp.route('/empresa/logo-cotizacion')
+def quotation_company_logo():
+    """Serve the configured logo with its actual image type, including legacy SVG uploads."""
+    from urllib.parse import urlsplit
+    from PIL import Image, UnidentifiedImageError
+
+    company_info = get_page_data('company_information') or {}
+    filename = os.path.basename(urlsplit(company_info.get('quotation_logo', '')).path)
+    if not filename.startswith('company_logo_') or filename != secure_filename(filename):
+        abort(404)
+    path = os.path.join(os.path.abspath(current_app.config['UPLOAD_FOLDER']), filename)
+    if not os.path.isfile(path):
+        abort(404)
+    with open(path, 'rb') as logo_file:
+        prefix = logo_file.read(1024).lstrip()
+    if prefix.startswith(b'<svg') or (prefix.startswith(b'<?xml') and b'<svg' in prefix):
+        mimetype = 'image/svg+xml'
+    else:
+        try:
+            with Image.open(path) as image:
+                mimetype = Image.MIME.get(image.format)
+                if image.format not in {'PNG', 'JPEG', 'WEBP'}:
+                    abort(404)
+        except (UnidentifiedImageError, OSError):
+            abort(404)
+    response = send_file(path, mimetype=mimetype, conditional=True)
+    response.headers['Content-Security-Policy'] = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Cache-Control'] = 'no-cache'
+    return response
 
 
 def _operational_expense_form_data():
@@ -289,11 +361,14 @@ def editar_ocurrencia_gasto_operacional(occurrence_id):
         'notes': notes,
         'status': status,
         'paid_date': paid_date,
-        'payment_amount': payment_amount,
+        'payment_amount': payment_amount if mark_as_paid else None,
+        'idempotency_key': request.form.get('idempotency_key'),
         'bank_account_id': bank_account_id,
     }
 
-    update_operational_expense_occurrence(occurrence_id, data_update, session.get('user_id'))
+    if not update_operational_expense_occurrence(occurrence_id, data_update, session.get('user_id')):
+        flash('Pago o importe inválido: revise el saldo pendiente y los datos ingresados.', 'danger')
+        return redirect(url_for('reportes.reportes_cuentas_por_pagar'))
     log_security_event('OPERATIONAL_EXPENSE_OCCURRENCE_UPDATED', session.get('username'), f'Ocurrencia {occurrence_id}')
     flash('Obligación de gasto actualizada correctamente. La regla recurrente maestra se mantiene intacta.', 'success')
 
@@ -303,6 +378,7 @@ def editar_ocurrencia_gasto_operacional(occurrence_id):
 @require_permission('administracion')
 def listas_precios():
     from db import get_connection
+    from services.pricing import net_price
     
     config = get_page_data("price_list_config")
     if not config or "categories" not in config:
@@ -326,6 +402,11 @@ def listas_precios():
             for i, (name, margin) in enumerate(zip(cat_names, cat_margins)):
                 if not name.strip():
                     continue
+                try:
+                    net_price(1, margin or 0)
+                except ValueError as exc:
+                    flash(str(exc), 'danger')
+                    return redirect(url_for('usuarios.listas_precios'))
                 categories.append({
                     "id": f"cat_{i}",
                     "name": name.strip(),
@@ -343,6 +424,10 @@ def listas_precios():
             for key, value in request.form.items():
                 if key.startswith('margins['):
                     cat_id = key.split('[')[1].split(']')[0]
+                    try:
+                        net_price(1, value or 0)
+                    except ValueError as exc:
+                        return jsonify({'status': 'error', 'message': str(exc)}), 400
                     category_margins[cat_id] = float(value or 0.0)
             
             with get_connection() as conn:
@@ -376,7 +461,9 @@ def listas_precios():
         per_page = 25
 
     # 2. Obtener productos de la página activa mediante SQL paginado
-    from db import get_price_list_products_paginated, get_products_batch_calculated_cost
+    from db import get_price_list_products_paginated
+    from repositories.kardex_repo import get_batch_current_ppp
+    from services.pricing import net_price
     paginated = get_price_list_products_paginated(
         page=current_page,
         per_page=per_page,
@@ -389,13 +476,7 @@ def listas_precios():
 
     # 3. Carga BATCH de Costo/VPP en máximo 2 queries solo para los 25 productos visibles (0 N+1)
     p_ids = [p["id"] for p in products_db]
-    vpp_map = get_products_batch_calculated_cost(p_ids)
-
-    # 4. Mapeo de precios por catálogo fallback
-    catalog_prices = {}
-    inventory_items = get_page_data("inventory_items") or []
-    for item in inventory_items:
-        catalog_prices[item["code"]] = item.get("price", 0.0)
+    vpp_map = get_batch_current_ppp(p_ids)
 
     # 5. Carga de márgenes específicos de producto en lote
     prod_margins_map = {}
@@ -412,13 +493,8 @@ def listas_precios():
         sku = p["sku"]
         p_id = p["id"]
         
-        vpp = vpp_map.get(p_id)
-        if vpp is None:
-            vpp = catalog_prices.get(sku)
-            
-        if vpp is None or vpp == 0.0:
-            vpp = float(p.get("cost", 0.0) or 0.0)
-            
+        vpp = vpp_map.get(p_id, 0.0)
+
         m = prod_margins_map.get(sku)
         product_cat_margins = {}
         if m:
@@ -431,7 +507,7 @@ def listas_precios():
             if margin is None:
                 margin = cat["margin"]
             
-            price_final = vpp * (1 + margin / 100.0)
+            price_final = net_price(vpp, margin)
             
             categories_display.append({
                 "id": cat_id,

@@ -4,6 +4,8 @@ Service layer for Mobile Web Operator interface (/operario).
 Orchestrates domain repositories for mobile workflows without duplicating business logic.
 """
 
+import math
+from decimal import Decimal
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime, timezone
 import json
@@ -248,7 +250,7 @@ class OperarioService:
         que tenga saldo suficiente en lot_stock, y registra el consumo atómicamente.
         """
         qty = float(quantity)
-        if qty <= 0:
+        if not math.isfinite(qty) or qty <= 0:
             return False, "La cantidad a consumir debe ser mayor a 0.", {}
 
         clean_lot = (lot_number or "").strip()
@@ -283,6 +285,13 @@ class OperarioService:
                 if not item:
                     return False, "El producto no corresponde a un insumo planificado de esta OT.", {}
 
+                cur.execute("""SELECT COALESCE(SUM(quantity_consumed),0) AS qty
+                    FROM production_lot_consumptions WHERE production_order_id=%s AND input_product_id=%s""", (ot_id,input_product_id))
+                used = Decimal(str(cur.fetchone()['qty']))
+                if used + Decimal(str(qty)) > Decimal(str(item['quantity_required'])):
+                    return False, "El consumo excede la cantidad planificada o ya fue registrado.", {}
+                # Same product lock order used by inventory transactions protects PPP.
+                cur.execute("SELECT id FROM products WHERE id=%s FOR UPDATE", (input_product_id,))
                 # 3. Buscar lote en lot_stock con bloqueo pesimista
                 cur.execute(
                     """
@@ -404,7 +413,7 @@ class OperarioService:
         - Actualiza la OT a Finalizada.
         """
         qty = float(actual_quantity)
-        if qty <= 0:
+        if not math.isfinite(qty) or qty <= 0:
             return False, "La cantidad producida debe ser mayor a 0.", {}
 
         clean_output_lot = (output_lot_number or "").strip()
@@ -429,13 +438,27 @@ class OperarioService:
 
                 if ot["status"] == "Finalizada":
                     return False, f"ESTA OT YA FUE FINALIZADA previamente.", {}
-                if ot["status"] == "Borrador":
-                    return False, f"La OT {ot['ot_number']} está en estado Borrador y no puede ser finalizada.", {}
+                if ot["status"] not in ("Solicitada", "Aprobada", "En Proceso"):
+                    return False, "La OT no está habilitada para finalizar.", {}
 
-                # Valorar la salida con los costos PPP que quedaron congelados
-                # en cada movimiento de consumo. Los consumos históricos de
-                # esta ruta guardaban costo 0; para ellos se usa el PPP actual
-                # como compatibilidad, sin tocar el Kardex previo.
+                if Decimal(str(qty)) > Decimal(str(ot['quantity'])):
+                    return False, "La producción excede la cantidad planificada.", {}
+                cur.execute("""SELECT input_product_id,SUM(quantity_required) AS required
+                    FROM production_order_items WHERE production_order_id=%s GROUP BY input_product_id""", (ot_id,))
+                plan = cur.fetchall()
+                cur.execute("""SELECT product_id,SUM(-quantity) AS consumed FROM inventory_movements
+                    WHERE reference_type='production_order' AND reference_id=%s
+                    AND movement_type='PRODUCTION_INPUT' GROUP BY product_id""", (ot_id,))
+                consumed = {r['product_id']:Decimal(str(r['consumed'])) for r in cur.fetchall()}
+                if not plan or not consumed or set(consumed) != {r['input_product_id'] for r in plan}:
+                    return False, "Debe registrar los consumos requeridos antes de finalizar.", {}
+                for item in plan:
+                    required = Decimal(str(item['required'])) * Decimal(str(qty)) / Decimal(str(ot['quantity']))
+                    if consumed[item['input_product_id']] < required:
+                        return False, "Los consumos no cubren la producción declarada.", {}
+
+                # Transfer only frozen, traceable consumption costs. Missing
+                # historical costs require a separately authorized procedure.
                 cur.execute(
                     """
                     SELECT im.product_id, ABS(im.quantity) AS consumed_qty,
@@ -455,16 +478,17 @@ class OperarioService:
                     (ot_id,),
                 )
                 consumption_rows = cur.fetchall()
-                total_consumption_cost = 0.0
+                total_consumption_cost = Decimal(0)
                 from repositories.kardex_repo import get_current_ppp
                 for consumption in consumption_rows:
                     unit_cost = float(consumption.get("unit_cost") or 0.0)
-                    if unit_cost <= 0:
-                        unit_cost = get_current_ppp(consumption["product_id"], conn=conn)
-                    total_consumption_cost += float(consumption["consumed_qty"] or 0.0) * unit_cost
-                output_unit_cost = total_consumption_cost / qty if total_consumption_cost > 0 else 0.0
+                    if not math.isfinite(unit_cost) or unit_cost <= 0:
+                        return False, "Falta costo trazable de un insumo consumido.", {}
+                    total_consumption_cost += Decimal(str(consumption["consumed_qty"])) * Decimal(str(unit_cost))
+                output_unit_cost = total_consumption_cost / Decimal(str(qty))
 
                 final_pid = ot["final_product_id"]
+                cur.execute('SELECT id FROM products WHERE id=%s FOR UPDATE',(final_pid,))
 
                 # 2. Validar obligatoriedad de lote
                 if ot["requires_lot"] and not clean_output_lot:

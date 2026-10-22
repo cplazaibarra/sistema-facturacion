@@ -758,9 +758,9 @@
                     <tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1; text-align: left;">
                         <th style="padding: 8px 12px;">Producto</th>
                         <th style="padding: 8px 12px; text-align: center;">Cant.</th>
-                        <th style="padding: 8px 12px; text-align: right;">Precio Unit.</th>
+                        <th style="padding: 8px 12px; text-align: right;">Precio Neto Unit.</th>
                         <th style="padding: 8px 12px; text-align: center;">Desc. (%)</th>
-                        <th style="padding: 8px 12px; text-align: right;">Subtotal</th>
+                        <th style="padding: 8px 12px; text-align: right;">Subtotal Neto</th>
                     </tr>
                 </thead>
                 <tbody id="modal-vta-products-body">
@@ -844,6 +844,7 @@
 
         <!-- SECCIÓN 5: RESUMEN FINANCIERO Y MARGEN REAL -->
         <div id="modal-vta-financial-section" style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;">
+            <p id="modal-fin-cost-note" style="font-size: 12px; color: #92400e;"></p>
             <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #1e293b; text-transform: uppercase;">
                 📊 Resumen Financiero y Margen Real
             </h4>
@@ -928,8 +929,10 @@
             totalRaw = parseFloat(String(sale.total).replace('$', '').replace(/\./g, '').replace(',', '.')) || 0;
         }
 
-        if (Array.isArray(sale.products)) {
-            sale.products.forEach(p => {
+        const amounts = sale.amounts;
+        const displayProducts = amounts ? amounts.lines : sale.products;
+        if (Array.isArray(displayProducts)) {
+            displayProducts.forEach(p => {
                 const tr = document.createElement('tr');
                 tr.style.borderBottom = '1px solid #e2e8f0';
 
@@ -937,21 +940,21 @@
                 const pQty = p.quantity || 1;
                 const pPrice = p.price || p.unit_price || 0;
                 const pDisc = p.discount || 0;
-                const pSub = p.subtotal || (pQty * pPrice * (1 - (pDisc / 100)));
+                const pSub = p.subtotal ?? (pQty * pPrice * (1 - (pDisc / 100)));
 
                 tr.innerHTML = `
                     <td style="padding: 10px 12px; font-weight: 500;">${pName}</td>
                     <td style="padding: 10px 12px; text-align: center;">${pQty}</td>
-                    <td style="padding: 10px 12px; text-align: right;">$${Math.round(pPrice).toLocaleString('es-CL')}</td>
+                    <td style="padding: 10px 12px; text-align: right;">$${Number(pPrice).toLocaleString('es-CL', {maximumFractionDigits: 2})}</td>
                     <td style="padding: 10px 12px; text-align: center;">${pDisc}%</td>
-                    <td style="padding: 10px 12px; text-align: right; font-weight: 600;">$${Math.round(pSub).toLocaleString('es-CL')}</td>
+                    <td style="padding: 10px 12px; text-align: right; font-weight: 600;">$${Number(pSub).toLocaleString('es-CL', {maximumFractionDigits: 2})}</td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        const neto = Math.round(totalRaw / 1.19);
-        const iva = totalRaw - neto;
+        const neto = amounts ? amounts.net : Math.round(totalRaw / 1.19);
+        const iva = amounts ? amounts.vat : totalRaw - neto;
 
         document.getElementById('modal-vta-neto').textContent = '$' + neto.toLocaleString('es-CL');
         document.getElementById('modal-vta-iva').textContent = '$' + iva.toLocaleString('es-CL');
@@ -1015,6 +1018,13 @@
                         document.getElementById('modal-fin-total-cost').textContent = '$' + Math.round(fin.real_total_cost || 0).toLocaleString('es-CL');
                         document.getElementById('modal-fin-margin-val').textContent = '$' + Math.round(fin.real_margin || 0).toLocaleString('es-CL');
                         document.getElementById('modal-fin-margin-pct').textContent = `${(fin.real_margin_pct || 0).toFixed(1)}%`;
+                        document.getElementById('modal-fin-cost-note').textContent = fin.cost_status === 'incomplete'
+                            ? 'Faltan costos de productos. El margen no se puede determinar hasta completar su valoración.'
+                            : (fin.cost_status === 'estimated' ? 'Costo y margen estimados con el PPP actual. Se congelan al descontar el inventario.' : 'Costos congelados al descontar el inventario.');
+                        if (fin.cost_status === 'incomplete') {
+                            document.getElementById('modal-fin-margin-val').textContent = 'Sin determinar';
+                            document.getElementById('modal-fin-margin-pct').textContent = 'Sin determinar';
+                        }
                     }
                 })
                 .catch(() => {

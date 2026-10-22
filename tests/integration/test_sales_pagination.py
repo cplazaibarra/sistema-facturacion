@@ -90,7 +90,7 @@ def test_sales_pagination_cases_a_to_u(clean_db):
 
     # J. Métricas globales no dependen de la página visible
     m_global = get_sales_metrics()
-    cur.execute("SELECT COUNT(*) as count FROM sales WHERE status NOT IN ('Cancelada', 'Cotización') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')")
+    cur.execute("SELECT COUNT(*) as count FROM sales WHERE status NOT IN ('Cancelada', 'Cancelado', 'Anulada', 'Anulado', 'Cotización', 'Borrador') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')")
     total_sales_universe = cur.fetchone()["count"]
     assert (m_global["ventas_completadas"] + m_global["ventas_pendientes"]) == total_sales_universe
 

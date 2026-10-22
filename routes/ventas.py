@@ -1,6 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify, session, flash
 from datetime import datetime, timezone
 import json
+from decimal import Decimal
+from services.money import document_amounts
 from security import require_permission
 from repositories.sales_repo import CancelledSaleError, lock_sale_for_change
 from db import (
@@ -352,6 +354,8 @@ def ventas():
     config = get_page_data("price_list_config")
     categories = config.get("categories", [])
     from flask import make_response
+    for record in ventas_records:
+        record['amounts'] = document_amounts(record.get('products', []), record['total_raw'])
     response = make_response(render_template(
         'ventas.html',
         ventas_metrics=ventas_metrics,
@@ -525,6 +529,8 @@ def cotizaciones():
 
     # Sólo los documentos de la página; filtros y métricas resueltos en SQL
     cotizaciones_records = only_cotizaciones
+    for record in cotizaciones_records:
+        record['amounts'] = document_amounts(record.get('products', []), record['total_raw'])
 
     activas_count = quote_metrics['active']
     ganadas_count = quote_metrics['won']
@@ -579,6 +585,7 @@ def cotizaciones():
         roles=roles,
         categories=categories,
         active_filter=active_filter,
+        quotation_logo=url_for('usuarios.quotation_company_logo') if (get_page_data('company_information') or {}).get('quotation_logo') else '',
     ))
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'
@@ -1436,9 +1443,14 @@ def ingreso_ventas():
     delivery_status_options = get_page_data("sales_delivery_status_options")
 
     if request.method == 'POST':
-        quantity = int(request.form.get('quantity', 0) or 0)
-        unit_price = float(request.form.get('unit_price', 0) or 0)
-        total_price = round(quantity * unit_price, 2)
+        from services.money import quotation_line, amounts_from_net
+        try:
+            line = quotation_line(request.form.get('quantity'), request.form.get('unit_price'))
+        except ValueError as exc:
+            flash(str(exc), 'danger')
+            return redirect(request.url)
+        quantity, unit_price = line['quantity'], line['price']
+        total_price = amounts_from_net(line['subtotal'])['total']
 
         entry = {
             "sku": request.form.get('sku', '').strip(),
@@ -1473,6 +1485,8 @@ def ingreso_ventas():
         return redirect(url_for('ventas.ingreso_ventas'))
 
     entries = list_sales_entries()
+    for entry in entries:
+        entry['amounts'] = document_amounts([{'quantity': entry['quantity'], 'price': entry['unit_price']}], entry['total_price'])
     return render_template(
         'ingreso_ventas.html',
         payment_status_options=payment_status_options,
@@ -1515,6 +1529,22 @@ def nueva_cotizacion():
         unit_prices = request.form.getlist('unit_price[]')
         discounts = request.form.getlist('discount[]')
         lot_numbers = request.form.getlist('lot_number[]')
+
+        from services.money import quotation_line, amounts_from_net
+        try:
+            if not product_ids or len(product_ids) != len(quantities) or len(product_ids) != len(unit_prices):
+                raise ValueError('Cada producto debe tener cantidad y precio neto.')
+            if discounts and len(discounts) != len(product_ids):
+                raise ValueError('Cada producto debe tener un descuento válido.')
+            validated_lines = []
+            for idx, p_id in enumerate(product_ids):
+                if not p_id.isdigit():
+                    raise ValueError('Selecciona un producto válido en cada línea.')
+                discount = (discounts[idx] or 0) if discounts else 0
+                validated_lines.append(quotation_line(quantities[idx], unit_prices[idx], discount))
+        except ValueError as exc:
+            flash(str(exc), 'danger')
+            return redirect(request.url)
         
         # Guardar / Actualizar datos del cliente en la base de datos (con RUT como llave primaria)
         from db import upsert_client_by_rut, get_client_by_id, get_client_by_rut
@@ -1587,12 +1617,13 @@ def nueva_cotizacion():
         for idx, (p_id, qty, price) in enumerate(zip(product_ids, quantities, unit_prices)):
             if not p_id or not qty or not price:
                 continue
-            qty_int = int(qty)
-            price_float = float(price)
-            discount_float = float(discounts[idx]) if idx < len(discounts) and discounts[idx] else 0.0
+            line = validated_lines[idx]
+            qty_int = line['quantity']
+            price_float = line['price']
+            discount_float = line['discount']
             lot_num = (lot_numbers[idx] if idx < len(lot_numbers) else "").strip()
             
-            subtotal = qty_int * price_float * (1.0 - (discount_float / 100.0))
+            subtotal = line['subtotal']
             total_amount += subtotal
             
             prod_info = all_prods.get(p_id, {})
@@ -1612,6 +1643,8 @@ def nueva_cotizacion():
         if not products_list:
             flash("Debe agregar al menos un producto a la cotización.", "warning")
             return redirect(url_for('ventas.nueva_cotizacion'))
+
+        total_amount = amounts_from_net(sum((Decimal(str(p['subtotal'])) for p in products_list)))['total']
 
         # Estado seleccionado (Borrador vs Cotización)
         cot_status = request.form.get('status', 'Cotización').strip()
@@ -1807,7 +1840,7 @@ def nueva_cotizacion():
                 "sale_date": source_sale.get("sale_date", default_date) if is_edit_mode else default_date,
                 "payment_method": source_sale.get("payment_method", "Efectivo") if is_edit_mode else "Efectivo",
                 "notes": clean_notes,
-                "products": source_sale.get("products", []),
+                "products": document_amounts(source_sale.get("products", []), source_sale["total_amount"])["lines"],
                 "seller_name": source_sale.get("seller_name") or get_logged_in_user_info()[0],
                 "seller_initials": source_sale.get("seller_initials") or get_logged_in_user_info()[1]
             }
@@ -1828,26 +1861,9 @@ def nueva_cotizacion():
             ]
         }
         
-    vpp_map = {}
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT product_id, SUM(quantity) as total_qty, SUM(total) as total_spent
-                FROM inventory_entry_items
-                GROUP BY product_id
-                """
-            )
-            for row in cur.fetchall():
-                qty = row["total_qty"] or 0
-                spent = row["total_spent"] or 0.0
-                if qty > 0:
-                    vpp_map[row["product_id"]] = spent / qty
-
-    catalog_prices = {}
-    inventory_items = get_page_data("inventory_items") or []
-    for item in inventory_items:
-        catalog_prices[item["code"]] = item.get("price", 0.0)
+    from repositories.kardex_repo import get_batch_current_ppp
+    from services.pricing import net_price
+    vpp_map = get_batch_current_ppp([p['id'] for p in products])
 
     prod_margins_map = {}
     with get_connection() as conn:
@@ -1861,9 +1877,7 @@ def nueva_cotizacion():
         sku = p["sku"]
         p_id = p["id"]
         
-        vpp = vpp_map.get(p_id)
-        if vpp is None:
-            vpp = catalog_prices.get(sku, 0.0)
+        vpp = vpp_map.get(p_id, 0.0)
             
         m = prod_margins_map.get(sku)
         product_cat_margins = {}
@@ -1879,7 +1893,7 @@ def nueva_cotizacion():
             if margin is None:
                 margin = cat["margin"]
                 
-            price_final = vpp * (1 + float(margin or 0.0) / 100.0)
+            price_final = net_price(vpp, margin or 0)
             prices[cat_id] = round(price_final, 2)
             
         products_prices_map[str(p_id)] = prices

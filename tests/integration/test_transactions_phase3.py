@@ -358,11 +358,14 @@ def test_supplier_payment_atomic_and_idempotent():
             inv_id = cur.fetchone()["id"]
         conn.commit()
 
+    from repositories.finance_repo import insert_bank_account
+    account_id=insert_bank_account({'bank_name':'CERT Transferencia transaccional','account_number':'CERT-'+str(inv_id),
+        'account_type':'Cuenta Corriente','holder_name':'Empresa ficticia','status':'Activa'})
     payment_data = {
         "payment_date": "2026-03-14",
         "payment_amount": 150000.0,
         "payment_method": "Transferencia",
-        "bank_account_id": None,
+        "bank_account_id": account_id,
         "payment_proof_file": None,
         "payment_notes": "Pago total factura test"
     }
@@ -386,7 +389,9 @@ def test_supplier_payment_atomic_and_idempotent():
     # Cleanup
     with get_connection() as conn:
         with conn.cursor() as cur:
+            cur.execute("DELETE FROM purchase_payment_items WHERE invoice_id=%s",(inv_id,))
             cur.execute("DELETE FROM purchase_invoices WHERE id = %s", (inv_id,))
+            cur.execute("DELETE FROM bank_accounts WHERE id=%s",(account_id,))
         conn.commit()
 
 

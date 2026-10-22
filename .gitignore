@@ -35,5 +35,6 @@ cookies.txt
 backups/
 static/uploads/
 *.sql
+!migrations/*.sql
 .~lock.*
 

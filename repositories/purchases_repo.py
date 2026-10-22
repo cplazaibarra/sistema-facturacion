@@ -846,7 +846,7 @@ def get_purchase_invoice_summary():
             cur.execute("""SELECT
                 COUNT(*) FILTER (WHERE payment_status='Vencida') AS n_vencidas,
                 COUNT(*) FILTER (WHERE payment_status IN ('Pendiente','Vencida')) AS n_pendientes,
-                COALESCE(SUM(invoice_amount) FILTER (WHERE payment_status IN ('Pendiente','Vencida','Sin Factura')),0) AS total_pendiente
+                COALESCE(SUM(GREATEST(invoice_amount-COALESCE(payment_amount,0),0)) FILTER (WHERE payment_status IN ('Pendiente','Vencida','Sin Factura')),0) AS total_pendiente
                 FROM purchase_invoices""")
             return dict(cur.fetchone())
 

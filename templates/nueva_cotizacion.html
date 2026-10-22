@@ -316,7 +316,7 @@
                 <select name="customer_category" id="customer-category-select" required class="form-field-input">
                     <option value="">-- Selección --</option>
                     {% for cat in categories %}
-                    <option value="{{ cat.id }}" {% if cloned_quotation and cloned_quotation.customer_category == cat.id %}selected{% endif %}>{{ cat.name }} ({{ cat.margin }}% margen)</option>
+                    <option value="{{ cat.id }}" {% if cloned_quotation and cloned_quotation.customer_category == cat.id %}selected{% endif %}>{{ cat.name }} ({{ cat.margin }}% recargo)</option>
                     {% endfor %}
                 </select>
             </div>
@@ -367,6 +367,7 @@
             </div>
         </div>
 
+        <p style="font-size: 12px; color: #475569;">Los precios unitarios son netos. El IVA se agrega al total. Los precios sugeridos usan el costo PPP y un recargo sobre costo; si no hay costo definido, ingresa un precio neto mayor que cero.</p>
         <!-- Estado de Cotización y Probabilidad de Ganarla -->
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
             <div class="form-group-field" style="margin-bottom: 0;">
@@ -952,7 +953,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const qty = parseFloat(qtyInput ? qtyInput.value : 0) || 0;
             const price = parseFloat(priceInput ? priceInput.value : 0) || 0;
             const discount = parseFloat(discountInput ? discountInput.value : 0) || 0;
-            neto += qty * price * (1 - (discount / 100));
+            neto += Math.round((qty * price * (1 - (discount / 100)) + Number.EPSILON) * 100) / 100;
         });
 
         const netoRounded = Math.round(neto);

@@ -9,7 +9,10 @@ import argparse
 import os
 import sys
 import glob
+import json
+import uuid
 from pathlib import Path
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 import psycopg2
 import psycopg2.extras
@@ -18,13 +21,58 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 MIGRATIONS_DIR = BASE_DIR / "migrations"
+MIGRATION_EXECUTION_ID = os.environ.get("ERP_MIGRATION_RUN_ID") or os.environ.get("ERP_TEST_RUN_ID") or uuid.uuid4().hex
+
+
+def _audit_event(conn, migration, action, status, source, error=None):
+    """Emit a secret-free migration record with the effective server identity."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT current_database(), current_user")
+        identity = cur.fetchone()
+    if hasattr(identity, "keys"):
+        database, user = identity["current_database"], identity["current_user"]
+    else:
+        database, user = identity
+    event = {
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "migration": f"{migration['version']}_{migration['name']}",
+        "database": database,
+        "database_user": user,
+        "application": source,
+        "execution_id": MIGRATION_EXECUTION_ID,
+        "action": action,
+        "status": status,
+    }
+    if error:
+        event["error_type"] = type(error).__name__
+    print("MIGRATION_AUDIT " + json.dumps(event, sort_keys=True), file=sys.stderr if error else sys.stdout, flush=True)
 
 
 def get_connection(dbname=None):
+    target_db = dbname or os.environ.get("DB_NAME", "facturacion")
+    testing = os.environ.get("APP_ENV", "").lower() == "testing" or os.environ.get("ERP_TEST_MODE") == "1"
+    if testing:
+        from core.test_database_guard import validate_connection_parameters, verify_test_connection
+        params = {
+            "dbname": target_db,
+            "host": os.environ.get("DB_HOST", "localhost"),
+            "port": os.environ.get("DB_PORT", "5432"),
+            "user": os.environ.get("DB_USER", "postgres"),
+        }
+        validate_connection_parameters(os.environ, params)
+        conn = psycopg2.connect(
+            **params, password=os.environ.get("DB_PASSWORD", "postgres"),
+            cursor_factory=psycopg2.extras.RealDictCursor,
+        )
+        return verify_test_connection(conn)
+    if target_db in {"facturacion", "facturacion_cleanup_verify"} and os.environ.get("ERP_ALLOW_PROTECTED_MIGRATIONS") != "1":
+        raise RuntimeError(
+            "Refusing migration connection to a protected database. Set ERP_ALLOW_PROTECTED_MIGRATIONS=1 only for an explicitly approved administrative migration."
+        )
     return psycopg2.connect(
         host=os.environ.get("DB_HOST", "localhost"),
         port=os.environ.get("DB_PORT", "5432"),
-        dbname=dbname or os.environ.get("DB_NAME", "facturacion"),
+        dbname=target_db,
         user=os.environ.get("DB_USER", "postgres"),
         password=os.environ.get("DB_PASSWORD", "postgres"),
         cursor_factory=psycopg2.extras.RealDictCursor,
@@ -69,7 +117,7 @@ def get_migration_files():
     return migrations
 
 
-def apply_migration(conn, migration):
+def apply_migration(conn, migration, source="tools.migrate"):
     version = migration["version"]
     name = migration["name"]
     up_file = migration["up_file"]
@@ -79,20 +127,23 @@ def apply_migration(conn, migration):
 
     try:
         with conn.cursor() as cur:
+            cur.execute("SELECT set_config('application_name', %s, true)", (f"erp-v1:{version}",))
             cur.execute(sql)
             cur.execute(
                 "INSERT INTO schema_migrations (version, name) VALUES (%s, %s);",
                 (version, name),
             )
         conn.commit()
+        _audit_event(conn, migration, "up", "success", source)
         print(f"  -> Successfully applied {version}_{name}")
     except Exception as e:
         conn.rollback()
+        _audit_event(conn, migration, "up", "failure", source, e)
         print(f"  [ERROR] Failed to apply {version}_{name}: {e}", file=sys.stderr)
         raise
 
 
-def rollback_migration(conn, migration):
+def rollback_migration(conn, migration, source="tools.migrate"):
     version = migration["version"]
     name = migration["name"]
     down_file = migration["down_file"]
@@ -105,12 +156,15 @@ def rollback_migration(conn, migration):
 
     try:
         with conn.cursor() as cur:
+            cur.execute("SELECT set_config('application_name', %s, true)", (f"erp-v1:rollback:{version}",))
             cur.execute(sql)
             cur.execute("DELETE FROM schema_migrations WHERE version = %s;", (version,))
         conn.commit()
+        _audit_event(conn, migration, "down", "success", source)
         print(f"  -> Successfully reverted {version}_{name}")
     except Exception as e:
         conn.rollback()
+        _audit_event(conn, migration, "down", "failure", source, e)
         print(f"  [ERROR] Failed to revert {version}_{name}: {e}", file=sys.stderr)
         raise
 
@@ -135,7 +189,7 @@ def status_cmd(conn):
     print("=" * 60)
 
 
-def up_cmd(conn, target_version=None):
+def up_cmd(conn, target_version=None, source="tools.migrate"):
     applied = get_applied_migrations(conn)
     all_mig = get_migration_files()
     pending = [m for m in all_mig if m["version"] not in applied]
@@ -148,13 +202,13 @@ def up_cmd(conn, target_version=None):
     for m in pending:
         if target_version and m["version"] > target_version:
             break
-        apply_migration(conn, m)
+        apply_migration(conn, m, source=source)
         applied_count += 1
     print(f"Done. Applied {applied_count} migration(s).")
     return applied_count
 
 
-def down_cmd(conn, steps=1, all_down=False):
+def down_cmd(conn, steps=1, all_down=False, source="tools.migrate"):
     applied = get_applied_migrations(conn)
     all_mig = {m["version"]: m for m in get_migration_files()}
     sorted_applied = sorted(applied.keys(), reverse=True)
@@ -168,7 +222,7 @@ def down_cmd(conn, steps=1, all_down=False):
     for v in to_revert:
         if v not in all_mig:
             raise RuntimeError(f"Cannot revert version {v}: corresponding migration files not found!")
-        rollback_migration(conn, all_mig[v])
+        rollback_migration(conn, all_mig[v], source=source)
         reverted_count += 1
     print(f"Done. Reverted {reverted_count} migration(s).")
     return reverted_count
@@ -189,9 +243,9 @@ def mark_applied(conn, version, name):
     conn.commit()
 
 
-def apply_all_migrations(conn):
+def apply_all_migrations(conn, source="programmatic"):
     """Programmatic entry point for application bootstrap."""
-    return up_cmd(conn)
+    return up_cmd(conn, source=source)
 
 
 def main():

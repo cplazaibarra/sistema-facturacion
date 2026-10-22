@@ -922,20 +922,23 @@ def get_sale_financial_summary(sale_id: int, conn=None) -> dict:
     - Margen Real ($) = Neto - Costo Total Real
     - Margen Real (%) = (Margen Real / Neto) * 100
     """
-    def _execute(cur):
+    def _execute(cur, active_conn):
         cur.execute("SELECT total_amount, products_json FROM sales WHERE id = %s", (sale_id,))
         srow = cur.fetchone()
         if not srow:
             return {}
 
         total_amount = float(srow["total_amount"] or 0.0)
-        neto = round(total_amount / 1.19, 2)
-        iva = round(total_amount - neto, 2)
+        from services.money import document_amounts
+        amounts = document_amounts(json.loads(srow['products_json'] or '[]'), total_amount)
+        neto = amounts['net']
+        iva = amounts['vat']
 
         # 1. Costo de productos vendidos: Prioridad absoluta al snapshot congelado en sale_items
         cur.execute(
             """
-            SELECT COUNT(*) as cnt, COALESCE(SUM(total_cost_at_sale), 0.0) as frozen_cost
+            SELECT COUNT(*) as cnt, COALESCE(SUM(total_cost_at_sale), 0.0) as frozen_cost,
+                   COUNT(*) FILTER (WHERE unit_cost_at_sale IS NULL OR unit_cost_at_sale <= 0) AS missing_cost
             FROM sale_items
             WHERE sale_id = %s
             """,
@@ -944,18 +947,24 @@ def get_sale_financial_summary(sale_id: int, conn=None) -> dict:
         items_summary = cur.fetchone()
         if items_summary and items_summary["cnt"] > 0:
             products_cost = float(items_summary["frozen_cost"])
+            missing_cost = bool(items_summary['missing_cost'])
+            cost_status = 'frozen'
         else:
             # Fallback legacy para ventas antiguas anteriores a la migración
-            from repositories.products_repo import get_product_calculated_cost
+            from repositories.kardex_repo import get_current_ppp
             products_cost = 0.0
+            missing_cost = False
+            cost_status = 'estimated'
             try:
                 products_list = json.loads(srow["products_json"] or "[]")
+                if not products_list:
+                    missing_cost = True
                 for p in products_list:
                     qty = float(p.get("quantity", 0) or 0)
                     pid = p.get("product_id")
                     p_unit_cost = None
                     if pid:
-                        p_unit_cost = get_product_calculated_cost(pid)
+                        p_unit_cost = get_current_ppp(pid, conn=active_conn)
                         if p_unit_cost is None:
                             cur.execute("SELECT cost FROM products WHERE id = %s", (pid,))
                             prow = cur.fetchone()
@@ -963,9 +972,14 @@ def get_sale_financial_summary(sale_id: int, conn=None) -> dict:
                                 p_unit_cost = float(prow["cost"])
                     if p_unit_cost is None:
                         p_unit_cost = 0.0
+                    if qty > 0 and p_unit_cost <= 0:
+                        missing_cost = True
                     products_cost += round(qty * p_unit_cost, 2)
             except Exception:
-                pass
+                missing_cost = True
+
+        if missing_cost:
+            cost_status = 'incomplete'
 
         # 2. Costo de embalaje (sale_packaging_items)
         cur.execute(
@@ -992,16 +1006,18 @@ def get_sale_financial_summary(sale_id: int, conn=None) -> dict:
             "packaging_cost": packaging_cost,
             "real_total_cost": real_total_cost,
             "real_margin": real_margin,
-            "real_margin_pct": real_margin_pct
+            "real_margin_pct": real_margin_pct,
+            "cost_status": cost_status,
+            "costs_complete": not missing_cost,
         }
 
     if conn is not None:
         with conn.cursor() as cur:
-            return _execute(cur)
+            return _execute(cur, conn)
     else:
         with get_connection() as c:
             with c.cursor() as cur:
-                return _execute(cur)
+                return _execute(cur, c)
 
 
 def reverse_sale_packaging(sale_id: int, user_name: str = "Sistema", conn=None) -> list[dict]:

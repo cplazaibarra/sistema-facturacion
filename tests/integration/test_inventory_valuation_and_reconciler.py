@@ -192,13 +192,24 @@ def test_production_output_cost_derives_correctly_from_inputs():
 def test_retry_finalize_production_does_not_duplicate_output():
     """3. Reintento de finalización no duplica output."""
     pt_id, _ = _create_unique_product("PT-IDEMP", cost=1000.0, product_type="Final", requires_lot=False)
-    ot_id, _ = production_repo.create_production_order(
-        final_product_id=pt_id,
-        quantity=1,
-        notes="OT Retry Test",
-        status="Solicitada",
-        items=[]
-    )
+    # Idempotency is tested on a legitimate manufacturing operation.
+    from repositories.products_repo import create_product
+    from repositories.suppliers_repo import insert_supplier
+    from repositories.purchases_repo import create_purchase_order
+    from repositories.inventory_repo import register_inventory_entry
+    import uuid
+    label='CERT-IDEMP-'+uuid.uuid4().hex[:10]
+    raw=create_product(sku=label,name=label,cost=1000,requires_lot=True,product_type='Insumo')
+    supplier=insert_supplier({'name':label})
+    items=[{'product_id':raw,'quantity':1,'unit_price':1000,'lot_number':label}]
+    number=create_purchase_order(supplier,'2026-10-01','CERT synthetic',items)
+    with get_connection() as conn,conn.cursor() as cur:
+        cur.execute('SELECT id FROM purchase_orders WHERE oc_number=%s',(number,))
+        po=cur.fetchone()['id']
+    register_inventory_entry(po,number,'2026-10-01','Principal','CERT synthetic',items)
+    ot_id, _ = production_repo.create_production_order(final_product_id=pt_id,quantity=1,
+        notes='OT Retry Test',status='Solicitada',items=[{'input_product_id':raw,'quantity_required':1}])
+    assert OperarioService.validate_and_record_consumption(ot_id,raw,label,1)[0]
     ok1, _, _ = OperarioService.finalize_production(ot_id=ot_id, actual_quantity=1.0, output_lot_number="LOT-IDEMP")
     assert ok1
 

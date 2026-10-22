@@ -304,7 +304,7 @@ def update_operational_expense_occurrence(occurrence_id, data, user_id=None):
     """
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, expense_id, amount, status FROM operational_expense_occurrences WHERE id = %s FOR UPDATE", (occurrence_id,))
+            cur.execute("SELECT * FROM operational_expense_occurrences WHERE id = %s FOR UPDATE", (occurrence_id,))
             occ = cur.fetchone()
             if not occ:
                 return False
@@ -323,6 +323,60 @@ def update_operational_expense_occurrence(occurrence_id, data, user_id=None):
             paid_date = data.get("paid_date")
             payment_amount = data.get("payment_amount")
             bank_account_id = data.get("bank_account_id")
+
+            from decimal import Decimal, InvalidOperation
+            from datetime import date
+            import hashlib
+            try:
+                amount = Decimal(str(amount))
+                if not amount.is_finite() or amount <= 0 or amount != amount.quantize(Decimal('.01')):
+                    return False
+            except (InvalidOperation,ValueError): return False
+            cur.execute("SELECT COALESCE(SUM(payment_amount),0) AS paid,COUNT(*) AS n FROM expense_payment_items WHERE occurrence_id=%s", (occurrence_id,))
+            ledger = cur.fetchone()
+            legacy_paid=Decimal(str(occ.get('payment_amount') or 0))
+            cur.execute('SELECT payment_amount FROM expense_payment_openings WHERE occurrence_id=%s',(occurrence_id,))
+            opening=cur.fetchone()
+            paid = ledger['paid'] + (opening['payment_amount'] if opening else Decimal(0)) if ledger['n'] else legacy_paid
+            if amount < paid: return False
+            wants_payment = status == 'Pagado' and payment_amount is not None and paid_date is not None
+            if wants_payment:
+                try:
+                    installment = Decimal(str(payment_amount))
+                    payment_day = date.fromisoformat(str(paid_date))
+                    if not installment.is_finite() or installment <= 0 or installment != installment.quantize(Decimal('.01')):
+                        return False
+                except (InvalidOperation,ValueError): return False
+                key = str(data.get('idempotency_key') or hashlib.sha256(f'{installment.normalize()}:{payment_day}:{bank_account_id}'.encode()).hexdigest())
+                cur.execute("SELECT * FROM expense_payment_items WHERE occurrence_id=%s AND idempotency_key=%s", (occurrence_id,key))
+                previous = cur.fetchone()
+                if previous:
+                    if not (previous['payment_amount']==installment and previous['payment_date']==payment_day
+                            and previous['bank_account_id']==bank_account_id):return False
+                    # A retry must retain any newly supplied document metadata,
+                    # while preserving the accumulated payments and last date.
+                    paid_date=occ.get('paid_date')
+                    bank_account_id=occ.get('bank_account_id')
+                else:
+                    if installment > amount-paid:return False
+                    if bank_account_id:
+                        cur.execute("SELECT id FROM bank_accounts WHERE id=%s AND status='Activa'", (bank_account_id,))
+                        if not cur.fetchone(): return False
+                    if not ledger['n'] and legacy_paid>0:
+                        if not occ.get('paid_date'):return False
+                        cur.execute('''INSERT INTO expense_payment_openings(occurrence_id,payment_amount,paid_date,bank_account_id) VALUES(%s,%s,%s,%s)''',(occurrence_id,legacy_paid,occ['paid_date'],occ.get('bank_account_id')))
+                    cur.execute("""INSERT INTO expense_payment_items(occurrence_id,payment_amount,payment_date,bank_account_id,idempotency_key,created_by)
+                        VALUES(%s,%s,%s,%s,%s,%s)""", (occurrence_id,installment,payment_day,bank_account_id,key,user_id))
+                    paid += installment
+                status = 'Pagado' if paid==amount else 'Proyectado'
+            else:
+                # Editing a document cannot erase its payments or reopen a paid expense.
+                if status=='Pagado' and paid==0: return False
+                if paid>0:
+                    status='Pagado' if paid==amount else 'Proyectado'
+                paid_date=occ.get('paid_date')
+                bank_account_id=data.get('bank_account_id',occ.get('bank_account_id'))
+            payment_amount = paid if paid else None
 
             cur.execute("""
                 UPDATE operational_expense_occurrences

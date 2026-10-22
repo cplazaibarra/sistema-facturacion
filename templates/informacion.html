@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Información - Administración{% endblock %}
+{% block page_title %}Información{% endblock %}
+
+{% block content %}
+<div class="settings-section">
+    <div class="settings-card">
+        <h3>Información de la empresa</h3>
+        <p style="color: #64748b; margin: 0 0 20px;">Carga el logo que aparecerá en la esquina superior izquierda de las cotizaciones impresas.</p>
+
+        {% if company_info.quotation_logo %}
+        <div style="margin-bottom: 20px;">
+            <p style="font-weight: 600; margin-bottom: 8px;">Logo actual</p>
+            <img src="{{ url_for('usuarios.quotation_company_logo') }}" alt="Logo de la empresa" style="max-width: 220px; max-height: 120px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; background: white;">
+        </div>
+        {% endif %}
+
+        <form method="POST" enctype="multipart/form-data" class="settings-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="company_logo">Icono gráfico / logo</label>
+                <input id="company_logo" name="company_logo" type="file" class="form-control" accept="image/png,image/jpeg,image/webp" required>
+                <small style="display: block; color: #64748b; margin-top: 6px;">Formatos permitidos: PNG, JPG, JPEG y WEBP.</small>
+            </div>
+            <div class="form-actions">
+                <a href="{{ url_for('usuarios.administracion') }}" class="btn-secondary" style="text-decoration: none;">Volver a Administración</a>
+                <button type="submit" class="btn-primary">Guardar logo</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -98,8 +98,12 @@ from core.presentation import money_cl, product_label
 app.jinja_env.filters['money_cl'] = money_cl
 app.jinja_env.filters['product_label'] = product_label
 
-# Inicializar Base de Datos
-init_db()
+# Never migrate or seed an operational database merely by importing/reloading
+# Flask. Schema deployment is an explicit administrative operation.
+if app_env == 'testing':
+    from core.test_database_guard import assert_current_test_database_authorized
+    assert_current_test_database_authorized()
+    init_db()
 
 # Servir archivos estáticos subidos
 @app.route('/uploads/<path:filename>')
@@ -134,6 +138,17 @@ app.register_blueprint(compras_bp)
 app.register_blueprint(produccion_bp)
 app.register_blueprint(trazabilidad_bp)
 app.register_blueprint(operario_bp)
+
+@app.context_processor
+def company_branding():
+    if 'user_id' not in session:
+        return {'company_logo_url': None}
+    from db import get_page_data
+    info = get_page_data('company_information') or {}
+    return {
+        'company_logo_url': url_for('usuarios.quotation_company_logo')
+        if info.get('quotation_logo') else None
+    }
 
 @app.route('/operador')
 def operador_redirect():

@@ -541,11 +541,16 @@ def init_db() -> None:
     """
     Initialize database schema using ordered transactional migrations and seed required baseline catalogs.
     """
+    # Initialization is for authorized ephemeral tests only. Operational schema
+    # changes must use an explicitly approved administrative migration command.
+    from core.test_database_guard import assert_current_test_database_authorized
+    assert_current_test_database_authorized()
+
     import tools.migrate as mig
     import tools.seed_required as seed_req
 
     with get_connection() as conn:
-        mig.apply_all_migrations(conn)
+        mig.apply_all_migrations(conn, source="flask_testing_bootstrap")
         seed_req.seed_required_catalogs(conn)
 
     seed_data_if_empty()

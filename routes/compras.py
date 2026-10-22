@@ -614,6 +614,15 @@ def nueva_factura_proveedor():
     payment_status     = request.form.get('payment_status', 'Pendiente')  # 'Pendiente' o 'Pagada'
     bank_account_id    = request.form.get('bank_account_id', type=int) or None
 
+    from decimal import Decimal, InvalidOperation
+    try:
+        face_amount=Decimal(str(invoice_amount))
+        if not face_amount.is_finite() or face_amount<=0 or face_amount!=face_amount.quantize(Decimal('.01')):
+            raise ValueError('Importe inválido')
+    except (InvalidOperation,ValueError):
+        flash('El importe de la factura debe ser positivo, finito y con máximo dos decimales.','danger')
+        return redirect(url_for('compras.cuentas_por_pagar'))
+
     if not invoice_number:
         flash("Debes ingresar el número de factura.", "danger")
         return redirect(url_for('compras.cuentas_por_pagar'))
@@ -683,7 +692,7 @@ def nueva_factura_proveedor():
         'invoice_date':       invoice_date,
         'due_date':           due_date,
         'document_file':      doc_file_path,
-        'payment_status':     payment_status,
+        'payment_status':     'Pendiente' if payment_status == 'Pagada' else payment_status,
         'bank_account_id':    bank_account_id,
         'notes':              notes,
     })
@@ -810,7 +819,7 @@ def registrar_pago_factura(invoice_id):
         return redirect(url_for('compras.cuentas_por_pagar'))
 
     payment_date    = request.form.get('payment_date', date.today().isoformat())
-    payment_amount  = request.form.get('payment_amount', type=float) or inv['invoice_amount'] or 0
+    payment_amount  = request.form.get('payment_amount', '')
     payment_notes   = request.form.get('payment_notes', '')
     invoice_number  = request.form.get('invoice_number', inv.get('invoice_number', ''))
 
@@ -826,7 +835,8 @@ def registrar_pago_factura(invoice_id):
         from werkzeug.utils import secure_filename
         clean_name = secure_filename(proof_file.filename)
         ext = os.path.splitext(clean_name)[1].lower()
-        safe_base = secure_filename(f"comprobante_{invoice_id}_{payment_date}")
+        from uuid import uuid4
+        safe_base = secure_filename(f"comprobante_{invoice_id}_{payment_date}_{uuid4().hex}")
         filename = f"{safe_base}{ext}"
         dest_path = os.path.abspath(os.path.join(upload_dir, filename))
         if not dest_path.startswith(os.path.abspath(upload_dir) + os.sep) and dest_path != os.path.abspath(upload_dir):
@@ -842,10 +852,11 @@ def registrar_pago_factura(invoice_id):
         'bank_account_id':    bank_account_id,
         'payment_proof_file': proof_path,
         'payment_notes':      payment_notes,
+        'idempotency_key':    request.form.get('idempotency_key'),
     })
 
     # Si el N° de factura cambió (era guía de despacho y ahora llega la factura), actualizarlo
-    if invoice_number and invoice_number != (inv.get('invoice_number') or ''):
+    if ok and invoice_number and invoice_number != (inv.get('invoice_number') or ''):
         from db import get_connection
         with get_connection() as conn:
             with conn.cursor() as cur:
@@ -877,7 +888,14 @@ def editar_factura_proveedor(invoice_id):
         flash("La fecha de vencimiento es obligatoria.", "danger")
         return redirect(url_for('compras.cuentas_por_pagar'))
 
-    invoice_amount = request.form.get('invoice_amount', type=float) or inv.get('invoice_amount') or 0.0
+    from decimal import Decimal, InvalidOperation
+    try:
+        invoice_amount=Decimal(request.form.get('invoice_amount') or str(inv.get('invoice_amount') or 0))
+        if not invoice_amount.is_finite() or invoice_amount<=0 or invoice_amount!=invoice_amount.quantize(Decimal('.01')):
+            raise ValueError('Importe inválido')
+    except (InvalidOperation,ValueError):
+        flash('El importe de factura debe ser positivo, finito y con máximo dos decimales.','danger')
+        return redirect(url_for('compras.cuentas_por_pagar'))
     invoice_date   = (request.form.get('invoice_date') or inv.get('invoice_date') or date.today().isoformat()).strip()
     notes          = (request.form.get('notes') or '').strip()
 
@@ -913,6 +931,17 @@ def editar_factura_proveedor(invoice_id):
     from db import get_connection
     with get_connection() as conn:
         with conn.cursor() as cur:
+            cur.execute('SELECT * FROM purchase_invoices WHERE id=%s FOR UPDATE',(invoice_id,))
+            locked=cur.fetchone()
+            paid=Decimal(str(locked['payment_amount'] or 0))
+            if locked['payment_amount'] is None and locked['payment_status'] in ('Pagada','Pagado'):
+                paid=Decimal(str(locked['invoice_amount'] or 0))
+            if invoice_amount<paid:
+                flash('El importe de la factura no puede ser menor que los pagos registrados.','danger')
+                return redirect(url_for('compras.cuentas_por_pagar'))
+            if new_status not in ('Anulada','Anulado','Sin Factura'):
+                new_status='Pagada' if paid==invoice_amount else ('Vencida' if due_date<date.today().isoformat() else 'Pendiente')
+
             cur.execute("""
                 UPDATE purchase_invoices
                 SET invoice_number = %s,
@@ -958,3 +987,14 @@ def api_pending_invoices_count():
     """API: devuelve la cantidad de facturas pendientes/vencidas (para badge del menú)."""
     n = count_pending_invoices()
     return jsonify({'count': n})
+
+
+@compras_bp.route('/compras/facturas/<int:invoice_id>/pagos')
+def historial_pagos_factura(invoice_id):
+    from core.database import get_connection
+    inv=get_purchase_invoice(invoice_id)
+    if not inv:return 'Factura no encontrada',404
+    with get_connection() as conn,conn.cursor() as cur:
+        cur.execute("SELECT * FROM purchase_payment_events WHERE invoice_id=%s ORDER BY payment_date,event_id",(invoice_id,))
+        payments=[dict(r) for r in cur.fetchall()]
+    return render_template('compras_historial_pagos.html',invoice=inv,payments=payments)

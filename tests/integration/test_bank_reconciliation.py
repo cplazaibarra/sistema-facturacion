@@ -352,8 +352,8 @@ def test_reconciliation_with_sale_payment(auth_client, test_bank_accounts):
 
             cur.execute(
                 """
-                INSERT INTO sale_payment_items (sale_id, payment_amount, payment_date, payment_method, bank_account_id, created_at)
-                VALUES (%s, 120000, '2026-03-21', 'Transferencia', %s, '2026-03-21 10:00:00')
+                INSERT INTO sale_payment_items (sale_id, payment_amount, payment_date, payment_method, bank_account_id, accounting_approved, created_at)
+                VALUES (%s, 120000, '2026-03-21', 'Transferencia', %s, 1, '2026-03-21 10:00:00')
                 RETURNING id
                 """,
                 (sale_id, acc_id)

@@ -33,14 +33,14 @@ def get_sales_metrics() -> dict:
 
             # 1. Ventas hoy vs ayer
             cur.execute(
-                "SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE sale_date = %s AND status NOT IN ('Cancelada', 'Cotización') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')",
+                "SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE sale_date = %s AND status NOT IN ('Cancelada', 'Cancelado', 'Anulada', 'Anulado', 'Cotización', 'Borrador') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')",
                 (today_str,)
             )
             row_today = cur.fetchone()
             total_today = float(row_today["total"]) if row_today else 0.0
 
             cur.execute(
-                "SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE sale_date = %s AND status NOT IN ('Cancelada', 'Cotización') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')",
+                "SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE sale_date = %s AND status NOT IN ('Cancelada', 'Cancelado', 'Anulada', 'Anulado', 'Cotización', 'Borrador') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')",
                 (yesterday_str,)
             )
             row_yesterday = cur.fetchone()
@@ -107,7 +107,7 @@ def get_sales_metrics() -> dict:
 
             cur.execute(
                 """SELECT COUNT(*) as count FROM sales
-                   WHERE status NOT IN ('Cancelada', 'Cotización')
+                   WHERE status NOT IN ('Cancelada', 'Cancelado', 'Anulada', 'Anulado', 'Cotización', 'Borrador')
                      AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')"""
             )
             row_tot_ord = cur.fetchone()
@@ -177,7 +177,7 @@ def get_sales_chart_data(year: int = None, period: str = "6months") -> dict:
                     SELECT TO_CHAR(sale_date::date, 'YYYY-MM') as month,
                            COALESCE(SUM(total_amount), 0) as total
                     FROM sales
-                    WHERE TO_CHAR(sale_date::date, 'YYYY') = %s AND status NOT IN ('Cancelada', 'Cotización') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
+                    WHERE TO_CHAR(sale_date::date, 'YYYY') = %s AND status NOT IN ('Cancelada', 'Cancelado', 'Anulada', 'Anulado', 'Cotización', 'Borrador') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
                     GROUP BY month
                     ORDER BY month ASC
                     """,
@@ -191,7 +191,7 @@ def get_sales_chart_data(year: int = None, period: str = "6months") -> dict:
                     SELECT TO_CHAR(sale_date::date, 'YYYY-MM') as month,
                            COALESCE(SUM(total_amount), 0) as total
                     FROM sales
-                    WHERE status NOT IN ('Cancelada', 'Cotización') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
+                    WHERE status NOT IN ('Cancelada', 'Cancelado', 'Anulada', 'Anulado', 'Cotización', 'Borrador') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
                     GROUP BY month
                     ORDER BY month DESC
                     LIMIT %s
@@ -227,7 +227,7 @@ def get_top_products(year: int = None, period: str = "year") -> dict:
                     """
                     SELECT products_json
                     FROM sales
-                    WHERE TO_CHAR(sale_date::date, 'YYYY') = %s AND status NOT IN ('Cancelada', 'Cotización') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
+                    WHERE TO_CHAR(sale_date::date, 'YYYY') = %s AND status NOT IN ('Cancelada', 'Cancelado', 'Anulada', 'Anulado', 'Cotización', 'Borrador') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
                     """,
                     (str(year),)
                 )
@@ -238,7 +238,7 @@ def get_top_products(year: int = None, period: str = "year") -> dict:
                     """
                     SELECT products_json
                     FROM sales
-                    WHERE TO_CHAR(sale_date::date, 'YYYY-MM') = %s AND status NOT IN ('Cancelada', 'Cotización') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
+                    WHERE TO_CHAR(sale_date::date, 'YYYY-MM') = %s AND status NOT IN ('Cancelada', 'Cancelado', 'Anulada', 'Anulado', 'Cotización', 'Borrador') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
                     """,
                     (current_month,)
                 )
@@ -248,7 +248,7 @@ def get_top_products(year: int = None, period: str = "year") -> dict:
                     """
                     SELECT products_json
                     FROM sales
-                    WHERE status NOT IN ('Cancelada', 'Cotización') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
+                    WHERE status NOT IN ('Cancelada', 'Cancelado', 'Anulada', 'Anulado', 'Cotización', 'Borrador') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
                     """
                 )
                 rows = cur.fetchall()
@@ -400,7 +400,7 @@ def get_income_report_data() -> dict:
                        sp.invoice_due_date, sp.payment_date, sp.payment_amount
                 FROM sales s
                 LEFT JOIN sale_payments sp ON sp.sale_id = s.id
-                WHERE s.status NOT IN ('Cancelada', 'Cancelado', 'Cotización')
+                WHERE s.status NOT IN ('Cancelada', 'Cancelado', 'Anulada', 'Anulado', 'Cotización', 'Borrador')
                 ORDER BY s.sale_date ASC
             """
             cur.execute(query)
@@ -537,10 +537,10 @@ def get_cash_flow_data() -> dict:
 
             # ── Gastos reales por mes ─────────────────────────────────────────
             cur.execute("""
-                SELECT SUBSTRING(COALESCE(payment_date, created_at), 1, 7) AS mes,
-                       SUM(COALESCE(payment_amount, invoice_amount, 0)) AS total
-                FROM purchase_invoices
-                WHERE payment_status = 'Pagada' AND payment_date IS NOT NULL
+                SELECT SUBSTRING(payment_date, 1, 7) AS mes,
+                       SUM(payment_amount) AS total
+                FROM purchase_payment_events
+                WHERE payment_amount > 0
                 GROUP BY mes
             """)
             pagos_facturas = {row['mes']: float(row['total'] or 0) for row in cur.fetchall()}
@@ -561,9 +561,9 @@ def get_cash_flow_data() -> dict:
 
             cur.execute("""
                 SELECT TO_CHAR(paid_date, 'YYYY-MM') AS mes,
-                       SUM(COALESCE(payment_amount, amount, 0)) AS total
-                FROM operational_expense_occurrences
-                WHERE status = 'Pagado' AND paid_date IS NOT NULL
+                       SUM(payment_amount) AS total
+                FROM expense_payment_events
+                WHERE payment_amount > 0
                 GROUP BY mes
             """)
             for row in cur.fetchall():
@@ -609,7 +609,7 @@ def get_cash_flow_data() -> dict:
                 FROM sales s
                 LEFT JOIN sale_payments sp ON sp.sale_id = s.id
                 WHERE s.payment_status != 'Pagado'
-                  AND s.status NOT IN ('Cancelada', 'Cancelado', 'Cotización')
+                  AND s.status NOT IN ('Cancelada', 'Cancelado', 'Anulada', 'Anulado', 'Cotización', 'Borrador')
                 GROUP BY mes_vence
                 ORDER BY mes_vence
             """)
@@ -767,10 +767,9 @@ def get_cash_flow_data_weekly() -> dict:
 
             # Gastos pagados de facturas
             cur.execute("""
-                SELECT COALESCE(payment_date, created_at) AS p_date,
-                       COALESCE(payment_amount, invoice_amount, 0) AS total
-                FROM purchase_invoices
-                WHERE payment_status = 'Pagada' AND payment_date IS NOT NULL
+                SELECT payment_date AS p_date, payment_amount AS total
+                FROM purchase_payment_events
+                WHERE payment_amount > 0
             """)
             gastos_reales: dict = {}
             for row in cur.fetchall():
@@ -796,9 +795,7 @@ def get_cash_flow_data_weekly() -> dict:
                     pass
 
             cur.execute("""
-                SELECT paid_date, COALESCE(payment_amount, amount, 0) AS total
-                FROM operational_expense_occurrences
-                WHERE status = 'Pagado' AND paid_date IS NOT NULL
+                SELECT paid_date, payment_amount AS total FROM expense_payment_events WHERE payment_amount > 0
             """)
             for row in cur.fetchall():
                 try:
@@ -858,7 +855,7 @@ def get_cash_flow_data_weekly() -> dict:
                 FROM sales s
                 LEFT JOIN sale_payments sp ON sp.sale_id = s.id
                 WHERE s.payment_status != 'Pagado'
-                  AND s.status NOT IN ('Cancelada', 'Cancelado', 'Cotización')
+                  AND s.status NOT IN ('Cancelada', 'Cancelado', 'Anulada', 'Anulado', 'Cotización', 'Borrador')
             """)
             impagas_por_semana: dict = {}
             for row in cur.fetchall():
@@ -1039,7 +1036,7 @@ def get_sales_report_data(year: Optional[int] = None) -> dict:
             query = """
                 SELECT id, sale_number, total_amount, sale_date, products_json
                 FROM sales
-                WHERE status NOT IN ('Cancelada', 'Cotización')
+                WHERE status NOT IN ('Cancelada', 'Cancelado', 'Anulada', 'Anulado', 'Cotización', 'Borrador')
                   AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
             """
             params = []
@@ -1054,21 +1051,36 @@ def get_sales_report_data(year: Optional[int] = None) -> dict:
     total_sales_count = len(sales)
     total_income = sum(float(s["total_amount"] or 0.0) for s in sales)
     avg_ticket = (total_income / total_sales_count) if total_sales_count > 0 else 0.0
+    from services.money import document_amounts
+    from decimal import Decimal, ROUND_HALF_UP
+    total_net, total_vat = 0.0, 0.0
 
     product_stats = {}
     for s in sales:
         raw = s.get("products_json")
-        if not raw:
-            continue
         try:
-            prods = json.loads(raw) if isinstance(raw, str) else raw
+            prods = (json.loads(raw) if isinstance(raw, str) else raw) or []
         except Exception:
             prods = []
 
         if isinstance(prods, dict):
             prods = [prods]
 
-        for p in prods:
+        amounts = document_amounts(prods, s['total_amount'] or 0)
+        total_net += amounts['net']
+        total_vat += amounts['vat']
+        bases = []
+        for product in prods:
+            if isinstance(product, dict):
+                qty = float(product.get('quantity') or 0)
+                unit = float(product.get('price', product.get('unit_price', 0)) or 0)
+                bases.append(float(product.get('subtotal', qty * unit * (1-float(product.get('discount') or 0)/100)) or 0))
+            else:
+                bases.append(0.0)
+        basis_sum = sum(bases)
+        allocated = Decimal(0)
+
+        for index, p in enumerate(prods):
             if isinstance(p, dict):
                 p_name = p.get("product_name") or p.get("name") or p.get("sku") or "Producto"
                 qty = float(p.get("quantity") or 1)
@@ -1086,10 +1098,26 @@ def get_sales_report_data(year: Optional[int] = None) -> dict:
             else:
                 continue
 
+            # Distribution uses gross amounts, just like the report total.
+            # Allocate cents per document so the rows reconcile exactly.
+            if basis_sum > 0:
+                rev_dec = (Decimal(str(s['total_amount'] or 0)) * Decimal(str(bases[index])) / Decimal(str(basis_sum))).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
+                if index == len(prods)-1:
+                    rev_dec = Decimal(str(s['total_amount'] or 0)) - allocated
+                allocated += rev_dec
+                rev = float(rev_dec)
+            else:
+                rev = 0.0
+
             if p_name not in product_stats:
                 product_stats[p_name] = {"units": 0.0, "revenue": 0.0}
             product_stats[p_name]["units"] += qty
             product_stats[p_name]["revenue"] += rev
+
+        unallocated = float(s['total_amount'] or 0)-float(allocated)
+        if abs(unallocated) > .001:
+            missing = product_stats.setdefault('Venta sin detalle valorizado', {'units': 0.0, 'revenue': 0.0})
+            missing['revenue'] += unallocated
 
     # Distribución porcentual
     items_list = []
@@ -1104,6 +1132,8 @@ def get_sales_report_data(year: Optional[int] = None) -> dict:
 
     return {
         "total_income": round(total_income, 2),
+        "total_net": round(total_net, 2),
+        "total_vat": round(total_vat, 2),
         "total_sales_count": total_sales_count,
         "avg_ticket": round(avg_ticket, 2),
         "products": items_list,
@@ -1191,7 +1221,7 @@ def get_expenses_report_data(month: Optional[str] = None) -> dict:
             cur.execute("""
                 SELECT COALESCE(SUM(total_amount), 0) as total_sales
                 FROM sales
-                WHERE status NOT IN ('Cancelada', 'Cotización') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
+                WHERE status NOT IN ('Cancelada', 'Cancelado', 'Anulada', 'Anulado', 'Cotización', 'Borrador') AND (sale_number LIKE 'VTA-%%' OR sale_number LIKE 'P-%%')
             """)
             row_sales = cur.fetchone()
             total_sales = float(row_sales["total_sales"]) if row_sales else 0.0
@@ -1358,7 +1388,7 @@ def get_purchases_and_expenses_report_data(
                         NULL::integer AS inventory_entry_id,
                         '' AS entry_order_number,
                         COALESCE(o.amount, e.amount, 0.0) AS total_amount,
-                        COALESCE(o.payment_amount, o.amount, 0.0) AS payment_amount,
+                        COALESCE(o.payment_amount, CASE WHEN o.status='Pagado' THEN o.amount ELSE 0 END) AS payment_amount,
                         o.status AS status,
                         TO_CHAR(o.paid_date, 'YYYY-MM-DD') AS payment_date,
                         'Transferencia' AS payment_method,
@@ -1377,7 +1407,7 @@ def get_purchases_and_expenses_report_data(
                     total = float(row["total_amount"] or 0.0)
                     st = row["status"] or "Proyectado"
                     pay_status = "Pagada" if st == "Pagado" else ("Pendiente" if st in ("Proyectado", "Pendiente") else st)
-                    paid_amt = float(row["payment_amount"] or total) if pay_status == "Pagada" else 0.0
+                    paid_amt = float(row['payment_amount'] or 0.0)
                     pending_amt = max(0.0, total - paid_amt) if pay_status != "Pagada" else 0.0
 
                     records.append({
@@ -1907,7 +1937,7 @@ def get_accounts_receivable_report_data(
                     FROM collection_actions
                     ORDER BY sale_id, action_date DESC, action_time DESC, id DESC
                 ) ca_last ON ca_last.sale_id = s.id
-                WHERE s.status NOT IN ('Cancelada', 'Cancelado', 'Cotización')
+                WHERE s.status NOT IN ('Cancelada', 'Cancelado', 'Anulada', 'Anulado', 'Cotización', 'Borrador')
                   AND s.sale_number NOT LIKE 'COT-%%'
             """
             cur.execute(query)

@@ -25,7 +25,7 @@
                     <input type="number" name="quantity" class="form-control" placeholder="0" min="1" required>
                 </div>
                 <div class="form-group">
-                    <label>Precio Unitario *</label>
+                    <label>Precio Unitario Neto *</label>
                     <input type="number" name="unit_price" class="form-control" placeholder="$0.00" step="0.01" min="0" required>
                 </div>
             </div>
@@ -105,8 +105,10 @@
                     <th>SKU</th>
                     <th>Producto</th>
                     <th>Cantidad</th>
-                    <th>Precio Unit.</th>
-                    <th>Total</th>
+                    <th>Precio Neto Unit.</th>
+                    <th>Neto</th>
+                    <th>IVA 19%</th>
+                    <th>Total con IVA</th>
                     <th>Fecha Venta</th>
                     <th>Entrega</th>
                     <th>Pago</th>
@@ -122,6 +124,8 @@
                     <td>{{ entry.product_name }}</td>
                     <td>{{ entry.quantity }}</td>
                     <td>${{ "%.2f"|format(entry.unit_price) }}</td>
+                    <td>${{ "%.0f"|format(entry.amounts.net) }}</td>
+                    <td>${{ "%.0f"|format(entry.amounts.vat) }}</td>
                     <td>${{ "%.2f"|format(entry.total_price) }}</td>
                     <td>{{ entry.sale_date }}</td>
                     <td>{{ entry.delivery_date or '-' }}</td>

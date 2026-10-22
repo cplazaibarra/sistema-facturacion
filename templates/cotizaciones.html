@@ -274,7 +274,8 @@
 <!-- Modal para ver Cotización en formato de creación -->
 <div id="modal-view-cotizacion" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; padding: 20px; overflow-y: auto;">
     <div style="background: white; border-radius: 12px; width: 700px; max-width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 24px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px;">
+        <div class="quotation-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px;">
+            <div id="quotation-print-logo" class="quotation-print-logo" style="display: none;"></div>
             <div>
                 <h2 id="modal-cot-title" style="margin: 0; font-size: 20px; color: #1e293b;">Cotización</h2>
                 <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Documento emitido al cliente</p>
@@ -291,12 +292,12 @@
                 <div><strong>RUT:</strong> <span id="modal-cot-rut">-</span></div>
                 <div><strong>Razón Social / Nombre:</strong> <span id="modal-cot-customer">-</span></div>
                 <div><strong>Correo Electrónico:</strong> <span id="modal-cot-email">-</span></div>
-                <div><strong>Categoría Cliente:</strong> <span id="modal-cot-category">-</span></div>
+                <div class="quotation-print-hide"><strong>Categoría Cliente:</strong> <span id="modal-cot-category">-</span></div>
                 <div><strong>Dirección de despacho:</strong> <span id="modal-cot-delivery-address">-</span></div>
                 <div><strong>Forma / Condición de Pago:</strong> <span id="modal-cot-payment-method" style="font-weight: 600; color: #3182ce;">-</span></div>
                 <div><strong>Vendedor Responsable:</strong> <span id="modal-cot-seller" style="font-weight: 600; color: #1e293b;">-</span></div>
-                <div><strong>Estado de Negociación:</strong> <span id="modal-cot-status">-</span></div>
-                <div><strong>Probabilidad de Cierre:</strong> <span id="modal-cot-probability">-</span></div>
+                <div class="quotation-print-hide"><strong>Estado de Negociación:</strong> <span id="modal-cot-status">-</span></div>
+                <div class="quotation-print-hide"><strong>Probabilidad de Cierre:</strong> <span id="modal-cot-probability">-</span></div>
             </div>
         </div>
 
@@ -351,6 +352,8 @@
             </span>
         </div>
 
+        <p class="quotation-print-validity">Cotización válida por 15 días</p>
+
         <!-- ACCIONES -->
         <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 16px;">
             <button type="button" onclick="window.print()" class="sf-btn-secondary" style="padding: 8px 14px; font-weight: 600; cursor: pointer;">
@@ -372,6 +375,117 @@
         </div>
     </div>
 </div>
+
+<style>
+.quotation-print-validity {
+    display: none;
+}
+
+@media print {
+    body > :not(.container),
+    .container > :not(.main-content),
+    .main-content > :not(.content),
+    .content > :not(#modal-view-cotizacion) {
+        display: none !important;
+    }
+
+    html,
+    body,
+    .container,
+    .main-content,
+    .main-content.collapsed,
+    html.sidebar-collapsed .main-content,
+    .main-content > .content {
+        display: block !important;
+        position: static !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        background: #fff !important;
+    }
+
+    #modal-view-cotizacion {
+        position: static !important;
+        display: block !important;
+        width: auto !important;
+        height: auto !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        background: #fff !important;
+    }
+
+    #modal-view-cotizacion > div {
+        width: auto !important;
+        max-width: none !important;
+        max-height: none !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+    }
+
+    #modal-view-cotizacion > div > div:last-of-type {
+        display: none !important;
+    }
+
+    .quotation-print-logo {
+        display: block !important;
+        margin: 0 !important;
+        flex: 0 0 auto;
+        text-align: left;
+    }
+
+    .quotation-header {
+        justify-content: flex-start !important;
+        gap: 24px;
+        break-inside: avoid;
+    }
+
+    .quotation-print-logo:empty {
+        display: none !important;
+    }
+
+    .quotation-print-logo img {
+        display: block;
+        max-width: 180px;
+        max-height: 90px;
+        object-fit: contain;
+        object-position: left top;
+    }
+
+    #modal-view-cotizacion button,
+    #modal-view-cotizacion form,
+    #modal-view-cotizacion a#btn-modal-clone,
+    #modal-view-cotizacion > div > div:first-of-type > button {
+        display: none !important;
+    }
+
+    #modal-cot-associated-sale-box {
+        display: none !important;
+    }
+
+    .quotation-print-hide {
+        display: none !important;
+    }
+
+    .quotation-print-validity {
+        display: block;
+        margin: 24px 0 0;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 600;
+        color: #334155;
+    }
+}
+
+.quotation-print-logo {
+    display: none;
+}
+</style>
 
 <script>
 let quotationSearchTimer;
@@ -397,6 +511,10 @@ function clearCotizacionesFilters() { window.location.assign('?filter=&page=1');
 
 function openCotizacionDetail(sale) {
     const modal = document.getElementById('modal-view-cotizacion');
+    const quotationLogo = {{ quotation_logo|tojson }};
+    document.getElementById('quotation-print-logo').innerHTML = quotationLogo
+        ? `<img src="${quotationLogo}" alt="Logo de la empresa">`
+        : '';
     document.getElementById('modal-cot-title').textContent = `Cotización N° ${sale.sale_number}`;
     document.getElementById('modal-cot-date').textContent = sale.date || '-';
     document.getElementById('modal-cot-customer').textContent = sale.customer.name || '-';
@@ -467,13 +585,16 @@ function openCotizacionDetail(sale) {
     }
 
     function formatMoneyCl(val) {
-        const rounded = Math.round(Number(val) || 0);
-        return '$' + rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        const amount = Number(val) || 0;
+        const decimals = Math.abs(amount - Math.round(amount)) > 0.000001 ? 2 : 0;
+        return '$' + amount.toLocaleString('es-CL', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
     }
 
+    const amounts = sale.amounts;
     let netoSum = 0;
-    if (Array.isArray(sale.products)) {
-        sale.products.forEach(p => {
+    const displayProducts = amounts ? amounts.lines : sale.products;
+    if (Array.isArray(displayProducts)) {
+        displayProducts.forEach(p => {
             const tr = document.createElement('tr');
             tr.style.borderBottom = '1px solid #e2e8f0';
 
@@ -495,9 +616,9 @@ function openCotizacionDetail(sale) {
         });
     }
 
-    let netoRounded = Math.round(netoSum);
-    let ivaRounded = Math.round(netoRounded * 0.19);
-    let totalComputed = netoRounded + ivaRounded;
+    let netoRounded = amounts ? amounts.net : Math.round(totalRaw / 1.19);
+    let ivaRounded = amounts ? amounts.vat : totalRaw - netoRounded;
+    let totalComputed = amounts ? amounts.total : totalRaw;
 
     if (totalRaw && Math.round(totalRaw) > 0 && netoSum === 0) {
         netoRounded = Math.round(totalRaw / 1.19);

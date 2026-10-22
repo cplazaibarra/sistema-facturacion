@@ -261,21 +261,20 @@ def calculate_cash_flow_consolidation(
                     pi.id,
                     pi.invoice_number,
                     pi.invoice_amount,
-                    pi.payment_amount,
-                    pi.payment_date,
-                    pi.bank_account_id,
+                    pe.payment_amount,
+                    pe.payment_date,
+                    pe.bank_account_id,
                     sup.name AS supplier_name,
                     ba.bank_name,
                     ba.account_number,
                     bt.id AS bt_id,
                     bt.reconciliation_status
-                FROM purchase_invoices pi
+                FROM purchase_payment_events pe
+                JOIN purchase_invoices pi ON pi.id=pe.invoice_id
                 LEFT JOIN suppliers sup ON pi.supplier_id = sup.id
-                LEFT JOIN bank_accounts ba ON pi.bank_account_id = ba.id
-                LEFT JOIN bank_transactions bt ON (bt.reconciled_type = 'PURCHASE_PAYMENT' AND bt.reconciled_id = pi.id AND bt.reconciliation_status = 'CONCILIADO')
-                WHERE pi.payment_date IS NOT NULL
-                  AND pi.payment_date != ''
-                  AND pi.payment_status IN ('Pagada', 'Pagado')
+                LEFT JOIN bank_accounts ba ON pe.bank_account_id = ba.id
+                LEFT JOIN bank_transactions bt ON (bt.reconciled_type = pe.reconciliation_type AND bt.reconciled_id = pe.event_id AND bt.reconciliation_status = 'CONCILIADO')
+                WHERE pe.payment_amount > 0
                 """
             )
             for r in cur.fetchall():
@@ -374,22 +373,22 @@ def calculate_cash_flow_consolidation(
                 SELECT 
                     oeo.id,
                     oeo.due_date,
-                    oeo.paid_date,
+                    pe.paid_date,
                     oeo.amount,
-                    oeo.payment_amount,
-                    oeo.bank_account_id,
+                    pe.payment_amount,
+                    pe.bank_account_id,
                     oe.name AS expense_name,
                     oe.beneficiary,
                     ba.bank_name,
                     ba.account_number,
                     bt.id AS bt_id,
                     bt.reconciliation_status
-                FROM operational_expense_occurrences oeo
+                FROM expense_payment_events pe
+                JOIN operational_expense_occurrences oeo ON oeo.id=pe.occurrence_id
                 JOIN operational_expenses oe ON oeo.expense_id = oe.id
-                LEFT JOIN bank_accounts ba ON oeo.bank_account_id = ba.id
-                LEFT JOIN bank_transactions bt ON (bt.reconciled_type = 'EXPENSE' AND bt.reconciled_id = oeo.id AND bt.reconciliation_status = 'CONCILIADO')
-                WHERE oeo.status = 'Pagado'
-                  AND oeo.paid_date IS NOT NULL
+                LEFT JOIN bank_accounts ba ON pe.bank_account_id = ba.id
+                LEFT JOIN bank_transactions bt ON (bt.reconciled_type = pe.reconciliation_type AND bt.reconciled_id = pe.event_id AND bt.reconciliation_status = 'CONCILIADO')
+                WHERE pe.payment_amount > 0
                 """
             )
             for r in cur.fetchall():
@@ -430,7 +429,7 @@ def calculate_cash_flow_consolidation(
                 SELECT 
                     oeo.id,
                     oeo.due_date,
-                    oeo.amount,
+                    GREATEST(oeo.amount-COALESCE(oeo.payment_amount,0),0) AS amount,
                     oeo.bank_account_id,
                     oe.name AS expense_name,
                     oe.beneficiary,

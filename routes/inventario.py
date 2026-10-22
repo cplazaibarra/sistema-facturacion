@@ -427,8 +427,12 @@ def ingreso_mercaderia():
             # Neto = suma de (cantidad * precio_unitario) de los productos recibidos
             # IVA = 19% del Neto
             # Total = Neto + IVA
-            neto_receipt = sum(item["quantity"] * item["unit_price"] for item in items)
-            iva_receipt = round(neto_receipt * 0.19)
+            from decimal import Decimal
+            neto_receipt = sum(Decimal(str(item['quantity'])) * Decimal(str(item['unit_price'])) for item in items)
+            from services.money import amounts_from_net
+            receipt_amounts = amounts_from_net(neto_receipt)
+            neto_receipt = receipt_amounts['net']
+            iva_receipt = receipt_amounts['vat']
             total_receipt = neto_receipt + iva_receipt
 
             entry_id = register_inventory_entry(

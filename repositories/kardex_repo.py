@@ -94,6 +94,45 @@ def get_current_ppp(product_id: int, conn=None) -> float:
                 return _execute(cur)
 
 
+def get_batch_current_ppp(product_ids, conn=None):
+    """The same ledger valuation as get_current_ppp, in two queries for a page."""
+    ids = list(set(product_ids))
+    if not ids:
+        return {}
+
+    def execute(cur):
+        cur.execute('SELECT id, cost FROM products WHERE id = ANY(%s)', (ids,))
+        states = {r['id']: [0.0, 0.0, float(r['cost'] or 0)] for r in cur.fetchall()}
+        cur.execute('''
+            SELECT im.product_id, im.quantity, COALESCE(r.new_unit_cost, im.unit_cost) AS unit_cost
+            FROM inventory_movements im
+            LEFT JOIN (
+                SELECT DISTINCT ON (movement_id) movement_id, new_unit_cost
+                FROM inventory_cost_revaluations ORDER BY movement_id, id DESC
+            ) r ON r.movement_id = im.id
+            WHERE im.product_id = ANY(%s)
+            ORDER BY im.product_id, im.created_at::timestamptz, im.id
+        ''', (ids,))
+        for mov in cur.fetchall():
+            state = states[mov['product_id']]
+            qty, cost = float(mov['quantity'] or 0), float(mov['unit_cost'] or 0)
+            if qty > 0:
+                state[0] += qty
+                state[1] += qty * cost
+                state[2] = state[1] / state[0] if state[0] > 1e-6 else (cost if cost > 0 else state[2])
+            elif qty < 0:
+                state[1] = max(0.0, state[1] - abs(qty) * state[2])
+                state[0] = max(0.0, state[0] - abs(qty))
+        return {pid: round(state[2], 4) for pid, state in states.items()}
+
+    if conn is not None:
+        with conn.cursor() as cur:
+            return execute(cur)
+    with get_connection() as connection:
+        with connection.cursor() as cur:
+            return execute(cur)
+
+
 def get_product_kardex_history(
     product_id: int,
     start_date: Optional[str] = None,

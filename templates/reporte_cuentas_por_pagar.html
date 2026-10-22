@@ -362,6 +362,8 @@
                     <span>Registrar pago ejecutado para esta obligación</span>
                 </label>
                 <div id="gasto-payment-fields" style="display:none; margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <input type="hidden" name="idempotency_key" id="gasto-payment-key">
+                    <div><label>Monto del abono</label><input type="number" name="payment_amount" id="gasto-payment-amount" min="0.01" step="0.01"></div>
                     <div>
                         <label style="display:block; font-size:11px; font-weight:600; color:#64748b; margin-bottom:3px;">Fecha de Pago</label>
                         <input type="date" name="paid_date" id="gasto-paid-date" style="width:100%; padding:6px 8px; border:1px solid #cbd5e1; border-radius:5px; font-size:12px;">
@@ -397,10 +399,15 @@ function changePerPage(val) {
 }
 
 function openGastoOccurrenceModal(item) {
+    document.getElementById('gasto-payment-key').value=crypto.randomUUID();
+    document.getElementById('gasto-payment-amount').value=item.pending_amount;
+    document.getElementById('gasto-payment-amount').max=item.pending_amount;
     const form = document.getElementById('gasto-occurrence-form');
     form.action = `/administracion/gastos-operacionales/ocurrencias/${item.id}/editar`;
     document.getElementById('gasto-concept').value = `${item.party_name} (${item.category_name})`;
-    document.getElementById('gasto-due-date').value = item.due_date || '';
+    const dueInput=document.getElementById('gasto-due-date');
+    dueInput.value=item.due_date||'';
+    if(dueInput._flatpickr)dueInput._flatpickr.setDate(item.due_date||'',true);
     document.getElementById('gasto-amount').value = item.total || '';
     document.getElementById('gasto-invoice-number').value = item.invoice_number || '';
     document.getElementById('gasto-notes').value = item.description || '';
@@ -429,7 +436,9 @@ function toggleGastoPaymentFields(show) {
     fields.style.display = show ? 'grid' : 'none';
     if (show) {
         const todayStr = new Date().toISOString().split('T')[0];
-        document.getElementById('gasto-paid-date').value = todayStr;
+        const paidInput=document.getElementById('gasto-paid-date');
+        paidInput.value=todayStr;
+        if(paidInput._flatpickr)paidInput._flatpickr.setDate(todayStr,true);
     }
 }
 

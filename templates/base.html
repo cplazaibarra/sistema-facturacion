@@ -26,7 +26,13 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo">
-                <div class="logo-icon"><i class="fa-solid fa-briefcase" style="color: #ED8936; font-size: 24px;"></i></div>
+                <div class="logo-icon">
+                    {% if company_logo_url %}
+                    <img src="{{ company_logo_url }}" alt="Logo de la empresa" style="display: block; width: 56px; height: 56px; object-fit: contain; flex-shrink: 0;">
+                    {% else %}
+                    <i class="fa-solid fa-briefcase" style="color: #ED8936; font-size: 24px;"></i>
+                    {% endif %}
+                </div>
                 <h1 style="font-size: 16px; font-weight: 700; line-height: 1.2;">Plataforma de Gestión</h1>
             </div>
             
@@ -208,12 +214,18 @@
                 <!-- 7. Administración y Seguridad -->
                 {% if session.get('permissions', {}).get('administracion') or session.get('permissions', {}).get('usuarios') %}
                 <div class="nav-section">
-                    <button class="nav-item nav-toggle {% if request.endpoint in ['usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['usuarios.administracion', 'usuarios.informacion', 'usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
                         <span class="icon"><i class="fa-solid fa-sliders"></i></span>
                         <span>Administración</span>
                         <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
-                    <div class="nav-submenu {% if request.endpoint in ['usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol'] %}open{% endif %}">
+                    <div class="nav-submenu {% if request.endpoint in ['usuarios.administracion', 'usuarios.informacion', 'usuarios.usuarios', 'usuarios.roles', 'usuarios.crear_usuario', 'usuarios.editar_usuario', 'usuarios.crear_rol', 'usuarios.editar_rol'] %}open{% endif %}">
+                        <a href="{{ url_for('usuarios.administracion') }}" class="nav-item nav-subitem {% if request.endpoint == 'usuarios.administracion' %}active{% endif %}">
+                            <span>Administración</span>
+                        </a>
+                        <a href="{{ url_for('usuarios.informacion') }}" class="nav-item nav-subitem {% if request.endpoint == 'usuarios.informacion' %}active{% endif %}">
+                            <span>Información</span>
+                        </a>
                         <a href="{{ url_for('usuarios.usuarios') }}" class="nav-item nav-subitem {% if request.endpoint in ['usuarios.usuarios', 'usuarios.crear_usuario', 'usuarios.editar_usuario'] %}active{% endif %}">
                             <span>Usuarios</span>
                         </a>

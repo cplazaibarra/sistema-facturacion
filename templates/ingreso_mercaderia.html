@@ -484,6 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        netoAmount = Math.round(netoAmount);
         const ivaAmount = Math.round(netoAmount * 0.19);
         const totalAmount = netoAmount + ivaAmount;
 

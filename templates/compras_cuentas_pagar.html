@@ -162,7 +162,7 @@
                             </div>
                         {% endif %}
                     </td>
-                    <td style="padding:11px 14px;text-align:right;font-weight:600;color:#2d3748;">${{ "{:,.0f}".format(inv.invoice_amount or 0) }}</td>
+                    <td style="padding:11px 14px;text-align:right;font-weight:600;color:#2d3748;">${{ "{:,.0f}".format(inv.invoice_amount or 0) }}<div style="font-size:12px;font-weight:400;">Abonado: ${{ "{:,.0f}".format(inv.payment_amount or 0) }} · Saldo: ${{ "{:,.0f}".format((inv.invoice_amount or 0)-(inv.payment_amount or 0)) }}</div></td>
                     <td style="padding:11px 14px;text-align:center;font-size:13px;">
                         {% if inv.due_date %}
                             <button type="button" onclick="openEditInvoiceModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', '{{ inv.invoice_number or '' }}', {{ inv.invoice_amount or 0 }}, '{{ inv.invoice_date or '' }}', '{{ inv.due_date }}')"
@@ -198,6 +198,7 @@
                         {% endif %}
                     </td>
                     <td style="padding:11px 14px;text-align:center;">
+                        <a href="{{ url_for('compras.historial_pagos_factura',invoice_id=inv.id) }}">Historial de pagos</a>
                         <div style="display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center;">
                             <div style="display:flex;gap:6px;justify-content:center;align-items:center;flex-wrap:wrap;">
                                 {% if inv.payment_status == 'Sin Factura' %}
@@ -207,7 +208,7 @@
                                 </button>
                                 {% endif %}
                                 {% if inv.payment_status in ('Pendiente', 'Vencida', 'Sin Factura') %}
-                                <button onclick="openPayModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', {{ inv.invoice_amount or 0 }}, '{{ inv.payment_status }}', '{{ inv.invoice_number or '' }}')"
+                                <button onclick="openPayModal({{ inv.id }}, '{{ inv.supplier_name or '' }}', {{ (inv.invoice_amount or 0) - (inv.payment_amount or 0) }}, '{{ inv.payment_status }}', '{{ inv.invoice_number or '' }}')"
                                         style="padding:5px 12px;border-radius:6px;background:#38a169;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:600;">
                                     <i class="fa-solid fa-money-bill-wave"></i> Registrar Pago
                                 </button>
@@ -404,6 +405,7 @@
         <p id="modal-supplier" style="margin:0 0 16px;color:#4a5568;font-size:14px;font-weight:500;"></p>
 
         <form id="pay-form" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="idempotency_key" id="payment-idempotency-key">
             <input type="hidden" name="invoice_id" id="modal-invoice-id">
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
@@ -909,6 +911,8 @@ function togglePaidSection(show) {
 
 // Modal Registrar Pago
 function openPayModal(id, supplier, amount, status, invoiceNumber) {
+    document.getElementById("payment-idempotency-key").value = crypto.randomUUID();
+    document.getElementById("modal-amount").max = amount;
     document.getElementById('modal-invoice-id').value = id;
     document.getElementById('modal-amount').value = amount;
     if (document.getElementById('modal-inv-number')) {
@@ -1397,7 +1401,7 @@ document.addEventListener('DOMContentLoaded', () => {
     openPayModal(
         {{ auto_open_pay_inv.id }},
         "{{ auto_open_pay_inv.supplier_name or '' }}",
-        {{ auto_open_pay_inv.invoice_amount or 0 }},
+        {{ (auto_open_pay_inv.invoice_amount or 0) - (auto_open_pay_inv.payment_amount or 0) }},
         "{{ auto_open_pay_inv.payment_status }}",
         "{{ auto_open_pay_inv.invoice_number or '' }}"
     );

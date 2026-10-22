@@ -15,44 +15,27 @@ from core.test_database_guard import assert_current_test_database_authorized
 
 load_dotenv()
 
-TEST_DB_NAME = "facturacion_test_phase4_auto"
-
-
 @pytest.fixture(scope="module")
 def fresh_test_db():
-    # This fixture drops/recreates a database. Permit it only inside the
-    # ephemeral, PostgreSQL-marked test run selected by the pytest guard.
+    """Empty DB provisioned by parent harness; never use a privileged connection."""
     assert_current_test_database_authorized()
-    host = os.environ.get("DB_HOST", "127.0.0.1")
-    port = os.environ.get("DB_PORT", "5432")
-    user = os.environ.get("DB_USER", "facturador")
-    password = os.environ.get("DB_PASSWORD", "facturador_secure_pass_94")
-
-    # Connect to postgres db to create fresh database
-    admin_conn = psycopg2.connect(host=host, port=port, user=user, password=password, dbname="postgres")
-    admin_conn.autocommit = True
-    with admin_conn.cursor() as cur:
-        cur.execute(f"DROP DATABASE IF EXISTS {TEST_DB_NAME};")
-        cur.execute(f"CREATE DATABASE {TEST_DB_NAME} OWNER {user};")
-    admin_conn.close()
-
-    yield {
-        "host": host,
-        "port": port,
-        "user": user,
-        "password": password,
-        "dbname": TEST_DB_NAME,
-    }
-
-    # Teardown
-    admin_conn = psycopg2.connect(host=host, port=port, user=user, password=password, dbname="postgres")
-    admin_conn.autocommit = True
-    with admin_conn.cursor() as cur:
-        cur.execute(
-            f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{TEST_DB_NAME}' AND pid <> pg_backend_pid();"
-        )
-        cur.execute(f"DROP DATABASE IF EXISTS {TEST_DB_NAME};")
-    admin_conn.close()
+    from core.test_database_guard import validate_test_database_config
+    dbname = os.environ.get('MIGRATION_TEST_DB', '')
+    # Separate run-name/marker, same restricted role. No fixed auxiliary DB.
+    from urllib.parse import urlparse, urlunparse
+    env = dict(os.environ)
+    parsed = urlparse(env['TEST_DATABASE_URL'])
+    url = urlunparse(parsed._replace(path='/'+dbname))
+    env.update(DB_NAME=dbname,TEST_DATABASE_URL=url,DATABASE_URL=url,ERP_TEST_RUN_ID=dbname.rsplit('_',1)[1])
+    validate_test_database_config(env)
+    info = dict(host=env['DB_HOST'],port=env['DB_PORT'],user=env['DB_USER'],password=env['DB_PASSWORD'],dbname=dbname)
+    with get_test_conn(info) as conn, conn.cursor() as cur:
+        cur.execute("SELECT shobj_description(oid,'pg_database') AS marker FROM pg_database WHERE datname=current_database()")
+        validate_test_database_config(env,cur.fetchone()['marker'])
+        cur.execute("SELECT COUNT(*) AS n FROM pg_tables WHERE schemaname='public'")
+        assert cur.fetchone()['n'] == 0, 'Migration fixture must start empty'
+    yield info
+    # Parent finally drops database even if collection/setup/test fails.
 
 
 def get_test_conn(db_info):
@@ -198,3 +181,20 @@ def test_health_check_endpoint():
     data = resp.get_json()
     assert data["status"] == "healthy"
     assert data["database"] == "connected"
+
+
+def test_rollback_preserves_posted_opening_snapshots(fresh_test_db):
+    """A downgrade must not discard any financial snapshot, even in an isolated DB."""
+    with get_test_conn(fresh_test_db) as conn:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO purchase_invoices(invoice_number,invoice_amount,payment_status) VALUES ('CERT-DOWN-PROTECTION',11900,'Pendiente') RETURNING id")
+            invoice_id=cur.fetchone()['id']
+            cur.execute("INSERT INTO purchase_payment_openings(invoice_id,payment_amount,payment_date) VALUES (%s,2000,'2026-10-20')",(invoice_id,))
+        conn.commit()
+        with pytest.raises(psycopg2.errors.RaiseException,match='historical snapshots must be preserved'):
+            mig.down_cmd(conn,steps=1)
+        conn.rollback()
+        with conn.cursor() as cur:
+            cur.execute('SELECT payment_amount FROM purchase_payment_openings WHERE invoice_id=%s',(invoice_id,))
+            assert cur.fetchone()['payment_amount']==2000
+        assert mig.get_migration_files()[-1]['version'] in mig.get_applied_migrations(conn)

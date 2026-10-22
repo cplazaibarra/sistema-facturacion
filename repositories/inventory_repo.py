@@ -1203,9 +1203,10 @@ def get_inventory_entry_detail(entry_id: int, conn=None) -> dict | None:
         items = [dict(r) for r in cur.fetchall()]
 
         # Calcular totales reales de los ítems recibidos
-        neto = sum(float(it["quantity"]) * float(it["unit_price"]) for it in items)
-        iva = round(neto * 0.19)
-        total = neto + iva
+        from decimal import Decimal
+        from services.money import amounts_from_net
+        amounts = amounts_from_net(sum(Decimal(str(it['quantity'])) * Decimal(str(it['unit_price'])) for it in items))
+        neto, iva, total = amounts['net'], amounts['vat'], amounts['total']
         total_qty = sum(int(it["quantity"]) for it in items)
 
         # Formatear etiqueta de documento
