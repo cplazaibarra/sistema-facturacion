@@ -29,32 +29,26 @@
     <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #3b82f6;">
         <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Total Documentos</div>
         <div style="font-size: 24px; font-weight: 700; color: #0f172a; margin-top: 4px;">{{ metrics.total_documentos }}</div>
-        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Registros filtrados</div>
     </div>
     <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #64748b;">
         <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Total Neto</div>
         <div style="font-size: 24px; font-weight: 700; color: #334155; margin-top: 4px;">${{ "{:,.0f}".format(metrics.total_neto) }}</div>
-        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Base imponible total</div>
     </div>
     <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #8b5cf6;">
         <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Total IVA</div>
         <div style="font-size: 24px; font-weight: 700; color: #6d28d9; margin-top: 4px;">${{ "{:,.0f}".format(metrics.total_iva) }}</div>
-        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Crédito fiscal facturas</div>
     </div>
     <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #1e3a8a;">
         <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Total General</div>
         <div style="font-size: 24px; font-weight: 700; color: #1e3a8a; margin-top: 4px;">${{ "{:,.0f}".format(metrics.total_general) }}</div>
-        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Neto + IVA consolidado</div>
     </div>
     <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #ef4444;">
         <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Pendiente de Pago</div>
         <div style="font-size: 24px; font-weight: 700; color: #b91c1c; margin-top: 4px;">${{ "{:,.0f}".format(metrics.total_pendiente) }}</div>
-        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Saldo por pagar</div>
     </div>
     <div class="stat-card" style="background: white; padding: 18px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #10b981;">
         <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Total Pagado</div>
         <div style="font-size: 24px; font-weight: 700; color: #047857; margin-top: 4px;">${{ "{:,.0f}".format(metrics.total_pagado) }}</div>
-        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Egresos ejecutados</div>
     </div>
 </div>
 
