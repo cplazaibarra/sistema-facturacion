@@ -13,6 +13,10 @@
     <button class="btn-primary">Generar Reporte</button>
 </div>
 
+<p style="margin: -12px 0 20px; color: #64748b; font-size: 13px;">
+    Se consideran ventas efectivas (folios VTA/P); se excluyen cotizaciones, borradores y ventas anuladas. El modelo combina promedios móviles ponderados de 3 y 6 meses con una mediana para moderar meses atípicos. La estacionalidad sólo se usa cuando hay dos años comparables. La precisión se informa como WAPE medido con backtesting.
+</p>
+
 <div class="proyeccion-stats">
     {% for stat in proyeccion_stats %}
     <div class="proyeccion-card {{ stat.color }}">
@@ -37,7 +41,7 @@
 <div class="charts-proyeccion">
     <div class="chart-card-large">
         <div class="card-header">
-            <h3>Proyección de Ventas vs Real</h3>
+            <h3>Proyección de ventas vs. ventas reales</h3>
             <div class="chart-legend">
                 <span class="legend-item"><span class="legend-dot blue"></span>Proyectado</span>
                 <span class="legend-item"><span class="legend-dot cyan"></span>Real</span>
@@ -57,7 +61,7 @@
                     <th>Ventas Actuales</th>
                     <th>Proyección</th>
                     <th>Variación</th>
-                    <th>Confianza</th>
+                    <th>Precisión histórica (backtesting)</th>
                 </tr>
             </thead>
             <tbody>
@@ -69,6 +73,8 @@
                     <td class="{% if '-' in row.variation %}negative{% elif '+' in row.variation %}positive{% endif %}">{{ row.variation }}</td>
                     <td><span class="confidence {{ row.level }}">{{ row.confidence }}</span></td>
                 </tr>
+                {% else %}
+                <tr><td colspan="5" style="text-align:center; color:#64748b; padding:18px;">Sin ventas efectivas por producto en los últimos 24 meses.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

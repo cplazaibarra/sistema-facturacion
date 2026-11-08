@@ -73,23 +73,29 @@
                 <!-- 2. Bodega & Inventario -->
                 {% if session.get('permissions', {}).get('inventario') %}
                 <div class="nav-section">
-                    <button class="nav-item nav-toggle {% if request.endpoint in ['inventario.inventario', 'inventario.ingreso_mercaderia', 'inventario.ajustes_inventario', 'inventario.nuevo_ajuste_inventario', 'inventario.detalle_ajuste_inventario', 'trazabilidad.view_trazabilidad'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['inventario.inventario', 'inventario.ingreso_mercaderia', 'inventario.historial_ingresos', 'inventario.ajustes_inventario', 'inventario.nuevo_ajuste_inventario', 'inventario.detalle_ajuste_inventario', 'trazabilidad.view_trazabilidad', 'reportes.reportes_inventario_lotes'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
                         <span class="icon"><i class="fa-solid fa-boxes-stacked"></i></span>
                         <span>Bodega</span>
                         <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
-                    <div class="nav-submenu {% if request.endpoint in ['inventario.inventario', 'inventario.ingreso_mercaderia', 'inventario.ajustes_inventario', 'inventario.nuevo_ajuste_inventario', 'inventario.detalle_ajuste_inventario', 'trazabilidad.view_trazabilidad'] %}open{% endif %}">
+                    <div class="nav-submenu {% if request.endpoint in ['inventario.inventario', 'inventario.ingreso_mercaderia', 'inventario.historial_ingresos', 'inventario.ajustes_inventario', 'inventario.nuevo_ajuste_inventario', 'inventario.detalle_ajuste_inventario', 'trazabilidad.view_trazabilidad', 'reportes.reportes_inventario_lotes'] %}open{% endif %}">
                         <a href="{{ url_for('inventario.inventario') }}" class="nav-item nav-subitem {% if request.endpoint == 'inventario.inventario' %}active{% endif %}">
                             <span>Stock / Inventario</span>
                         </a>
                         <a href="{{ url_for('inventario.ingreso_mercaderia') }}" class="nav-item nav-subitem {% if request.endpoint == 'inventario.ingreso_mercaderia' %}active{% endif %}">
                             <span>Ingreso Mercadería</span>
                         </a>
+                        <a href="{{ url_for('inventario.historial_ingresos') }}" class="nav-item nav-subitem {% if request.endpoint == 'inventario.historial_ingresos' %}active{% endif %}">
+                            <span>Historial de Recepciones</span>
+                        </a>
                         <a href="/inventario/ajustes" class="nav-item nav-subitem {% if request.endpoint in ['inventario.ajustes_inventario', 'inventario.nuevo_ajuste_inventario', 'inventario.detalle_ajuste_inventario'] %}active{% endif %}">
                             <span>Ajustes de Inventario</span>
                         </a>
                         <a href="{{ url_for('trazabilidad.view_trazabilidad') }}" class="nav-item nav-subitem {% if request.endpoint == 'trazabilidad.view_trazabilidad' %}active{% endif %}">
                             <span>Trazabilidad de Lotes</span>
+                        </a>
+                        <a href="{{ url_for('reportes.reportes_inventario_lotes') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_inventario_lotes' %}active{% endif %}">
+                            <span>Inventario por Lotes y Bodega</span>
                         </a>
                     </div>
                 </div>
@@ -161,12 +167,12 @@
                 <!-- 6. Reportería y Análisis -->
                 {% if session.get('permissions', {}).get('reportes') or session.get('permissions', {}).get('administracion') %}
                 <div class="nav-section">
-                    <button class="nav-item nav-toggle {% if request.endpoint in ['ventas.proyeccion_ventas', 'reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos', 'reportes.reportes_flujo_caja', 'reportes.reportes_inventario_lotes', 'reportes.reportes_facturas_compras_gastos', 'reportes.reportes_cuentas_por_pagar', 'reportes.reportes_cuentas_por_cobrar', 'reportes.conciliacion_bancaria', 'reportes.finanzas_deudas', 'reportes.detalle_deuda', 'usuarios.gastos_operacionales', 'usuarios.editar_gasto_operacional', 'usuarios.cambiar_estado_gasto_operacional', 'usuarios.eliminar_gasto_operacional', 'usuarios.cuentas_bancarias'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                    <button class="nav-item nav-toggle {% if request.endpoint in ['ventas.proyeccion_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos', 'reportes.reportes_flujo_caja', 'reportes.reportes_facturas_compras_gastos', 'reportes.reportes_cuentas_por_pagar', 'reportes.reportes_cuentas_por_cobrar', 'reportes.conciliacion_bancaria', 'reportes.finanzas_deudas', 'reportes.detalle_deuda', 'usuarios.gastos_operacionales', 'usuarios.editar_gasto_operacional', 'usuarios.cambiar_estado_gasto_operacional', 'usuarios.eliminar_gasto_operacional', 'usuarios.cuentas_bancarias'] %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
                         <span class="icon"><i class="fa-solid fa-chart-column"></i></span>
                         <span>Finanzas</span>
                         <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
                     </button>
-                    <div class="nav-submenu {% if request.endpoint in ['ventas.proyeccion_ventas', 'reportes.reportes_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos', 'reportes.reportes_flujo_caja', 'reportes.reportes_inventario_lotes', 'reportes.reportes_facturas_compras_gastos', 'reportes.reportes_cuentas_por_pagar', 'reportes.reportes_cuentas_por_cobrar', 'reportes.conciliacion_bancaria', 'reportes.finanzas_deudas', 'reportes.detalle_deuda', 'usuarios.gastos_operacionales', 'usuarios.editar_gasto_operacional', 'usuarios.cambiar_estado_gasto_operacional', 'usuarios.eliminar_gasto_operacional', 'usuarios.cuentas_bancarias'] %}open{% endif %}">
+                    <div class="nav-submenu {% if request.endpoint in ['ventas.proyeccion_ventas', 'reportes.reportes_compras', 'reportes.reportes_gastos', 'reportes.reportes_ingresos', 'reportes.reportes_flujo_caja', 'reportes.reportes_facturas_compras_gastos', 'reportes.reportes_cuentas_por_pagar', 'reportes.reportes_cuentas_por_cobrar', 'reportes.conciliacion_bancaria', 'reportes.finanzas_deudas', 'reportes.detalle_deuda', 'usuarios.gastos_operacionales', 'usuarios.editar_gasto_operacional', 'usuarios.cambiar_estado_gasto_operacional', 'usuarios.eliminar_gasto_operacional', 'usuarios.cuentas_bancarias'] %}open{% endif %}">
                         <a href="{{ url_for('reportes.reportes_cuentas_por_cobrar') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_cuentas_por_cobrar' %}active{% endif %}">
                             <span>Cuentas por Cobrar</span>
                         </a>
@@ -192,20 +198,30 @@
                         <a href="{{ url_for('reportes.reportes_facturas_compras_gastos') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_facturas_compras_gastos' %}active{% endif %}">
                             <span>Facturas y Gastos</span>
                         </a>
-                        <a href="{{ url_for('reportes.reportes_inventario_lotes') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_inventario_lotes' %}active{% endif %}">
-                            <span>Inventario por Lotes</span>
-                        </a>
                         <a href="{{ url_for('ventas.proyeccion_ventas') }}" class="nav-item nav-subitem {% if request.endpoint == 'ventas.proyeccion_ventas' %}active{% endif %}">
                             <span>Proyección Ventas</span>
                         </a>
                         <a href="{{ url_for('reportes.reportes_ingresos') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_ingresos' %}active{% endif %}">
                             <span>Ingresos ($)</span>
                         </a>
-                        <a href="{{ url_for('reportes.reportes_ventas') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_ventas' %}active{% endif %}">
-                            <span>Ventas</span>
-                        </a>
                         <a href="{{ url_for('reportes.reportes_compras') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_compras' %}active{% endif %}">
                             <span>Compras</span>
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Reportes -->
+                {% if session.get('permissions', {}).get('reportes') or session.get('permissions', {}).get('administracion') %}
+                <div class="nav-section">
+                    <button class="nav-item nav-toggle {% if request.endpoint == 'reportes.reportes_ventas' %}expanded active{% endif %}" onclick="toggleSubmenu(this)">
+                        <span class="icon"><i class="fa-solid fa-file-lines"></i></span>
+                        <span>Reportes</span>
+                        <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
+                    </button>
+                    <div class="nav-submenu {% if request.endpoint == 'reportes.reportes_ventas' %}open{% endif %}">
+                        <a href="{{ url_for('reportes.reportes_ventas') }}" class="nav-item nav-subitem {% if request.endpoint == 'reportes.reportes_ventas' %}active{% endif %}">
+                            <span>Ventas</span>
                         </a>
                     </div>
                 </div>

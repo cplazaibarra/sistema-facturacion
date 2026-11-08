@@ -391,7 +391,7 @@ def get_purchased_products_matrix(year: int, category: str = None, search: str =
                 pagination=pagination)
 
 
-def get_income_report_data() -> dict:
+def get_income_report_data(search: str = "") -> dict:
     """Calcula datos financieros de Ingresos: pagos históricos realizados y compromisos de cobros futuros."""
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -405,6 +405,11 @@ def get_income_report_data() -> dict:
             """
             cur.execute(query)
             sales = cur.fetchall()
+
+    search_term = (search or "").strip().casefold()
+    if search_term:
+        sales = [sale for sale in sales if search_term in str(sale.get("customer_name") or "").casefold()
+                 or search_term in str(sale.get("sale_number") or "").casefold()]
 
     today_str = datetime.now().strftime('%Y-%m-%d')
     
@@ -427,16 +432,17 @@ def get_income_report_data() -> dict:
     for sale in sales:
         total = float(sale.get("total_amount") or 0.0)
         p_status = sale.get("payment_status") or "Pendiente"
+        recorded_paid = max(float(sale.get("payment_amount") or 0.0), 0.0)
+        paid_amount = total if p_status == "Pagado" and recorded_paid == 0 else min(recorded_paid, total)
+        pending_amount = max(total - paid_amount, 0.0)
         sale_date = str(sale.get("sale_date") or "")[:10]
         due_date = str(sale.get("invoice_due_date") or "")[:10]
         payment_date = str(sale.get("payment_date") or "")[:10]
-        
-        if p_status == "Pagado":
-            monto_pago = float(sale.get("payment_amount") or total)
+
+        if paid_amount > 0:
+            monto_pago = paid_amount
             target_month = payment_date[:7] if len(payment_date) >= 7 else (sale_date[:7] if len(sale_date) >= 7 else today_str[:7])
-            
             total_historico += monto_pago
-            
             if target_month not in monthly_summary:
                 y, m = target_month.split("-") if "-" in target_month else (today_str[:4], today_str[5:7])
                 monthly_summary[target_month] = {
@@ -446,27 +452,25 @@ def get_income_report_data() -> dict:
                     "comprometido": 0.0,
                 }
             monthly_summary[target_month]["realizado"] += monto_pago
-            
             historicos_detalles.append({
+                "sale_id": sale["id"],
                 "sale_number": sale["sale_number"],
                 "customer_name": sale["customer_name"],
                 "sale_date": sale_date,
                 "payment_date": payment_date or sale_date,
                 "monto": monto_pago,
-                "status": "Pagado"
+                "status": "Pagado" if pending_amount == 0 else "Parcial"
             })
-        else:
+
+        if pending_amount > 0:
             target_due = due_date if (due_date and due_date != "-") else sale_date
             target_month = target_due[:7] if len(target_due) >= 7 else today_str[:7]
-            
-            total_futuro += total
-            
+            total_futuro += pending_amount
             is_overdue = False
             if target_due and target_due != "-" and target_due < today_str:
                 is_overdue = True
-                monto_retrasado += total
+                monto_retrasado += pending_amount
                 count_retrasados += 1
-
             if target_month not in monthly_summary:
                 y, m = target_month.split("-") if "-" in target_month else (today_str[:4], today_str[5:7])
                 monthly_summary[target_month] = {
@@ -475,14 +479,16 @@ def get_income_report_data() -> dict:
                     "realizado": 0.0,
                     "comprometido": 0.0,
                 }
-            monthly_summary[target_month]["comprometido"] += total
-
+            monthly_summary[target_month]["comprometido"] += pending_amount
             futuros_detalles.append({
+                "sale_id": sale["id"],
                 "sale_number": sale["sale_number"],
                 "customer_name": sale["customer_name"],
                 "sale_date": sale_date,
                 "due_date": target_due,
-                "monto": total,
+                "total": total,
+                "pagado": paid_amount,
+                "monto": pending_amount,
                 "status": "Retrasada" if is_overdue else "Pendiente",
                 "is_overdue": is_overdue
             })

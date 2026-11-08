@@ -11,6 +11,17 @@ from db import get_connection
 trazabilidad_bp = Blueprint('trazabilidad', __name__)
 
 
+@trazabilidad_bp.before_request
+def _require_inventory_permission_for_traceability():
+    from security import require_permission
+
+    @require_permission('inventario')
+    def _authorized():
+        return None
+
+    return _authorized()
+
+
 @trazabilidad_bp.route('/trazabilidad')
 def view_trazabilidad():
     """Vista principal interactiva de trazabilidad de lotes y recall."""

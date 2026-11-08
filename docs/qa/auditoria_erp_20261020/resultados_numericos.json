@@ -1,0 +1,2071 @@
+{
+  "counts": {
+    "bank_accounts": 15,
+    "bank_reconciliation_audit": 9,
+    "bank_transaction_categories": 10,
+    "bank_transaction_imports": 2,
+    "bank_transactions": 15,
+    "client_categories": 17,
+    "clients": 17,
+    "collection_actions": 1,
+    "debt_audit": 10,
+    "debt_installments": 8,
+    "debt_payments": 6,
+    "debt_types": 7,
+    "debts": 4,
+    "excel_import_previews": 2,
+    "expense_categories": 4,
+    "inventory_adjustment_audit": 2,
+    "inventory_adjustment_requests": 1,
+    "inventory_cost_revaluations": 1,
+    "inventory_entries": 14,
+    "inventory_entry_items": 15,
+    "inventory_movements": 42,
+    "lot_stock": 12,
+    "lots": 12,
+    "operational_expense_audit": 14,
+    "operational_expense_occurrences": 5,
+    "operational_expenses": 6,
+    "page_data": 26,
+    "product_margins": 1,
+    "product_recipe_items": 67,
+    "product_recipes": 19,
+    "product_suppliers": 0,
+    "production_lot_consumptions": 6,
+    "production_lot_outputs": 4,
+    "production_order_additional_items": 0,
+    "production_order_items": 5,
+    "production_orders": 4,
+    "products": 82,
+    "purchase_invoices": 4,
+    "purchase_order_items": 12,
+    "purchase_orders": 9,
+    "roles": 7,
+    "sale_items": 12,
+    "sale_lot_movements": 3,
+    "sale_packaging_items": 0,
+    "sale_payment_items": 10,
+    "sale_payments": 27,
+    "sales": 47,
+    "sales_entries": 0,
+    "sales_payment_history": 12,
+    "sales_status_history": 68,
+    "schema_migrations": 29,
+    "supplier_contacts": 3,
+    "suppliers": 14,
+    "users": 6
+  },
+  "costs": [
+    {
+      "id": 1,
+      "sku": "PRD001",
+      "name": "Miel Pura 1kg",
+      "type": "Final",
+      "master_cost": 0.0,
+      "ppp": 1016.6667,
+      "quote_base": 15.0,
+      "list_base": 15.0
+    },
+    {
+      "id": 2,
+      "sku": "PRD002",
+      "name": "Miel Pura 500g",
+      "type": "Final",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 8.5,
+      "list_base": 8.5
+    },
+    {
+      "id": 4,
+      "sku": "PRD004",
+      "name": "Propóleo 30ml",
+      "type": "Final",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 18.0,
+      "list_base": 18.0
+    },
+    {
+      "id": 5,
+      "sku": "INS001",
+      "name": "Miel a Granel (kg)",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 4.5,
+      "list_base": 4.5
+    },
+    {
+      "id": 6,
+      "sku": "INS002",
+      "name": "Frasco de Vidrio 500g",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.5,
+      "list_base": 0.5
+    },
+    {
+      "id": 7,
+      "sku": "INS003",
+      "name": "Tapa para Frasco",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.1,
+      "list_base": 0.1
+    },
+    {
+      "id": 13,
+      "sku": "2222",
+      "name": "MIEL MATERIA PRIMA",
+      "type": "Final",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 14,
+      "sku": "INS-MPR-001",
+      "name": "Materia Prima Miel",
+      "type": "Insumo",
+      "master_cost": 1000.0,
+      "ppp": 1066.6667,
+      "quote_base": 1066.6667,
+      "list_base": 1066.6667
+    },
+    {
+      "id": 15,
+      "sku": "INS-ENV-001",
+      "name": "Envase 30 g",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 77.5152,
+      "list_base": 77.5152
+    },
+    {
+      "id": 16,
+      "sku": "INS-ENV-002",
+      "name": "Envase 260 g",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 17,
+      "sku": "INS-ENV-003",
+      "name": "Envase 500 g",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 120.0,
+      "list_base": 120.0
+    },
+    {
+      "id": 18,
+      "sku": "INS-ENV-004",
+      "name": "Envase 1 Kg",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 19,
+      "sku": "INS-ENV-005",
+      "name": "Envase 2,5 Kg (tineta)",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 20,
+      "sku": "INS-ENV-006",
+      "name": "Envase 7 Kg (tineta)",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 21,
+      "sku": "INS-ENV-007",
+      "name": "Envase 12 Kg (tineta)",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 22,
+      "sku": "INS-ENV-008",
+      "name": "Envase 27 Kg (tineta)",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 23,
+      "sku": "INS-ENV-009",
+      "name": "Envase 40 Kg (tineta)",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 24,
+      "sku": "INS-ENV-010",
+      "name": "Tambor 300 Kg (tambor)",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 25,
+      "sku": "INS-ETQ-001",
+      "name": "Etiqueta Envase 1 kg PET",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 26,
+      "sku": "INS-ETQ-002",
+      "name": "Etiqueta Envase 500 g PET",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 30.0,
+      "list_base": 30.0
+    },
+    {
+      "id": 27,
+      "sku": "INS-ETQ-003",
+      "name": "Etiqueta Envase 1kg - Selva Valdiviana Multiflora",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 28,
+      "sku": "INS-ETQ-004",
+      "name": "Etiqueta Envase 1kg - Selva Valdiviana Ulmo",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 29,
+      "sku": "INS-ETQ-005",
+      "name": "Etiqueta Envase 1kg - Selva Valdiviana Tineo",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 30,
+      "sku": "INS-ETQ-006",
+      "name": "Etiqueta Envase 1kg - Selva Valdiviana Tiaca",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 31,
+      "sku": "INS-ETQ-007",
+      "name": "Etiqueta Envase 500 g - Selva Valdiviana Multiflora",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 32,
+      "sku": "INS-ETQ-008",
+      "name": "Etiqueta Envase 500 g - Selva Valdiviana Ulmo",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 33,
+      "sku": "INS-ETQ-009",
+      "name": "Etiqueta Envase 500 g - Selva Valdiviana Tineo",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 34,
+      "sku": "INS-ETQ-010",
+      "name": "Etiqueta Envase 500 g - Selva Valdiviana Tiaca",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 35,
+      "sku": "INS-ETQ-011",
+      "name": "Etiqueta Envase 500 g Danés",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 36,
+      "sku": "INS-ETQ-012",
+      "name": "Etiqueta Envase 200 g Vidrio",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 37,
+      "sku": "INS-ETQ-013",
+      "name": "Etiqueta Envase 260 g Vidrio",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 5000.0,
+      "list_base": 5000.0
+    },
+    {
+      "id": 38,
+      "sku": "INS-ETQ-014",
+      "name": "Etiqueta Envase 30 g Vidrio",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 12.0,
+      "list_base": 12.0
+    },
+    {
+      "id": 39,
+      "sku": "INS-ETQ-015",
+      "name": "Etiqueta Tapa Grande - Ulmo",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 120.0,
+      "list_base": 120.0
+    },
+    {
+      "id": 40,
+      "sku": "INS-ETQ-016",
+      "name": "Etiqueta Tapa Grande - Tiaca",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 41,
+      "sku": "INS-ETQ-017",
+      "name": "Etiqueta Tapa Grande - Tineo",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 42,
+      "sku": "INS-ETQ-018",
+      "name": "Etiqueta Tapa Grande - Multiflora",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 43,
+      "sku": "INS-ETQ-019",
+      "name": "Etiqueta Tapa Grande - Selva Valdiviana Ulmo",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 44,
+      "sku": "INS-ETQ-020",
+      "name": "Etiqueta Tapa Grande - Selva Valdiviana Tiaca",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 45,
+      "sku": "INS-ETQ-021",
+      "name": "Etiqueta Tapa Grande - Selva Valdiviana Tineo",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 46,
+      "sku": "INS-ETQ-022",
+      "name": "Etiqueta Tapa Grande - Selva Valdiviana Multiflora",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 47,
+      "sku": "INS-ETQ-023",
+      "name": "Etiqueta Tapa Chica - Selva Valdiviana Ulmo",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 48,
+      "sku": "INS-ETQ-024",
+      "name": "Etiqueta Tapa Chica - Selva Valdiviana Tiaca",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 49,
+      "sku": "INS-ETQ-025",
+      "name": "Etiqueta Tapa Chica - Selva Valdiviana Tineo",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 50,
+      "sku": "INS-ETQ-026",
+      "name": "Etiqueta Tapa Chica - Selva Valdiviana Multiflora",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 51,
+      "sku": "INS-ETQ-027",
+      "name": "Etiqueta Tapa Chica - Ulmo",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 8.0,
+      "list_base": 8.0
+    },
+    {
+      "id": 52,
+      "sku": "INS-ETQ-028",
+      "name": "Etiqueta Tapa Chica - Tiaca",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 45.0,
+      "list_base": 45.0
+    },
+    {
+      "id": 53,
+      "sku": "INS-ETQ-029",
+      "name": "Etiqueta Tapa Chica - Tineo",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 8.0,
+      "list_base": 8.0
+    },
+    {
+      "id": 54,
+      "sku": "INS-ETQ-030",
+      "name": "Etiqueta Tapa Chica - Multiflora",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 8.0,
+      "list_base": 8.0
+    },
+    {
+      "id": 55,
+      "sku": "INS-CAJ-001",
+      "name": "Caja Multiuso A (6 un. Envase 1 Kg PET, o 24 un. Tripack)",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 56,
+      "sku": "INS-CAJ-002",
+      "name": "Caja Multiuso B (18 un. Envase 500 g PET, o 100 un. Envase 30 g Vidrio)",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 57,
+      "sku": "INS-CAJ-003",
+      "name": "Caja 12 unidades x 500 g Danés",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 58,
+      "sku": "INS-CAJ-004",
+      "name": "Caja Tripack (empaque primario, contiene 3 frascos de 30 g)",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 300.0,
+      "list_base": 300.0
+    },
+    {
+      "id": 59,
+      "sku": "INS-CAJ-005",
+      "name": "Caja reciclada (proveedor de envases PET) — usada para armar Caja 24 un. x 260 g Vidrio",
+      "type": "Insumo",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 60,
+      "sku": "PT-CLA-001",
+      "name": "Miel de Ulmo 1 Kg PET",
+      "type": "Producto Terminado",
+      "master_cost": 0.0,
+      "ppp": 1000.0,
+      "quote_base": 1000.0,
+      "list_base": 1000.0
+    },
+    {
+      "id": 61,
+      "sku": "PT-CLA-002",
+      "name": "Miel de Ulmo 500 g PET",
+      "type": "Producto Terminado",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 62,
+      "sku": "PT-CLA-003",
+      "name": "Miel de Ulmo 260 g Vidrio",
+      "type": "Producto Terminado",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 63,
+      "sku": "PT-CLA-004",
+      "name": "Miel de Ulmo 30 g Vidrio",
+      "type": "Producto Terminado",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 64,
+      "sku": "PT-CLA-005",
+      "name": "Miel de Multiflora 1 Kg PET",
+      "type": "Producto Terminado",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 65,
+      "sku": "PT-CLA-006",
+      "name": "Miel de Multiflora 500 g PET",
+      "type": "Producto Terminado",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 66,
+      "sku": "PT-CLA-007",
+      "name": "Miel de Multiflora 260 g Vidrio",
+      "type": "Producto Terminado",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 67,
+      "sku": "PT-CLA-008",
+      "name": "Miel de Multiflora 30 g Vidrio",
+      "type": "Producto Terminado",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 68,
+      "sku": "PT-CLA-009",
+      "name": "Miel de Tineo 1 Kg PET",
+      "type": "Producto Terminado",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 69,
+      "sku": "PT-CLA-010",
+      "name": "Miel de Tineo 500 g PET",
+      "type": "Producto Terminado",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 70,
+      "sku": "PT-CLA-011",
+      "name": "Miel de Tineo 260 g Vidrio",
+      "type": "Producto Terminado",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 71,
+      "sku": "PT-CLA-012",
+      "name": "Miel de Tineo 30 g Vidrio",
+      "type": "Producto Terminado",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 72,
+      "sku": "PT-CLA-013",
+      "name": "Miel de Tiaca 1 Kg PET",
+      "type": "Producto Terminado",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 73,
+      "sku": "PT-CLA-014",
+      "name": "Miel de Tiaca 500 g PET",
+      "type": "Producto Terminado",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 74,
+      "sku": "PT-CLA-015",
+      "name": "Miel de Tiaca 260 g Vidrio",
+      "type": "Producto Terminado",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0.0,
+      "list_base": 0.0
+    },
+    {
+      "id": 39567,
+      "sku": "E2E-MASTER-CRUD-20260927",
+      "name": "E2E Master maestro editado",
+      "type": "Producto Terminado",
+      "master_cost": 1234.0,
+      "ppp": 1234.0,
+      "quote_base": 0,
+      "list_base": 1234.0
+    },
+    {
+      "id": 39568,
+      "sku": "E2E-MASTER-IMPORT-20260927",
+      "name": "E2E Master Producto Importado",
+      "type": "Producto Terminado",
+      "master_cost": 1700.0,
+      "ppp": 1700.0,
+      "quote_base": 0,
+      "list_base": 1700.0
+    },
+    {
+      "id": 39569,
+      "sku": "E2E-FIFO-MULTI-20260928-MP",
+      "name": "Validación FIFO multicapa MP",
+      "type": "Insumo",
+      "master_cost": 1000.0,
+      "ppp": 1100.0,
+      "quote_base": 1100.0,
+      "list_base": 1100.0
+    },
+    {
+      "id": 39570,
+      "sku": "E2E-FIFO-MULTI-20260928-PT",
+      "name": "Validación FIFO multicapa PT",
+      "type": "Final",
+      "master_cost": 0.0,
+      "ppp": 1100.0,
+      "quote_base": 1100.0,
+      "list_base": 1100.0
+    },
+    {
+      "id": 39572,
+      "sku": "E2E-DISPATCH-20260929-B_FIRST",
+      "name": "E2E-DISPATCH-20260929 B_FIRST",
+      "type": "Final",
+      "master_cost": 0.0,
+      "ppp": 1000.0,
+      "quote_base": 1000.0,
+      "list_base": 1000.0
+    },
+    {
+      "id": 39573,
+      "sku": "E2E-DISPATCH-20260929-A_FIRST",
+      "name": "E2E-DISPATCH-20260929 A_FIRST",
+      "type": "Final",
+      "master_cost": 0.0,
+      "ppp": 1000.0,
+      "quote_base": 1000.0,
+      "list_base": 1000.0
+    },
+    {
+      "id": 39574,
+      "sku": "E2E-DISPATCH-20260929-WORKFLOW",
+      "name": "E2E-DISPATCH-20260929 WORKFLOW",
+      "type": "Final",
+      "master_cost": 0.0,
+      "ppp": 1000.0,
+      "quote_base": 1000.0,
+      "list_base": 1000.0
+    },
+    {
+      "id": 39575,
+      "sku": "E2E-DISPATCH-20260929-LOT",
+      "name": "E2E-DISPATCH-20260929 LOT",
+      "type": "Final",
+      "master_cost": 1000.0,
+      "ppp": 1120.0,
+      "quote_base": 1120.0,
+      "list_base": 1120.0
+    },
+    {
+      "id": 39576,
+      "sku": "E2E-DISPATCH-20260929-EMPTY",
+      "name": "E2E-DISPATCH-20260929 EMPTY",
+      "type": "Final",
+      "master_cost": 0.0,
+      "ppp": 0.0,
+      "quote_base": 0,
+      "list_base": 0.0
+    },
+    {
+      "id": 39578,
+      "sku": "SKU-51C0E3",
+      "name": "Producto Auditoria 51C0E3",
+      "type": "Final",
+      "master_cost": 1000.0,
+      "ppp": 1000.0,
+      "quote_base": 0,
+      "list_base": 1000.0
+    },
+    {
+      "id": 39579,
+      "sku": "SKU-7CFFE2",
+      "name": "Producto Auditoria 7CFFE2",
+      "type": "Final",
+      "master_cost": 1000.0,
+      "ppp": 1000.0,
+      "quote_base": 0,
+      "list_base": 1000.0
+    },
+    {
+      "id": 39601,
+      "sku": "SKU-ENV-3832EE",
+      "name": "Envase Vidrio Master 3832EE",
+      "type": "Insumo",
+      "master_cost": 500.0,
+      "ppp": 600.0,
+      "quote_base": 600.0,
+      "list_base": 600.0
+    },
+    {
+      "id": 39602,
+      "sku": "SKU-MP-3832EE",
+      "name": "Materia Prima Granel Master 3832EE",
+      "type": "Insumo",
+      "master_cost": 2000.0,
+      "ppp": 2500.0,
+      "quote_base": 2500.0,
+      "list_base": 2500.0
+    },
+    {
+      "id": 39603,
+      "sku": "SKU-PT-3832EE",
+      "name": "Miel Terminada Frasco 1Kg Master 3832EE",
+      "type": "Final",
+      "master_cost": 0.0,
+      "ppp": 3100.0,
+      "quote_base": 3100.0,
+      "list_base": 3100.0
+    }
+  ],
+  "cost_disagreements": [
+    {
+      "id": 39567,
+      "sku": "E2E-MASTER-CRUD-20260927",
+      "name": "E2E Master maestro editado",
+      "type": "Producto Terminado",
+      "master_cost": 1234.0,
+      "ppp": 1234.0,
+      "quote_base": 0,
+      "list_base": 1234.0
+    },
+    {
+      "id": 39568,
+      "sku": "E2E-MASTER-IMPORT-20260927",
+      "name": "E2E Master Producto Importado",
+      "type": "Producto Terminado",
+      "master_cost": 1700.0,
+      "ppp": 1700.0,
+      "quote_base": 0,
+      "list_base": 1700.0
+    },
+    {
+      "id": 39578,
+      "sku": "SKU-51C0E3",
+      "name": "Producto Auditoria 51C0E3",
+      "type": "Final",
+      "master_cost": 1000.0,
+      "ppp": 1000.0,
+      "quote_base": 0,
+      "list_base": 1000.0
+    },
+    {
+      "id": 39579,
+      "sku": "SKU-7CFFE2",
+      "name": "Producto Auditoria 7CFFE2",
+      "type": "Final",
+      "master_cost": 1000.0,
+      "ppp": 1000.0,
+      "quote_base": 0,
+      "list_base": 1000.0
+    }
+  ],
+  "zero_quote_positive_ppp": [
+    {
+      "id": 39567,
+      "sku": "E2E-MASTER-CRUD-20260927",
+      "name": "E2E Master maestro editado",
+      "type": "Producto Terminado",
+      "master_cost": 1234.0,
+      "ppp": 1234.0,
+      "quote_base": 0,
+      "list_base": 1234.0
+    },
+    {
+      "id": 39568,
+      "sku": "E2E-MASTER-IMPORT-20260927",
+      "name": "E2E Master Producto Importado",
+      "type": "Producto Terminado",
+      "master_cost": 1700.0,
+      "ppp": 1700.0,
+      "quote_base": 0,
+      "list_base": 1700.0
+    },
+    {
+      "id": 39578,
+      "sku": "SKU-51C0E3",
+      "name": "Producto Auditoria 51C0E3",
+      "type": "Final",
+      "master_cost": 1000.0,
+      "ppp": 1000.0,
+      "quote_base": 0,
+      "list_base": 1000.0
+    },
+    {
+      "id": 39579,
+      "sku": "SKU-7CFFE2",
+      "name": "Producto Auditoria 7CFFE2",
+      "type": "Final",
+      "master_cost": 1000.0,
+      "ppp": 1000.0,
+      "quote_base": 0,
+      "list_base": 1000.0
+    }
+  ],
+  "sales": [
+    {
+      "id": 14252,
+      "folio": "COT-04182",
+      "status": "Cotización",
+      "line_count": 1,
+      "lines_net": 15000.0,
+      "stored_subtotals": 15000.0,
+      "saved_total": 15000.0,
+      "print_total": 17850,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 60,
+          "product_name": "Miel de Ulmo 1 Kg PET",
+          "quantity": 10,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 15000.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14253,
+      "folio": "P-04183",
+      "status": "Completada",
+      "line_count": 1,
+      "lines_net": 15000.0,
+      "stored_subtotals": 15000.0,
+      "saved_total": 15000.0,
+      "print_total": 17850,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 60,
+          "product_name": "Miel de Ulmo 1 Kg PET",
+          "quantity": 10,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 15000.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14254,
+      "folio": "COT-04184",
+      "status": "Cotización",
+      "line_count": 1,
+      "lines_net": 1500.0,
+      "stored_subtotals": 1500.0,
+      "saved_total": 1500.0,
+      "print_total": 1785,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 61,
+          "product_name": "Miel de Ulmo 500 g PET",
+          "quantity": 1,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 1500.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14255,
+      "folio": "P-04185",
+      "status": "Pendiente",
+      "line_count": 1,
+      "lines_net": 1500.0,
+      "stored_subtotals": 1500.0,
+      "saved_total": 1500.0,
+      "print_total": 1785,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 61,
+          "product_name": "Miel de Ulmo 500 g PET",
+          "quantity": 1,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 1500.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14256,
+      "folio": "COT-04186",
+      "status": "Cotización",
+      "line_count": 1,
+      "lines_net": 12000.0,
+      "stored_subtotals": 12000.0,
+      "saved_total": 12000.0,
+      "print_total": 14280,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39572,
+          "product_name": "E2E-DISPATCH-20260929 B_FIRST",
+          "quantity": 8,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 12000.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14257,
+      "folio": "P-04187",
+      "status": "Pendiente",
+      "line_count": 1,
+      "lines_net": 12000.0,
+      "stored_subtotals": 12000.0,
+      "saved_total": 12000.0,
+      "print_total": 14280,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39572,
+          "product_name": "E2E-DISPATCH-20260929 B_FIRST",
+          "quantity": 8,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 12000.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14258,
+      "folio": "COT-04188",
+      "status": "Cotización",
+      "line_count": 1,
+      "lines_net": 7500.0,
+      "stored_subtotals": 7500.0,
+      "saved_total": 7500.0,
+      "print_total": 8925,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39572,
+          "product_name": "E2E-DISPATCH-20260929 B_FIRST",
+          "quantity": 5,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 7500.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14259,
+      "folio": "P-04189",
+      "status": "En Preparación",
+      "line_count": 1,
+      "lines_net": 7500.0,
+      "stored_subtotals": 7500.0,
+      "saved_total": 7500.0,
+      "print_total": 8925,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39572,
+          "product_name": "E2E-DISPATCH-20260929 B_FIRST",
+          "quantity": 5,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 7500.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14260,
+      "folio": "COT-04190",
+      "status": "Cotización",
+      "line_count": 1,
+      "lines_net": 12000.0,
+      "stored_subtotals": 12000.0,
+      "saved_total": 12000.0,
+      "print_total": 14280,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39573,
+          "product_name": "E2E-DISPATCH-20260929 A_FIRST",
+          "quantity": 8,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 12000.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14261,
+      "folio": "P-04191",
+      "status": "En Preparación",
+      "line_count": 1,
+      "lines_net": 12000.0,
+      "stored_subtotals": 12000.0,
+      "saved_total": 12000.0,
+      "print_total": 14280,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39573,
+          "product_name": "E2E-DISPATCH-20260929 A_FIRST",
+          "quantity": 8,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 12000.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14262,
+      "folio": "COT-04192",
+      "status": "Cotización",
+      "line_count": 1,
+      "lines_net": 7500.0,
+      "stored_subtotals": 7500.0,
+      "saved_total": 7500.0,
+      "print_total": 8925,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39573,
+          "product_name": "E2E-DISPATCH-20260929 A_FIRST",
+          "quantity": 5,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 7500.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14263,
+      "folio": "P-04193",
+      "status": "Pendiente",
+      "line_count": 1,
+      "lines_net": 7500.0,
+      "stored_subtotals": 7500.0,
+      "saved_total": 7500.0,
+      "print_total": 8925,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39573,
+          "product_name": "E2E-DISPATCH-20260929 A_FIRST",
+          "quantity": 5,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 7500.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14264,
+      "folio": "COT-04194",
+      "status": "Cotización",
+      "line_count": 1,
+      "lines_net": 4500.0,
+      "stored_subtotals": 4500.0,
+      "saved_total": 4500.0,
+      "print_total": 5355,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39574,
+          "product_name": "E2E-DISPATCH-20260929 WORKFLOW",
+          "quantity": 3,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 4500.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14265,
+      "folio": "P-04195",
+      "status": "Completada",
+      "line_count": 1,
+      "lines_net": 4500.0,
+      "stored_subtotals": 4500.0,
+      "saved_total": 4500.0,
+      "print_total": 5355,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39574,
+          "product_name": "E2E-DISPATCH-20260929 WORKFLOW",
+          "quantity": 3,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 4500.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14266,
+      "folio": "COT-04196",
+      "status": "Cotización",
+      "line_count": 1,
+      "lines_net": 9000.0,
+      "stored_subtotals": 9000.0,
+      "saved_total": 9000.0,
+      "print_total": 10710,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39575,
+          "product_name": "E2E-DISPATCH-20260929 LOT",
+          "quantity": 6,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 9000.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14267,
+      "folio": "P-04197",
+      "status": "Para Despacho",
+      "line_count": 1,
+      "lines_net": 9000.0,
+      "stored_subtotals": 9000.0,
+      "saved_total": 9000.0,
+      "print_total": 10710,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39575,
+          "product_name": "E2E-DISPATCH-20260929 LOT",
+          "quantity": 6,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 9000.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14268,
+      "folio": "COT-04198",
+      "status": "Cotización",
+      "line_count": 2,
+      "lines_net": 4500.0,
+      "stored_subtotals": 4500.0,
+      "saved_total": 4500.0,
+      "print_total": 5355,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39574,
+          "product_name": "E2E-DISPATCH-20260929 WORKFLOW",
+          "quantity": 2,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 3000.0,
+          "lot_number": ""
+        },
+        {
+          "product_id": 39576,
+          "product_name": "E2E-DISPATCH-20260929 EMPTY",
+          "quantity": 1,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 1500.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14269,
+      "folio": "P-04199",
+      "status": "Pendiente",
+      "line_count": 2,
+      "lines_net": 4500.0,
+      "stored_subtotals": 4500.0,
+      "saved_total": 4500.0,
+      "print_total": 5355,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39574,
+          "product_name": "E2E-DISPATCH-20260929 WORKFLOW",
+          "quantity": 2,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 3000.0,
+          "lot_number": ""
+        },
+        {
+          "product_id": 39576,
+          "product_name": "E2E-DISPATCH-20260929 EMPTY",
+          "quantity": 1,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 1500.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14270,
+      "folio": "COT-04200",
+      "status": "Cotización",
+      "line_count": 1,
+      "lines_net": 1500.0,
+      "stored_subtotals": 1500.0,
+      "saved_total": 1500.0,
+      "print_total": 1785,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39574,
+          "product_name": "E2E-DISPATCH-20260929 WORKFLOW",
+          "quantity": 1,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 1500.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14271,
+      "folio": "P-04201",
+      "status": "Cancelada",
+      "line_count": 1,
+      "lines_net": 1500.0,
+      "stored_subtotals": 1500.0,
+      "saved_total": 1500.0,
+      "print_total": 1785,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39574,
+          "product_name": "E2E-DISPATCH-20260929 WORKFLOW",
+          "quantity": 1,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 1500.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14272,
+      "folio": "COT-04202",
+      "status": "Cotización",
+      "line_count": 1,
+      "lines_net": 1500.0,
+      "stored_subtotals": 1500.0,
+      "saved_total": 1500.0,
+      "print_total": 1785,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39574,
+          "product_name": "E2E-DISPATCH-20260929 WORKFLOW",
+          "quantity": 1,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 1500.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14273,
+      "folio": "P-04203",
+      "status": "Cancelada",
+      "line_count": 1,
+      "lines_net": 1500.0,
+      "stored_subtotals": 1500.0,
+      "saved_total": 1500.0,
+      "print_total": 1785,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39574,
+          "product_name": "E2E-DISPATCH-20260929 WORKFLOW",
+          "quantity": 1,
+          "price": 1500.0,
+          "discount": 0.0,
+          "subtotal": 1500.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14274,
+      "folio": "P-E2E-DISP-LIFECYCLE-1790683198",
+      "status": "Completada",
+      "line_count": 1,
+      "lines_net": 10000.0,
+      "stored_subtotals": 10000.0,
+      "saved_total": 10000.0,
+      "print_total": 11900,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 60,
+          "product_name": "Miel de Ulmo",
+          "quantity": 2,
+          "price": 5000.0
+        }
+      ]
+    },
+    {
+      "id": 14275,
+      "folio": "P-E2E-PRIOR-A-1790683198",
+      "status": "Cancelada",
+      "line_count": 1,
+      "lines_net": 260000.0,
+      "stored_subtotals": 260000.0,
+      "saved_total": 260000.0,
+      "print_total": 309400,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 60,
+          "product_name": "Miel",
+          "quantity": 52,
+          "price": 5000.0
+        }
+      ]
+    },
+    {
+      "id": 14276,
+      "folio": "P-E2E-PRIOR-B-1790683198",
+      "status": "Cancelada",
+      "line_count": 1,
+      "lines_net": 260000.0,
+      "stored_subtotals": 260000.0,
+      "saved_total": 260000.0,
+      "print_total": 309400,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 60,
+          "product_name": "Miel",
+          "quantity": 52,
+          "price": 5000.0
+        }
+      ]
+    },
+    {
+      "id": 14277,
+      "folio": "P-E2E-PRECANC-1790683198",
+      "status": "Cancelada",
+      "line_count": 1,
+      "lines_net": 15000.0,
+      "stored_subtotals": 15000.0,
+      "saved_total": 15000.0,
+      "print_total": 17850,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 60,
+          "product_name": "Miel",
+          "quantity": 3,
+          "price": 5000.0
+        }
+      ]
+    },
+    {
+      "id": 14278,
+      "folio": "P-E2E-POSTCANC-1790683198",
+      "status": "Cancelada",
+      "line_count": 1,
+      "lines_net": 15000.0,
+      "stored_subtotals": 15000.0,
+      "saved_total": 15000.0,
+      "print_total": 17850,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 60,
+          "product_name": "Miel",
+          "quantity": 3,
+          "price": 5000.0
+        }
+      ]
+    },
+    {
+      "id": 14279,
+      "folio": "VTA-BNK-ad9add",
+      "status": "Completada",
+      "line_count": 0,
+      "lines_net": 0,
+      "stored_subtotals": 0,
+      "saved_total": 1000000.0,
+      "print_total": 0,
+      "saved_equals_lines": false,
+      "saved_equals_gross": false,
+      "line_details": []
+    },
+    {
+      "id": 14282,
+      "folio": "VTA-1-51C0E3",
+      "status": "Pendiente",
+      "line_count": 0,
+      "lines_net": 0,
+      "stored_subtotals": 0,
+      "saved_total": 119000.0,
+      "print_total": 0,
+      "saved_equals_lines": false,
+      "saved_equals_gross": false,
+      "line_details": []
+    },
+    {
+      "id": 14283,
+      "folio": "VTA-2-51C0E3",
+      "status": "Pendiente",
+      "line_count": 0,
+      "lines_net": 0,
+      "stored_subtotals": 0,
+      "saved_total": 238000.0,
+      "print_total": 0,
+      "saved_equals_lines": false,
+      "saved_equals_gross": false,
+      "line_details": []
+    },
+    {
+      "id": 14284,
+      "folio": "VTA-3-51C0E3",
+      "status": "Completada",
+      "line_count": 0,
+      "lines_net": 0,
+      "stored_subtotals": 0,
+      "saved_total": 59500.0,
+      "print_total": 0,
+      "saved_equals_lines": false,
+      "saved_equals_gross": false,
+      "line_details": []
+    },
+    {
+      "id": 14285,
+      "folio": "VTA-4-51C0E3",
+      "status": "Anulada",
+      "line_count": 0,
+      "lines_net": 0,
+      "stored_subtotals": 0,
+      "saved_total": 50000.0,
+      "print_total": 0,
+      "saved_equals_lines": false,
+      "saved_equals_gross": false,
+      "line_details": []
+    },
+    {
+      "id": 14286,
+      "folio": "VTA-1-7CFFE2",
+      "status": "Pendiente",
+      "line_count": 0,
+      "lines_net": 0,
+      "stored_subtotals": 0,
+      "saved_total": 119000.0,
+      "print_total": 0,
+      "saved_equals_lines": false,
+      "saved_equals_gross": false,
+      "line_details": []
+    },
+    {
+      "id": 14287,
+      "folio": "VTA-2-7CFFE2",
+      "status": "Pendiente",
+      "line_count": 0,
+      "lines_net": 0,
+      "stored_subtotals": 0,
+      "saved_total": 238000.0,
+      "print_total": 0,
+      "saved_equals_lines": false,
+      "saved_equals_gross": false,
+      "line_details": []
+    },
+    {
+      "id": 14288,
+      "folio": "VTA-3-7CFFE2",
+      "status": "Completada",
+      "line_count": 0,
+      "lines_net": 0,
+      "stored_subtotals": 0,
+      "saved_total": 59500.0,
+      "print_total": 0,
+      "saved_equals_lines": false,
+      "saved_equals_gross": false,
+      "line_details": []
+    },
+    {
+      "id": 14289,
+      "folio": "VTA-4-7CFFE2",
+      "status": "Cancelada",
+      "line_count": 0,
+      "lines_net": 0,
+      "stored_subtotals": 0,
+      "saved_total": 50000.0,
+      "print_total": 0,
+      "saved_equals_lines": false,
+      "saved_equals_gross": false,
+      "line_details": []
+    },
+    {
+      "id": 14338,
+      "folio": "COT-04204",
+      "status": "Cotización",
+      "line_count": 1,
+      "lines_net": 30000.0,
+      "stored_subtotals": 30000.0,
+      "saved_total": 30000.0,
+      "print_total": 35700,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39597,
+          "product_name": "Miel Terminada Frasco 1Kg Master 009728",
+          "quantity": 5,
+          "price": 6000.0,
+          "discount": 0.0,
+          "subtotal": 30000.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14339,
+      "folio": "P-04205",
+      "status": "Completada",
+      "line_count": 1,
+      "lines_net": 30000.0,
+      "stored_subtotals": 30000.0,
+      "saved_total": 30000.0,
+      "print_total": 35700,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39597,
+          "product_name": "Miel Terminada Frasco 1Kg Master 009728",
+          "quantity": 5,
+          "price": 6000.0,
+          "discount": 0.0,
+          "subtotal": 30000.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14340,
+      "folio": "COT-04206",
+      "status": "Cotización",
+      "line_count": 1,
+      "lines_net": 30000.0,
+      "stored_subtotals": 30000.0,
+      "saved_total": 30000.0,
+      "print_total": 35700,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39600,
+          "product_name": "Miel Terminada Frasco 1Kg Master 0AF250",
+          "quantity": 5,
+          "price": 6000.0,
+          "discount": 0.0,
+          "subtotal": 30000.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14341,
+      "folio": "P-04207",
+      "status": "Completada",
+      "line_count": 1,
+      "lines_net": 30000.0,
+      "stored_subtotals": 30000.0,
+      "saved_total": 30000.0,
+      "print_total": 35700,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39600,
+          "product_name": "Miel Terminada Frasco 1Kg Master 0AF250",
+          "quantity": 5,
+          "price": 6000.0,
+          "discount": 0.0,
+          "subtotal": 30000.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14342,
+      "folio": "COT-04208",
+      "status": "Cotización",
+      "line_count": 1,
+      "lines_net": 30000.0,
+      "stored_subtotals": 30000.0,
+      "saved_total": 30000.0,
+      "print_total": 35700,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39603,
+          "product_name": "Miel Terminada Frasco 1Kg Master 3832EE",
+          "quantity": 5,
+          "price": 6000.0,
+          "discount": 0.0,
+          "subtotal": 30000.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14343,
+      "folio": "P-04209",
+      "status": "Completada",
+      "line_count": 1,
+      "lines_net": 30000.0,
+      "stored_subtotals": 30000.0,
+      "saved_total": 30000.0,
+      "print_total": 35700,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39603,
+          "product_name": "Miel Terminada Frasco 1Kg Master 3832EE",
+          "quantity": 5,
+          "price": 6000.0,
+          "discount": 0.0,
+          "subtotal": 30000.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14344,
+      "folio": "COT-04210",
+      "status": "Cotización",
+      "line_count": 1,
+      "lines_net": 11904.0,
+      "stored_subtotals": 11904.0,
+      "saved_total": 11904.0,
+      "print_total": 14166,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39603,
+          "product_name": "Miel Terminada Frasco 1Kg Master 3832EE",
+          "quantity": 3,
+          "price": 3968.0,
+          "discount": 0.0,
+          "subtotal": 11904.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14345,
+      "folio": "P-04211",
+      "status": "Pendiente",
+      "line_count": 1,
+      "lines_net": 11904.0,
+      "stored_subtotals": 11904.0,
+      "saved_total": 11904.0,
+      "print_total": 14166,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39603,
+          "product_name": "Miel Terminada Frasco 1Kg Master 3832EE",
+          "quantity": 3,
+          "price": 3968.0,
+          "discount": 0.0,
+          "subtotal": 11904.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14346,
+      "folio": "COT-04212",
+      "status": "Cotización",
+      "line_count": 1,
+      "lines_net": 8680.0,
+      "stored_subtotals": 8680.0,
+      "saved_total": 8680.0,
+      "print_total": 10329,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 39603,
+          "product_name": "Miel Terminada Frasco 1Kg Master 3832EE",
+          "quantity": 2,
+          "price": 4340.0,
+          "discount": 0.0,
+          "subtotal": 8680.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14347,
+      "folio": "COT-04213",
+      "status": "Cotización",
+      "line_count": 1,
+      "lines_net": 300000.0,
+      "stored_subtotals": 300000.0,
+      "saved_total": 300000.0,
+      "print_total": 357000,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 60,
+          "product_name": "Miel de Ulmo 1 Kg PET",
+          "quantity": 50,
+          "price": 6000.0,
+          "discount": 0.0,
+          "subtotal": 300000.0,
+          "lot_number": ""
+        }
+      ]
+    },
+    {
+      "id": 14348,
+      "folio": "P-04214",
+      "status": "Completada",
+      "line_count": 1,
+      "lines_net": 300000.0,
+      "stored_subtotals": 300000.0,
+      "saved_total": 300000.0,
+      "print_total": 357000,
+      "saved_equals_lines": true,
+      "saved_equals_gross": false,
+      "line_details": [
+        {
+          "product_id": 60,
+          "product_name": "Miel de Ulmo 1 Kg PET",
+          "quantity": 50,
+          "price": 6000.0,
+          "discount": 0.0,
+          "subtotal": 300000.0,
+          "lot_number": ""
+        }
+      ]
+    }
+  ],
+  "invalid_sale_lines": [],
+  "bad_sale_cost_arithmetic": [],
+  "bad_receipt_arithmetic": [],
+  "bad_purchase_order_arithmetic": [],
+  "overpaid_approved": [],
+  "production": [
+    {
+      "folio": "OT-09270",
+      "status": "Finalizada",
+      "input_cost": 0.0,
+      "output_value": 0.0,
+      "delta": 0.0,
+      "effective_input_cost": 0.0,
+      "effective_output_value": 3000.0,
+      "effective_delta": 3000.0,
+      "header_unit_cost": null
+    },
+    {
+      "folio": "OT-09271",
+      "status": "Finalizada",
+      "input_cost": 1066.6667,
+      "output_value": 1066.6667,
+      "delta": 0.0,
+      "effective_input_cost": 1066.6667,
+      "effective_output_value": 1066.6667,
+      "effective_delta": 0.0,
+      "header_unit_cost": 1066.6667
+    },
+    {
+      "folio": "OT-09272",
+      "status": "Finalizada",
+      "input_cost": 16500.0,
+      "output_value": 16500.0,
+      "delta": 0.0,
+      "effective_input_cost": 16500.0,
+      "effective_output_value": 16500.0,
+      "effective_delta": 0.0,
+      "header_unit_cost": 1100.0
+    },
+    {
+      "folio": "OT-09275",
+      "status": "Finalizada",
+      "input_cost": 31000.0,
+      "output_value": 31000.0,
+      "delta": 0.0,
+      "effective_input_cost": 31000.0,
+      "effective_output_value": 31000.0,
+      "effective_delta": 0.0,
+      "header_unit_cost": 3100.0
+    }
+  ],
+  "purchase_invoices": [
+    {
+      "id": 3669,
+      "linked_receipt": 2469,
+      "net": 100000.0,
+      "invoice_amount": 119000.0,
+      "expected_gross": 119000.0,
+      "delta": 0.0
+    },
+    {
+      "id": 3670,
+      "linked_receipt": null,
+      "net": null,
+      "invoice_amount": 238000.0,
+      "expected_gross": null,
+      "delta": null
+    },
+    {
+      "id": 3671,
+      "linked_receipt": null,
+      "net": null,
+      "invoice_amount": 238000.0,
+      "expected_gross": null,
+      "delta": null
+    },
+    {
+      "id": 3686,
+      "linked_receipt": 2483,
+      "net": 62000.0,
+      "invoice_amount": 73780.0,
+      "expected_gross": 73780.0,
+      "delta": 0.0
+    }
+  ],
+  "categories": {
+    "base_margin": 20.0,
+    "categories": [
+      {
+        "id": "cat_0",
+        "name": "Retail",
+        "margin": 40.0
+      },
+      {
+        "id": "cat_1",
+        "name": "Mayorista",
+        "margin": 15.0
+      },
+      {
+        "id": "cat_2",
+        "name": "Categoría C",
+        "margin": 25.0
+      },
+      {
+        "id": "cat_3",
+        "name": "Categoria D",
+        "margin": 28.0
+      }
+    ]
+  },
+  "debt_installment_inconsistencies": []
+}

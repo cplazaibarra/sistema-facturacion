@@ -13,7 +13,7 @@ ERP de una bodega de productos de miel: maestros de productos, clientes y provee
 
 | Capa | Implementación comprobada |
 |---|---|
-| Aplicación | Python y Flask 3; `app.py` registra blueprints, configura sesiones/CSRF y llama `init_db()` al importar. Despliegue definido con Gunicorn y Docker Compose. |
+| Aplicación | Python y Flask 3; `app.py` registra blueprints, configura sesiones/CSRF e inicializa esquema automáticamente sólo en clones de prueba autorizados; el arranque normal no migra ni siembra datos. Despliegue definido con Gunicorn y Docker Compose. |
 | Interfaz | Renderizado servidor Flask/Jinja2 en `templates/`, CSS en `static/css/`, JavaScript propio en `static/js/` y plantillas; hay Chart.js para gráficos. No hay framework SPA como base del proyecto. |
 | Datos | PostgreSQL (Compose usa imagen 16); `core/database.py` gestiona conexiones y `db.py` mantiene la fachada de acceso. `repositories/` contiene consultas y escrituras, `services/` coordina reglas y flujos, `routes/` expone HTML/API. |
 | Esquema | Migraciones SQL versionadas `migrations/*.up.sql`/`*.down.sql`, ejecutadas por `tools/migrate.py` y registradas en `schema_migrations`; `db.init_db()` también siembra catálogos mínimos. |
@@ -246,3 +246,23 @@ Este apartado complementa y prevalece sobre las menciones anteriores de despacho
 - Se corrigió el teardown de fixtures de despacho y se añadieron regresiones de lock real y rollback tardío; no se cambiaron reglas de inventario, costos ni prioridad. La reapertura está **RED**, no se registra como bug corregido.
 
 **DESPACHO COMPLETO IDEMPOTENTE = RED** por reapertura defectuosa; **E2E MASTER = RED**, además de cuentas bancarias CRUD/saldo inicial y reportería integral, que no se trabajaron aquí.
+
+## Corrección y recertificación financiera — 21-10-2026
+
+Este apartado prevalece para los flujos corregidos. Evidencia y dictamen en `correccion_certificacion_erp_v1/`. La implementación se valida exclusivamente en clones; no se autoriza aplicar las migraciones 000028–000030 en `facturacion` ni en la plantilla durante esta fase.
+
+- CxP: cada abono nuevo se conserva en `purchase_payment_items`; se bloquea la factura para validar importe, cuenta, saldo e idempotencia. `purchase_invoices.payment_amount` es el acumulado compatible con las lecturas anteriores. Sólo cierra al completar la obligación. Una clave explícita repetida devuelve el mismo efecto; un caller heredado sin clave conserva el rechazo defensivo del reintento.
+- Gastos materializados: `expense_payment_items` conserva abonos; la ocurrencia parcialmente pagada permanece `Proyectado` (estado pendiente vigente del esquema), con acumulado y saldo. No cambia el maestro recurrente. La edición documental no borra pagos y un reintento no duplica el abono.
+- `purchase_payment_events` y `expense_payment_events` dan precedencia al ledger. Al continuar un parcial anterior se captura su metadata en una tabla de apertura, sin reescribir ni backfillear movimientos históricos. Esas capturas sólo se crean al registrar un abono nuevo autorizado. Los pagos se cuentan por su propia fecha/cuenta; el saldo se proyecta al vencimiento y una ocurrencia sustituye la proyección recurrente de su período.
+- Conciliar exige CLP, importe y signo exactos, misma cuenta y pago real válido; cobros requieren aprobación contable. Serializa asociaciones y desasociaciones mediante un lock transaccional PostgreSQL común. No crea pagos ni tolerancias monetarias. Los tipos nuevos enlazan abonos individuales; los enlaces heredados se conservan y sólo se resuelve un documento a un abono nuevo cuando es inequívoco.
+- Producción móvil exige plan, consumo suficiente para la cantidad declarada y costo de consumo positivo/trazable. No adivina el costo faltante con el PPP actual. Conserva locks de OT/producto, transacción y reintento sin duplicación. No cambia la regla FIFO físico + PPP contable ni el IVA, precios netos o redondeo comercial.
+- Las pruebas de migración usan una segunda base efímera vacía provista por el harness, con marker y usuario restringido. Ya no crean/eliminan una base auxiliar de nombre fijo ni necesitan privilegios administrativos dentro del proceso de tests.
+
+
+### Incidente de esquema y contención de arranque
+
+La comparación acumulada de contenido detectó que las migraciones000028–000030 aparecieron en `facturacion` entre ejecuciones aisladas. El arranque anterior ejecutaba init_db incondicionalmente al importar Flask, compatible con aplicación automática por recarga de un servicio vivo al editar código. No se encontró diferencia de contenido en las tablas operacionales preexistentes; las cuatro tablas nuevas están vacías y la plantilla conserva su huella. El proceso responsable no se pudo atribuir por PID desde el entorno de herramientas; no se presenta la hipótesis de recarga como una atribución demostrada.
+
+Se elimina esa vía automática: app.py llama init_db sólo con APP_ENV=testing y validación completa del marker de clon efímero antes de escribir. Desarrollo y producción no migran ni ejecutan seeds al importar. Se agregan pruebas con conexiones PostgreSQL reales configuradas READ ONLY para comprobar el arranque no mutable y el rechazo de un modo de pruebas sin autorización. Las migraciones operacionales quedan como una acción administrativa explícita y separada. No se ejecutó una reversa ni se borraron los registros de schema_migrations para ocultar el incidente.
+
+La contención también reside dentro de db.init_db: una invocación directa exige el marker y la configuración de clon de testing antes de conectar para DDL/seeds.

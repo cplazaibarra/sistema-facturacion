@@ -96,6 +96,42 @@ def get_lot(lot_id: int, conn=None) -> Optional[Dict[str, Any]]:
                 return _execute(cur)
 
 
+def get_inventory_movements_for_lots(lot_ids: List[int], conn=None) -> List[Dict[str, Any]]:
+    """Read the inventory ledger for a genealogy; never derives stock from sales alone."""
+    ids = sorted({int(lot_id) for lot_id in lot_ids if lot_id})
+    if not ids:
+        return []
+
+    query = """
+        SELECT im.id AS movement_id, im.lot_id, im.product_id, im.lot_number,
+               p.name AS product_name, p.sku, im.movement_type, im.quantity,
+               im.warehouse, im.reference_type, im.reference_id, im.notes, im.created_at,
+               s.sale_number, s.customer_name, s.customer_email, s.status AS sale_status,
+               po.ot_number, po.status AS production_status,
+               iar.reason AS adjustment_reason, iar.status AS adjustment_status
+        FROM inventory_movements im
+        JOIN products p ON p.id = im.product_id
+        LEFT JOIN sales s ON s.id = im.reference_id
+             AND im.reference_type IN ('sale', 'sale_cancellation')
+        LEFT JOIN production_orders po ON po.id = im.reference_id
+             AND im.reference_type IN ('production_order', 'production_order_item', 'production_order_add_item')
+        LEFT JOIN inventory_adjustment_requests iar ON iar.id = im.reference_id
+             AND im.reference_type = 'inventory_adjustment'
+        WHERE im.lot_id = ANY(%s)
+        ORDER BY im.created_at ASC, im.id ASC
+    """
+    def _execute(cur):
+        cur.execute(query, (ids,))
+        return [dict(row) for row in cur.fetchall()]
+
+    if conn is not None:
+        with conn.cursor() as cur:
+            return _execute(cur)
+    with get_connection() as active_conn:
+        with active_conn.cursor() as cur:
+            return _execute(cur)
+
+
 def get_lot_by_product_and_number(product_id: int, lot_number: str, conn=None) -> Optional[Dict[str, Any]]:
     """Obtiene un lote por combinación de product_id y lot_number."""
     clean_lot = (lot_number or "").strip()
@@ -256,16 +292,17 @@ def trace_lot_forward(lot_id: int, conn=None) -> Dict[str, Any]:
         # Obtener todas las ventas que consumieron cualquiera de los lotes del árbol
         cur.execute(
             """
-            SELECT slm.id as movement_id, slm.sale_id, slm.lot_id, slm.lot_number, slm.quantity, slm.moved_at,
-                   s.sale_number, s.customer_name, s.customer_email, s.sale_date,
+            SELECT slm.id as movement_id, slm.sale_id, slm.product_id, slm.lot_id, slm.lot_number, slm.quantity, slm.moved_at,
+                   s.sale_number, s.customer_name, s.customer_email, s.sale_date, s.status AS sale_status,
                    p.name as product_name, p.sku
             FROM sale_lot_movements slm
             JOIN sales s ON s.id = slm.sale_id
             JOIN products p ON p.id = slm.product_id
-            WHERE slm.lot_id = ANY(%s) OR (slm.product_id = ANY(%s) AND slm.lot_number = ANY(%s))
+            WHERE slm.lot_id = ANY(%s)
+              AND COALESCE(s.status, '') NOT IN ('Cancelada', 'Anulada')
             ORDER BY slm.id ASC;
             """,
-            (all_lot_ids, [r["product_id"] for r in tree_lots], [r["lot_number"] for r in tree_lots])
+            (all_lot_ids,)
         )
         sales = [dict(r) for r in cur.fetchall()]
 

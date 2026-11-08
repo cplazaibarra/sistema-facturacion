@@ -11,7 +11,7 @@
             <span>💵</span> Reporte de Ingresos y Compromisos ($)
         </h3>
         <p style="margin: 4px 0 0 0; color: #718096; font-size: 13px;">
-            Análisis de pagos históricos cobrados vs. compromisos de cobros futuros según fechas de vencimiento.
+            Dinero que ingresa por cobros recibidos de clientes y montos pendientes por cobrar. Este reporte no incluye egresos ni pagos a proveedores.
         </p>
     </div>
     <div class="sf-action-right">
@@ -30,7 +30,7 @@
         </div>
         <div class="stat-info">
             <div class="stat-value" style="font-size: 22px; font-weight: 700; color: #2d3748;">${{ "%.2f"|format(income_data.total_historico) }}</div>
-            <div class="stat-label" style="font-size: 12px; color: #718096; font-weight: 500;">Histórico Cobrado ($)</div>
+            <div class="stat-label" style="font-size: 12px; color: #718096; font-weight: 500;">Ingresos recibidos de clientes ($)</div>
         </div>
     </div>
 
@@ -40,7 +40,7 @@
         </div>
         <div class="stat-info">
             <div class="stat-value" style="font-size: 22px; font-weight: 700; color: #2d3748;">${{ "%.2f"|format(income_data.total_futuro) }}</div>
-            <div class="stat-label" style="font-size: 12px; color: #718096; font-weight: 500;">Cobros Comprometidos ($)</div>
+            <div class="stat-label" style="font-size: 12px; color: #718096; font-weight: 500;">Ingresos pendientes por cobrar ($)</div>
         </div>
     </div>
 
@@ -50,7 +50,7 @@
         </div>
         <div class="stat-info">
             <div class="stat-value" style="font-size: 22px; font-weight: 700; color: #2d3748;">${{ "%.2f"|format(income_data.total_proyectado) }}</div>
-            <div class="stat-label" style="font-size: 12px; color: #718096; font-weight: 500;">Total Flujo Proyectado ($)</div>
+            <div class="stat-label" style="font-size: 12px; color: #718096; font-weight: 500;">Ingresos recibidos + pendientes ($)</div>
         </div>
     </div>
 
@@ -60,7 +60,7 @@
         </div>
         <div class="stat-info">
             <div class="stat-value" style="font-size: 22px; font-weight: 700; color: #e53e3e;">${{ "%.2f"|format(income_data.monto_retrasado) }}</div>
-            <div class="stat-label" style="font-size: 12px; color: #718096; font-weight: 500;">Cobros Vencidos ({{ income_data.count_retrasados }})</div>
+            <div class="stat-label" style="font-size: 12px; color: #718096; font-weight: 500;">Ingresos vencidos por cobrar ({{ income_data.count_retrasados }})</div>
         </div>
     </div>
 </div>
@@ -69,7 +69,7 @@
 <div class="settings-section" style="margin-bottom: 24px;">
     <div class="settings-card" style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
         <div class="card-header" style="margin-bottom: 16px;">
-            <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #2d3748;">Comparativa Mensual: Cobros Históricos ($) vs Compromisos Futuros ($)</h3>
+            <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #2d3748;">Ingresos mensuales: cobros recibidos de clientes vs. montos pendientes por cobrar</h3>
         </div>
         <div style="height: 280px; position: relative;">
             <canvas id="incomeComparisonChart"></canvas>
@@ -77,16 +77,25 @@
     </div>
 </div>
 
+<form method="GET" action="{{ url_for('reportes.reportes_ingresos') }}" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin: 0 0 16px; padding: 14px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;">
+    <div style="flex: 1; min-width: 240px;">
+        <label for="income-search" style="display: block; margin-bottom: 5px; color: #475569; font-size: 12px; font-weight: 600;">Buscar por cliente o número de venta</label>
+        <input id="income-search" type="search" name="search" value="{{ search }}" placeholder="Nombre del cliente o N° de venta" style="width: 100%; box-sizing: border-box; padding: 9px 11px; border: 1px solid #cbd5e1; border-radius: 6px;">
+    </div>
+    <button type="submit" class="sf-btn-primary" style="padding: 9px 14px;"><i class="fa-solid fa-magnifying-glass"></i> Buscar</button>
+    {% if search %}<a href="{{ url_for('reportes.reportes_ingresos') }}" style="padding: 9px 14px; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; text-decoration: none;">Limpiar</a>{% endif %}
+</form>
+
 <!-- Pestañas para Ver Tablas -->
 <div class="sf-tabs" style="display: flex; gap: 10px; margin-bottom: 16px; border-bottom: 2px solid #edf2f7;">
     <button class="sf-tab active" id="tab_btn_resumen" onclick="switchIncomeTab('resumen')" style="padding: 10px 16px; font-weight: 600; background: none; border: none; border-bottom: 3px solid #3182ce; color: #3182ce; cursor: pointer;">
         📊 Resumen Mensual
     </button>
     <button class="sf-tab" id="tab_btn_futuros" onclick="switchIncomeTab('futuros')" style="padding: 10px 16px; font-weight: 600; background: none; border: none; color: #718096; cursor: pointer;">
-        📅 Compromisos Futuros y Vencidos ({{ income_data.futuros_detalles|length }})
+        📅 Ingresos pendientes por cobrar ({{ income_data.futuros_detalles|length }})
     </button>
     <button class="sf-tab" id="tab_btn_historicos" onclick="switchIncomeTab('historicos')" style="padding: 10px 16px; font-weight: 600; background: none; border: none; color: #718096; cursor: pointer;">
-        ✅ Historial de Pagos Realizados ({{ income_data.historicos_detalles|length }})
+        ✅ Ingresos recibidos de clientes ({{ income_data.historicos_detalles|length }})
     </button>
 </div>
 
@@ -95,15 +104,15 @@
 <!-- 1. Tabla Resumen Mensual -->
 <div id="income_sec_resumen" class="settings-section">
     <div class="settings-card" style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-        <h4 style="margin-top: 0; color: #2d3748; font-size: 15px; font-weight: 600; margin-bottom: 12px;">Flujo de Caja por Mes</h4>
+        <h4 style="margin-top: 0; color: #2d3748; font-size: 15px; font-weight: 600; margin-bottom: 12px;">Ingresos por mes (cobros de clientes)</h4>
         <div style="overflow-x: auto;">
             <table class="sf-table" style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background: #f7fafc; text-align: left; font-size: 13px; color: #4a5568;">
                         <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0;">Mes / Año</th>
-                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0; color: #2b6cb0;">Pagos Realizados ($)</th>
-                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0; color: #d69e2e;">Compromisos Futuros ($)</th>
-                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0; color: #2d3748;">Total Flujo ($)</th>
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0; color: #2b6cb0;">Ingresos recibidos de clientes ($)</th>
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0; color: #d69e2e;">Ingresos pendientes por cobrar ($)</th>
+                        <th style="padding: 10px 14px; border-bottom: 2px solid #e2e8f0; color: #2d3748;">Total de ingresos (recibidos + pendientes) ($)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -124,7 +133,7 @@
 <!-- 2. Tabla Compromisos Futuros y Vencidos -->
 <div id="income_sec_futuros" class="settings-section" style="display: none;">
     <div class="settings-card" style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-        <h4 style="margin-top: 0; color: #2d3748; font-size: 15px; font-weight: 600; margin-bottom: 12px;">Detalle de Ventas Pendientes por Cobrar segun Fecha Compromiso</h4>
+        <h4 style="margin-top: 0; color: #2d3748; font-size: 15px; font-weight: 600; margin-bottom: 12px;">Detalle de ingresos pendientes por cobrar a clientes según fecha de compromiso</h4>
         <div style="overflow-x: auto;">
             <table class="sf-table" style="width: 100%; border-collapse: collapse;">
                 <thead>
@@ -147,12 +156,23 @@
                             {{ item.due_date }} {% if item.is_overdue %}<span style="font-size: 11px; background: #fff5f5; color: #e53e3e; padding: 2px 6px; border-radius: 4px; border: 1px solid #feb2b2; margin-left: 4px;">Vencido</span>{% endif %}
                         </td>
                         <td style="padding: 12px 14px;">
-                            <span style="display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; background: {% if item.is_overdue %}#fff5f5; color: #e53e3e;{% else %}#feebc8; color: #c05621;{% endif %}">
-                                {{ item.status }}
-                            </span>
+                            {% if can_register_payment and item.monto > 0 %}
+                            <button type="button" onclick="openIncomePayment(this)"
+                                data-sale-id="{{ item.sale_id }}" data-sale-number="{{ item.sale_number }}"
+                                data-customer="{{ item.customer_name }}" data-total="{{ item.total }}"
+                                data-paid="{{ item.pagado }}" data-pending="{{ item.monto }}"
+                                style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border: 1px solid {% if item.is_overdue %}#fca5a5{% else %}#fcd34d{% endif %}; border-radius: 14px; font-size: 12px; font-weight: 700; cursor: pointer; background: {% if item.is_overdue %}#fff5f5; color: #b91c1c;{% else %}#fffbeb; color: #92400e;{% endif %}"
+                                title="Presiona para registrar un cobro">
+                                {{ item.status }} · Registrar cobro
+                            </button>
+                            {% else %}
+                            <span style="display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; background: {% if item.is_overdue %}#fff5f5; color: #e53e3e;{% else %}#feebc8; color: #c05621;{% endif %}">{{ item.status }}</span>
+                            {% endif %}
                         </td>
                         <td style="padding: 12px 14px; font-weight: 700; color: #2d3748;">${{ "%.2f"|format(item.monto) }}</td>
                     </tr>
+                    {% else %}
+                    <tr><td colspan="6" style="padding:20px; text-align:center; color:#64748b;">No hay ingresos pendientes por cobrar para esta búsqueda.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -160,10 +180,10 @@
     </div>
 </div>
 
-<!-- 3. Tabla Historial de Pagos Realizados -->
+<!-- 3. Tabla de ingresos recibidos de clientes -->
 <div id="income_sec_historicos" class="settings-section" style="display: none;">
     <div class="settings-card" style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-        <h4 style="margin-top: 0; color: #2d3748; font-size: 15px; font-weight: 600; margin-bottom: 12px;">Historial de Cobros Efectivamente Pagados</h4>
+        <h4 style="margin-top: 0; color: #2d3748; font-size: 15px; font-weight: 600; margin-bottom: 12px;">Historial de ingresos recibidos por cobros a clientes</h4>
         <div style="overflow-x: auto;">
             <table class="sf-table" style="width: 100%; border-collapse: collapse;">
                 <thead>
@@ -190,16 +210,91 @@
                         </td>
                         <td style="padding: 12px 14px; font-weight: 700; color: #28a745;">${{ "%.2f"|format(item.monto) }}</td>
                     </tr>
+                    {% else %}
+                    <tr><td colspan="6" style="padding:20px; text-align:center; color:#64748b;">No hay ingresos recibidos para esta búsqueda.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 </div>
+
+{% if can_register_payment %}
+<div id="incomePaymentModal" style="display:none; align-items:center; justify-content:center; position:fixed; inset:0; z-index:1100;">
+    <div onclick="closeIncomePayment()" style="position:absolute; inset:0; background:rgba(15,23,42,.55);"></div>
+    <div style="position:relative; width:460px; max-width:92%; max-height:90vh; overflow:auto; padding:22px; border-radius:10px; background:#fff; box-shadow:0 12px 36px rgba(0,0,0,.2);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="margin:0; color:#1e293b;">Registrar cobro de cliente</h3>
+            <button type="button" onclick="closeIncomePayment()" aria-label="Cerrar" style="border:0; background:none; font-size:21px; cursor:pointer;">×</button>
+        </div>
+        <div style="margin-bottom:14px; padding:12px; background:#eff6ff; border-radius:7px; font-size:13px; line-height:1.8;">
+            <div>Venta: <strong id="income-modal-sale"></strong></div>
+            <div>Cliente: <strong id="income-modal-customer"></strong></div>
+            <div>Total venta: <strong id="income-modal-total"></strong></div>
+            <div>Abonado: <strong id="income-modal-paid"></strong></div>
+            <div>Saldo por cobrar: <strong id="income-modal-pending"></strong></div>
+        </div>
+        <form method="POST" action="{{ url_for('ventas.registrar_pago_venta') }}" enctype="multipart/form-data">
+            <input type="hidden" name="sale_id" id="income-modal-sale-id">
+            <input type="hidden" name="return_url" value="{{ request.full_path }}">
+            <input type="hidden" name="idempotency_key" id="income-modal-idempotency">
+            <label for="income-payment-method" style="display:block; margin:10px 0 5px; font-size:13px; font-weight:600;">Medio de pago *</label>
+            <select name="payment_method" id="income-payment-method" required onchange="toggleIncomeTransfer(this.value)" style="width:100%; padding:9px; border:1px solid #cbd5e1; border-radius:6px;">
+                <option value="">Seleccionar</option><option value="Transferencia">Transferencia bancaria</option><option value="Efectivo">Efectivo</option>
+            </select>
+            <label for="income-payment-date" style="display:block; margin:10px 0 5px; font-size:13px; font-weight:600;">Fecha del cobro *</label>
+            <input type="date" name="payment_date" id="income-payment-date" required style="width:100%; box-sizing:border-box; padding:9px; border:1px solid #cbd5e1; border-radius:6px;">
+            <label for="income-payment-amount" style="display:block; margin:10px 0 5px; font-size:13px; font-weight:600;">Monto recibido ($) *</label>
+            <input type="number" name="payment_amount" id="income-payment-amount" min="1" step="1" required style="width:100%; box-sizing:border-box; padding:9px; border:1px solid #cbd5e1; border-radius:6px;">
+            <div id="income-transfer-fields" style="display:none;">
+                <label for="income-bank-account" style="display:block; margin:10px 0 5px; font-size:13px; font-weight:600;">Cuenta bancaria destino *</label>
+                <select name="bank_account_id" id="income-bank-account" style="width:100%; padding:9px; border:1px solid #cbd5e1; border-radius:6px;">
+                    <option value="">Seleccionar cuenta</option>{% for acc in bank_accounts if acc.status == 'Activa' %}<option value="{{ acc.id }}">{{ acc.bank_name }} - {{ acc.account_number }} ({{ acc.holder_name }})</option>{% endfor %}
+                </select>
+                <label for="income-payment-file" style="display:block; margin:10px 0 5px; font-size:13px; font-weight:600;">Comprobante (PDF/JPG/PNG) *</label>
+                <input type="file" name="payment_file" id="income-payment-file" accept="image/*,application/pdf" style="width:100%;">
+            </div>
+            <label for="income-payment-notes" style="display:block; margin:10px 0 5px; font-size:13px; font-weight:600;">Referencia u observación</label>
+            <textarea name="payment_notes" id="income-payment-notes" rows="2" style="width:100%; box-sizing:border-box; padding:9px; border:1px solid #cbd5e1; border-radius:6px;"></textarea>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+                <button type="button" onclick="closeIncomePayment()" style="padding:9px 14px; border:1px solid #cbd5e1; background:#fff; border-radius:6px; cursor:pointer;">Cancelar</button>
+                <button type="submit" style="padding:9px 14px; border:0; background:#1e40af; color:#fff; border-radius:6px; font-weight:600; cursor:pointer;">Registrar cobro</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
 <script>
+    function openIncomePayment(button) {
+        const total = Number(button.dataset.total || 0);
+        const paid = Number(button.dataset.paid || 0);
+        const pending = Number(button.dataset.pending || 0);
+        document.getElementById('income-modal-sale-id').value = button.dataset.saleId;
+        document.getElementById('income-modal-sale').textContent = button.dataset.saleNumber;
+        document.getElementById('income-modal-customer').textContent = button.dataset.customer;
+        const money = value => '$' + Math.round(value).toLocaleString('es-CL', {maximumFractionDigits: 0});
+        document.getElementById('income-modal-total').textContent = money(total);
+        document.getElementById('income-modal-paid').textContent = money(paid);
+        document.getElementById('income-modal-pending').textContent = money(pending);
+        const amount = document.getElementById('income-payment-amount');
+        const pendingWholePesos = Math.floor(pending);
+        amount.value = pendingWholePesos;
+        amount.max = pendingWholePesos;
+        document.getElementById('income-payment-date').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('income-modal-idempotency').value = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+        document.getElementById('incomePaymentModal').style.display = 'flex';
+    }
+    function closeIncomePayment() { document.getElementById('incomePaymentModal').style.display = 'none'; }
+    function toggleIncomeTransfer(method) {
+        const visible = method === 'Transferencia';
+        document.getElementById('income-transfer-fields').style.display = visible ? 'block' : 'none';
+        document.getElementById('income-bank-account').required = visible;
+        document.getElementById('income-payment-file').required = visible;
+    }
+
     // Conmutador de Pestañas
     function switchIncomeTab(tabName) {
         document.getElementById('income_sec_resumen').style.display = tabName === 'resumen' ? 'block' : 'none';
@@ -231,13 +326,13 @@
                 labels: labels,
                 datasets: [
                     {
-                        label: 'Pagos Realizados ($)',
+                        label: 'Ingresos recibidos de clientes ($)',
                         data: realizadosData,
                         backgroundColor: '#38a169',
                         borderRadius: 4
                     },
                     {
-                        label: 'Compromisos Futuros ($)',
+                        label: 'Ingresos pendientes por cobrar ($)',
                         data: comprometidosData,
                         backgroundColor: '#3182ce',
                         borderRadius: 4

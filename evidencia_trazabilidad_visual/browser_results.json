@@ -1,0 +1,19 @@
+{
+  "scenarios": {
+    "0_salidas": "PASS",
+    "4_salidas_agotado": "PASS",
+    "transformaciones": "PASS",
+    "21_salidas": "PASS",
+    "50_salidas": "PASS"
+  },
+  "viewports": {
+    "Escritorio (1920x1080)": "PASS",
+    "Notebook (1366x768)": "PASS",
+    "Tablet (1024x768)": "PASS",
+    "Móvil (390x844)": "PASS"
+  },
+  "scalability": {},
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (NOT FOUND)"
+  ]
+}

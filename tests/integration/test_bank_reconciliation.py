@@ -720,3 +720,188 @@ def test_category_management_crud(auth_client):
     res_list_after = auth_client.get("/reporteria/conciliacion-bancaria/categorias")
     names_after = [c["name"] for c in res_list_after.get_json()["categories"]]
     assert updated_name not in names_after
+
+
+def test_suggested_reconciliation_alternatives_filtering(auth_client, test_bank_accounts):
+    """Test that alternative candidates can be found and filtered by RUT, Name, OC, Order and reconciled."""
+    acc_id = test_bank_accounts[0]
+    unique = uuid.uuid4().hex[:6]
+    today = date.today().isoformat()
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # 1. Bank transaction ABONO
+            fp = uuid.uuid4().hex
+            cur.execute(
+                """
+                INSERT INTO bank_transactions (bank_account_id, transaction_date, description, charge, credit, amount, movement_type, reconciliation_status, currency, fingerprint)
+                VALUES (%s, %s, %s, 0, %s, %s, 'ABONO', 'PENDIENTE', 'CLP', %s)
+                RETURNING id
+                """,
+                (acc_id, today, f"Abono Cliente {unique}", 750000, 750000, fp)
+            )
+            tx_id = cur.fetchone()["id"]
+
+            # 2. Client with unique RUT & name
+            test_rut = f"99.{unique[:3]}.{unique[3:]}"
+            test_client_name = f"Empresa {unique} SpA"
+            cur.execute(
+                """
+                INSERT INTO clients (rut, dv, razon_social, email)
+                VALUES (%s, 'K', %s, %s)
+                ON CONFLICT DO NOTHING
+                """,
+                (test_rut, test_client_name, f"contacto_{unique}@empresa.cl")
+            )
+
+            # 3. Pending sale for this client
+            sale_num = f"VTA-{unique}"
+            cur.execute(
+                """
+                INSERT INTO sales (sale_number, customer_name, customer_email, total_amount, sale_date, sale_time, products_json, seller_name, status, payment_status, created_at)
+                VALUES (%s, %s, %s, 750000, %s, '12:00:00', '[]', 'Vendedor Test', 'Aprobada', 'Pendiente', %s)
+                RETURNING id
+                """,
+                (sale_num, test_client_name, f"contacto_{unique}@empresa.cl", today, today)
+            )
+            sale_id = cur.fetchone()["id"]
+
+    # Test filtering alternatives via API
+    # By RUT
+    res_rut = auth_client.get(f"/reporteria/conciliacion-bancaria/movimientos/{tx_id}/sugerencias?rut={unique[:3]}")
+    assert res_rut.status_code == 200
+    data_rut = res_rut.get_json()["data"]
+    alt_ids = [a["id"] for a in data_rut.get("alternatives", []) if a["match_type"] == "SALE"]
+    assert sale_id in alt_ids
+
+    # By Name
+    res_name = auth_client.get(f"/reporteria/conciliacion-bancaria/movimientos/{tx_id}/sugerencias?name={unique}")
+    assert res_name.status_code == 200
+    data_name = res_name.get_json()["data"]
+    alt_ids_name = [a["id"] for a in data_name.get("alternatives", []) if a["match_type"] == "SALE"]
+    assert sale_id in alt_ids_name
+
+    # By Order
+    res_order = auth_client.get(f"/reporteria/conciliacion-bancaria/movimientos/{tx_id}/sugerencias?order={sale_num}")
+    assert res_order.status_code == 200
+    data_order = res_order.get_json()["data"]
+    alt_ids_order = [a["id"] for a in data_order.get("alternatives", []) if a["match_type"] == "SALE"]
+    assert sale_id in alt_ids_order
+
+    # Now conciliate against SALE directly
+    res_conciliate = auth_client.post(
+        f"/reporteria/conciliacion-bancaria/movimientos/{tx_id}/conciliar",
+        json={"reconciled_type": "SALE", "reconciled_id": sale_id, "notes": "Conciliación directa con venta"}
+    )
+    assert res_conciliate.status_code == 200
+    assert res_conciliate.get_json()["status"] == "success"
+
+    # Verify bank transaction is CONCILIADO
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT reconciliation_status, reconciled_type, reconciled_id FROM bank_transactions WHERE id = %s", (tx_id,))
+            tx_row = cur.fetchone()
+            assert tx_row["reconciliation_status"] == "CONCILIADO"
+            assert tx_row["reconciled_type"] == "SALE_PAYMENT"
+
+            # Verify sale is now Pagado
+            cur.execute("SELECT payment_status FROM sales WHERE id = %s", (sale_id,))
+            s_row = cur.fetchone()
+            assert s_row["payment_status"] == "Pagado"
+
+
+def test_suggested_reconciliation_cargo_alternatives_filtering(auth_client, test_bank_accounts):
+    """Test that CARGO alternatives can be filtered by OC, supplier RUT, and supplier name and reconciled."""
+    acc_id = test_bank_accounts[0]
+    unique = uuid.uuid4().hex[:6]
+    today = date.today().isoformat()
+    amount = Decimal("320000.00")
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # 1. Supplier
+            sup_rut = f"77.{unique[:3]}.{unique[3:]}"
+            sup_name = f"Distribuidora {unique} SpA"
+            cur.execute(
+                """
+                INSERT INTO suppliers (name, rut, dv, razon_social, created_at)
+                VALUES (%s, %s, '8', %s, %s)
+                RETURNING id
+                """,
+                (sup_name, sup_rut, sup_name, today)
+            )
+            sup_id = cur.fetchone()["id"]
+
+            # 2. Purchase order with OC number
+            oc_num = f"OC-TEST-{unique}"
+            cur.execute(
+                """
+                INSERT INTO purchase_orders (oc_number, supplier_id, order_date, total_amount, status, created_at)
+                VALUES (%s, %s, %s, %s, 'Aprobada', %s)
+                RETURNING id
+                """,
+                (oc_num, sup_id, today, amount, today)
+            )
+            po_id = cur.fetchone()["id"]
+
+            # 3. Purchase invoice linked to PO and supplier
+            inv_num = f"FAC-{unique}"
+            cur.execute(
+                """
+                INSERT INTO purchase_invoices (supplier_id, purchase_order_id, invoice_number, invoice_amount, invoice_date, payment_status, created_at)
+                VALUES (%s, %s, %s, %s, %s, 'Pendiente', %s)
+                RETURNING id
+                """,
+                (sup_id, po_id, inv_num, amount, today, today)
+            )
+            inv_id = cur.fetchone()["id"]
+
+            # 4. Bank CARGO
+            fp = uuid.uuid4().hex
+            cur.execute(
+                """
+                INSERT INTO bank_transactions (bank_account_id, transaction_date, description, charge, credit, amount, movement_type, reconciliation_status, currency, fingerprint)
+                VALUES (%s, %s, %s, %s, 0, -%s, 'CARGO', 'PENDIENTE', 'CLP', %s)
+                RETURNING id
+                """,
+                (acc_id, today, f"Cargo Proveedor {unique}", amount, amount, fp)
+            )
+            tx_id = cur.fetchone()["id"]
+
+    # Filter by OC
+    res_oc = auth_client.get(f"/reporteria/conciliacion-bancaria/movimientos/{tx_id}/sugerencias?oc={oc_num}")
+    assert res_oc.status_code == 200
+    data_oc = res_oc.get_json()["data"]
+    alt_ids = [a["id"] for a in data_oc.get("alternatives", []) if a["match_type"] == "PURCHASE_PAYMENT"]
+    assert inv_id in alt_ids
+
+    # Filter by RUT
+    res_rut = auth_client.get(f"/reporteria/conciliacion-bancaria/movimientos/{tx_id}/sugerencias?rut={unique[:3]}")
+    assert res_rut.status_code == 200
+    data_rut = res_rut.get_json()["data"]
+    alt_ids_rut = [a["id"] for a in data_rut.get("alternatives", []) if a["match_type"] == "PURCHASE_PAYMENT"]
+    assert inv_id in alt_ids_rut
+
+    # Filter by Supplier Name
+    res_name = auth_client.get(f"/reporteria/conciliacion-bancaria/movimientos/{tx_id}/sugerencias?name={unique}")
+    assert res_name.status_code == 200
+    data_name = res_name.get_json()["data"]
+    alt_ids_name = [a["id"] for a in data_name.get("alternatives", []) if a["match_type"] == "PURCHASE_PAYMENT"]
+    assert inv_id in alt_ids_name
+
+    # Reconcile invoice with bank cargo
+    res_conciliate = auth_client.post(
+        f"/reporteria/conciliacion-bancaria/movimientos/{tx_id}/conciliar",
+        json={"reconciled_type": "PURCHASE_PAYMENT", "reconciled_id": inv_id, "notes": "Pago factura conciliado"}
+    )
+    assert res_conciliate.status_code == 200
+    assert res_conciliate.get_json()["status"] == "success"
+
+    # Verify reconciliation status
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT reconciliation_status, reconciled_type, reconciled_id FROM bank_transactions WHERE id = %s", (tx_id,))
+            tx_row = cur.fetchone()
+            assert tx_row["reconciliation_status"] == "CONCILIADO"
+            assert tx_row["reconciled_type"] == "PURCHASE_PAYMENT"
+            assert tx_row["reconciled_id"] == inv_id

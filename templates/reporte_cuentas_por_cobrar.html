@@ -515,7 +515,7 @@
 
                 <div class="sf-form-group" style="margin-bottom: 15px;">
                     <label style="display: block; font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 6px;">Monto a pagar ($) *</label>
-                    <input type="number" step="0.01" min="0.01" class="sf-input" id="modal_payment_amount" name="payment_amount" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;">
+                    <input type="number" step="1" min="1" class="sf-input" id="modal_payment_amount" name="payment_amount" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 4px;">
                     <small style="color: #64748b; font-size: 11px;">Permite abonos parciales o el saldo total.</small>
                 </div>
 
@@ -843,8 +843,9 @@ function openCobrarModal(btn) {
     document.getElementById('modal_label_pending').innerText = '$' + Math.round(pending).toLocaleString('es-CL');
 
     document.getElementById('modal_payment_date').value = new Date().toISOString().substring(0, 10);
-    document.getElementById('modal_payment_amount').value = pending.toFixed(2);
-    document.getElementById('modal_payment_amount').max = pending.toFixed(2);
+    const pendingWholePesos = Math.floor(pending);
+    document.getElementById('modal_payment_amount').value = pendingWholePesos;
+    document.getElementById('modal_payment_amount').max = pendingWholePesos;
     document.getElementById('modal_idempotency_key').value = (window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : (Date.now() + '-' + Math.random()));
 
     document.getElementById('modal_payment_method').value = method;

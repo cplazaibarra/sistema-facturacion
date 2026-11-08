@@ -519,6 +519,56 @@ def ingreso_mercaderia():
         selected_product_id=None,
     )
 
+
+@inventario_bp.route('/ingreso-mercaderia/historial')
+def historial_ingresos():
+    """Historial completo y filtrable de recepciones e ingresos de inventario."""
+    from repositories.inventory_repo import list_inventory_entries_page
+
+    try:
+        page = max(1, int(request.args.get('page', 1)))
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        per_page = int(request.args.get('per_page', 25))
+    except (TypeError, ValueError):
+        per_page = 25
+    if per_page not in (25, 50, 100):
+        per_page = 25
+
+    search = (request.args.get('search') or '').strip()
+    supplier_id = request.args.get('supplier_id', type=int)
+    date_from = (request.args.get('date_from') or '').strip()
+    date_to = (request.args.get('date_to') or '').strip()
+    result = list_inventory_entries_page(
+        page=page,
+        per_page=per_page,
+        search=search,
+        supplier_id=supplier_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    if result['total_pages'] and page > result['total_pages']:
+        page = result['total_pages']
+        result = list_inventory_entries_page(
+            page=page, per_page=per_page, search=search,
+            supplier_id=supplier_id, date_from=date_from, date_to=date_to,
+        )
+
+    return render_template(
+        'historial_recepciones.html',
+        entries=result['items'],
+        total_records=result['total'],
+        current_page=result['page'],
+        per_page=result['per_page'],
+        total_pages=result['total_pages'],
+        suppliers=list_suppliers(),
+        search=search,
+        supplier_id=supplier_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
 @inventario_bp.route('/productos', methods=['GET', 'POST'])
 def productos():
     """Gestión de productos"""

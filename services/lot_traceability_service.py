@@ -4,6 +4,7 @@ Service layer for complete 360° lot traceability and genealogy.
 """
 
 from typing import Dict, Any, List, Optional
+from collections import Counter
 import repositories.lot_genealogy_repo as lot_repo
 import repositories.sales_repo as sales_repo
 import repositories.inventory_repo as inv_repo
@@ -29,6 +30,79 @@ class LotTraceabilityService:
         forward = lot_repo.trace_lot_forward(lot_id)
         backward = lot_repo.trace_lot_backward(lot_id)
         recall = lot_repo.get_lot_recall_impact(lot_id)
+        tree_lots = forward["tree_lots"]
+        movements = lot_repo.get_inventory_movements_for_lots(
+            [item["lot_id"] for item in tree_lots]
+        )
+        # A canceled sale is still preserved in the ledger, but must not appear as
+        # an effective physical dispatch in the live traceability diagram.
+        visible_movements = [
+            movement for movement in movements
+            if not (
+                movement.get("reference_type") in ("sale", "sale_cancellation")
+                and movement.get("sale_status") in ("Cancelada", "Anulada")
+            )
+        ]
+        # Some supported dispatch flows record the physical lot issue in
+        # sale_lot_movements without a matching Kardex row. Use that existing
+        # dispatch ledger as a fallback and de-duplicate rows already in Kardex.
+        def sale_key(row):
+            return (
+                row.get("sale_id") or row.get("reference_id"),
+                row.get("lot_id"),
+                row.get("lot_number"),
+                round(abs(float(row.get("quantity") or 0)), 6),
+            )
+        kardex_sale_counts = Counter(
+            sale_key(m) for m in visible_movements
+            if m.get("reference_type") == "sale" and float(m.get("quantity") or 0) < 0
+        )
+        dispatch_fallbacks = []
+        for sale in forward["sales"]:
+            key = sale_key(sale)
+            if kardex_sale_counts[key]:
+                kardex_sale_counts[key] -= 1
+                continue
+            dispatch_fallbacks.append({
+                "movement_id": sale.get("movement_id"),
+                "movement_source": "sale_lot_movements",
+                "lot_id": sale.get("lot_id"),
+                "product_id": sale.get("product_id"),
+                "lot_number": sale.get("lot_number"),
+                "product_name": sale.get("product_name"),
+                "sku": sale.get("sku"),
+                "movement_type": "SALE",
+                "quantity": -abs(float(sale.get("quantity") or 0)),
+                "warehouse": None,
+                "reference_type": "sale",
+                "reference_id": sale.get("sale_id"),
+                "notes": "Despacho registrado en el historial de lotes de la venta",
+                "created_at": sale.get("moved_at"),
+                "sale_number": sale.get("sale_number"),
+                "customer_name": sale.get("customer_name"),
+                "customer_email": sale.get("customer_email"),
+                "sale_status": sale.get("sale_status"),
+            })
+        visible_movements.extend(dispatch_fallbacks)
+        visible_movements.sort(key=lambda m: (str(m.get("created_at") or ""), int(m.get("movement_id") or 0)))
+        direct_movements = [m for m in visible_movements if m.get("lot_id") == lot_id]
+        direct_outflows = [m for m in direct_movements if float(m.get("quantity") or 0) < 0]
+        genealogy_outflows = [m for m in visible_movements if float(m.get("quantity") or 0) < 0]
+        net_available = sum(float(m.get("quantity") or 0) for m in direct_movements)
+        current_available = float(lot.get("available_qty") or 0)
+        lot_status = lot.get("status")
+        if lot_status == "RECALLED":
+            status_label = "Retirado (Recall)"
+        elif lot_status == "QUARANTINE":
+            status_label = "En cuarentena"
+        elif lot_status == "EXPIRED":
+            status_label = "Vencido"
+        elif lot_status == "DEPLETED" and current_available > 1e-9:
+            status_label = "Inconsistencia de saldo"
+        elif current_available <= 1e-9 or lot_status == "DEPLETED":
+            status_label = "Agotado"
+        else:
+            status_label = "Disponible"
 
         return {
             "identity": {
@@ -43,6 +117,7 @@ class LotTraceabilityService:
                 "expiry_date": lot["expiry_date"],
                 "initial_quantity": lot["initial_quantity"],
                 "available_qty": lot["available_qty"],
+                "status_label": status_label,
                 "warehouse": lot["warehouse"],
                 "notes": lot["notes"]
             },
@@ -53,16 +128,27 @@ class LotTraceabilityService:
                 "entry_order_number": lot.get("entry_order_number"),
                 "production_ot_number": lot.get("production_ot_number")
             },
-            "forward_tree": forward["tree_lots"],
+            "forward_tree": tree_lots,
             "backward_tree": backward["ancestors"],
             "productions_consumed": forward["productions"],
             "sales_dispatched": forward["sales"],
+            "movements": visible_movements,
+            "outflows": genealogy_outflows,
+            "direct_outflows": direct_outflows,
+            "summary": {
+                "initial_quantity": float(lot.get("initial_quantity") or 0),
+                "total_outflow": sum(abs(float(m.get("quantity") or 0)) for m in direct_outflows),
+                "outflow_count": len(direct_outflows),
+                "available_qty": current_available,
+                "ledger_net_qty": net_available,
+            },
             "recall_summary": {
                 "affected_lots_count": recall["affected_lots_count"],
                 "affected_sales_count": recall["affected_sales_count"],
                 "affected_clients_count": recall["affected_clients_count"],
                 "total_units_sold": recall["total_units_sold"],
-            }
+            },
+            "recall": recall,
         }
 
     @staticmethod

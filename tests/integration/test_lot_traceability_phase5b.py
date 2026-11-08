@@ -175,7 +175,7 @@ def test_non_lot_product_still_supported(genealogy_fixture):
     assert entry_id > 0
 
 
-def test_master_traceability_lifecycle_and_recall(genealogy_fixture):
+def test_master_traceability_lifecycle_and_recall(genealogy_fixture, auth_client):
     """
     Escenario Maestro Completo (Pasos 29-35):
     Proveedor -> OC-TEST -> MP-A (Lote MP-001, 100 un)
@@ -357,6 +357,10 @@ def test_master_traceability_lifecycle_and_recall(genealogy_fixture):
     assert "Cliente X" in customers
     assert "Cliente Y" in customers
 
+    mp_trace = LotTraceabilityService.get_lot_traceability(mp_lot_id)
+    assert len(mp_trace["productions_consumed"]) == 2
+    assert {p["output_lot_number"] for p in mp_trace["productions_consumed"]} == {"SEMI-001", "FINAL-001"}
+
     # =========================================================================
     # 6. VALIDACIÓN BACKWARD (Desde FINAL-001 hacia atrás)
     # =========================================================================
@@ -386,6 +390,138 @@ def test_master_traceability_lifecycle_and_recall(genealogy_fixture):
     assert recall["affected_sales_count"] == 2  # vta1 y vta2
     assert recall["affected_clients_count"] == 2 # Cliente X y Cliente Y
     assert recall["total_units_sold"] == 20.0  # 8 + 12 = 20 un vendidas
+
+    # La pantalla nueva toma despachos efectivos del Kardex y conserva cada
+    # salida parcial como un movimiento separado, sin reconstruir el saldo desde ventas.
+    final_trace = LotTraceabilityService.get_lot_traceability(final_lot_id)
+    assert final_trace["summary"]["initial_quantity"] == 20.0
+    assert final_trace["summary"]["total_outflow"] == 20.0
+    assert final_trace["summary"]["outflow_count"] == 2
+    assert len([m for m in final_trace["outflows"] if m["reference_type"] == "sale"]) == 2
+    assert final_trace["summary"]["available_qty"] == 0.0
+    assert final_trace["identity"]["status_label"] == "Agotado"
+    page = auth_client.get(f"/trazabilidad?q=FINAL-001&lot_id={final_lot_id}")
+    assert page.status_code == 200
+    assert b"Trazabilidad de Lotes" in page.data
+    assert b"Salidas y consumos (2)" in page.data
+    assert b"Lote completamente agotado" in page.data
+
+
+def test_traceability_handles_more_than_twenty_outputs_and_keeps_lots_separate(genealogy_fixture, auth_client):
+    mp_id = genealogy_fixture["mp_id"]
+    ts = genealogy_fixture["ts"]
+    lot_number = f"MANY-{ts}"
+    second_lot_number = f"SEPARATE-{ts}"
+    lot_id = lot_repo.create_lot(
+        product_id=mp_id, lot_number=lot_number, initial_quantity=25,
+        origin_type="INITIAL_MIGRATION", warehouse="Principal"
+    )
+    second_lot_id = lot_repo.create_lot(
+        product_id=mp_id, lot_number=second_lot_number, initial_quantity=3,
+        origin_type="INITIAL_MIGRATION", warehouse="Principal"
+    )
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO lot_stock (product_id, lot_number, entry_date, initial_qty, available_qty, warehouse, lot_id) VALUES (%s,%s,'2026-10-22',25,25,'Principal',%s),(%s,%s,'2026-10-22',3,3,'Principal',%s)",
+                (mp_id, lot_number, lot_id, mp_id, second_lot_number, second_lot_id),
+            )
+            conn.commit()
+
+    for index in range(21):
+        sale_number = f"MANY-{ts}-{index:02d}"
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO sales (sale_number, customer_name, customer_email, sale_date, sale_time, total_amount, status, seller_name, products_json, created_at) VALUES (%s,%s,%s,'2026-10-22','12:00',1000,'Completada','QA','[]',NOW()) RETURNING id",
+                    (sale_number, f"Cliente {index}", f"client{index}@example.test"),
+                )
+                sale_id = cur.fetchone()["id"]
+                conn.commit()
+        inv_repo.consume_lots_for_sale(
+            sale_id,
+            [{"product_id": mp_id, "lot_number": lot_number, "quantity": 1, "lot_id": lot_id}],
+        )
+
+    trace = LotTraceabilityService.get_lot_traceability(lot_id)
+    assert trace["summary"]["outflow_count"] == 21
+    assert trace["summary"]["total_outflow"] == 21
+    assert len(trace["outflows"]) == 21
+    page = auth_client.get(f"/trazabilidad?q={lot_number}&lot_id={lot_id}")
+    assert page.status_code == 200
+    assert page.data.count(b'class="trace-outflow ') == 21
+
+    isolated_trace = LotTraceabilityService.get_lot_traceability(second_lot_id)
+    assert isolated_trace["summary"]["outflow_count"] == 0
+    assert isolated_trace["outflows"] == []
+
+
+def test_traceability_requires_inventory_permission(client):
+    with client.session_transaction() as sess:
+        sess["user_id"] = 90001
+        sess["username"] = "qa_no_inventory"
+        sess["role_name"] = "Consulta"
+        sess["permissions"] = {"inventario": False}
+
+    response = client.get("/trazabilidad")
+    assert response.status_code == 403
+
+
+def test_traceability_shows_applied_adjustment_and_hides_cancelled_sale(genealogy_fixture):
+    mp_id = genealogy_fixture["mp_id"]
+    ts = genealogy_fixture["ts"]
+    lot_number = f"ADJ-{ts}"
+    lot_id = lot_repo.create_lot(
+        product_id=mp_id, lot_number=lot_number, initial_quantity=10,
+        origin_type="INITIAL_MIGRATION", warehouse="Principal"
+    )
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO lot_stock (product_id, lot_number, entry_date, initial_qty, available_qty, warehouse, lot_id) VALUES (%s,%s,'2026-10-22',10,10,'Principal',%s)",
+                (mp_id, lot_number, lot_id),
+            )
+            cur.execute(
+                "INSERT INTO sales (sale_number, customer_name, customer_email, sale_date, sale_time, total_amount, status, seller_name, products_json, created_at) VALUES (%s,'Cliente vigente','vigente@example.test','2026-10-22','12:00',2000,'Completada','QA','[]',NOW()) RETURNING id",
+                (f"SALE-ACTIVE-{ts}",),
+            )
+            active_sale_id = cur.fetchone()["id"]
+            cur.execute(
+                "INSERT INTO sales (sale_number, customer_name, customer_email, sale_date, sale_time, total_amount, status, seller_name, products_json, created_at) VALUES (%s,'Cliente cancelado','cancelado@example.test','2026-10-22','12:00',3000,'Cancelada','QA','[]',NOW()) RETURNING id",
+                (f"SALE-CANCELLED-{ts}",),
+            )
+            cancelled_sale_id = cur.fetchone()["id"]
+            cur.execute(
+                "INSERT INTO inventory_adjustment_requests (product_id, warehouse, stock_snapshot, available_snapshot, counted_quantity, reason, status, decided_by_name, decided_at) VALUES (%s,'Principal',8,8,7,'Conteo físico','APPLIED','QA',NOW()) RETURNING id",
+                (mp_id,),
+            )
+            adjustment_id = cur.fetchone()["id"]
+            conn.commit()
+
+    inv_repo.record_inventory_movement(mp_id, "INITIAL_ENTRY", 10, lot_number=lot_number, reference_type="test_setup", lot_id=lot_id)
+    inv_repo.consume_lots_for_sale(
+        active_sale_id,
+        [{"product_id": mp_id, "lot_number": lot_number, "quantity": 2, "lot_id": lot_id}],
+    )
+    inv_repo.record_inventory_movement(mp_id, "SALE", -2, lot_number=lot_number, reference_type="sale", reference_id=active_sale_id, lot_id=lot_id)
+    inv_repo.record_inventory_movement(mp_id, "ADJUSTMENT_OUT", -1, lot_number=lot_number, reference_type="inventory_adjustment", reference_id=adjustment_id, lot_id=lot_id)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE lot_stock SET available_qty=7 WHERE lot_id=%s", (lot_id,))
+            cur.execute(
+                "INSERT INTO sale_lot_movements (sale_id,product_id,lot_number,quantity,moved_at,lot_id) VALUES (%s,%s,%s,3,NOW(),%s)",
+                (cancelled_sale_id, mp_id, lot_number, lot_id),
+            )
+            conn.commit()
+    inv_repo.record_inventory_movement(mp_id, "SALE", -3, lot_number=lot_number, reference_type="sale", reference_id=cancelled_sale_id, lot_id=lot_id)
+    inv_repo.record_inventory_movement(mp_id, "SALE_REVERSAL", 3, lot_number=lot_number, reference_type="sale_cancellation", reference_id=cancelled_sale_id, lot_id=lot_id)
+
+    trace = LotTraceabilityService.get_lot_traceability(lot_id)
+    assert trace["summary"]["available_qty"] == 7
+    assert trace["summary"]["total_outflow"] == 3
+    assert trace["summary"]["outflow_count"] == 2
+    assert {movement["movement_type"] for movement in trace["outflows"]} == {"SALE", "ADJUSTMENT_OUT"}
+    assert all(movement.get("sale_status") != "Cancelada" for movement in trace["movements"])
 
 
 def test_multilot_fifo_genealogy(genealogy_fixture):

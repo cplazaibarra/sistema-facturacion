@@ -37,4 +37,6 @@ static/uploads/
 *.sql
 !migrations/*.sql
 .~lock.*
+certificacion_integral_erp_v1/evidencia/
+correccion_certificacion_erp_v1/evidencia/
 

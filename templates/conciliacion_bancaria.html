@@ -349,7 +349,7 @@
 
 <!-- MODAL 2: Conciliar Movimiento -->
 <div id="modalConciliacion" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1050; align-items: center; justify-content: center;">
-    <div style="background: white; border-radius: 12px; width: 90%; max-width: 650px; max-height: 90vh; overflow-y: auto; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+    <div style="background: white; border-radius: 12px; width: 92%; max-width: 860px; max-height: 90vh; overflow-y: auto; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 16px;">
             <h4 style="margin: 0; font-size: 18px; font-weight: 700; color: #1e293b;">
                 <i class="fa-solid fa-link" style="color: #1e40af;"></i> Conciliar Movimiento Bancario
@@ -361,10 +361,63 @@
             Cargando información del movimiento...
         </div>
 
-        <div style="margin-bottom: 16px;">
-            <h5 style="margin: 0 0 8px 0; font-size: 13px; font-weight: 700; color: #334155;">Operaciones Sugeridas por el ERP:</h5>
-            <div id="matchingCandidatesList" style="max-height: 250px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px;">
+        <!-- Filtros de Búsqueda de Alternativas en el ERP -->
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px;">
+            <div style="font-weight: 700; font-size: 12px; color: #1e293b; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-filter" style="color: #0284c7;"></i>
+                <span>Buscar y Filtrar Alternativas en el ERP:</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) auto; gap: 8px; align-items: end;">
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 600; color: #475569; margin-bottom: 2px;">RUT Cliente / Prov:</label>
+                    <input type="text" id="filtroRutConcilia" placeholder="Ej: 76.123.456-7" onkeydown="if(event.key==='Enter') buscarAlternativasConciliacion()" style="width: 100%; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 600; color: #475569; margin-bottom: 2px;">Nombre / Razón Social:</label>
+                    <input type="text" id="filtroNombreConcilia" placeholder="Ej: Miranda, Juan..." onkeydown="if(event.key==='Enter') buscarAlternativasConciliacion()" style="width: 100%; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 600; color: #475569; margin-bottom: 2px;">N° Orden de Compra (OC):</label>
+                    <input type="text" id="filtroOcConcilia" placeholder="Ej: OC-2024-001" onkeydown="if(event.key==='Enter') buscarAlternativasConciliacion()" style="width: 100%; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 600; color: #475569; margin-bottom: 2px;">N° Pedido / Venta / Factura:</label>
+                    <input type="text" id="filtroPedidoConcilia" placeholder="Ej: PED-0045, FACT-10" onkeydown="if(event.key==='Enter') buscarAlternativasConciliacion()" style="width: 100%; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px;">
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <button type="button" onclick="buscarAlternativasConciliacion()" id="btnFiltrarAlternativas" style="padding: 7px 12px; background: #0284c7; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer; white-space: nowrap;">
+                        <i class="fa-solid fa-search"></i> Filtrar
+                    </button>
+                    <button type="button" onclick="limpiarFiltrosConciliacion()" style="padding: 7px 10px; background: #e2e8f0; color: #475569; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; white-space: nowrap;" title="Limpiar filtros">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bloque 1: Sugerencias Automáticas (si existen) -->
+        <div id="wrapperSugerencias" style="margin-bottom: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <h5 style="margin: 0; font-size: 13px; font-weight: 700; color: #1e293b;">
+                    <i class="fa-solid fa-bullseye" style="color: #16a34a;"></i> Sugerencias Automáticas (Monto y Fecha Cercana):
+                </h5>
+                <span id="badgeCountSugerencias" style="font-size: 11px; color: #64748b;"></span>
+            </div>
+            <div id="matchingCandidatesList" style="max-height: 150px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px;">
                 Cargando sugerencias...
+            </div>
+        </div>
+
+        <!-- Bloque 2: Alternativas Disponibles en el ERP -->
+        <div id="wrapperAlternativas" style="margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <h5 style="margin: 0; font-size: 13px; font-weight: 700; color: #1e293b;">
+                    <i class="fa-solid fa-list-check" style="color: #0284c7;"></i> Alternativas del ERP:
+                </h5>
+                <span id="badgeCountAlternativas" style="font-size: 11px; color: #64748b;"></span>
+            </div>
+            <div id="alternativesList" style="max-height: 240px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; background: #ffffff;">
+                Cargando alternativas...
             </div>
         </div>
 
@@ -373,11 +426,16 @@
             <input type="text" id="conciliacionNotes" placeholder="Ej: Pago verificado contra comprobante" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
         </div>
 
-        <div style="display: flex; justify-content: flex-end; gap: 10px;">
-            <button onclick="cerrarModalConciliacion()" style="padding: 8px 16px; border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; font-size: 13px; cursor: pointer;">Cerrar</button>
-            <button onclick="ejecutarConciliacion()" id="btnEjecutarConciliacion" disabled style="padding: 8px 18px; background: #1e40af; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; opacity: 0.6;">
-                Vincular y Conciliar
-            </button>
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 14px;">
+            <div id="conciliacionSelectionSummary" style="font-size: 12px; color: #64748b;">
+                Ninguna operación seleccionada.
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="cerrarModalConciliacion()" style="padding: 8px 16px; border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; font-size: 13px; cursor: pointer;">Cerrar</button>
+                <button onclick="ejecutarConciliacion()" id="btnEjecutarConciliacion" disabled style="padding: 8px 18px; background: #1e40af; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; opacity: 0.6;">
+                    Vincular y Conciliar
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -585,10 +643,21 @@ async function confirmarImportacionFinal() {
     try {
         const res = await fetch("{{ url_for('reportes.confirmar_importacion_cartola') }}", {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
             body: JSON.stringify({preview_data: currentPreviewData})
         });
-        const data = await res.json();
+        const contentType = res.headers.get('content-type') || '';
+        let data;
+        if (contentType.includes('application/json')) {
+            data = await res.json();
+        } else {
+            const rawText = await res.text();
+            throw new Error(`Respuesta inesperada del servidor (${res.status}): ${rawText.substring(0, 150)}`);
+        }
+
         if (data.status === 'success') {
             alert(data.message);
             window.location.reload();
@@ -625,13 +694,34 @@ async function actualizarCategoria(txId, catId) {
 async function abrirModalConciliacion(txId) {
     currentTxId = txId;
     selectedMatch = null;
+    document.getElementById('filtroRutConcilia').value = '';
+    document.getElementById('filtroNombreConcilia').value = '';
+    document.getElementById('filtroOcConcilia').value = '';
+    document.getElementById('filtroPedidoConcilia').value = '';
+    document.getElementById('conciliacionNotes').value = '';
+    document.getElementById('conciliacionSelectionSummary').innerText = 'Ninguna operación seleccionada.';
     document.getElementById('btnEjecutarConciliacion').disabled = true;
     document.getElementById('btnEjecutarConciliacion').style.opacity = '0.6';
     document.getElementById('modalConciliacion').style.display = 'flex';
-    document.getElementById('conciliacionNotes').value = '';
+
+    await cargarSugerenciasYAlternativas(txId, {});
+}
+
+async function cargarSugerenciasYAlternativas(txId, filters) {
+    const contSugerencias = document.getElementById('matchingCandidatesList');
+    const contAlternativas = document.getElementById('alternativesList');
+    contSugerencias.innerHTML = '<div style="padding: 10px; color: #64748b; font-size: 12px;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando sugerencias...</div>';
+    contAlternativas.innerHTML = '<div style="padding: 10px; color: #64748b; font-size: 12px;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando alternativas del ERP...</div>';
+
+    const params = new URLSearchParams();
+    if (filters.rut) params.append('rut', filters.rut);
+    if (filters.name) params.append('name', filters.name);
+    if (filters.oc) params.append('oc', filters.oc);
+    if (filters.order) params.append('order', filters.order);
 
     try {
-        const res = await fetch(`/reporteria/conciliacion-bancaria/movimientos/${txId}/sugerencias`);
+        const url = `/reporteria/conciliacion-bancaria/movimientos/${txId}/sugerencias` + (params.toString() ? `?${params.toString()}` : '');
+        const res = await fetch(url);
         const result = await res.json();
         if (result.status === 'error') {
             alert(result.message);
@@ -647,41 +737,139 @@ async function abrirModalConciliacion(txId) {
             <div style="color:#64748b; margin-top:2px;">${tx.description} ${tx.reference ? ' | Ref: ' + tx.reference : ''}</div>
         `;
 
+        // Renderizar Sugerencias Automáticas
         const matches = result.data.matches || [];
-        const cont = document.getElementById('matchingCandidatesList');
+        document.getElementById('badgeCountSugerencias').innerText = `${matches.length} encontrada(s)`;
         if (matches.length === 0) {
-            cont.innerHTML = '<div style="padding: 12px; color: #94a3b8; text-align: center;">No se encontraron operaciones sugeridas en el ERP con monto y fecha similar.</div>';
-            return;
+            contSugerencias.innerHTML = '<div style="padding: 10px; color: #64748b; font-size: 12px; font-style: italic; background: #f8fafc; border-radius: 4px;">No se encontraron sugerencias automáticas exactas. Seleccione una operación de las alternativas a continuación o use los filtros.</div>';
+        } else {
+            contSugerencias.innerHTML = '';
+            matches.forEach(m => {
+                const card = crearTarjetaOperacion(m, true);
+                contSugerencias.appendChild(card);
+            });
         }
 
-        cont.innerHTML = '';
-        matches.forEach(m => {
-            const div = document.createElement('div');
-            div.style.cssText = 'padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;';
-            div.innerHTML = `
-                <div>
-                    <div style="font-weight: 600; color: #1e293b;">${m.title}</div>
-                    <div style="font-size: 11px; color: #64748b;">${m.detail}</div>
-                </div>
-                <div style="text-align: right;">
-                    <span style="background: #dbeafe; color: #1e40af; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px;">Coincidencia ${m.score}%</span>
-                </div>
-            `;
-            div.onclick = () => {
-                Array.from(cont.children).forEach(c => c.style.borderColor = '#cbd5e1');
-                Array.from(cont.children).forEach(c => c.style.backgroundColor = '#fff');
-                div.style.borderColor = '#1e40af';
-                div.style.backgroundColor = '#eff6ff';
-                selectedMatch = m;
-                document.getElementById('btnEjecutarConciliacion').disabled = false;
-                document.getElementById('btnEjecutarConciliacion').style.opacity = '1';
-            };
-            cont.appendChild(div);
-        });
+        // Renderizar Alternativas del ERP
+        const alternatives = result.data.alternatives || [];
+        document.getElementById('badgeCountAlternativas').innerText = `${alternatives.length} disponible(s)`;
+        if (alternatives.length === 0) {
+            contAlternativas.innerHTML = '<div style="padding: 16px; color: #94a3b8; text-align: center; font-size: 12px;">No se encontraron alternativas en el ERP con los filtros especificados. Modifique o limpie los filtros arriba.</div>';
+        } else {
+            contAlternativas.innerHTML = '';
+            alternatives.forEach(alt => {
+                const card = crearTarjetaOperacion(alt, false);
+                contAlternativas.appendChild(card);
+            });
+        }
 
     } catch (e) {
-        alert('Error al obtener sugerencias: ' + e.message);
+        contSugerencias.innerHTML = '<div style="color: #b91c1c; padding: 10px; font-size: 12px;">Error al cargar sugerencias.</div>';
+        contAlternativas.innerHTML = '<div style="color: #b91c1c; padding: 10px; font-size: 12px;">Error al cargar alternativas: ' + e.message + '</div>';
     }
+}
+
+function crearTarjetaOperacion(item, isSuggested) {
+    const div = document.createElement('div');
+    div.className = 'conciliacion-item-card';
+    div.style.cssText = 'padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.15s ease; background: #ffffff;';
+
+    // Badge Tipo
+    let tipoBadge = '';
+    if (item.match_type === 'SALE_PAYMENT') {
+        tipoBadge = '<span style="background: #dcfce7; color: #166534; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">Cobranza Venta</span>';
+    } else if (item.match_type === 'SALE') {
+        tipoBadge = '<span style="background: #fef3c7; color: #92400e; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">Pedido Pendiente</span>';
+    } else if (item.match_type === 'PURCHASE_PAYMENT') {
+        tipoBadge = '<span style="background: #fee2e2; color: #991b1b; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">Factura Compra</span>';
+    } else if (item.match_type === 'PURCHASE_PAYMENT_ITEM') {
+        tipoBadge = '<span style="background: #fee2e2; color: #991b1b; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">Abono Factura Compra</span>';
+    } else if (item.match_type === 'EXPENSE' || item.match_type === 'EXPENSE_PAYMENT_ITEM') {
+        tipoBadge = '<span style="background: #ede9fe; color: #5b21b6; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">Gasto Operacional</span>';
+    } else if (item.match_type === 'DEBT_PAYMENT') {
+        tipoBadge = '<span style="background: #e0e7ff; color: #3730a3; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">Pago Deuda</span>';
+    } else {
+        tipoBadge = '<span style="background: #f1f5f9; color: #334155; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">Transferencia Interna</span>';
+    }
+
+    // Badges adicionales (RUT, OC, Pedido)
+    let metaBadges = '';
+    if (item.customer_rut) {
+        metaBadges += `<span style="background: #f1f5f9; color: #475569; font-size: 10px; padding: 2px 5px; border-radius: 4px; margin-right: 4px;">RUT: ${item.customer_rut}</span>`;
+    }
+    if (item.oc_number) {
+        metaBadges += `<span style="background: #e0f2fe; color: #0369a1; font-size: 10px; font-weight: 600; padding: 2px 5px; border-radius: 4px; margin-right: 4px;">OC: ${item.oc_number}</span>`;
+    }
+    if (item.order_number) {
+        metaBadges += `<span style="background: #fef9c3; color: #854d0e; font-size: 10px; font-weight: 600; padding: 2px 5px; border-radius: 4px; margin-right: 4px;">Doc: ${item.order_number}</span>`;
+    }
+
+    // Indicador de Monto
+    let amountBadge = '';
+    const isExact = (item.exact_amount !== undefined) ? item.exact_amount : (item.score >= 90);
+    if (isExact) {
+        amountBadge = `<span style="background: #dcfce7; color: #15803d; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; display: inline-block;">$${Math.round(item.amount).toLocaleString('es-CL')} (Exacto)</span>`;
+    } else {
+        const diffText = (item.amount_diff !== undefined && item.amount_diff !== 0) ? ` (Dif: $${Math.abs(Math.round(item.amount_diff)).toLocaleString('es-CL')})` : '';
+        amountBadge = `<span style="background: #ffedd5; color: #c2410c; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; display: inline-block;">$${Math.round(item.amount).toLocaleString('es-CL')}${diffText}</span>`;
+    }
+
+    div.innerHTML = `
+        <div style="flex: 1; min-width: 0; padding-right: 12px;">
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px; flex-wrap: wrap;">
+                ${tipoBadge}
+                ${metaBadges}
+                <span style="font-weight: 600; font-size: 13px; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.title}</span>
+            </div>
+            <div style="font-size: 11px; color: #64748b; line-height: 1.3;">${item.detail}</div>
+        </div>
+        <div style="text-align: right; flex-shrink: 0;">
+            ${amountBadge}
+            ${item.score ? `<div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">Coincidencia ${item.score}%</div>` : ''}
+        </div>
+    `;
+
+    div.onclick = () => {
+        document.querySelectorAll('.conciliacion-item-card').forEach(c => {
+            c.style.borderColor = '#cbd5e1';
+            c.style.backgroundColor = '#ffffff';
+            c.style.boxShadow = 'none';
+        });
+        div.style.borderColor = '#1e40af';
+        div.style.backgroundColor = '#eff6ff';
+        div.style.boxShadow = '0 0 0 1px #1e40af';
+        selectedMatch = item;
+        document.getElementById('conciliacionSelectionSummary').innerHTML = `
+            <strong>Seleccionado:</strong> ${item.title} — <span style="color:#15803d; font-weight:700;">$${Math.round(item.amount).toLocaleString('es-CL')}</span>
+        `;
+        document.getElementById('btnEjecutarConciliacion').disabled = false;
+        document.getElementById('btnEjecutarConciliacion').style.opacity = '1';
+    };
+
+    return div;
+}
+
+function buscarAlternativasConciliacion() {
+    if (!currentTxId) return;
+    const filters = {
+        rut: document.getElementById('filtroRutConcilia').value.trim(),
+        name: document.getElementById('filtroNombreConcilia').value.trim(),
+        oc: document.getElementById('filtroOcConcilia').value.trim(),
+        order: document.getElementById('filtroPedidoConcilia').value.trim()
+    };
+    selectedMatch = null;
+    document.getElementById('conciliacionSelectionSummary').innerText = 'Ninguna operación seleccionada.';
+    document.getElementById('btnEjecutarConciliacion').disabled = true;
+    document.getElementById('btnEjecutarConciliacion').style.opacity = '0.6';
+    cargarSugerenciasYAlternativas(currentTxId, filters);
+}
+
+function limpiarFiltrosConciliacion() {
+    document.getElementById('filtroRutConcilia').value = '';
+    document.getElementById('filtroNombreConcilia').value = '';
+    document.getElementById('filtroOcConcilia').value = '';
+    document.getElementById('filtroPedidoConcilia').value = '';
+    buscarAlternativasConciliacion();
 }
 
 function cerrarModalConciliacion() {
@@ -690,6 +878,15 @@ function cerrarModalConciliacion() {
 
 async function ejecutarConciliacion() {
     if (!currentTxId || !selectedMatch) return;
+
+    if (selectedMatch.amount_diff && Math.abs(selectedMatch.amount_diff) > 0.01) {
+        const confirmar = confirm(`El monto del movimiento bancario no coincide exactamente con el saldo de la operación (Diferencia: $${Math.abs(Math.round(selectedMatch.amount_diff)).toLocaleString('es-CL')}). ¿Desea proceder de todos modos?`);
+        if (!confirmar) return;
+    }
+
+    const btn = document.getElementById('btnEjecutarConciliacion');
+    btn.disabled = true;
+    btn.innerText = 'Conciliando...';
 
     const notes = document.getElementById('conciliacionNotes').value;
     try {
@@ -708,9 +905,13 @@ async function ejecutarConciliacion() {
             window.location.reload();
         } else {
             alert(data.message || 'Error al conciliar');
+            btn.disabled = false;
+            btn.innerText = 'Vincular y Conciliar';
         }
     } catch (e) {
         alert('Error: ' + e.message);
+        btn.disabled = false;
+        btn.innerText = 'Vincular y Conciliar';
     }
 }
 

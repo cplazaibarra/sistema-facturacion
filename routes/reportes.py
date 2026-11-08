@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, make_response, request
+from flask import Blueprint, render_template, make_response, request, session
 from security import require_permission
 from db import (
     get_income_report_data,
@@ -35,10 +35,21 @@ def reportes_gastos():
 @reportes_bp.route('/reporteria/ingresos')
 def reportes_ingresos():
     """Reporte de Ingresos ($) - Histórico y Flujo Futuro por compromisos"""
-    income_data = get_income_report_data()
+    from db import list_bank_accounts
+
+    search = request.args.get('search', '').strip()
+    income_data = get_income_report_data(search=search)
+    role = session.get('role_name')
+    permissions = session.get('permissions') or {}
+    can_register_payment = role in {'Administrativo', 'Aprobador', 'Gerente'} or bool(
+        permissions.get('ventas.registrar_pago') or permissions.get('aprobar_registros')
+    )
     response = make_response(render_template(
         'reporte_ingresos.html',
-        income_data=income_data
+        income_data=income_data,
+        search=search,
+        bank_accounts=list_bank_accounts() if can_register_payment else [],
+        can_register_payment=can_register_payment,
     ))
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'
@@ -834,13 +845,13 @@ def preview_excel_cartola():
     if preview.get("status") == "error":
         return jsonify(preview), 400
 
-    # Guardar temporalmente en sesión para confirmación
+    # Guardar resumen ligero en sesión (evitar inflar la cookie sobre 4KB)
     session['bank_statement_preview'] = {
         "filename": file.filename,
         "bank_account_id": bank_account_id,
         "summary": preview["summary"],
-        "valid_transactions": preview["valid_transactions"],
     }
+    preview["bank_account_id"] = bank_account_id
 
     return jsonify(preview)
 
@@ -852,24 +863,49 @@ def confirmar_importacion_cartola():
     from flask import jsonify, session
     from services.bank_reconciliation_excel_service import commit_bank_statement_import
 
-    cached = session.get('bank_statement_preview')
-    if not cached:
-        # Check if sent via JSON payload
-        req_json = request.get_json(silent=True) or {}
-        cached = req_json.get('preview_data')
+    req_json = request.get_json(silent=True) or {}
+    payload_preview = req_json.get('preview_data') or req_json
 
-    if not cached or not cached.get('valid_transactions'):
+    cached = session.get('bank_statement_preview') or {}
+
+    # Priorizar payload enviado por el cliente o reconstruir a partir de ambos
+    valid_transactions = (
+        payload_preview.get('valid_transactions')
+        if isinstance(payload_preview, dict) else None
+    ) or cached.get('valid_transactions')
+
+    if not valid_transactions:
         return jsonify({"status": "error", "message": "No hay movimientos pendientes de confirmación o la sesión expiró"}), 400
 
     user_name = session.get('full_name') or session.get('username') or 'Sistema'
-    bank_account_id = cached['bank_account_id']
-    filename = cached.get('filename', 'cartola.xlsx')
-    summary = cached.get('summary', {})
-    valid_transactions = cached['valid_transactions']
+
+    # Resolver bank_account_id soportando múltiples formas (int directo, dict o session)
+    bank_account_id = None
+    if isinstance(payload_preview, dict):
+        bank_account_id = payload_preview.get('bank_account_id')
+        if not bank_account_id and isinstance(payload_preview.get('bank_account'), dict):
+            bank_account_id = payload_preview['bank_account'].get('id')
+
+    if not bank_account_id:
+        bank_account_id = cached.get('bank_account_id')
+
+    if not bank_account_id:
+        return jsonify({"status": "error", "message": "No se identificó la cuenta bancaria destino"}), 400
+
+    filename = (
+        (payload_preview.get('filename') if isinstance(payload_preview, dict) else None)
+        or cached.get('filename')
+        or 'cartola.xlsx'
+    )
+    summary = (
+        (payload_preview.get('summary') if isinstance(payload_preview, dict) else None)
+        or cached.get('summary')
+        or {}
+    )
 
     result = commit_bank_statement_import(
         valid_transactions=valid_transactions,
-        bank_account_id=bank_account_id,
+        bank_account_id=int(bank_account_id),
         filename=filename,
         user_name=user_name,
         summary=summary,
@@ -965,12 +1001,25 @@ def operacion_categoria_bancaria(cat_id: int):
 @reportes_bp.route('/reporteria/conciliacion-bancaria/movimientos/<int:tx_id>/sugerencias', methods=['GET'])
 @require_permission('reportes')
 def sugerencias_conciliacion(tx_id: int):
-    """Busca candidatos determinísticos para conciliar contra un movimiento bancario."""
-    from flask import jsonify
+    """Busca candidatos determinísticos y alternativas para conciliar contra un movimiento bancario."""
+    from flask import jsonify, request
     from db import get_suggested_reconciliation_matches
 
-    res = get_suggested_reconciliation_matches(tx_id)
-    if "error" in res and not res.get("matches"):
+    search = request.args.get('search')
+    filter_rut = request.args.get('rut')
+    filter_name = request.args.get('name')
+    filter_oc = request.args.get('oc')
+    filter_order = request.args.get('order')
+
+    res = get_suggested_reconciliation_matches(
+        tx_id,
+        search=search,
+        filter_rut=filter_rut,
+        filter_name=filter_name,
+        filter_oc=filter_oc,
+        filter_order=filter_order,
+    )
+    if "error" in res and not res.get("matches") and not res.get("alternatives"):
         return jsonify({"status": "error", "message": res["error"]}), 404
     return jsonify({"status": "success", "data": res})
 
@@ -979,8 +1028,10 @@ def sugerencias_conciliacion(tx_id: int):
 @require_permission('reportes')
 def conciliar_movimiento(tx_id: int):
     """Concilia un movimiento bancario contra una operación del ERP."""
-    from flask import jsonify, session
-    from db import reconcile_transaction
+    from flask import jsonify, session, request
+    from db import reconcile_transaction, get_bank_transaction, get_connection, upsert_sale_payment
+    from datetime import datetime, timezone
+    from decimal import Decimal
 
     req_data = request.get_json(silent=True) or request.form
     reconciled_type = req_data.get('reconciled_type')
@@ -996,6 +1047,99 @@ def conciliar_movimiento(tx_id: int):
         return jsonify({"status": "error", "message": "ID de conciliación inválido"}), 400
 
     user_name = session.get('full_name') or session.get('username') or 'Sistema'
+
+    # Si se selecciona una venta pendiente directamente ('SALE'), registrar primero el pago correspondiente
+    if reconciled_type == 'SALE':
+        tx = get_bank_transaction(tx_id)
+        if not tx:
+            return jsonify({"status": "error", "message": "Movimiento bancario no encontrado"}), 404
+        if tx["movement_type"] != "ABONO":
+            return jsonify({"status": "error", "message": "Solo se pueden conciliar ventas contra abonos bancarios"}), 400
+
+        now_iso = datetime.now(timezone.utc).isoformat(timespec='seconds')
+        tx_amount = float(abs(Decimal(str(tx['amount']))))
+        tx_date = str(tx['transaction_date'])
+        bank_id = tx['bank_account_id']
+
+        try:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT * FROM sales WHERE id = %s FOR UPDATE", (reconciled_id,))
+                    sale = cur.fetchone()
+                    if not sale:
+                        return jsonify({"status": "error", "message": "Venta no encontrada"}), 404
+
+                    cur.execute("SELECT COALESCE(SUM(payment_amount), 0) AS total_paid FROM sale_payment_items WHERE sale_id = %s AND COALESCE(accounting_approved, 1) = 1", (reconciled_id,))
+                    paid_before = float(cur.fetchone()['total_paid'] or 0)
+                    total_sale = float(sale['total_amount'] or 0)
+                    remaining = round(total_sale - paid_before, 2)
+
+                    if remaining <= 0:
+                        return jsonify({"status": "error", "message": "La venta ya está totalmente pagada"}), 400
+
+                    # Obtener info banco
+                    cur.execute("SELECT bank_name, account_number FROM bank_accounts WHERE id = %s", (bank_id,))
+                    bank_info = cur.fetchone()
+                    b_name = bank_info['bank_name'] if bank_info else None
+                    b_acc = bank_info['account_number'] if bank_info else None
+
+                    # Insertar sale_payment_item
+                    cur.execute(
+                        """
+                        INSERT INTO sale_payment_items
+                        (sale_id, payment_amount, payment_date, created_at,
+                         bank_account_id, accounting_approved, accounting_approved_by,
+                         accounting_approved_at, accounting_comment, payment_method,
+                         registered_by, registered_at, bank_name_snapshot,
+                         account_number_snapshot, payment_notes)
+                        VALUES (%s, %s, %s, %s, %s, 1, %s, %s, %s, 'Transferencia', %s, %s, %s, %s, %s)
+                        RETURNING id
+                        """,
+                        (reconciled_id, tx_amount, tx_date, now_iso, bank_id, user_name, now_iso,
+                         'Conciliado automáticamente desde Cartola Bancaria', user_name, now_iso,
+                         b_name, b_acc, notes or f"Conciliado con mov #{tx_id}"),
+                    )
+                    payment_item_id = cur.fetchone()['id']
+
+                    # Actualizar estado de pago de la venta
+                    total_paid = round(paid_before + tx_amount, 2)
+                    is_paid = total_paid + 0.01 >= total_sale
+                    new_status = 'Pagado' if is_paid else 'Pendiente'
+                    cur.execute("UPDATE sales SET payment_status = %s, payment_method = 'Transferencia' WHERE id = %s", (new_status, reconciled_id))
+
+                    cur.execute("INSERT INTO sales_payment_history (sale_id, action, user_name, changed_at, details) VALUES (%s, %s, %s, %s, %s)",
+                                (reconciled_id, 'Pago conciliado', user_name, now_iso, f'Transferencia: ${tx_amount:,.0f} desde Cartola #{tx_id}'))
+
+                    # Upsert sale_payments header
+                    cur.execute("SELECT invoice_due_date FROM sale_payments WHERE sale_id = %s", (reconciled_id,))
+                    payment_header = cur.fetchone()
+                    invoice_due_date = (payment_header['invoice_due_date'] if payment_header else None) or sale['sale_date']
+
+                    upsert_sale_payment(reconciled_id, {
+                        'invoice_number': f'FACT-{reconciled_id:05d}',
+                        'invoice_amount': sale['total_amount'],
+                        'invoice_due_date': invoice_due_date,
+                        'payment_amount': total_paid,
+                        'payment_date': tx_date,
+                        'payment_uploaded_at': now_iso,
+                        'accounting_approved': 1,
+                        'accounting_approved_by': user_name,
+                        'accounting_approved_at': now_iso,
+                        'accounting_comment': 'Pago conciliado desde Cartola Bancaria',
+                        'status': new_status,
+                        'created_at': now_iso,
+                        'updated_at': now_iso,
+                    }, conn=conn)
+
+                conn.commit()
+
+            # Ahora conciliar contra el sale_payment_item creado
+            reconciled_type = 'SALE_PAYMENT'
+            reconciled_id = payment_item_id
+
+        except Exception as e:
+            return jsonify({"status": "error", "message": f"Error al generar pago de venta: {str(e)}"}), 500
+
     success, msg = reconcile_transaction(
         transaction_id=tx_id,
         reconciled_type=reconciled_type,

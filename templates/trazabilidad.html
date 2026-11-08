@@ -1,277 +1,302 @@
 {% extends "base.html" %}
-{% block title %}Trazabilidad Genealógica de Lotes{% endblock %}
+{% block title %}Trazabilidad de Lotes{% endblock %}
+{% block page_title %}Bodega > Trazabilidad de Lotes{% endblock %}
+
+{% block extra_css %}
+<style>
+    .trace-page { color:#13213b; padding:8px 0 28px; }
+    .trace-heading { display:flex; justify-content:space-between; align-items:flex-end; gap:20px; margin:0 0 18px; }
+    .trace-heading h1 { font-size:clamp(23px,2.5vw,31px); margin:0 0 4px; font-weight:750; letter-spacing:-.5px; }
+    .trace-heading p { color:#64748b; margin:0; }
+    .trace-search { display:flex; gap:10px; width:min(620px,52%); }
+    .trace-search input { min-width:0; flex:1; border:1px solid #cbd5e1; border-radius:9px; padding:11px 14px; font:inherit; background:white; }
+    .trace-search button { border:0; border-radius:9px; color:white; background:#0877f9; padding:0 19px; font-weight:700; cursor:pointer; }
+    .trace-panel { background:#fff; border:1px solid #e2e8f0; border-radius:13px; box-shadow:0 2px 8px rgba(15,23,42,.035); }
+    .trace-identity { display:grid; grid-template-columns:minmax(260px,1.8fr) repeat(5,minmax(105px,1fr)); align-items:center; gap:0; padding:17px 20px; margin-bottom:18px; }
+    .trace-lot-title { min-width:0; display:flex; align-items:center; gap:15px; padding-right:18px; }
+    .trace-lot-icon { flex:0 0 70px; height:70px; border-radius:13px; display:grid; place-items:center; background:#eaf4ff; color:#1685fa; font-size:34px; }
+    .trace-lot-title small,.trace-meta small { display:block; color:#64748b; font-size:12px; margin-bottom:5px; }
+    .trace-lot-title strong { display:block; font-size:17px; line-height:1.25; overflow-wrap:anywhere; }
+    .trace-state { display:inline-block; border-radius:7px; padding:4px 10px; margin-top:7px; font-size:12px; font-weight:750; }
+    .trace-meta { min-height:58px; padding:7px 15px; border-left:1px solid #dbe3ee; display:flex; flex-direction:column; justify-content:center; overflow-wrap:anywhere; }
+    .trace-meta strong { font-size:13px; }
+    .trace-meta.balance strong { color:#0b8b50; }
+    .trace-meta.balance.empty strong { color:#cf233b; }
+    .trace-search-results { display:flex; flex-wrap:wrap; gap:8px; padding:13px 16px; margin:-7px 0 18px; }
+    .trace-search-results a { border:1px solid #dbe5f0; border-radius:8px; padding:8px 11px; color:#334155; background:#f8fafc; text-decoration:none; font-size:12px; }
+    .trace-search-results a.active { color:#075db8; border-color:#93c5fd; background:#eff6ff; }
+    .trace-empty-query { padding:17px 20px; margin-bottom:18px; color:#475569; }
+    .trace-flow { display:grid; grid-template-columns:minmax(245px,.92fr) minmax(250px,.95fr) minmax(330px,1.2fr); min-height:405px; padding:0 14px; margin-bottom:18px; overflow:hidden; }
+    .trace-column { position:relative; min-width:0; padding:20px 12px 18px; }
+    .trace-column + .trace-column { border-left:1px dashed #d7e1ed; }
+    .trace-column h2 { text-align:center; margin:0; font-size:17px; font-weight:750; }
+    .trace-column .trace-subtitle { color:#64748b; text-align:center; font-size:13px; margin:4px 0 20px; }
+    .trace-origin-card { position:relative; z-index:1; margin-top:75px; background:linear-gradient(130deg,#f0f8ff,#eaf4ff); border:1px solid #bfdbfe; border-radius:12px; padding:16px; }
+    .trace-origin-card:after { content:""; position:absolute; width:58px; height:2px; background:#7285a2; right:-59px; top:50%; }
+    .trace-origin-card:before { content:""; z-index:2; position:absolute; right:-63px; top:calc(50% - 4px); width:8px; height:8px; border-radius:50%; background:#1685fa; }
+    .trace-origin-card .origin-icon { float:left; color:#1685fa; font-size:28px; margin:3px 13px 18px 0; }
+    .trace-origin-card strong { display:block; overflow-wrap:anywhere; font-size:14px; }
+    .trace-origin-card p { font-size:12px; color:#475569; margin:5px 0 0; }
+    .trace-origin-card .origin-qty { font-size:16px; font-weight:800; color:#14233d; margin-top:8px; }
+    .trace-transform-list { position:relative; z-index:2; display:grid; gap:10px; max-height:335px; overflow:auto; padding:4px 7px; }
+    .trace-transform-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; font-size:12px; }
+    .trace-transform-card strong { display:block; font-size:13px; color:#253858; }
+    .trace-transform-card p { margin:6px 0 0; color:#64748b; }
+    .trace-transform-card a { color:#1769c2; font-weight:700; text-decoration:none; }
+    .trace-no-transform { display:grid; place-content:center; text-align:center; min-height:180px; margin:68px 28px 0; border:1px dashed #d8e1ec; border-radius:12px; color:#94a3b8; padding:18px; }
+    .trace-no-transform i { font-size:30px; margin-bottom:9px; }
+    .trace-outflow-list { position:relative; z-index:1; display:grid; gap:9px; padding:4px 8px 4px 20px; max-height:345px; overflow-y:auto; scrollbar-color:#cbd5e1 #f8fafc; }
+    .trace-outflow-list:before { content:""; position:absolute; top:10px; bottom:10px; left:8px; width:2px; background:#dce5f0; }
+    .trace-outflow { position:relative; border-radius:11px; border:1px solid #c9f0dc; background:linear-gradient(115deg,#f0fdf6,#e9faef); padding:12px 13px; }
+    .trace-outflow:before { content:""; position:absolute; left:-17px; top:19px; width:8px; height:8px; background:#16a05c; border-radius:50%; box-shadow:0 0 0 3px white; }
+    .trace-outflow.adjustment { background:#fffaf0; border-color:#fde3af; }
+    .trace-outflow.adjustment:before { background:#d97706; }
+    .trace-outflow-row { display:flex; align-items:flex-start; gap:10px; }
+    .trace-outflow-icon { color:#169454; font-size:20px; padding-top:1px; }
+    .trace-outflow.adjustment .trace-outflow-icon { color:#c27a05; }
+    .trace-outflow-main { min-width:0; flex:1; }
+    .trace-outflow-main strong { display:block; font-size:13px; overflow-wrap:anywhere; }
+    .trace-outflow-main span { display:block; color:#526579; font-size:12px; margin-top:3px; }
+    .trace-outflow-qty { color:#078246; font-size:15px; font-weight:800; white-space:nowrap; padding-top:2px; }
+    .trace-outflow.adjustment .trace-outflow-qty { color:#a16207; }
+    .trace-outflow a { color:inherit; text-decoration:none; }
+    .trace-outflow details { margin:8px 0 0 30px; color:#64748b; font-size:11px; }
+    .trace-outflow details summary { cursor:pointer; }
+    .trace-no-outflow { text-align:center; color:#94a3b8; padding:58px 16px; border:1px dashed #dbe3ee; border-radius:11px; }
+    .trace-summary { padding:16px 19px 18px; }
+    .trace-summary-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:13px; }
+    .trace-summary h2 { margin:0; font-size:17px; }
+    .trace-summary-state { color:#087c49; background:#e4f8ed; border-radius:18px; padding:8px 12px; font-size:12px; font-weight:700; }
+    .trace-summary-state.empty { color:#b42338; background:#fff0f1; }
+    .trace-summary-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+    .trace-summary-item { display:flex; align-items:center; gap:12px; min-width:0; background:#f8fafc; border-radius:10px; padding:13px 15px; }
+    .trace-summary-item:nth-child(2) { background:#eff8ff; }
+    .trace-summary-item:nth-child(3) { background:#f7f2ff; }
+    .trace-summary-item:nth-child(4) { background:#fff1f2; }
+    .trace-summary-item i { font-size:23px; color:#64748b; }
+    .trace-summary-item:nth-child(2) i,.trace-summary-item:nth-child(2) strong { color:#0877f9; }
+    .trace-summary-item:nth-child(3) i,.trace-summary-item:nth-child(3) strong { color:#7c3aed; }
+    .trace-summary-item:nth-child(4) i,.trace-summary-item:nth-child(4) strong { color:#dc1738; }
+    .trace-summary-item span { display:block; color:#64748b; font-size:11px; }
+    .trace-summary-item strong { display:block; font-size:20px; margin-top:2px; overflow-wrap:anywhere; }
+    .trace-secondary { margin-top:15px; }
+    .trace-secondary details { padding:14px 17px; }
+    .trace-secondary summary { font-weight:700; cursor:pointer; color:#334155; }
+    .trace-secondary ul { margin:12px 0 0; padding-left:20px; color:#475569; }
+    .trace-movement-table { width:100%; border-collapse:collapse; margin-top:12px; font-size:12px; }
+    .trace-movement-table th,.trace-movement-table td { padding:8px; border-bottom:1px solid #e2e8f0; text-align:left; }
+    .trace-movement-table th { color:#64748b; }
+    .trace-recall-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .trace-recall-actions a { padding:8px 11px; border-radius:7px; text-decoration:none; background:#f1f5f9; color:#334155; font-weight:650; font-size:12px; }
+    .trace-recall-clients { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+    .trace-recall-clients span { padding:5px 9px; border-radius:16px; background:#fff7ed; color:#9a3412; font-size:12px; }
+    @media(max-width:1120px) {
+        .trace-identity { grid-template-columns:repeat(3,minmax(0,1fr)); row-gap:12px; }
+        .trace-lot-title { grid-column:1/-1; padding:0 0 12px; border-bottom:1px solid #e2e8f0; }
+        .trace-meta:nth-child(2),.trace-meta:nth-child(5) { border-left:0; }
+        .trace-flow { grid-template-columns:minmax(220px,.9fr) minmax(230px,.9fr) minmax(285px,1.1fr); }
+    }
+    @media(max-width:800px) {
+        .trace-heading { align-items:stretch; flex-direction:column; }
+        .trace-search { width:100%; }
+        .trace-flow { display:block; padding:0 12px 12px; }
+        .trace-column { padding:17px 7px; }
+        .trace-column + .trace-column { border-left:0; border-top:1px dashed #d7e1ed; }
+        .trace-origin-card { margin:15px 4px 5px; }
+        .trace-origin-card:after,.trace-origin-card:before { display:none; }
+        .trace-no-transform { min-height:110px; margin:14px 4px; }
+        .trace-transform-list,.trace-outflow-list { max-height:360px; }
+        .trace-summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+        .trace-summary-head { align-items:flex-start; flex-direction:column; }
+    }
+    @media(max-width:480px) {
+        .trace-identity { grid-template-columns:repeat(2,minmax(0,1fr)); padding:13px; }
+        .trace-lot-icon { flex-basis:54px; height:54px; font-size:25px; }
+        .trace-lot-title strong { font-size:14px; }
+        .trace-meta { padding:7px 9px; }
+        .trace-meta:nth-child(odd) { border-left:0; }
+        .trace-search button { padding:0 12px; }
+        .trace-summary-grid { gap:8px; }
+        .trace-summary-item { gap:8px; padding:10px; }
+        .trace-summary-item strong { font-size:17px; }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+<main class="trace-page">
+    <header class="trace-heading">
         <div>
-            <h2 class="fw-bold mb-1"><i class="bi bi-diagram-3 me-2 text-primary"></i>Trazabilidad Genealógica de Lotes (360°)</h2>
-            <p class="text-muted mb-0">Rastreo permanente de materias primas, transformaciones en OT y salidas en ventas.</p>
+            <h1>Trazabilidad de Lotes</h1>
+            <p>Origen, transformaciones y movimientos físicos del lote.</p>
         </div>
-    </div>
+        <form method="GET" action="{{ url_for('trazabilidad.view_trazabilidad') }}" class="trace-search">
+            <input type="search" name="q" value="{{ query }}" placeholder="Buscar lote, SKU, producto, OT o documento…" aria-label="Buscar lote">
+            <button type="submit"><i class="fa-solid fa-magnifying-glass"></i> Consultar</button>
+        </form>
+    </header>
 
-    <!-- Barra de Búsqueda -->
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-body">
-            <form method="GET" action="{{ url_for('trazabilidad.view_trazabilidad') }}" class="row g-3">
-                <div class="col-md-9">
-                    <div class="input-group">
-                        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                        <input type="text" name="q" class="form-control" placeholder="Buscar por número de lote, SKU, producto o documento..." value="{{ query }}">
-                    </div>
-                </div>
-                <div class="col-md-3 d-grid">
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-search me-1"></i>Buscar Lotes</button>
-                </div>
-            </form>
-
-            {% if lots_list %}
-            <div class="mt-3">
-                <span class="text-muted small">Lotes coincidentes:</span>
-                <div class="d-flex flex-wrap gap-2 mt-1">
-                    {% for l in lots_list %}
-                    <a href="{{ url_for('trazabilidad.view_trazabilidad', q=query, lot_id=l.id) }}" 
-                       class="badge p-2 text-decoration-none {% if selected_lot_id == l.id %}bg-primary text-white{% else %}bg-light text-dark border{% endif %}">
-                        <strong>{{ l.lot_number }}</strong> - {{ l.product_name }} ({{ l.sku }})
-                    </a>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-        </div>
-    </div>
+    {% if lots_list %}
+    <nav class="trace-panel trace-search-results" aria-label="Lotes coincidentes">
+        {% for lot in lots_list %}
+        <a class="{% if selected_lot_id == lot.id %}active{% endif %}" href="{{ url_for('trazabilidad.view_trazabilidad', q=query, lot_id=lot.id) }}">
+            <strong>{{ lot.lot_number }}</strong> · {{ lot.product_name }}{% if lot.sku %} ({{ lot.sku }}){% endif %}
+        </a>
+        {% endfor %}
+    </nav>
+    {% elif query %}
+    <div class="trace-panel trace-empty-query">No se encontraron lotes para <strong>“{{ query }}”</strong>.</div>
+    {% endif %}
 
     {% if selected_lot %}
     {% set idt = selected_lot.identity %}
     {% set orig = selected_lot.origin %}
-    <!-- Tarjeta de Identidad del Lote -->
-    <div class="row g-4 mb-4">
-        <div class="col-lg-4">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-primary text-white py-3">
-                    <h5 class="card-title mb-0"><i class="bi bi-tag me-2"></i>Identidad del Lote</h5>
-                </div>
-                <div class="card-body">
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="text-muted">Lote Comercial:</span>
-                            <span class="fw-bold">{{ idt.lot_number }}</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="text-muted">ID Sistema (Inmutable):</span>
-                            <span class="badge bg-secondary">#{{ idt.lot_id }}</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="text-muted">Producto:</span>
-                            <span class="fw-bold">{{ idt.product_name }}</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="text-muted">SKU:</span>
-                            <code>{{ idt.sku }}</code>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="text-muted">Tipo de Lote:</span>
-                            <span class="badge bg-info text-dark">{{ idt.lot_type }}</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="text-muted">Estado:</span>
-                            <span class="badge {% if idt.status == 'ACTIVE' %}bg-success{% elif idt.status == 'DEPLETED' %}bg-secondary{% else %}bg-danger{% endif %}">{{ idt.status }}</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="text-muted">Cantidad Inicial:</span>
-                            <span>{{ idt.initial_quantity }} un</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="text-muted">Saldo Actual en Bodega:</span>
-                            <span class="fw-bold text-primary">{{ idt.available_qty or 0.0 }} un</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="text-muted">Fecha Vencimiento:</span>
-                            <span>{{ idt.expiry_date or 'No asignada' }}</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="text-muted">Bodega Origen:</span>
-                            <span>{{ idt.warehouse }}</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="text-muted">Fecha Creación:</span>
-                            <span>{{ idt.created_at }}</span>
-                        </li>
-                    </ul>
-
-                    <!-- Resumen Recall & Exportación -->
-                    <div class="alert alert-warning mt-3 mb-0 py-2">
-                        <div class="fw-bold small mb-1"><i class="bi bi-shield-exclamation me-1"></i>Impacto Potencial de Retiro (Recall):</div>
-                        <div class="small mb-2">
-                            Ventas afectadas: <strong>{{ selected_lot.recall_summary.affected_sales_count }}</strong> | 
-                            Clientes: <strong>{{ selected_lot.recall_summary.affected_clients_count }}</strong> |
-                            Total despachado: <strong>{{ selected_lot.recall_summary.total_units_sold }} un</strong>
-                        </div>
-                        <div class="d-flex gap-2">
-                            <a href="{{ url_for('trazabilidad.export_recall_csv', lot_id=idt.lot_id) }}" class="btn btn-sm btn-outline-dark" style="font-size: 11px;">
-                                📥 Exportar CSV
-                            </a>
-                            <a href="{{ url_for('trazabilidad.export_recall_pdf', lot_id=idt.lot_id) }}" class="btn btn-sm btn-danger" style="font-size: 11px;">
-                                📄 Descargar PDF Oficial
-                            </a>
-                        </div>
-                    </div>
-                </div>
+    {% set summary = selected_lot.summary %}
+    <section class="trace-panel trace-identity" aria-label="Identificación del lote">
+        <div class="trace-lot-title">
+            <div class="trace-lot-icon"><i class="fa-solid fa-cube"></i></div>
+            <div>
+                <small>Lote consultado</small>
+                <strong>{{ idt.lot_number }}</strong>
+                {% set state_color = '#15803d' if idt.status_label == 'Disponible' else ('#b42338' if idt.status_label in ['Agotado', 'Vencido', 'Retirado (Recall)', 'Inconsistencia de saldo'] else '#a16207') %}
+                <span class="trace-state" style="color:{{ state_color }};background:{{ '#e8f8ee' if idt.status_label == 'Disponible' else ('#fff0f1' if state_color == '#b42338' else '#fff7e6') }}">{{ idt.status_label }}</span>
             </div>
         </div>
+        <div class="trace-meta"><small>Producto</small><strong>{{ idt.product_name }}{% if idt.sku %} · {{ idt.sku }}{% endif %}</strong></div>
+        <div class="trace-meta"><small>Fecha de ingreso</small><strong>{{ (idt.created_at|string)[:10] if idt.created_at else 'No informada' }}</strong></div>
+        <div class="trace-meta"><small>Cantidad inicial</small><strong>{{ idt.initial_quantity }} un</strong></div>
+        <div class="trace-meta balance {% if summary.available_qty <= 0 %}empty{% endif %}"><small>Saldo actual</small><strong>{{ idt.available_qty or 0 }} un</strong></div>
+        <div class="trace-meta"><small>Bodega</small><strong>{{ idt.warehouse or 'Principal' }}</strong></div>
+    </section>
 
-        <div class="col-lg-8">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-dark text-white py-3">
-                    <h5 class="card-title mb-0"><i class="bi bi-diagram-2 me-2"></i>Línea de Vida y Genealogía (Timeline)</h5>
-                </div>
-                <div class="card-body">
-                    <!-- Cadena Visual -->
-                    <div class="timeline p-2">
-                        <!-- 1. ORIGEN -->
-                        <div class="d-flex mb-3">
-                            <div class="me-3 text-center" style="width: 40px;">
-                                <div class="badge bg-primary rounded-circle p-2"><i class="bi bi-truck"></i></div>
-                                <div class="border-start border-2 h-100 mx-auto mt-1" style="width: 2px;"></div>
-                            </div>
-                            <div>
-                                <h6 class="fw-bold mb-1">1. ORIGEN Y RECEPCIÓN</h6>
-                                <p class="text-muted small mb-1">
-                                    Tipo de Origen: <strong>{{ orig.origin_type }}</strong>
-                                    {% if orig.supplier_name %} | Proveedor: <strong>{{ orig.supplier_name }}</strong>{% endif %}
-                                    {% if orig.oc_number %} | OC: <code>{{ orig.oc_number }}</code>{% endif %}
-                                    {% if orig.entry_order_number %} | Doc/Guía: <code>{{ orig.entry_order_number }}</code>{% endif %}
-                                    {% if orig.production_ot_number %} | Fabricado en OT: <code>{{ orig.production_ot_number }}</code>{% endif %}
-                                </p>
-                            </div>
-                        </div>
-
-                        <!-- 2. ANCESTROS / MATERIAS PRIMAS -->
-                        {% if selected_lot.backward_tree %}
-                        <div class="d-flex mb-3">
-                            <div class="me-3 text-center" style="width: 40px;">
-                                <div class="badge bg-info text-dark rounded-circle p-2"><i class="bi bi-box-seam"></i></div>
-                                <div class="border-start border-2 h-100 mx-auto mt-1" style="width: 2px;"></div>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h6 class="fw-bold mb-1">2. INSUMOS Y ANCESTROS (Backward Trace)</h6>
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-bordered small mb-1">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th>Lote Insumo</th>
-                                                <th>Producto / Materia Prima</th>
-                                                <th>Proveedor Origen</th>
-                                                <th>Recepción / OC</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for anc in selected_lot.backward_tree %}
-                                            {% if anc.lot_id != idt.lot_id %}
-                                            <tr>
-                                                <td><code>{{ anc.lot_number }}</code></td>
-                                                <td>{{ anc.product_name }}</td>
-                                                <td>{{ anc.supplier_name or 'N/A' }}</td>
-                                                <td>{{ anc.entry_order_number or anc.oc_number or 'N/A' }}</td>
-                                            </tr>
-                                            {% endif %}
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-
-                        <!-- 3. TRANSFORMACIONES EN PRODUCCIÓN -->
-                        {% if selected_lot.productions_consumed %}
-                        <div class="d-flex mb-3">
-                            <div class="me-3 text-center" style="width: 40px;">
-                                <div class="badge bg-warning text-dark rounded-circle p-2"><i class="bi bi-gear-wide-connected"></i></div>
-                                <div class="border-start border-2 h-100 mx-auto mt-1" style="width: 2px;"></div>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h6 class="fw-bold mb-1">3. TRANSFORMACIONES EN ORDEN DE TRABAJO (OT)</h6>
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-bordered small mb-1">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th>Orden de Trabajo</th>
-                                                <th>Insumo Consumido</th>
-                                                <th>Cantidad</th>
-                                                <th>Lote Derivado Generado</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for p in selected_lot.productions_consumed %}
-                                            <tr>
-                                                <td><strong>{{ p.ot_number }}</strong></td>
-                                                <td>{{ p.input_product_name }} (Lote: {{ p.input_lot_number }})</td>
-                                                <td>{{ p.quantity_consumed }} un</td>
-                                                <td><code>{{ p.output_lot_number or 'N/A' }}</code> ({{ p.output_product_name or '' }})</td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-
-                        <!-- 4. VENTAS Y CLIENTES (SALIDAS) -->
-                        <div class="d-flex mb-2">
-                            <div class="me-3 text-center" style="width: 40px;">
-                                <div class="badge bg-success rounded-circle p-2"><i class="bi bi-cart-check"></i></div>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h6 class="fw-bold mb-1">4. DESPACHO EN VENTAS Y CLIENTES (Forward Trace)</h6>
-                                {% if selected_lot.sales_dispatched %}
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-bordered small mb-0">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th>Nº Venta</th>
-                                                <th>Cliente</th>
-                                                <th>Fecha Venta</th>
-                                                <th>Cantidad Despachada</th>
-                                                <th>Lote Específico Vendido</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for s in selected_lot.sales_dispatched %}
-                                            <tr>
-                                                <td><strong>{{ s.sale_number }}</strong></td>
-                                                <td>{{ s.customer_name }} ({{ s.customer_email or 'Sin email' }})</td>
-                                                <td>{{ s.sale_date }}</td>
-                                                <td>{{ s.quantity }} un</td>
-                                                <td><code>{{ s.lot_number }}</code></td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
-                                {% else %}
-                                <p class="text-muted small mb-0">No se registran salidas en ventas para este lote o sus derivados.</p>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    <section class="trace-panel trace-flow" aria-label="Diagrama de trazabilidad del lote">
+        <article class="trace-column">
+            <h2>Entrada</h2>
+            <p class="trace-subtitle">Lote de origen</p>
+            <div class="trace-origin-card">
+                <i class="fa-solid fa-cube origin-icon"></i>
+                <strong>{{ idt.lot_number }}</strong>
+                <p>{{ orig.origin_type|replace('_', ' ')|title }}{% if orig.supplier_name %} · {{ orig.supplier_name }}{% endif %}</p>
+                <p>Ingreso: {{ (idt.created_at|string)[:10] if idt.created_at else 'Fecha no informada' }}</p>
+                {% if orig.oc_number %}<p>Orden de compra: <strong>{{ orig.oc_number }}</strong></p>{% endif %}
+                {% if orig.entry_order_number %}<p>Recepción: <strong>{{ orig.entry_order_number }}</strong></p>{% endif %}
+                {% if orig.production_ot_number %}<p>Fabricado en OT: <strong>{{ orig.production_ot_number }}</strong></p>{% endif %}
+                <div class="origin-qty">{{ idt.initial_quantity }} unidades</div>
             </div>
+        </article>
+
+        <article class="trace-column">
+            <h2>Transformaciones ({{ selected_lot.productions_consumed|length }})</h2>
+            <p class="trace-subtitle">Operaciones reales en órdenes de trabajo</p>
+            {% if selected_lot.productions_consumed %}
+            <div class="trace-transform-list">
+                {% for production in selected_lot.productions_consumed %}
+                <div class="trace-transform-card">
+                    <strong><i class="fa-solid fa-gears" style="color:#b7791f"></i> <a href="{{ url_for('produccion.list_ots', search=production.ot_number) }}">{{ production.ot_number }}</a> · {{ production.ot_status }}</strong>
+                    <p>Consume {{ production.quantity_consumed }} un de {{ production.input_product_name }}<br>Lote: <strong>{{ production.input_lot_number }}</strong></p>
+                    {% if production.output_lot_number %}<p>Genera {{ production.quantity_produced }} un → <a href="{{ url_for('trazabilidad.view_trazabilidad', q=production.output_lot_number) }}">{{ production.output_lot_number }}</a> ({{ production.output_product_name }})</p>{% else %}<p>La OT no tiene un lote de salida asociado.</p>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="trace-no-transform"><i class="fa-solid fa-industry"></i><strong>Sin transformaciones</strong><span>Este lote no registra relaciones de producción.</span></div>
+            {% endif %}
+        </article>
+
+        <article class="trace-column">
+            <h2>Salidas y consumos ({{ selected_lot.outflows|length }})</h2>
+            <p class="trace-subtitle">Despachos y movimientos físicos aplicados</p>
+            {% if selected_lot.outflows %}
+            <div class="trace-outflow-list">
+                {% for movement in selected_lot.outflows %}
+                {% set is_sale = movement.reference_type == 'sale' %}
+                {% set is_adjustment = movement.reference_type == 'inventory_adjustment' %}
+                {% set is_production = movement.movement_type in ['PRODUCTION_INPUT', 'PRODUCTION_CONSUMPTION'] %}
+                <div class="trace-outflow {% if is_adjustment %}adjustment{% endif %}">
+                    <div class="trace-outflow-row">
+                        <i class="trace-outflow-icon {% if is_sale %}fa-solid fa-cart-shopping{% elif is_production %}fa-solid fa-gears{% elif is_adjustment %}fa-solid fa-arrows-rotate{% else %}fa-solid fa-box-open{% endif %}"></i>
+                        <div class="trace-outflow-main">
+                            {% if is_sale %}
+                            <strong><a href="{{ url_for('ventas.ventas', search=movement.sale_number) }}">{{ movement.sale_number or ('Venta #' ~ movement.reference_id) }}</a></strong>
+                            <span>{{ movement.customer_name or 'Cliente no informado' }}</span>
+                            {% elif is_production %}
+                            <strong><a href="{{ url_for('produccion.list_ots', search=movement.ot_number) }}">{{ movement.ot_number or ('Consumo OT #' ~ movement.reference_id) }}</a></strong>
+                            <span>Consumo de producción · {{ movement.product_name }}</span>
+                            {% elif is_adjustment %}
+                            <strong>Ajuste de inventario #{{ movement.reference_id }}</strong>
+                            <span>{{ movement.adjustment_reason or movement.notes or 'Salida por ajuste' }}</span>
+                            {% else %}
+                            <strong>{{ movement.movement_type|replace('_', ' ')|title }} #{{ movement.reference_id or movement.movement_id }}</strong>
+                            <span>{{ movement.notes or movement.product_name }}</span>
+                            {% endif %}
+                            <span>{{ (movement.created_at|string)[:10] }}{% if movement.lot_number and movement.lot_number != idt.lot_number %} · Lote {{ movement.lot_number }}{% endif %}</span>
+                        </div>
+                        <div class="trace-outflow-qty">{{ (movement.quantity|abs) }} un</div>
+                    </div>
+                    <details><summary>Movimiento #{{ movement.movement_id }} · {{ movement.warehouse or 'Bodega no informada' }}</summary>
+                        <div>{{ movement.movement_type }} · Referencia {{ movement.reference_type or 'sin tipo' }}:{{ movement.reference_id or '—' }}{% if movement.notes %}<br>{{ movement.notes }}{% endif %}</div>
+                        <a href="{{ url_for('inventario.ver_kardex_producto', product_id=movement.product_id) }}">Abrir Kardex del producto</a>
+                    </details>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="trace-no-outflow"><i class="fa-solid fa-box-open"></i><br>Este lote todavía no registra salidas físicas.</div>
+            {% endif %}
+        </article>
+    </section>
+
+    <section class="trace-panel trace-summary" aria-label="Resumen de movimientos directos del lote">
+        <div class="trace-summary-head">
+            <h2>Resumen del lote consultado</h2>
+            {% if summary.available_qty <= 0 %}
+            <span class="trace-summary-state empty"><i class="fa-solid fa-circle-check"></i> Lote completamente agotado</span>
+            {% else %}
+            <span class="trace-summary-state"><i class="fa-solid fa-circle-check"></i> Saldo disponible: {{ summary.available_qty }} unidades</span>
+            {% endif %}
         </div>
-    </div>
-    {% elif query %}
-    <div class="alert alert-info shadow-sm border-0">
-        <i class="bi bi-info-circle me-2"></i>No se encontraron lotes para el término de búsqueda <strong>"{{ query }}"</strong>.
-    </div>
-    {% else %}
-    <div class="card shadow-sm border-0 text-center py-5">
-        <div class="card-body">
-            <i class="bi bi-diagram-3 display-3 text-muted"></i>
-            <h4 class="mt-3 text-secondary">Explorador de Trazabilidad y Recall</h4>
-            <p class="text-muted">Ingrese un número de lote, SKU o nombre de producto arriba para explorar su genealogía completa 360°.</p>
+        <div class="trace-summary-grid">
+            <div class="trace-summary-item"><i class="fa-solid fa-sigma"></i><div><span>Cantidad inicial</span><strong>{{ summary.initial_quantity }} un</strong></div></div>
+            <div class="trace-summary-item"><i class="fa-solid fa-cart-arrow-down"></i><div><span>Total de salidas directas</span><strong>{{ summary.total_outflow }} un</strong></div></div>
+            <div class="trace-summary-item"><i class="fa-solid fa-arrow-right-from-bracket"></i><div><span>Movimientos de salida</span><strong>{{ summary.outflow_count }}</strong></div></div>
+            <div class="trace-summary-item"><i class="fa-solid fa-equals"></i><div><span>Saldo actual en lotes</span><strong>{{ summary.available_qty }} un</strong></div></div>
         </div>
-    </div>
+    </section>
+
+    <section class="trace-secondary">
+        <details class="trace-panel">
+            <summary>Ver historial completo del Kardex asociado a la genealogía ({{ selected_lot.movements|length }} movimientos)</summary>
+            {% if selected_lot.movements %}
+            <div style="overflow-x:auto">
+                <table class="trace-movement-table">
+                    <thead><tr><th>Movimiento</th><th>Lote</th><th>Fecha</th><th>Tipo</th><th>Variación</th><th>Bodega</th><th>Documento / detalle</th></tr></thead>
+                    <tbody>{% for movement in selected_lot.movements %}
+                    <tr>
+                        <td><a href="{{ url_for('inventario.ver_kardex_producto', product_id=movement.product_id) }}">#{{ movement.movement_id }}</a></td>
+                        <td>{{ movement.lot_number or '—' }}</td><td>{{ (movement.created_at|string)[:10] }}</td>
+                        <td>{{ movement.movement_type }}</td><td style="color:{{ '#b42338' if movement.quantity < 0 else '#078246' }};font-weight:700">{{ '+' if movement.quantity > 0 else '' }}{{ movement.quantity }}</td>
+                        <td>{{ movement.warehouse or '—' }}</td><td>{{ movement.sale_number or movement.ot_number or movement.adjustment_reason or movement.notes or '—' }}</td>
+                    </tr>{% endfor %}</tbody>
+                </table>
+            </div>
+            {% else %}<p style="color:#64748b;margin:12px 0 0">No hay movimientos asociados a este lote en el Kardex.</p>{% endif %}
+        </details>
+        <details class="trace-panel" style="margin-top:10px">
+            <summary>Impacto potencial de Recall · {{ selected_lot.recall_summary.affected_sales_count }} ventas / {{ selected_lot.recall_summary.affected_clients_count }} clientes</summary>
+            <div class="trace-recall-actions">
+                <a href="{{ url_for('trazabilidad.export_recall_csv', lot_id=idt.lot_id) }}"><i class="fa-solid fa-file-csv"></i> Exportar CSV</a>
+                <a href="{{ url_for('trazabilidad.export_recall_pdf', lot_id=idt.lot_id) }}"><i class="fa-solid fa-file-pdf"></i> Descargar PDF de Recall</a>
+            </div>
+            {% if selected_lot.recall.affected_clients %}<div class="trace-recall-clients">{% for client in selected_lot.recall.affected_clients %}<span>{{ client.customer_name }} · {{ client.total_units_bought }} un</span>{% endfor %}</div>{% endif %}
+            {% if selected_lot.recall.affected_sales %}<ul>{% for sale in selected_lot.recall.affected_sales %}<li><a href="{{ url_for('ventas.ventas', search=sale.sale_number) }}">{{ sale.sale_number }}</a> · {{ sale.customer_name }} · lote {{ sale.lot_number }} · {{ sale.quantity }} un · {{ sale.sale_date }}</li>{% endfor %}</ul>{% else %}<p style="color:#64748b;margin:12px 0 0">No hay ventas despachadas asociadas a este lote ni a sus derivados.</p>{% endif %}
+        </details>
+    </section>
+    {% elif not query %}
+    <section class="trace-panel trace-empty-query" style="text-align:center;padding:52px 20px">
+        <i class="fa-solid fa-diagram-project" style="font-size:42px;color:#1685fa"></i>
+        <h2 style="margin:14px 0 5px;font-size:20px">Consulta la genealogía de un lote</h2>
+        <p style="margin:0;color:#64748b">Busca por código de lote, producto, SKU, orden de trabajo o documento de origen.</p>
+    </section>
     {% endif %}
-</div>
+</main>
 {% endblock %}

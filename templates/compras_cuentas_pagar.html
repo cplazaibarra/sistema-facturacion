@@ -181,7 +181,7 @@
                     </td>
                     <td style="padding:11px 14px;text-align:center;">
                         {% if inv.payment_status == 'Vencida' %}
-                            <span style="background:#fff5f5;color:#e53e3e;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">⚠️ Vencida</span>
+                            <span style="background:#fff5f5;color:#e53e3e;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">Vencida</span>
                         {% elif inv.payment_status == 'Pendiente' %}
                             <span style="background:#fffff0;color:#d69e2e;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">⏳ Por Pagar</span>
                         {% elif inv.payment_status == 'Sin Factura' %}
@@ -1182,7 +1182,7 @@ async function openOCDetailModal(poId) {
                     let bankInfo = inv.bank_name ? ` · 🏦 ${inv.bank_name} (${inv.account_number || ''})` : '';
                     statusBadge = `<span style="background:#def7ec;color:#03543f;font-weight:600;padding:2px 8px;border-radius:12px;font-size:11px;">✅ Pagada (${inv.payment_date || ''}${bankInfo})</span>`;
                 } else if (inv.payment_status === 'Vencida') {
-                    statusBadge = `<span style="background:#fde8e8;color:#9b1c1c;font-weight:600;padding:2px 8px;border-radius:12px;font-size:11px;">⚠️ Vencida</span>`;
+                    statusBadge = `<span style="background:#fde8e8;color:#9b1c1c;font-weight:600;padding:2px 8px;border-radius:12px;font-size:11px;">Vencida</span>`;
                 } else if (inv.payment_status === 'Pendiente') {
                     statusBadge = `<span style="background:#fef08a;color:#713f12;font-weight:600;padding:2px 8px;border-radius:12px;font-size:11px;">⏳ Pendiente</span>`;
                 } else {

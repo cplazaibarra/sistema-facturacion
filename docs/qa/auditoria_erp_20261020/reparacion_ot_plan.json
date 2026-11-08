@@ -1,0 +1,80 @@
+{
+  "order_before": {
+    "id": 6092,
+    "ot_number": "OT-09270",
+    "final_product_id": 1,
+    "quantity": 3,
+    "status": "Finalizada",
+    "notes": "",
+    "created_at": "2026-09-27 23:58:58",
+    "approved_at": "2026-09-27 23:58:59",
+    "completed_at": "2026-09-28 03:03:42.665722+00",
+    "unit_cost": null,
+    "scheduled_date": null,
+    "schedule_order": null
+  },
+  "order_items_before": [
+    {
+      "id": 11138,
+      "production_order_id": 6092,
+      "input_product_id": 14,
+      "quantity_required": 3.0,
+      "unit_cost": null
+    }
+  ],
+  "movements_before": [
+    {
+      "id": 56161,
+      "product_id": 14,
+      "movement_type": "PRODUCTION_INPUT",
+      "quantity": -2.0,
+      "unit_cost": 0.0,
+      "lot_number": null,
+      "warehouse": "Principal",
+      "reference_type": "production_order",
+      "reference_id": 6092,
+      "notes": "Consumo móvil en OT-09270 (Lote E2E-F3-FIFO-A-20260927)",
+      "created_at": "2026-09-28 03:03:26.099025+00",
+      "created_by": "Sistema",
+      "lot_id": 5430
+    },
+    {
+      "id": 56162,
+      "product_id": 14,
+      "movement_type": "PRODUCTION_INPUT",
+      "quantity": -1.0,
+      "unit_cost": 0.0,
+      "lot_number": null,
+      "warehouse": "Principal",
+      "reference_type": "production_order",
+      "reference_id": 6092,
+      "notes": "Consumo móvil en OT-09270 (Lote E2E-F3-FIFO-B-20260927)",
+      "created_at": "2026-09-28 03:03:26.980858+00",
+      "created_by": "Sistema",
+      "lot_id": 5431
+    },
+    {
+      "id": 56163,
+      "product_id": 1,
+      "movement_type": "PRODUCTION_OUTPUT",
+      "quantity": 3.0,
+      "unit_cost": 0.0,
+      "lot_number": null,
+      "warehouse": "Principal",
+      "reference_type": "production_order",
+      "reference_id": 6092,
+      "notes": "Alta producto terminado OT OT-09270 (Lote E2E-F3-PT-OT-09270)",
+      "created_at": "2026-09-28 03:03:42.665722+00",
+      "created_by": "Sistema",
+      "lot_id": 5433
+    }
+  ],
+  "input_cost": "3200.000000000000000000000001",
+  "output_movement_id": 56163,
+  "previous_effective_output_cost": "1000.0",
+  "new_unit_cost": "1066.666667",
+  "input_unit_costs": {
+    "14": "1066.666667"
+  },
+  "applied": false
+}

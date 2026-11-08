@@ -1,6 +1,6 @@
 # Informe de aislamiento de base de tests
 
-**Fecha:** 2026-10-20T04:29:58+00:00
+**Fecha:** 2026-10-20T04:52:12+00:00
 **Base normal:** `facturacion`
 **Base de plantilla test (persistente, inmutable durante suites):** `facturacion_cleanup_verify`
 **Aislamiento por suite:** copia PostgreSQL efímera `facturacion_test_run_<12 hex>`; se elimina en `finally`.

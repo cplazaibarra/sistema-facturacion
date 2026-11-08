@@ -1162,6 +1162,81 @@ def list_inventory_entries(limit: Optional[int] = 20) -> list[dict]:
             return records
 
 
+def list_inventory_entries_page(
+    page: int = 1,
+    per_page: int = 25,
+    search: str = "",
+    supplier_id: Optional[int] = None,
+    date_from: str = "",
+    date_to: str = "",
+) -> dict:
+    """Consulta paginada del historial de recepciones, con filtros server-side."""
+    page = max(1, int(page or 1))
+    per_page = int(per_page or 25)
+    if per_page not in (25, 50, 100):
+        per_page = 25
+
+    filters = []
+    params = []
+    term = (search or "").strip()
+    if term:
+        filters.append("""(
+            ie.order_number ILIKE %s OR COALESCE(ie.document_number, '') ILIKE %s
+            OR COALESCE(po.oc_number, '') ILIKE %s OR COALESCE(s.name, '') ILIKE %s
+            OR COALESCE(ie.notes, '') ILIKE %s
+            OR EXISTS (
+                SELECT 1 FROM inventory_entry_items iei
+                JOIN products p ON p.id = iei.product_id
+                WHERE iei.inventory_entry_id = ie.id
+                  AND (p.name ILIKE %s OR p.sku ILIKE %s OR COALESCE(iei.lot_number, '') ILIKE %s)
+            )
+        )""")
+        like = f"%{term}%"
+        params.extend([like] * 8)
+    if supplier_id:
+        filters.append("ie.supplier_id = %s")
+        params.append(supplier_id)
+    if date_from:
+        filters.append("ie.entry_date >= %s")
+        params.append(date_from)
+    if date_to:
+        filters.append("ie.entry_date <= %s")
+        params.append(date_to)
+    where_sql = " WHERE " + " AND ".join(filters) if filters else ""
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) AS total FROM inventory_entries ie "
+                "LEFT JOIN suppliers s ON s.id = ie.supplier_id "
+                "LEFT JOIN purchase_orders po ON po.id = ie.purchase_order_id" + where_sql,
+                tuple(params),
+            )
+            total = int(cur.fetchone()["total"] or 0)
+            offset = (page - 1) * per_page
+            cur.execute(
+                """
+                SELECT ie.id, ie.entry_date, ie.order_number, ie.document_type,
+                       ie.document_number, ie.warehouse, ie.notes, ie.total_amount,
+                       s.name AS supplier, po.oc_number,
+                       (SELECT COUNT(*) FROM inventory_entry_items iei WHERE iei.inventory_entry_id = ie.id) AS items_count
+                FROM inventory_entries ie
+                LEFT JOIN suppliers s ON s.id = ie.supplier_id
+                LEFT JOIN purchase_orders po ON po.id = ie.purchase_order_id
+                """ + where_sql + " ORDER BY ie.entry_date DESC, ie.id DESC LIMIT %s OFFSET %s",
+                tuple(params + [per_page, offset]),
+            )
+            items = [dict(row) for row in cur.fetchall()]
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": (total + per_page - 1) // per_page,
+    }
+
+
 def get_inventory_entry_detail(entry_id: int, conn=None) -> dict | None:
     """
     Obtiene el detalle completo de un ingreso de mercadería específico por su ID único (inventory_entries.id),

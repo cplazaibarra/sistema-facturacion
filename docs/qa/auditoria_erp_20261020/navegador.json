@@ -1,0 +1,16 @@
+{
+  "detail": {
+    "net": "$252.101",
+    "vat": "$47.899",
+    "total": "$300.000",
+    "sidebar": "none",
+    "logoLoaded": true
+  },
+  "form": {
+    "net": "$27.000",
+    "vat": "$5.130",
+    "total": "$32.130"
+  },
+  "errors": [],
+  "writesBlocked": true
+}

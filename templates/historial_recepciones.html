@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}Historial de Recepciones{% endblock %}
+{% block page_title %}Bodega > Historial de Recepciones{% endblock %}
+
+{% block content %}
+<main style="max-width:1500px;margin:0 auto;padding:4px 0 28px;color:#1e293b">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px">
+        <div>
+            <h2 style="margin:0 0 4px;font-size:23px">Historial de Recepciones</h2>
+            <p style="margin:0;color:#64748b;font-size:13px">Consulta todas las recepciones registradas, sus documentos y productos recibidos.</p>
+        </div>
+        <a href="{{ url_for('inventario.ingreso_mercaderia') }}" style="display:inline-flex;align-items:center;gap:7px;padding:9px 13px;border:1px solid #cbd5e1;border-radius:7px;background:white;color:#334155;text-decoration:none;font-weight:650;font-size:13px">
+            <i class="fa-solid fa-arrow-left"></i> Volver a Ingreso Mercadería
+        </a>
+    </div>
+
+    <section style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:17px;margin-bottom:14px;box-shadow:0 1px 3px #0f172a0a">
+        <form method="get" action="{{ url_for('inventario.historial_ingresos') }}" id="receipts-filter" style="display:grid;grid-template-columns:minmax(220px,2fr) repeat(3,minmax(150px,1fr)) auto;gap:11px;align-items:end">
+            <input type="hidden" name="page" value="1">
+            <label style="font-size:12px;font-weight:650;color:#475569">Buscar
+                <input type="search" name="search" value="{{ search }}" placeholder="Documento, OC, proveedor, producto o lote" style="display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:9px 10px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;font-size:13px">
+            </label>
+            <label style="font-size:12px;font-weight:650;color:#475569">Proveedor
+                <select name="supplier_id" style="display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:9px 10px;border:1px solid #cbd5e1;border-radius:6px;background:white;font:inherit;font-size:13px">
+                    <option value="">Todos</option>
+                    {% for supplier in suppliers %}<option value="{{ supplier.id }}" {% if supplier_id == supplier.id %}selected{% endif %}>{{ supplier.name }}</option>{% endfor %}
+                </select>
+            </label>
+            <label style="font-size:12px;font-weight:650;color:#475569">Desde
+                <input type="date" name="date_from" value="{{ date_from }}" style="display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:8px 9px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;font-size:13px">
+            </label>
+            <label style="font-size:12px;font-weight:650;color:#475569">Hasta
+                <input type="date" name="date_to" value="{{ date_to }}" style="display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:8px 9px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;font-size:13px">
+            </label>
+            <div style="display:flex;gap:7px">
+                <button type="submit" style="padding:9px 13px;border:0;border-radius:6px;background:#1676e8;color:white;font-weight:700;cursor:pointer">Buscar</button>
+                <a href="{{ url_for('inventario.historial_ingresos') }}" style="padding:9px 11px;border:1px solid #cbd5e1;border-radius:6px;color:#475569;text-decoration:none;font-size:13px">Limpiar</a>
+            </div>
+        </form>
+    </section>
+
+    <section style="background:white;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px #0f172a0a">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:13px">
+            <span><strong style="color:#1e293b">{{ total_records }}</strong> recepciones encontradas</span>
+            <label>Mostrar
+                <select onchange="changeReceiptPageSize(this.value)" style="margin-left:4px;padding:5px 7px;border:1px solid #cbd5e1;border-radius:5px;background:white">
+                    {% for size in (25,50,100) %}<option value="{{ size }}" {% if per_page == size %}selected{% endif %}>{{ size }}</option>{% endfor %}
+                </select>
+            </label>
+        </div>
+        <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;min-width:900px;font-size:13px">
+                <thead><tr style="background:#f8fafc;text-align:left;color:#64748b;font-size:11px;text-transform:uppercase">
+                    <th style="padding:11px 13px">Fecha</th><th style="padding:11px 13px">Documento de recepción</th><th style="padding:11px 13px">Orden de compra</th><th style="padding:11px 13px">Proveedor / origen</th><th style="padding:11px 13px;text-align:center">Productos</th><th style="padding:11px 13px;text-align:right">Total</th><th style="padding:11px 13px;text-align:center">Detalle</th>
+                </tr></thead>
+                <tbody>
+                {% for entry in entries %}
+                    {% set doc_type = entry.document_type or 'guia_despacho' %}
+                    <tr style="border-top:1px solid #edf1f5">
+                        <td style="padding:11px 13px;white-space:nowrap">{{ entry.entry_date or '—' }}</td>
+                        <td style="padding:11px 13px"><strong>{{ entry.document_number or entry.order_number or ('Ingreso #' ~ entry.id) }}</strong><br><small style="color:#64748b">{{ 'Factura de compra' if doc_type == 'factura' else ('Guía de despacho' if doc_type == 'guia_despacho' else doc_type|replace('_',' ')|title) }}</small></td>
+                        <td style="padding:11px 13px">{{ entry.oc_number or 'Sin OC' }}</td>
+                        <td style="padding:11px 13px">{{ entry.supplier or 'Producción / ingreso interno' }}<br><small style="color:#64748b">{{ entry.warehouse or 'Bodega no informada' }}</small></td>
+                        <td style="padding:11px 13px;text-align:center">{{ entry.items_count }}</td>
+                        <td style="padding:11px 13px;text-align:right;white-space:nowrap">${{ '{:,.0f}'.format(entry.total_amount or 0) }}</td>
+                        <td style="padding:11px 13px;text-align:center"><button type="button" onclick="openReceiptDetail({{ entry.id }})" style="padding:6px 10px;border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;color:#1d4ed8;font-weight:650;cursor:pointer"><i class="fa-solid fa-eye"></i> Ver</button></td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7" style="padding:36px;text-align:center;color:#64748b">No hay recepciones que coincidan con los filtros.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if total_pages > 1 %}
+        <nav aria-label="Paginación de recepciones" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:13px 16px;border-top:1px solid #e2e8f0">
+            <span style="font-size:12px;color:#64748b">Página {{ current_page }} de {{ total_pages }}</span>
+            <div style="display:flex;gap:6px">
+                {% if current_page > 1 %}<a href="{{ url_for('inventario.historial_ingresos',page=current_page-1,per_page=per_page,search=search,supplier_id=supplier_id,date_from=date_from,date_to=date_to) }}" class="receipt-page-link">← Anterior</a>{% endif %}
+                {% if current_page < total_pages %}<a href="{{ url_for('inventario.historial_ingresos',page=current_page+1,per_page=per_page,search=search,supplier_id=supplier_id,date_from=date_from,date_to=date_to) }}" class="receipt-page-link">Siguiente →</a>{% endif %}
+            </div>
+        </nav>
+        {% endif %}
+    </section>
+</main>
+
+<div id="receipt-detail-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:#0f172a88;padding:18px;align-items:center;justify-content:center" onclick="if(event.target===this)closeReceiptDetail()">
+    <section style="width:min(900px,100%);max-height:90vh;overflow:auto;background:white;border-radius:12px;box-shadow:0 20px 50px #0f172a44">
+        <header style="position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:#1e293b;color:white;z-index:1">
+            <strong id="receipt-detail-title">Detalle de recepción</strong><button type="button" onclick="closeReceiptDetail()" aria-label="Cerrar" style="background:none;border:0;color:white;font-size:23px;cursor:pointer">×</button>
+        </header>
+        <div id="receipt-detail-content" style="padding:18px"><p style="color:#64748b">Cargando detalle...</p></div>
+    </section>
+</div>
+<style>.receipt-page-link{padding:7px 10px;border:1px solid #cbd5e1;border-radius:6px;color:#334155;text-decoration:none;font-size:12px;font-weight:650}</style>
+<script>
+function changeReceiptPageSize(size){const form=document.getElementById('receipts-filter');let input=form.querySelector('[name="per_page"]');if(!input){input=document.createElement('input');input.type='hidden';input.name='per_page';form.appendChild(input)}input.value=size;form.submit()}
+function receiptEsc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+async function openReceiptDetail(entryId){const modal=document.getElementById('receipt-detail-modal');const content=document.getElementById('receipt-detail-content');modal.style.display='flex';content.innerHTML='<p style="color:#64748b">Cargando detalle...</p>';try{const response=await fetch(`/api/recepciones/${entryId}`);const result=await response.json();if(!response.ok||result.status!=='success')throw new Error(result.message||'No se pudo cargar el detalle');const data=result.data,entry=data.entry;document.getElementById('receipt-detail-title').textContent=`Recepción #${entry.id} · ${entry.document_label||entry.order_number||''}`;const rows=data.items.map(item=>`<tr><td>${receiptEsc(item.product_name)}</td><td>${receiptEsc(item.sku)}</td><td>${receiptEsc(item.lot_number||'—')}</td><td style="text-align:right">${receiptEsc(item.quantity)} ${receiptEsc(item.unit_of_measure||'un')}</td><td style="text-align:right">$${Math.round(Number(item.unit_price)||0).toLocaleString('es-CL')}</td><td style="text-align:right">$${Math.round(Number(item.total)||0).toLocaleString('es-CL')}</td></tr>`).join('');const filePath=String(entry.document_file||'').split('/').map(encodeURIComponent).join('/');const fileUrl=filePath?`<a href="/uploads/${filePath}" target="_blank" rel="noopener">Ver documento adjunto</a>`:'';content.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:11px;margin-bottom:16px"><div><small>Fecha</small><strong style="display:block">${receiptEsc(entry.entry_date||'—')}</strong></div><div><small>Documento</small><strong style="display:block">${receiptEsc(entry.document_label||'—')}</strong></div><div><small>OC</small><strong style="display:block">${receiptEsc(entry.oc_number||'Sin OC')}</strong></div><div><small>Proveedor</small><strong style="display:block">${receiptEsc(entry.supplier_name||'Ingreso interno')}</strong></div><div><small>Bodega</small><strong style="display:block">${receiptEsc(entry.warehouse||'—')}</strong></div><div>${fileUrl}</div></div>${entry.notes?`<p style="padding:10px;background:#f8fafc;border-radius:6px;color:#475569">${receiptEsc(entry.notes)}</p>`:''}<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:700px;font-size:12px"><thead><tr style="text-align:left;background:#f1f5f9"><th>Producto</th><th>SKU</th><th>Lote</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Precio unitario</th><th style="text-align:right">Total</th></tr></thead><tbody>${rows||'<tr><td colspan="6">Sin productos asociados</td></tr>'}</tbody></table></div><div style="display:flex;justify-content:flex-end;gap:18px;margin-top:15px;font-size:13px"><span>Neto: <strong>$${Math.round(Number(data.neto)||0).toLocaleString('es-CL')}</strong></span><span>IVA: <strong>$${Math.round(Number(data.iva)||0).toLocaleString('es-CL')}</strong></span><span>Total: <strong>$${Math.round(Number(data.total)||0).toLocaleString('es-CL')}</strong></span></div>`}catch(error){content.innerHTML=`<p style="color:#b91c1c">${receiptEsc(error.message)}</p>`}}
+function closeReceiptDetail(){document.getElementById('receipt-detail-modal').style.display='none'}
+document.addEventListener('keydown',event=>{if(event.key==='Escape')closeReceiptDetail()});
+</script>
+{% endblock %}

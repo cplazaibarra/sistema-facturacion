@@ -541,7 +541,14 @@ def update_transaction_category(
 # ---------------------------------------------------------
 # Deterministic Reconciliation & Matching
 # ---------------------------------------------------------
-def get_suggested_reconciliation_matches(transaction_id: int) -> Dict[str, Any]:
+def get_suggested_reconciliation_matches(
+    transaction_id: int,
+    search: Optional[str] = None,
+    filter_rut: Optional[str] = None,
+    filter_name: Optional[str] = None,
+    filter_oc: Optional[str] = None,
+    filter_order: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Finds deterministic candidates to reconcile against a bank transaction.
     - If ABONO: checks sale_payment_items (or sales) where amount matches and date within +/- 15 days.
@@ -807,7 +814,369 @@ def get_suggested_reconciliation_matches(transaction_id: int) -> Dict[str, Any]:
 
     # Sort matches by score descending
     matches.sort(key=lambda m: m["score"], reverse=True)
-    return {"transaction": tx, "matches": matches}
+
+    # ------------------------------------------------------------------
+    # Alternativas del ERP: Operaciones disponibles y búsqueda con filtros
+    # (RUT cliente/proveedor, Nombre, N° OC, N° Pedido/Venta)
+    # ------------------------------------------------------------------
+    alternatives = []
+    seen_ids = {(m["match_type"], m["id"]) for m in matches}
+
+    term_search = (search or "").strip()
+    term_rut = (filter_rut or "").strip()
+    term_name = (filter_name or "").strip()
+    term_oc = (filter_oc or "").strip()
+    term_order = (filter_order or "").strip()
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            if tx["movement_type"] == "ABONO":
+                abs_amt = abs(tx_amount)
+
+                # A. Cobranzas / Pagos de Ventas (sale_payment_items)
+                spi_filters = []
+                spi_params = []
+                if term_rut:
+                    spi_filters.append("(c.rut ILIKE %s OR COALESCE(s.notes, '') ILIKE %s)")
+                    spi_params.extend([f"%{term_rut}%", f"%{term_rut}%"])
+                if term_name:
+                    spi_filters.append("(s.customer_name ILIKE %s OR COALESCE(c.razon_social, '') ILIKE %s)")
+                    spi_params.extend([f"%{term_name}%", f"%{term_name}%"])
+                if term_order:
+                    spi_filters.append("(s.sale_number ILIKE %s OR CAST(s.id AS TEXT) = %s)")
+                    spi_params.extend([f"%{term_order}%", term_order])
+                if term_search:
+                    s_like = f"%{term_search}%"
+                    spi_filters.append("(s.customer_name ILIKE %s OR COALESCE(c.razon_social, '') ILIKE %s OR COALESCE(c.rut, '') ILIKE %s OR s.sale_number ILIKE %s OR COALESCE(s.notes, '') ILIKE %s)")
+                    spi_params.extend([s_like, s_like, s_like, s_like, s_like])
+
+                where_spi = (" AND " + " AND ".join(spi_filters)) if spi_filters else ""
+                sql_spi = f"""
+                    SELECT 
+                        spi.id, spi.sale_id, spi.payment_amount, spi.payment_date, spi.payment_method, spi.bank_account_id,
+                        s.sale_number, s.customer_name,
+                        COALESCE(c.rut, '') as customer_rut, COALESCE(c.dv, '') as customer_dv,
+                        ba.bank_name, ba.account_number
+                    FROM sale_payment_items spi
+                    JOIN sales s ON spi.sale_id = s.id
+                    LEFT JOIN LATERAL (
+                        SELECT rut, dv, razon_social FROM clients 
+                        WHERE (NULLIF(s.customer_name, '') IS NOT NULL AND razon_social ILIKE s.customer_name)
+                           OR (NULLIF(s.customer_email, '') IS NOT NULL AND email ILIKE s.customer_email)
+                        LIMIT 1
+                    ) c ON true
+                    LEFT JOIN bank_accounts ba ON spi.bank_account_id = ba.id
+                    WHERE COALESCE(spi.accounting_approved, 1) = 1
+                      AND NOT EXISTS (
+                          SELECT 1 FROM bank_transactions bt 
+                          WHERE bt.reconciled_type = 'SALE_PAYMENT' 
+                            AND bt.reconciled_id = spi.id
+                            AND bt.reconciliation_status = 'CONCILIADO'
+                      )
+                      {where_spi}
+                    ORDER BY 
+                      (ABS(spi.payment_amount - %s) = 0) DESC,
+                      ABS(spi.payment_amount - %s) ASC,
+                      spi.payment_date DESC, spi.id DESC
+                    LIMIT 30
+                """
+                cur.execute(sql_spi, tuple(spi_params + [abs_amt, abs_amt]))
+                for row in cur.fetchall():
+                    key = ("SALE_PAYMENT", row["id"])
+                    amt = Decimal(str(row["payment_amount"]))
+                    is_exact = abs(amt - abs_amt) < Decimal("0.01")
+                    rut_str = f"{row['customer_rut']}-{row['customer_dv']}" if row['customer_rut'] else ""
+                    b_str = f"{row['bank_name']} ({row['account_number']})" if row['bank_name'] else "Sin cuenta asignada"
+                    alternatives.append({
+                        "match_type": "SALE_PAYMENT",
+                        "id": row["id"],
+                        "title": f"Pago Venta: {row['sale_number']} - {row['customer_name']}",
+                        "detail": f"Pedido: {row['sale_number']} | Cliente: {row['customer_name']}{' | RUT: ' + rut_str if rut_str else ''} | Monto: ${amt:,.0f} | Fecha: {row['payment_date']} | {b_str}",
+                        "date": str(row["payment_date"]),
+                        "amount": float(amt),
+                        "exact_amount": is_exact,
+                        "amount_diff": float(amt - abs_amt),
+                        "customer_name": row["customer_name"],
+                        "customer_rut": rut_str,
+                        "order_number": row["sale_number"],
+                        "oc_number": "",
+                        "is_suggested": (key in seen_ids),
+                        "score": 90 if is_exact else 60,
+                    })
+
+                # B. Ventas / Pedidos pendientes de pago (sales)
+                s_filters = []
+                s_params = []
+                if term_rut:
+                    s_filters.append("(c.rut ILIKE %s OR COALESCE(s.notes, '') ILIKE %s)")
+                    s_params.extend([f"%{term_rut}%", f"%{term_rut}%"])
+                if term_name:
+                    s_filters.append("(s.customer_name ILIKE %s OR COALESCE(c.razon_social, '') ILIKE %s)")
+                    s_params.extend([f"%{term_name}%", f"%{term_name}%"])
+                if term_order:
+                    s_filters.append("(s.sale_number ILIKE %s OR CAST(s.id AS TEXT) = %s)")
+                    s_params.extend([f"%{term_order}%", term_order])
+                if term_search:
+                    s_like = f"%{term_search}%"
+                    s_filters.append("(s.customer_name ILIKE %s OR COALESCE(c.razon_social, '') ILIKE %s OR COALESCE(c.rut, '') ILIKE %s OR s.sale_number ILIKE %s OR COALESCE(s.notes, '') ILIKE %s)")
+                    s_params.extend([s_like, s_like, s_like, s_like, s_like])
+
+                where_s = (" AND " + " AND ".join(s_filters)) if s_filters else ""
+                sql_s = f"""
+                    SELECT 
+                        s.id, s.sale_number, s.customer_name, s.total_amount, s.sale_date, s.payment_status,
+                        COALESCE(c.rut, '') as customer_rut, COALESCE(c.dv, '') as customer_dv,
+                        (s.total_amount - COALESCE((SELECT SUM(payment_amount) FROM sale_payment_items WHERE sale_id = s.id), 0)) as pending_amount
+                    FROM sales s
+                    LEFT JOIN LATERAL (
+                        SELECT rut, dv, razon_social FROM clients 
+                        WHERE (NULLIF(s.customer_name, '') IS NOT NULL AND razon_social ILIKE s.customer_name)
+                           OR (NULLIF(s.customer_email, '') IS NOT NULL AND email ILIKE s.customer_email)
+                        LIMIT 1
+                    ) c ON true
+                    WHERE s.payment_status != 'Pagado'
+                      AND s.status NOT IN ('Cancelada', 'Cotización')
+                      {where_s}
+                    ORDER BY 
+                      (ABS((s.total_amount - COALESCE((SELECT SUM(payment_amount) FROM sale_payment_items WHERE sale_id = s.id), 0)) - %s) = 0) DESC,
+                      ABS((s.total_amount - COALESCE((SELECT SUM(payment_amount) FROM sale_payment_items WHERE sale_id = s.id), 0)) - %s) ASC,
+                      s.sale_date DESC
+                    LIMIT 25
+                """
+                cur.execute(sql_s, tuple(s_params + [abs_amt, abs_amt]))
+                for row in cur.fetchall():
+                    amt = Decimal(str(row["pending_amount"]))
+                    is_exact = abs(amt - abs_amt) < Decimal("0.01")
+                    rut_str = f"{row['customer_rut']}-{row['customer_dv']}" if row['customer_rut'] else ""
+                    alternatives.append({
+                        "match_type": "SALE",
+                        "id": row["id"],
+                        "title": f"Pedido / Venta: {row['sale_number']} - {row['customer_name']} (Pendiente)",
+                        "detail": f"Pedido: {row['sale_number']} | Cliente: {row['customer_name']}{' | RUT: ' + rut_str if rut_str else ''} | Saldo Pendiente: ${amt:,.0f} | Total: ${Decimal(str(row['total_amount'])):,.0f} | Fecha: {row['sale_date']}",
+                        "date": str(row["sale_date"]),
+                        "amount": float(amt),
+                        "exact_amount": is_exact,
+                        "amount_diff": float(amt - abs_amt),
+                        "customer_name": row["customer_name"],
+                        "customer_rut": rut_str,
+                        "order_number": row["sale_number"],
+                        "oc_number": "",
+                        "is_suggested": False,
+                        "score": 85 if is_exact else 50,
+                    })
+
+                # C. Transferencias de egreso (CARGO) en otras cuentas
+                if not (term_rut or term_oc or term_order):
+                    cur.execute(
+                        """
+                        SELECT bt.id, bt.bank_account_id, bt.transaction_date, bt.amount, bt.movement_type, bt.description, ba.bank_name, ba.account_number
+                        FROM bank_transactions bt
+                        JOIN bank_accounts ba ON bt.bank_account_id = ba.id
+                        WHERE bt.id != %s
+                          AND bt.bank_account_id != %s
+                          AND bt.movement_type = 'CARGO'
+                          AND bt.reconciliation_status != 'CONCILIADO'
+                        ORDER BY (ABS(ABS(bt.amount) - %s) = 0) DESC, ABS(ABS(bt.amount) - %s) ASC, bt.transaction_date DESC
+                        LIMIT 10
+                        """,
+                        (tx["id"], tx["bank_account_id"], abs_amt, abs_amt)
+                    )
+                    for row in cur.fetchall():
+                        key = ("INTERNAL_TRANSFER", row["id"])
+                        amt = abs(Decimal(str(row["amount"])))
+                        is_exact = abs(amt - abs_amt) < Decimal("0.01")
+                        alternatives.append({
+                            "match_type": "INTERNAL_TRANSFER",
+                            "id": row["id"],
+                            "title": f"Transferencia Contraparte: {row['bank_name']} ({row['account_number']})",
+                            "detail": f"Cargo ${amt:,.0f} - {row['description']} | Fecha: {row['transaction_date']}",
+                            "date": str(row["transaction_date"]),
+                            "amount": float(amt),
+                            "exact_amount": is_exact,
+                            "amount_diff": float(amt - abs_amt),
+                            "customer_name": "",
+                            "customer_rut": "",
+                            "order_number": "",
+                            "oc_number": "",
+                            "is_suggested": (key in seen_ids),
+                            "score": 80 if is_exact else 40,
+                        })
+
+            elif tx["movement_type"] == "CARGO":
+                abs_amt = abs(tx_amount)
+
+                # A. Facturas de Compra (purchase_invoices)
+                pi_filters = []
+                pi_params = []
+                if term_rut:
+                    pi_filters.append("(sup.rut ILIKE %s)")
+                    pi_params.append(f"%{term_rut}%")
+                if term_name:
+                    pi_filters.append("(sup.name ILIKE %s OR COALESCE(sup.razon_social, '') ILIKE %s)")
+                    pi_params.extend([f"%{term_name}%", f"%{term_name}%"])
+                if term_oc:
+                    pi_filters.append("(po.oc_number ILIKE %s OR pi.invoice_number ILIKE %s)")
+                    pi_params.extend([f"%{term_oc}%", f"%{term_oc}%"])
+                if term_order:
+                    pi_filters.append("(pi.invoice_number ILIKE %s OR po.oc_number ILIKE %s)")
+                    pi_params.extend([f"%{term_order}%", f"%{term_order}%"])
+                if term_search:
+                    s_like = f"%{term_search}%"
+                    pi_filters.append("(sup.name ILIKE %s OR COALESCE(sup.razon_social, '') ILIKE %s OR COALESCE(sup.rut, '') ILIKE %s OR COALESCE(po.oc_number, '') ILIKE %s OR pi.invoice_number ILIKE %s)")
+                    pi_params.extend([s_like, s_like, s_like, s_like, s_like])
+
+                where_pi = (" AND " + " AND ".join(pi_filters)) if pi_filters else ""
+                sql_pi = f"""
+                    SELECT 
+                        pi.id, pi.invoice_number, pi.purchase_order_id, po.oc_number,
+                        COALESCE(sup.name, 'Proveedor S/N') as supplier_name,
+                        COALESCE(sup.rut, '') as supplier_rut, COALESCE(sup.dv, '') as supplier_dv,
+                        COALESCE(pi.payment_amount, pi.invoice_amount) as amount,
+                        pi.payment_date, pi.invoice_date, pi.payment_status,
+                        pi.bank_account_id, ba.bank_name, ba.account_number
+                    FROM purchase_invoices pi
+                    LEFT JOIN purchase_orders po ON pi.purchase_order_id = po.id
+                    LEFT JOIN suppliers sup ON pi.supplier_id = sup.id
+                    LEFT JOIN bank_accounts ba ON pi.bank_account_id = ba.id
+                    WHERE NOT EXISTS (SELECT 1 FROM purchase_payment_items p WHERE p.invoice_id = pi.id)
+                      AND NOT EXISTS (
+                          SELECT 1 FROM bank_transactions bt 
+                          WHERE bt.reconciled_type = 'PURCHASE_PAYMENT' 
+                            AND bt.reconciled_id = pi.id
+                            AND bt.reconciliation_status = 'CONCILIADO'
+                      )
+                      {where_pi}
+                    ORDER BY 
+                      (ABS(COALESCE(pi.payment_amount, pi.invoice_amount) - %s) = 0) DESC,
+                      ABS(COALESCE(pi.payment_amount, pi.invoice_amount) - %s) ASC,
+                      pi.id DESC
+                    LIMIT 25
+                """
+                cur.execute(sql_pi, tuple(pi_params + [abs_amt, abs_amt]))
+                for row in cur.fetchall():
+                    key = ("PURCHASE_PAYMENT", row["id"])
+                    amt = Decimal(str(row["amount"] or 0))
+                    is_exact = abs(amt - abs_amt) < Decimal("0.01")
+                    rut_str = f"{row['supplier_rut']}-{row['supplier_dv']}" if row['supplier_rut'] else ""
+                    b_str = f"{row['bank_name']} ({row['account_number']})" if row['bank_name'] else "Sin cuenta asignada"
+                    alternatives.append({
+                        "match_type": "PURCHASE_PAYMENT",
+                        "id": row["id"],
+                        "title": f"Factura Compra: {row['invoice_number']} - {row['supplier_name']}",
+                        "detail": f"Factura: {row['invoice_number']}{' | OC: ' + row['oc_number'] if row['oc_number'] else ''} | Proveedor: {row['supplier_name']}{' | RUT: ' + rut_str if rut_str else ''} | Monto: ${amt:,.0f} | Fecha: {row['payment_date'] or row['invoice_date']} | {b_str}",
+                        "date": str(row["payment_date"] or row["invoice_date"]),
+                        "amount": float(amt),
+                        "exact_amount": is_exact,
+                        "amount_diff": float(amt - abs_amt),
+                        "customer_name": row["supplier_name"],
+                        "customer_rut": rut_str,
+                        "order_number": row["invoice_number"],
+                        "oc_number": row["oc_number"] or "",
+                        "is_suggested": (key in seen_ids),
+                        "score": 90 if is_exact else 60,
+                    })
+
+                # B. Abonos a Facturas de Compra (purchase_payment_items)
+                sql_ppi = f"""
+                    SELECT 
+                        p.id, p.invoice_id, p.payment_amount, p.payment_date, p.bank_account_id,
+                        pi.invoice_number, po.oc_number,
+                        COALESCE(sup.name, 'Proveedor S/N') as supplier_name,
+                        COALESCE(sup.rut, '') as supplier_rut, COALESCE(sup.dv, '') as supplier_dv,
+                        ba.bank_name, ba.account_number
+                    FROM purchase_payment_items p
+                    JOIN purchase_invoices pi ON p.invoice_id = pi.id
+                    LEFT JOIN purchase_orders po ON pi.purchase_order_id = po.id
+                    LEFT JOIN suppliers sup ON pi.supplier_id = sup.id
+                    LEFT JOIN bank_accounts ba ON p.bank_account_id = ba.id
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM bank_transactions bt 
+                        WHERE bt.reconciled_type = 'PURCHASE_PAYMENT_ITEM' 
+                          AND bt.reconciled_id = p.id
+                          AND bt.reconciliation_status = 'CONCILIADO'
+                    )
+                    {where_pi}
+                    ORDER BY 
+                      (ABS(p.payment_amount - %s) = 0) DESC,
+                      ABS(p.payment_amount - %s) ASC,
+                      p.payment_date DESC, p.id DESC
+                    LIMIT 20
+                """
+                cur.execute(sql_ppi, tuple(pi_params + [abs_amt, abs_amt]))
+                for row in cur.fetchall():
+                    key = ("PURCHASE_PAYMENT_ITEM", row["id"])
+                    amt = Decimal(str(row["payment_amount"]))
+                    is_exact = abs(amt - abs_amt) < Decimal("0.01")
+                    rut_str = f"{row['supplier_rut']}-{row['supplier_dv']}" if row['supplier_rut'] else ""
+                    alternatives.append({
+                        "match_type": "PURCHASE_PAYMENT_ITEM",
+                        "id": row["id"],
+                        "title": f"Abono Factura Compra: {row['invoice_number']} - {row['supplier_name']}",
+                        "detail": f"Factura: {row['invoice_number']}{' | OC: ' + row['oc_number'] if row['oc_number'] else ''} | Proveedor: {row['supplier_name']} | Abono: ${amt:,.0f} | Fecha: {row['payment_date']}",
+                        "date": str(row["payment_date"]),
+                        "amount": float(amt),
+                        "exact_amount": is_exact,
+                        "amount_diff": float(amt - abs_amt),
+                        "customer_name": row["supplier_name"],
+                        "customer_rut": rut_str,
+                        "order_number": row["invoice_number"],
+                        "oc_number": row["oc_number"] or "",
+                        "is_suggested": (key in seen_ids),
+                        "score": 90 if is_exact else 60,
+                    })
+
+                # C. Gastos Operacionales (operational_expenses)
+                if not (term_oc or term_order or term_rut):
+                    exp_filters = []
+                    exp_params = []
+                    if term_name or term_search:
+                        n_like = f"%{term_name or term_search}%"
+                        exp_filters.append("(oe.name ILIKE %s OR COALESCE(oe.beneficiary, '') ILIKE %s)")
+                        exp_params.extend([n_like, n_like])
+                    where_exp = (" AND " + " AND ".join(exp_filters)) if exp_filters else ""
+                    cur.execute(
+                        f"""
+                        SELECT oeo.id, oe.name as expense_name, COALESCE(oe.beneficiary, 'Sin beneficiario') as beneficiary,
+                               COALESCE(oeo.payment_amount, oeo.amount) as amount, oeo.paid_date, oeo.bank_account_id,
+                               ba.bank_name, ba.account_number
+                        FROM operational_expense_occurrences oeo
+                        JOIN operational_expenses oe ON oeo.expense_id = oe.id
+                        LEFT JOIN bank_accounts ba ON oeo.bank_account_id = ba.id
+                        WHERE NOT EXISTS (SELECT 1 FROM expense_payment_items p WHERE p.occurrence_id = oeo.id)
+                          AND NOT EXISTS (
+                              SELECT 1 FROM bank_transactions bt 
+                              WHERE bt.reconciled_type = 'EXPENSE' 
+                                AND bt.reconciled_id = oeo.id
+                                AND bt.reconciliation_status = 'CONCILIADO'
+                          )
+                          {where_exp}
+                        ORDER BY (ABS(COALESCE(oeo.payment_amount, oeo.amount) - %s) = 0) DESC, ABS(COALESCE(oeo.payment_amount, oeo.amount) - %s) ASC, oeo.id DESC
+                        LIMIT 15
+                        """,
+                        tuple(exp_params + [abs_amt, abs_amt])
+                    )
+                    for row in cur.fetchall():
+                        key = ("EXPENSE", row["id"])
+                        amt = Decimal(str(row["amount"]))
+                        is_exact = abs(amt - abs_amt) < Decimal("0.01")
+                        alternatives.append({
+                            "match_type": "EXPENSE",
+                            "id": row["id"],
+                            "title": f"Gasto Operacional: {row['expense_name']} ({row['beneficiary']})",
+                            "detail": f"Gasto: {row['expense_name']} | Beneficiario: {row['beneficiary']} | Monto: ${amt:,.0f} | Fecha: {row['paid_date']}",
+                            "date": str(row["paid_date"]),
+                            "amount": float(amt),
+                            "exact_amount": is_exact,
+                            "amount_diff": float(amt - abs_amt),
+                            "customer_name": row["beneficiary"],
+                            "customer_rut": "",
+                            "order_number": "",
+                            "oc_number": "",
+                            "is_suggested": (key in seen_ids),
+                            "score": 85 if is_exact else 50,
+                        })
+
+    return {"transaction": tx, "matches": matches, "alternatives": alternatives}
 
 
 def reconcile_transaction(
@@ -882,7 +1251,20 @@ def reconcile_transaction(
                 # Identifiers are exclusively from the fixed mapping above.
                 cur.execute(f"SELECT * FROM {table} WHERE id=%s FOR UPDATE", (reconciled_id,))
                 target = cur.fetchone()
-                if not target or not target.get(date_field):
+                if not target:
+                    return False, "Operación de destino no encontrada"
+
+                if table == 'purchase_invoices' and target.get('payment_status') != 'Pagada':
+                    cur.execute(
+                        "UPDATE purchase_invoices SET payment_status = 'Pagada', payment_date = %s, payment_amount = %s, bank_account_id = %s WHERE id = %s",
+                        (tx['transaction_date'], abs(tx['amount']), tx['bank_account_id'], reconciled_id)
+                    )
+                    target['payment_status'] = 'Pagada'
+                    target['payment_date'] = tx['transaction_date']
+                    target['payment_amount'] = abs(tx['amount'])
+                    target['bank_account_id'] = tx['bank_account_id']
+
+                if not target.get(date_field):
                     return False, "El destino no es un pago efectivo registrado"
                 if reconciled_type=='SALE_PAYMENT' and target.get('accounting_approved') not in (None,1,True):
                     return False,'El cobro no está aprobado contablemente'
@@ -893,9 +1275,11 @@ def reconcile_transaction(
                     if snapshot:target=snapshot
                     elif reconciled_type=='EXPENSE' and target.get('status')!='Pagado':
                         return False,'El gasto no está pagado'
-                expected = Decimal(str(target.get(field) or 0)) * direction
-                if target.get('bank_account_id') != tx['bank_account_id']:
+                expected = Decimal(str(target.get(field) or target.get('invoice_amount') or 0)) * direction
+                if target.get('bank_account_id') and target.get('bank_account_id') != tx['bank_account_id']:
                     return False, "La cuenta bancaria no corresponde al pago"
+                if target.get('bank_account_id') is None and 'bank_account_id' in target:
+                    cur.execute(f"UPDATE {table} SET bank_account_id = %s WHERE id = %s", (tx['bank_account_id'], reconciled_id))
             else:
                 # Lock both bank legs in stable order, so opposite retries cannot deadlock.
                 cur.execute("SELECT * FROM bank_transactions WHERE id=%s FOR UPDATE", (reconciled_id,))
